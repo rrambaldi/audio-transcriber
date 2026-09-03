@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "audio-transcriber-ov"
+version = "0.1.0"
+description = "Local audio/video transcription with Whisper on Intel iGPU (OpenVINO), optional speaker diarization. No cloud, your data stays on your machine."
+readme = "README.md"
+license = { text = "MIT" }
+authors = [{ name = "Roberto Rambaldi" }]
+requires-python = ">=3.10"
+keywords = ["whisper", "openvino", "transcription", "diarization", "speech-to-text"]
+dependencies = [
+    "optimum-intel[openvino]",
+    "transformers",
+    "imageio-ffmpeg",
+    "numpy",
+]
+
+[project.optional-dependencies]
+diarize = ["pyannote.audio"]
+
+[project.scripts]
+audio-transcriber = "audio_transcriber.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]

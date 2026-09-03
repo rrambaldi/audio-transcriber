@@ -1,0 +1,28 @@
+# Segreti (token Hugging Face)
+.env
+
+# Modelli scaricati/convertiti (si rigenerano al primo avvio)
+whisper-ov-models/
+pyannote-diar/
+
+# Registrazioni e trascrizioni personali
+recordings/
+*.wav
+*.mp3
+*.m4a
+*.mp4
+*.mkv
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.venv/
+
+# IDE / OS
+.vscode/
+.idea/
+Thumbs.db
+.DS_Store
