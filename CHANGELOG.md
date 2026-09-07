@@ -148,6 +148,15 @@ All notable changes to this project are documented here. The format follows
   `prompt_file` pointing at your own file keeps working unchanged.
 - `audio-transcriber paths` also lists the keyword-set directory.
 
+### Fixed
+
+- **`audio-transcriber hardware` no longer stops on a machine with no
+  transcription engine installed.** Working out which backend `auto` would pick
+  ends in "none is installed", which was reported by exiting — swallowing the
+  hardware summary and the diarization state on precisely the installation
+  someone runs that command to inspect. The message is now part of the report,
+  and the command returns 1 so a script can still tell.
+
 ## [0.3.0] — 2026-09-04
 
 The release that makes the project publishable: managed data locations, a
