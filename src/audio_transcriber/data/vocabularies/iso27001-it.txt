@@ -1,0 +1,12 @@
+# title: ISO 27001 e analisi dei rischi (italiano)
+# language: it
+# Domain vocabulary for Italian meetings about ISO 27001, risk assessment and NIS.
+# Lines starting with # are comments; everything else is sent to Whisper as the
+# initial prompt, so keep the list to a few dozen terms.
+#
+#   audio-transcriber riunione.wav --vocab iso27001-it
+
+Analisi dei rischi, asset, controllo, maturita', minaccia, scenario, matrice,
+soglia di accettabilita', piano di trattamento dei rischi (PTR), piano di
+remediation, ACM, CMDB, NIS, ISO 27001, assessment, propagazione, tenant,
+campagna, control set, wizard, simulazione.

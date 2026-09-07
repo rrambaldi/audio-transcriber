@@ -1,0 +1,20 @@
+name: Feature request
+description: Suggest something the tool should do
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: What are you trying to do that is awkward or impossible today?
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: What you have in mind
+      description: A rough shape is fine. How would you expect to invoke it?
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: What you tried instead

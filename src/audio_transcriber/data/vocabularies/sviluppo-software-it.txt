@@ -1,0 +1,11 @@
+# title: Sviluppo software
+# language: it
+# Riunioni di team di sviluppo: codice, rilasci, ambienti.
+#
+#   audio-transcriber riunione.wav --vocab sviluppo-software-it
+
+repository, branch, merge, pull request, commit, rebase, refactoring,
+code review, debito tecnico, hotfix, release, semantic versioning, deploy,
+rollback, staging, CI/CD, pipeline, build, test unitari, copertura, API,
+endpoint, REST, GraphQL, webhook, microservizi, monolite, feature flag,
+stack trace, backend, frontend

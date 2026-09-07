@@ -1,0 +1,11 @@
+# title: Intelligenza artificiale e LLM
+# language: it
+# Progetti di AI generativa e machine learning.
+#
+#   audio-transcriber riunione.wav --vocab intelligenza-artificiale-it
+
+machine learning, deep learning, training, fine tuning, inferenza,
+etichettatura, overfitting, recall, LLM, large language model, prompt,
+prompt engineering, token, context window, embedding, database vettoriale,
+RAG, retrieval augmented generation, allucinazione, agente, copilota, GPU,
+AI Act, bias, guardrail, benchmark

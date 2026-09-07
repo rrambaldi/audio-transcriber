@@ -1,0 +1,12 @@
+# title: Contabilita' e fisco (Italia)
+# language: it
+# Amministrazione, adempimenti, scadenze fiscali italiane.
+#
+#   audio-transcriber riunione.wav --vocab contabilita-fisco-it
+
+fattura elettronica, SdI, nota di credito, autofattura, reverse charge,
+split payment, IVA, liquidazione IVA, F24, ritenuta d'acconto, Enasarco,
+INPS, INAIL, cedolino, prima nota, partita doppia,
+scritture di assestamento, nota integrativa, collegio sindacale,
+Agenzia delle Entrate, cassetto fiscale, esterometro, intrastat, plafond,
+credito d'imposta, ravvedimento operoso, insoluto

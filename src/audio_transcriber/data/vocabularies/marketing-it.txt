@@ -1,0 +1,11 @@
+# title: Marketing e comunicazione
+# language: it
+# Posizionamento, campagne, contenuti.
+#
+#   audio-transcriber riunione.wav --vocab marketing-it
+
+brand awareness, buyer persona, value proposition, tone of voice, copy,
+claim, payoff, media plan, reach, impression, engagement, lead,
+lead generation, funnel, awareness, tasso di conversione, call to action,
+landing page, content marketing, piano editoriale, ufficio stampa,
+comunicato stampa, brand identity, ROI di campagna

@@ -1,0 +1,16 @@
+# Documentation
+
+- [data-layout.md](data-layout.md) — where models, configuration and recordings
+  are kept, how to move them, and the format of a library entry
+- [vocabularies.md](vocabularies.md) — keyword sets: the file format, where
+  they live, and how the command line and the browser select them
+- [web.md](web.md) — the local web interface, its jobs, its API, and what it
+  does not protect
+- [gui.md](gui.md) — the desktop window: the three tabs, recording from a
+  microphone, and what it remembers
+- [backends.md](backends.md) — the two transcription engines, how `auto`
+  chooses, and what to expect on a small server
+- [architecture.md](architecture.md) — how the modules fit together and the
+  decisions behind them
+
+Start with the [README](../README.md) for installation and everyday use.

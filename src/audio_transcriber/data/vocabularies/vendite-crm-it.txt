@@ -1,0 +1,10 @@
+# title: Vendite e CRM
+# language: it
+# Pipeline commerciale, trattative, rinnovi.
+#
+#   audio-transcriber riunione.wav --vocab vendite-crm-it
+
+CRM, pipeline, opportunita', lead, prospect, qualifica, marginalita',
+closing, tasso di chiusura, ciclo di vendita, forecast, quota, upselling,
+cross selling, churn, tasso di abbandono, key account, provvigione,
+contratto quadro, canone, ARR, MRR, LTV, CAC, capitolato

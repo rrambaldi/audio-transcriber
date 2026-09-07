@@ -1,0 +1,213 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>audio-transcriber</title>
+<link rel="stylesheet" href="static/style.css">
+<link rel="icon" href="data:,">
+</head>
+<body>
+<header class="masthead">
+  <p class="eyebrow" data-t="eyebrow"></p>
+  <h1>audio&#8209;transcriber</h1>
+  <p class="standfirst" data-t="tagline"></p>
+</header>
+
+<main>
+  <!-- ------------------------------------------------ new transcription -->
+  <section class="sheet">
+    <div class="lede">
+      <h2 data-t="new_transcription"></h2>
+      <p class="note" data-t="new_transcription_note"></p>
+    </div>
+
+    <form class="fields" id="job-form" autocomplete="off">
+      <div class="tabs" role="tablist" aria-label="Sorgente">
+        <button type="button" class="tab on" id="tab-file" role="tab"
+                aria-selected="true" aria-controls="pane-file" data-t="tab_file"></button>
+        <button type="button" class="tab" id="tab-record" role="tab"
+                aria-selected="false" aria-controls="pane-record" data-t="tab_record"></button>
+      </div>
+
+      <div id="pane-file" role="tabpanel" aria-labelledby="tab-file">
+        <div id="drop" class="drop">
+          <input type="file" id="file" accept="audio/*,video/*" class="visually-hidden">
+          <p>
+            <label for="file" class="button" data-t="choose_file"></label>
+            <span class="note" data-t="or_drop"></span>
+          </p>
+          <p class="note" id="file-name" aria-live="polite"></p>
+        </div>
+      </div>
+
+      <div id="pane-record" role="tabpanel" aria-labelledby="tab-record" hidden>
+        <div class="drop">
+          <p class="record-line">
+            <button type="button" id="record" class="button" data-t="record_start"></button>
+            <span id="record-time" class="timer" aria-live="off"></span>
+          </p>
+          <p class="note" id="record-hint" aria-live="polite" data-t="record_hint"></p>
+          <audio id="record-preview" controls hidden></audio>
+        </div>
+      </div>
+
+      <div class="grid">
+        <div class="field">
+          <label for="title" data-t="title"></label>
+          <input type="text" id="title" name="title" autocomplete="off">
+        </div>
+        <div class="field">
+          <label for="model" data-t="model"></label>
+          <select id="model" name="model" autocomplete="off"></select>
+        </div>
+        <div class="field">
+          <label for="language" data-t="language"></label>
+          <select id="language" name="language" autocomplete="off"></select>
+        </div>
+        <div class="field checkbox">
+          <input type="checkbox" id="diarize" name="diarize"
+                 aria-describedby="diarize-note">
+          <label for="diarize" data-t="diarize"></label>
+          <p class="note" id="diarize-note" hidden></p>
+        </div>
+        <div class="field" id="speakers-field" hidden>
+          <label for="speakers" data-t="speakers"></label>
+          <input type="number" id="speakers" name="speakers" min="1" max="20">
+        </div>
+      </div>
+
+      <fieldset class="vocab">
+        <legend data-t="keywords"></legend>
+        <p class="note" data-t="keywords_help"></p>
+
+        <h3 data-t="installed_sets"></h3>
+        <div class="field set-filter">
+          <label for="set-search" data-t="filter_sets"></label>
+          <input type="search" id="set-search" autocomplete="off">
+        </div>
+        <p class="note count" id="sets-count" aria-live="polite"></p>
+        <div id="installed" class="sets"></div>
+
+        <h3>
+          <span data-t="my_sets"></span>
+          <button type="button" class="link" id="new-set" data-t="new_set"></button>
+        </h3>
+        <div id="mine" class="sets"></div>
+        <p class="note" data-t="my_sets_help"></p>
+
+        <p class="budget" id="prompt-size" aria-live="polite"></p>
+      </fieldset>
+
+      <div class="submit-line">
+        <button type="submit" id="submit" class="button send" data-t="start"></button>
+        <p class="error" id="form-error" role="alert" hidden></p>
+      </div>
+    </form>
+  </section>
+
+  <!-- ------------------------------------------------------------ jobs -->
+  <section class="sheet">
+    <div class="lede">
+      <h2 data-t="jobs"></h2>
+      <p class="note" data-t="jobs_note"></p>
+    </div>
+    <div class="fields">
+      <div id="jobs" aria-live="polite"><p class="note" data-t="no_jobs"></p></div>
+    </div>
+  </section>
+
+  <!-- --------------------------------------------------------- library -->
+  <section class="sheet">
+    <div class="lede">
+      <h2 data-t="library"></h2>
+      <p class="note" data-t="library_note"></p>
+    </div>
+    <div class="fields">
+      <div class="field search-field">
+        <label for="search" data-t="search_label"></label>
+        <input type="search" id="search" name="search" autocomplete="off">
+      </div>
+      <div id="library"><p class="note" data-t="library_empty"></p></div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <p class="note" id="colophon"></p>
+</footer>
+
+<!-- --------------------------------------------------------- dialogs -->
+<dialog id="set-editor" aria-labelledby="set-editor-title">
+  <form method="dialog" id="set-form">
+    <h2 id="set-editor-title" data-t="edit_set"></h2>
+    <div class="field">
+      <label for="set-title" data-t="set_title"></label>
+      <input type="text" id="set-title" required>
+    </div>
+    <div class="field">
+      <label for="set-text" data-t="set_terms"></label>
+      <textarea id="set-text" rows="8"></textarea>
+    </div>
+    <p class="note" data-t="set_help"></p>
+    <menu>
+      <button value="cancel" class="button" data-t="cancel"></button>
+      <button value="save" class="button send" data-t="save"></button>
+    </menu>
+  </form>
+</dialog>
+
+<dialog id="ask" aria-labelledby="ask-title">
+  <h2 id="ask-title"></h2>
+  <p id="ask-body"></p>
+  <p class="note" id="ask-detail"></p>
+  <div class="field" id="ask-field" hidden>
+    <label for="ask-input" id="ask-input-label"></label>
+    <input type="text" id="ask-input">
+  </div>
+  <menu>
+    <button type="button" class="button" id="ask-cancel"></button>
+    <button type="button" class="button danger" id="ask-ok"></button>
+  </menu>
+</dialog>
+
+<dialog id="viewer" aria-labelledby="viewer-title">
+  <div class="viewer-head">
+    <h2 id="viewer-title"></h2>
+    <p class="note" id="viewer-meta"></p>
+  </div>
+  <audio id="viewer-audio" controls hidden></audio>
+
+  <div class="tabs" role="tablist" aria-label="Vista">
+    <button type="button" class="tab on" id="tab-transcript" role="tab"
+            aria-selected="true" aria-controls="viewer-text" data-t="transcript"></button>
+    <button type="button" class="tab" id="tab-segments" role="tab"
+            aria-selected="false" aria-controls="viewer-segments" data-t="segments"></button>
+    <button type="button" class="tab" id="tab-notes" role="tab"
+            aria-selected="false" aria-controls="viewer-notes" data-t="notes"></button>
+  </div>
+
+  <div id="viewer-text" role="tabpanel" aria-labelledby="tab-transcript" class="prose"></div>
+  <div id="viewer-segments" role="tabpanel" aria-labelledby="tab-segments" class="segments" hidden></div>
+  <div id="viewer-notes" role="tabpanel" aria-labelledby="tab-notes" hidden>
+    <div class="field">
+      <label for="notes-text" data-t="notes_label"></label>
+      <textarea id="notes-text" rows="12"></textarea>
+    </div>
+    <p class="note" id="notes-status" aria-live="polite"></p>
+  </div>
+
+  <menu>
+    <button type="button" class="button danger" id="viewer-delete" data-t="delete_entry"></button>
+    <span class="spacer"></span>
+    <button type="button" class="button" id="viewer-rename" data-t="rename"></button>
+    <a id="viewer-download" class="button" download data-t="download"></a>
+    <a id="viewer-download-json" class="button" download data-t="download_json"></a>
+    <button type="button" class="button send" id="notes-save" hidden data-t="save_notes"></button>
+    <button type="button" class="button" id="viewer-close" data-t="close"></button>
+  </menu>
+</dialog>
+
+<script src="static/app.js"></script>
+</body>
+</html>

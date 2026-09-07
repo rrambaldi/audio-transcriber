@@ -1,0 +1,13 @@
+# Ambiente per server/macchine senza GPU (backend faster-whisper, int8 su CPU).
+# Niente OpenVINO ne' PyTorch: installazione molto piu' leggera.
+name: srt-cpu
+channels:
+  - conda-forge
+dependencies:
+  - python=3.11
+  - pip
+  - pip:
+      - faster-whisper   # Whisper su CTranslate2: veloce e quantizzato su CPU
+      - imageio-ffmpeg   # ffmpeg incluso: nessuna installazione esterna
+      - numpy
+      # - pyannote.audio # opzionale (--diarize): scarica PyTorch, ~2 GB e RAM

@@ -1,0 +1,11 @@
+# title: Project management
+# language: it
+# Avanzamento, pianificazione e governo di un progetto.
+#
+#   audio-transcriber riunione.wav --vocab project-management-it
+
+gantt, WBS, milestone, baseline, scope creep, project charter, sponsor,
+matrice RACI, percorso critico, effort, giornata uomo, SAL, change request,
+budget a finire, contingency, PMO, waterfall, agile, sprint, backlog, epica,
+user story, story point, velocity, burndown, kanban, lesson learned,
+piano di rientro

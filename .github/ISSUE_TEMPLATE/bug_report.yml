@@ -1,0 +1,39 @@
+name: Bug report
+description: Something does not work as described
+labels: ["bug"]
+body:
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What you expected, and what you got instead.
+    validations:
+      required: true
+  - type: textarea
+    id: command
+    attributes:
+      label: The command you ran
+      render: shell
+    validations:
+      required: true
+  - type: textarea
+    id: hardware
+    attributes:
+      label: Output of `audio-transcriber hardware`
+      description: This tells us which backend and device were in play.
+      render: shell
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Output of `audio-transcriber --version`, and your OS.
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Full output
+      description: Everything the command printed, including warnings.
+      render: shell

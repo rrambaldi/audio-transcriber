@@ -1,7 +1,9 @@
-# -*- coding: utf-8 -*-
-"""Audio Transcriber: da audio/video a testo leggibile, in locale.
+"""Audio Transcriber: audio and video to readable text, entirely on your machine.
 
-Trascrizione con Whisper via OpenVINO (iGPU Intel, CPU o NPU) e
-diarizzazione opzionale ("chi dice cosa") con pyannote su CPU.
+Whisper transcription on two interchangeable backends — OpenVINO for Intel
+iGPU/NPU/CPU, and faster-whisper (CTranslate2, int8) for CPU-only servers or
+CUDA — chosen automatically from the hardware. Optional speaker diarization
+with pyannote on the CPU.
 """
-__version__ = "0.1.0"
+__version__ = "0.3.0"
+__all__ = ["__version__"]

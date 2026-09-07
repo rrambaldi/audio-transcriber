@@ -1,0 +1,12 @@
+# title: Consiglio, soci e strategia
+# language: it
+# Organi sociali, piano industriale, operazioni straordinarie.
+#
+#   audio-transcriber riunione.wav --vocab board-strategia-it
+
+consiglio di amministrazione, assemblea dei soci, delibera, quorum,
+patti parasociali, equity, aumento di capitale, dividendo, business plan,
+piano industriale, posizionamento competitivo, analisi SWOT,
+quota di mercato, vantaggio competitivo, crescita organica, M&A,
+due diligence, multiplo, EBITDA, venture capital, private equity, exit,
+governance, KPI strategici, OKR

@@ -1,123 +1,653 @@
-# -*- coding: utf-8 -*-
-"""Interfaccia a riga di comando: da audio/video a testo in un solo comando."""
+"""Command-line interface.
+
+``audio-transcriber FILE`` still does the obvious thing; everything else lives
+behind a subcommand (``library``, ``vocab``, ``web``, ``gui``, ``hardware``,
+``paths``, ``config``). When the first argument is not a known command it is
+taken to be a file, so the original one-argument form keeps working.
+"""
 import argparse
 import os
+import shutil
 import sys
 
-from .audio import load_audio
-from .cleaning import clean_segments, paragraphs_from_blob, to_paragraphs
-from .config import load_dotenv
-from .diarization import assign_speakers, check_diar_assets, diarize, format_dialogue
-from .transcription import DOMAIN_PROMPT, transcribe
+from . import paths, pipeline
+from .config import ConfigError, load_config, load_dotenv, resolve
+from .formatting import format_duration
+from .i18n import AVAILABLE_LANGUAGES, set_language, t
+from .library import STORE_COPY, STORE_MODES, Library, LibraryError
+from .transcription import BACKENDS
+from .vocabularies import MAX_PROMPT_CHARS, VocabularyError
 
-EXAMPLES = """\
-Esempi d'uso:
-  # Trascrizione semplice (italiano, iGPU Intel di default)
-  audio-transcriber riunione.wav
+COMMANDS = ("transcribe", "library", "vocab", "web", "gui", "hardware", "paths",
+            "config")
 
-  # Con "chi dice cosa" e 3 speaker noti (offline se c'e' pyannote-diar/config.yaml)
-  audio-transcriber riunione.wav --diarize --speakers 3
+CONFIG_TEMPLATE = '''\
+# audio-transcriber configuration.
+# Every value here is a default: a command-line option always wins.
+# Remove or comment out anything you want to leave at its built-in default.
 
-  # Forza la CPU e un modello piu' leggero/veloce
-  audio-transcriber riunione.wav --device CPU --model medium
+[general]
+# Interface language for messages and help: "en" or "it".
+# interface_language = "en"
+# Spoken language of the recordings; "" auto-detects it.
+language = "it"
 
-  # Lingua diversa e file di uscita specifico
-  audio-transcriber talk.mp4 --language en --out talk.txt
+[transcription]
+# auto | faster-whisper | openvino
+backend = "auto"
+# auto | CPU | GPU | NPU | CUDA
+device = "auto"
+# auto | tiny | base | small | medium | large-v3-turbo | large-v3
+# "auto" picks the best model this machine can run at a sensible speed:
+# see "audio-transcriber hardware".
+model = "auto"
+# faster-whisper only: int8 | int8_float16 | float16 | float32
+# compute_type = "int8"
+# CPU threads; omit to use every available core.
+# threads = 4
+# Filter silence with the VAD. Leave on unless you know why not.
+vad = true
+# Domain vocabulary, to stop Whisper mangling recurring technical terms.
+# Either inline...
+# prompt = "asset, control, threat, risk treatment plan"
+# ...or from a file, which is easier to maintain:
+# prompt_file = "~/.config/audio-transcriber/vocabulary.txt"
+# ...or, better, by the name of a keyword set: see "audio-transcriber vocab list".
+# Several sets can be combined, comma-separated.
+# vocabulary = "iso27001-it"
 
-  # Diarizzazione online (repo HF) invece del config locale
-  audio-transcriber riunione.wav --diarize --diar-model pyannote/speaker-diarization-3.1
+[output]
+# Seconds of pause that start a new paragraph.
+paragraph_gap = 1.2
+# Maximum characters in one paragraph.
+paragraph_max_chars = 600
+# Keep the phrases Whisper hallucinates over silence.
+keep_fillers = false
 
-  # Auto-detect della lingua e senza rimozione delle frasi-filler
-  audio-transcriber audio.m4a --language "" --keep-fillers
-"""
+[diarization]
+# Work out who said what. Needs the [diarize] extra and pyannote models.
+enabled = false
+# Number of speakers, when known; it improves the result a lot.
+# speakers = 3
+# HF repo id (online, needs a token) or path to a local config.yaml (offline).
+# model = "pyannote/speaker-diarization-3.1"
+
+[paths]
+# Override where models, recordings and keyword sets are kept. On a server,
+# point these at the volume with the room: an hour of recording is hundreds of
+# megabytes, and uploads pass through the cache directory before being filed.
+# models = "~/whisper-models"
+# library = "~/recordings"
+# vocabularies = "~/shared/vocabularies"
+# cache = "/mnt/volume/audio-transcriber/cache"
+'''
 
 
-def build_parser():
-    ap = argparse.ArgumentParser(
+# --------------------------------------------------------------------------
+# formatting helpers
+# --------------------------------------------------------------------------
+
+def print_table(rows, headers=None):
+    """Left-aligned columns sized to the content; headers are optional."""
+    if not rows:
+        return
+    columns = max(len(row) for row in rows)
+    widths = [0] * columns
+    for row in ([headers] if headers else []) + list(rows):
+        for index, cell in enumerate(row):
+            widths[index] = max(widths[index], len(str(cell)))
+    if headers:
+        print("  ".join(str(h).ljust(widths[i]) for i, h in enumerate(headers)).rstrip())
+        print("  ".join("-" * widths[i] for i in range(columns)))
+    for row in rows:
+        print("  ".join(str(cell).ljust(widths[i])
+                        for i, cell in enumerate(row)).rstrip())
+
+
+# --------------------------------------------------------------------------
+# argument parsing
+# --------------------------------------------------------------------------
+
+def preparse_language(argv):
+    """Read --lang before argparse runs, so even the help text is translated."""
+    for index, token in enumerate(argv):
+        if token == "--lang" and index + 1 < len(argv):
+            return argv[index + 1]
+        if token.startswith("--lang="):
+            return token.split("=", 1)[1]
+    return None
+
+
+def insert_default_command(argv):
+    """Treat a leading non-command argument as a file to transcribe."""
+    index = 0
+    while index < len(argv):
+        token = argv[index]
+        if token in ("-h", "--help", "--version"):
+            return argv
+        if token == "--lang":
+            index += 2
+            continue
+        if token.startswith("--lang="):
+            index += 1
+            continue
+        break
+    if index >= len(argv) or argv[index] in COMMANDS:
+        return argv
+    return argv[:index] + ["transcribe"] + argv[index:]
+
+
+def add_language_option(parser):
+    parser.add_argument("--lang", default=None, choices=list(AVAILABLE_LANGUAGES),
+                        help=t("help.lang", choices="|".join(AVAILABLE_LANGUAGES)))
+
+
+def build_parser(defaults):
+    """Build the parser, showing the defaults actually in effect."""
+    from . import __version__
+
+    parser = argparse.ArgumentParser(
         prog="audio-transcriber",
-        description="Da audio/video a testo (Whisper via OpenVINO su iGPU Intel) con diarizzazione opzionale.",
-        epilog=EXAMPLES,
+        description=t("cli.description"),
+        epilog=t("help.epilog"),
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    ap.add_argument("input", help="file audio o video")
-    ap.add_argument("--out", default=None, help="file .txt di uscita (default: stesso nome)")
-    ap.add_argument("--model", default="large-v3", help="tiny|base|small|medium|large-v3 (o id HF)")
-    ap.add_argument("--language", default="it", help="es. it, en (default: it; '' per auto)")
-    ap.add_argument("--device", default="GPU", help="GPU (iGPU Intel, default) | CPU | NPU")
-    ap.add_argument("--model-dir", default=None,
-                    help="cartella dei modelli OpenVINO "
-                         "(default: sottocartella 'whisper-ov-models' nella cartella corrente)")
-    ap.add_argument("--prompt", default=DOMAIN_PROMPT,
-                    help="testo-guida coi termini di dominio ('' per disattivarlo)")
-    ap.add_argument("--para-gap", type=float, default=1.2,
-                    help="secondi di pausa oltre i quali iniziare un nuovo paragrafo (senza --diarize)")
-    ap.add_argument("--para-max-chars", type=int, default=600,
-                    help="lunghezza massima di un paragrafo (senza --diarize)")
-    ap.add_argument("--keep-fillers", action="store_true",
-                    help="NON rimuovere le frasi-allucinazione (Grazie a tutti, ecc.)")
-    ap.add_argument("--diarize", action="store_true",
-                    help="attiva la diarizzazione 'chi dice cosa' (pyannote, CPU)")
-    ap.add_argument("--speakers", type=int, default=None,
-                    help="numero di speaker se noto (migliora molto la resa)")
-    ap.add_argument("--hf-token", default=None,
-                    help="token Hugging Face per pyannote (o var. HUGGINGFACE_TOKEN)")
-    ap.add_argument("--diar-model", default=None,
-                    help="id HF (online, con token) o percorso a un config.yaml locale (offline). "
-                         "Default: 'pyannote-diar/config.yaml' nella cartella corrente, con fallback al repo HF")
-    return ap
+    add_language_option(parser)
+    parser.add_argument("--version", action="version",
+                        version=f"audio-transcriber {__version__}",
+                        help=t("help.version"))
+    subparsers = parser.add_subparsers(dest="command", metavar="COMMAND",
+                                       help=t("help.command"))
 
+    # --- transcribe -------------------------------------------------------
+    tr = subparsers.add_parser("transcribe", help=t("help.cmd_transcribe"),
+                               description=t("help.cmd_transcribe"))
+    add_language_option(tr)
+    tr.add_argument("input", help=t("help.input"))
+    tr.add_argument("--out", default=None, help=t("help.out"))
+    tr.add_argument("--model", default=None,
+                    help=t("help.model", default=defaults["model"]))
+    tr.add_argument("--language", default=None,
+                    help=t("help.language", default=defaults["language"]))
+    tr.add_argument("--backend", default=None, choices=list(BACKENDS),
+                    help=t("help.backend"))
+    tr.add_argument("--device", default=None, help=t("help.device"))
+    tr.add_argument("--compute-type", dest="compute_type", default=None,
+                    help=t("help.compute_type"))
+    tr.add_argument("--threads", type=int, default=None, help=t("help.threads"))
+    tr.add_argument("--no-vad", dest="no_vad", action="store_true", default=None,
+                    help=t("help.no_vad"))
+    tr.add_argument("--model-dir", dest="models_dir", default=None,
+                    help=t("help.model_dir"))
+    tr.add_argument("--prompt", default=None, help=t("help.prompt"))
+    tr.add_argument("--prompt-file", dest="prompt_file", default=None,
+                    help=t("help.prompt_file"))
+    tr.add_argument("--vocab", dest="vocabulary", action="append", default=None,
+                    metavar="NAME", help=t("help.vocab"))
+    tr.add_argument("--para-gap", dest="para_gap", type=float, default=None,
+                    help=t("help.para_gap"))
+    tr.add_argument("--para-max-chars", dest="para_max_chars", type=int, default=None,
+                    help=t("help.para_max_chars"))
+    tr.add_argument("--keep-fillers", dest="keep_fillers", action="store_true",
+                    default=None, help=t("help.keep_fillers"))
+    tr.add_argument("--diarize", action="store_true", default=None,
+                    help=t("help.diarize"))
+    tr.add_argument("--speakers", type=int, default=None, help=t("help.speakers"))
+    tr.add_argument("--hf-token", dest="hf_token", default=None, help=t("help.hf_token"))
+    tr.add_argument("--diar-model", dest="diar_model", default=None,
+                    help=t("help.diar_model"))
+    tr.add_argument("--library", action="store_true", help=t("help.library"))
+    tr.add_argument("--library-store", dest="library_store", default=STORE_COPY,
+                    choices=list(STORE_MODES), help=t("help.library_store"))
+    tr.add_argument("--library-dir", dest="library_dir", default=None,
+                    help=t("help.lib_root"))
+    tr.add_argument("--title", default=None, help=t("help.title"))
+    tr.add_argument("--json", dest="json_out", default=None, help=t("help.json"))
+
+    # --- library ----------------------------------------------------------
+    lib = subparsers.add_parser("library", help=t("help.cmd_library"),
+                                description=t("help.cmd_library"))
+    add_language_option(lib)
+    lib.add_argument("--library-dir", dest="library_dir", default=None,
+                     help=t("help.lib_root"))
+    lib_sub = lib.add_subparsers(dest="subcommand", metavar="SUBCOMMAND")
+
+    lib_sub.add_parser("list", help=t("help.lib_list"))
+    show = lib_sub.add_parser("show", help=t("help.lib_show"))
+    show.add_argument("query", help=t("help.lib_query"))
+    search = lib_sub.add_parser("search", help=t("help.lib_search"))
+    search.add_argument("text", help=t("help.lib_text"))
+    remove = lib_sub.add_parser("remove", help=t("help.lib_remove"))
+    remove.add_argument("query", help=t("help.lib_query"))
+    remove.add_argument("-y", "--yes", action="store_true", help=t("help.lib_yes"))
+    entry_path = lib_sub.add_parser("path", help=t("help.lib_path"))
+    entry_path.add_argument("query", nargs="?", help=t("help.lib_query"))
+
+    # --- vocab ------------------------------------------------------------
+    voc = subparsers.add_parser("vocab", help=t("help.cmd_vocab"),
+                                description=t("help.cmd_vocab"))
+    add_language_option(voc)
+    voc.add_argument("--vocab-dir", dest="vocab_dir", default=None,
+                     help=t("help.vocab_dir"))
+    voc_sub = voc.add_subparsers(dest="subcommand", metavar="SUBCOMMAND")
+
+    voc_sub.add_parser("list", help=t("help.vocab_list"))
+    voc_show = voc_sub.add_parser("show", help=t("help.vocab_show"))
+    voc_show.add_argument("name", help=t("help.vocab_name"))
+    voc_path = voc_sub.add_parser("path", help=t("help.vocab_path"))
+    voc_path.add_argument("name", nargs="?", help=t("help.vocab_name"))
+    voc_new = voc_sub.add_parser("new", help=t("help.vocab_new"))
+    voc_new.add_argument("name", help=t("help.vocab_name"))
+    voc_new.add_argument("--title", default=None, help=t("help.vocab_title"))
+    voc_new.add_argument("--language", default="", help=t("help.vocab_language"))
+    voc_new.add_argument("--from", dest="source_file", default=None,
+                         help=t("help.vocab_from"))
+    voc_new.add_argument("--force", action="store_true", help=t("help.vocab_force"))
+
+    # --- web ---------------------------------------------------------------
+    web = subparsers.add_parser("web", help=t("help.cmd_web"),
+                                description=t("help.cmd_web"))
+    add_language_option(web)
+    web.add_argument("--host", default="127.0.0.1", help=t("help.web_host"))
+    web.add_argument("--port", type=int, default=8765, help=t("help.web_port"))
+    web.add_argument("--root-path", dest="root_path", default="",
+                     help=t("help.web_root_path"))
+    web.add_argument("--library-dir", dest="library_dir", default=None,
+                     help=t("help.lib_root"))
+
+    # --- gui ---------------------------------------------------------------
+    gui = subparsers.add_parser("gui", help=t("help.cmd_gui"),
+                                description=t("help.cmd_gui"))
+    add_language_option(gui)
+    gui.add_argument("--library-dir", dest="library_dir", default=None,
+                     help=t("help.lib_root"))
+
+    # --- hardware, paths, config -----------------------------------------
+    hw = subparsers.add_parser("hardware", help=t("help.cmd_hardware"),
+                               description=t("help.cmd_hardware"))
+    add_language_option(hw)
+    hw.add_argument("--device", default=None, help=t("help.device"))
+
+    pt = subparsers.add_parser("paths", help=t("help.cmd_paths"),
+                               description=t("help.cmd_paths"))
+    add_language_option(pt)
+
+    cfg = subparsers.add_parser("config", help=t("help.cmd_config"),
+                                description=t("help.cmd_config"))
+    add_language_option(cfg)
+    cfg_sub = cfg.add_subparsers(dest="subcommand", metavar="SUBCOMMAND")
+    cfg_sub.add_parser("show", help=t("help.cfg_show"))
+    cfg_sub.add_parser("path", help=t("help.cfg_path"))
+    init = cfg_sub.add_parser("init", help=t("help.cfg_init"))
+    init.add_argument("--force", action="store_true", help=t("help.cfg_force"))
+
+    return parser
+
+
+# --------------------------------------------------------------------------
+# commands
+# --------------------------------------------------------------------------
+
+def command_transcribe(args, settings):
+    """Transcribe one file and write the result where it was asked for."""
+    source = os.path.abspath(os.path.expanduser(args.input))
+    if not os.path.exists(source):
+        sys.exit(t("cli.file_not_found", path=source))
+
+    try:
+        prompt = pipeline.resolve_prompt(settings)
+    except ConfigError as exc:
+        sys.exit(str(exc))
+    if len(prompt) > MAX_PROMPT_CHARS:
+        print(t("vocab.prompt_too_long", chars=len(prompt), limit=MAX_PROMPT_CHARS),
+              file=sys.stderr)
+
+    try:
+        result = pipeline.run(source, settings, prompt=prompt)
+    except pipeline.EmptyTranscription as exc:
+        sys.exit(str(exc))
+    if settings["diarize"] and not result.diarized:
+        print(t("diarize.no_turns"))
+
+    written = write_result(args, settings, source, result)
+
+    print(t("cli.done", path=written))
+    summary = t("cli.summary", words=len(result.text.split()),
+                backend=result.info["backend"], device=result.info["device"],
+                language=settings["language"] or "auto")
+    if result.diarized:
+        summary += t("cli.summary_diarized")
+    print(summary)
+    speed = (t("cli.speed_realtime", factor=result.audio_duration / result.elapsed)
+             if result.elapsed > 0 and result.audio_duration
+             else t("cli.speed_unknown"))
+    print(t("cli.elapsed", elapsed=format_duration(result.elapsed), speed=speed))
+
+
+def write_result(args, settings, source, result):
+    """Store the transcript, in the library or beside the input, and return
+    the path a human should look at."""
+    if args.json_out:
+        import json
+        target = os.path.abspath(os.path.expanduser(args.json_out))
+        with open(target, "w", encoding="utf-8", newline="\n") as handle:
+            json.dump({"schema": 1, "segments": result.segments}, handle,
+                      ensure_ascii=False, indent=2)
+            handle.write("\n")
+
+    if not args.library:
+        out = (os.path.abspath(os.path.expanduser(args.out)) if args.out
+               else os.path.splitext(source)[0] + ".txt")
+        with open(out, "w", encoding="utf-8", newline="\n") as handle:
+            handle.write(result.text)
+        return out
+
+    library = Library(settings["library_dir"])
+    try:
+        entry = pipeline.file_in_library(library, source, result, settings,
+                                         title=args.title, store=args.library_store)
+    except LibraryError as exc:
+        sys.exit(str(exc))
+
+    print(t("library.created", path=entry.path))
+    if args.out:
+        out = os.path.abspath(os.path.expanduser(args.out))
+        with open(out, "w", encoding="utf-8", newline="\n") as handle:
+            handle.write(result.text)
+        return out
+    return entry.transcript_path
+
+
+def command_library(args):
+    """Browse the library."""
+    library = Library(args.library_dir)
+    subcommand = getattr(args, "subcommand", None) or "list"
+
+    if subcommand == "path" and not getattr(args, "query", None):
+        print(library.root)
+        return
+
+    if subcommand == "list":
+        entries = library.entries()
+        if not entries:
+            print(t("library.empty", path=library.root))
+            return
+        rows = []
+        for entry in entries:
+            try:
+                data = entry.metadata
+            except LibraryError:
+                print(t("library.corrupt_metadata", path=entry.path), file=sys.stderr)
+                continue
+            audio = data.get("audio") or {}
+            stats = data.get("stats") or {}
+            rows.append([
+                entry.id,
+                (data.get("created_at") or "")[:10],
+                format_duration(audio.get("duration_seconds")),
+                stats.get("words", "-"),
+                data.get("title", ""),
+            ])
+        print_table(rows, headers=[
+            t("library.header_id"), t("library.header_date"),
+            t("library.header_duration"), t("library.header_words"),
+            t("library.header_title")])
+        return
+
+    if subcommand == "search":
+        matches = library.search(args.text)
+        if not matches:
+            print(t("library.no_match", query=args.text))
+            return
+        for entry in matches:
+            print(f"{entry.id}  {entry.metadata.get('title', '')}")
+        return
+
+    try:
+        entry = library.get(args.query)
+    except LibraryError as exc:
+        sys.exit(str(exc))
+
+    if subcommand == "path":
+        print(entry.path)
+    elif subcommand == "show":
+        data = entry.metadata
+        audio = data.get("audio") or {}
+        transcription = data.get("transcription") or {}
+        print(f"{data.get('title', entry.id)}  [{entry.id}]")
+        print(f"  {data.get('created_at', '')}"
+              f"  {format_duration(audio.get('duration_seconds'))}"
+              f"  {transcription.get('model', '')}"
+              f"  {transcription.get('backend', '')}")
+        print(f"  {entry.path}")
+        print()
+        print(entry.read_transcript().rstrip())
+    elif subcommand == "remove":
+        if not args.yes:
+            answer = input(f"{entry.path}\nremove? [y/N] ").strip().lower()
+            if answer not in ("y", "yes"):
+                return
+        print(t("library.removed", path=library.remove(entry)))
+
+
+def command_vocab(args, settings):
+    """List, inspect or create the named keyword sets."""
+    from . import vocabularies
+
+    extra = getattr(args, "vocab_dir", None) or settings.get("vocab_dir")
+    subcommand = getattr(args, "subcommand", None) or "list"
+
+    if subcommand == "path" and not getattr(args, "name", None):
+        print(vocabularies.user_dir())
+        return
+
+    if subcommand == "list":
+        sets = vocabularies.available(extra)
+        if not sets:
+            print(t("vocab.none", path=vocabularies.user_dir()))
+            return
+        rows = [[item.name, item.source, item.language or "-",
+                 len(vocabularies.terms(item.text)), item.title]
+                for item in sets]
+        print_table(rows, headers=[
+            t("vocab.header_name"), t("vocab.header_source"),
+            t("vocab.header_language"), t("vocab.header_terms"),
+            t("vocab.header_title")])
+        return
+
+    if subcommand == "new":
+        text = template_or_file(args)
+        try:
+            path = vocabularies.create(args.name, text, overwrite=args.force)
+        except VocabularyError as exc:
+            sys.exit(str(exc))
+        print(t("vocab.created", path=path))
+        return
+
+    try:
+        item = vocabularies.get(args.name, extra)
+    except VocabularyError as exc:
+        sys.exit(str(exc))
+
+    if subcommand == "path":
+        print(item.path)
+        return
+
+    print(f"{item.title}  [{item.name}]")
+    print("  " + t("vocab.show_stats", source=item.source,
+                   language=item.language or "-",
+                   terms=len(vocabularies.terms(item.text)),
+                   chars=len(item.text)))
+    print(f"  {item.path}")
+    print()
+    print(item.text)
+
+
+def template_or_file(args):
+    """Body of a new vocabulary: an existing file, or the empty template."""
+    from . import vocabularies
+
+    if not args.source_file:
+        return vocabularies.template(args.name, args.title, args.language)
+    source = os.path.abspath(os.path.expanduser(args.source_file))
+    try:
+        with open(source, encoding="utf-8") as handle:
+            body = handle.read()
+    except OSError as exc:
+        sys.exit(f"--from: {exc}")
+    if vocabularies.metadata(body).get("title"):
+        return body
+    return vocabularies.template(args.name, args.title, args.language) + body
+
+
+def command_web(args, settings):
+    """Serve the local web interface."""
+    from .web import run
+
+    print(t("web.starting", host=args.host, port=args.port))
+    if args.host not in ("127.0.0.1", "localhost", "::1"):
+        print(t("web.exposed"))
+    return run(args.host, args.port, settings, root_path=args.root_path)
+
+
+def command_gui(settings):
+    """Open the desktop window."""
+    from .gui import run
+
+    return run(settings)
+
+
+def command_hardware(args):
+    """Report what the machine can do, and what it would choose."""
+    from .backends import resolve_backend
+    from .hardware import summary
+    from .transcription import recommend_model
+
+    print(summary())
+    backend = resolve_backend("auto", args.device or "auto")
+    print(t("hardware.auto_backend", backend=backend))
+    print(t("hardware.auto_model",
+            model=recommend_model(backend, args.device or "auto")))
+
+    from .diarization import NO_MODEL, NOT_INSTALLED, availability
+    state, detail = availability()
+    print(t({NOT_INSTALLED: "hardware.diarize_missing",
+             NO_MODEL: "hardware.diarize_unconfigured"}.get(state, "hardware.diarize_ready"),
+            detail=detail))
+
+
+def command_paths(settings=None):
+    """Report where files are kept, configuration included."""
+    print(t("cli.paths_header"))
+    rows = []
+    for label, path, exists, configured in paths.describe(settings):
+        note = "" if exists else t("cli.paths_missing")
+        if configured:
+            note = (note + " " if note else "") + t("cli.paths_configured")
+        rows.append((label, path, note))
+    print_table(rows)
+
+
+def command_config(args, settings, config_path):
+    """Inspect or create the configuration file."""
+    subcommand = getattr(args, "subcommand", None) or "show"
+    if subcommand == "path":
+        print(paths.config_file())
+        return
+    if subcommand == "init":
+        target = paths.config_file()
+        if os.path.exists(target) and not args.force:
+            sys.exit(f"{target} already exists (use --force to overwrite)")
+        paths.ensure(os.path.dirname(target))
+        if os.path.exists(target):
+            shutil.copy2(target, target + ".bak")
+        with open(target, "w", encoding="utf-8", newline="\n") as handle:
+            handle.write(CONFIG_TEMPLATE)
+        print(target)
+        return
+    if config_path:
+        print(t("cli.config_loaded", path=config_path))
+    for key in sorted(settings):
+        value = settings[key]
+        print(f"  {key:20} {'' if value is None else value}")
+
+
+# --------------------------------------------------------------------------
+# entry point
+# --------------------------------------------------------------------------
 
 def main(argv=None):
-    ap = build_parser()
-    if argv is None:
-        argv = sys.argv[1:]
-    if not argv:  # lanciato senza argomenti: mostra help + esempi
-        ap.print_help(sys.stderr)
-        sys.exit(1)
-    a = ap.parse_args(argv)
+    # With output redirected to a file stdout would be block-buffered and the
+    # progress messages, which go to stderr, would appear out of order.
+    try:
+        sys.stdout.reconfigure(line_buffering=True)
+    except Exception:
+        pass
 
-    load_dotenv()  # carica HF_TOKEN/HUGGINGFACE_TOKEN da un .env nella cartella corrente
+    argv = list(sys.argv[1:] if argv is None else argv)
+    set_language(preparse_language(argv))
+    load_dotenv()
 
-    if not os.path.exists(a.input):
-        sys.exit(f"File non trovato: {a.input}")
-    out = a.out or (os.path.splitext(a.input)[0] + ".txt")
-    model_dir = a.model_dir or os.path.join(os.getcwd(), "whisper-ov-models")
-    language = a.language or None
+    # A broken config.toml must not block the commands that inspect or repair
+    # it, so the error is carried and only raised where the settings matter.
+    config_error = None
+    try:
+        file_settings, config_path, warnings = load_config()
+    except ConfigError as exc:
+        file_settings, config_path, warnings = {}, None, []
+        config_error = t("cli.config_invalid", path=paths.config_file(), error=exc)
+    for warning in warnings:
+        print(f"  {warning}", file=sys.stderr)
 
-    audio = load_audio(a.input)
+    display_defaults = resolve({}, file_settings)
+    parser = build_parser(display_defaults)
+    if not argv:
+        parser.print_help(sys.stderr)
+        return 1
 
-    # Pre-flight diarizzazione: verifica i file locali PRIMA della lunga trascrizione,
-    # cosi' non aspetti l'intera trascrizione per scoprire che manca qualcosa.
-    token = diar_model = None
-    if a.diarize:
-        token = a.hf_token or os.environ.get("HUGGINGFACE_TOKEN") or os.environ.get("HF_TOKEN")
-        diar_model = a.diar_model or os.path.join(os.getcwd(), "pyannote-diar", "config.yaml")
-        check_diar_assets(diar_model, token)
+    args = parser.parse_args(insert_default_command(argv))
+    if getattr(args, "lang", None):
+        set_language(args.lang)
 
-    segments, blob = transcribe(audio, a.model, language, a.device, model_dir, a.prompt)
-    if not segments and not blob.strip():
-        sys.exit("Nessun testo trascritto (audio vuoto o silenzioso?).")
-    segments = clean_segments(segments, drop_fillers=not a.keep_fillers)
+    command = args.command or "transcribe"
+    if config_error:
+        if command in ("transcribe", "library"):
+            sys.exit(config_error)
+        print(config_error, file=sys.stderr)
 
-    if a.diarize:
-        turns = diarize(audio, token, a.speakers, diar_model)
-        if segments and turns:
-            text = format_dialogue(assign_speakers(segments, turns)) + "\n"
-        else:
-            print("  ATTENZIONE: diarizzazione senza turni o senza segmenti: scrivo il testo semplice.")
-            text = "\n\n".join(to_paragraphs(segments, a.para_gap, a.para_max_chars)
-                               or paragraphs_from_blob(blob)) + "\n"
-    else:
-        paras = to_paragraphs(segments, a.para_gap, a.para_max_chars) if segments else paragraphs_from_blob(blob)
-        text = "\n\n".join(paras) + "\n"
+    if command == "hardware":
+        return command_hardware(args)
 
-    with open(out, "w", encoding="utf-8") as f:
-        f.write(text)
+    settings = resolve(collect_cli_settings(args), file_settings)
+    if command == "paths":
+        return command_paths(settings)
+    if command == "vocab":
+        return command_vocab(args, settings)
+    if command == "web":
+        return command_web(args, settings)
+    if command == "gui":
+        return command_gui(settings)
+    if command == "config":
+        return command_config(args, settings, config_path)
+    if command == "library":
+        return command_library(args)
+    return command_transcribe(args, settings)
 
-    print(f"\nOK: trascrizione -> {out}")
-    print(f"   parole: {len(text.split())} | device trascr.: {a.device} | lingua: {language or 'auto'}"
-          + (" | diarizzazione: ON" if a.diarize else ""))
+
+def collect_cli_settings(args):
+    """Pull the configurable options out of the parsed arguments.
+
+    Absent options are None so they never override the configuration file;
+    ``--no-vad`` is the one flag that has to be inverted."""
+    names = ("language", "backend", "device", "model", "compute_type", "threads",
+             "prompt", "prompt_file", "vocabulary", "para_gap", "para_max_chars",
+             "keep_fillers", "diarize", "speakers", "diar_model", "models_dir",
+             "library_dir", "vocab_dir")
+    values = {name: getattr(args, name, None) for name in names}
+    values["vad"] = False if getattr(args, "no_vad", None) else None
+    values["hf_token"] = getattr(args, "hf_token", None)
+    return values
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main() or 0)

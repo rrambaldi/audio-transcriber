@@ -1,0 +1,12 @@
+# title: Privacy e GDPR
+# language: it
+# Adempimenti privacy, DPO, trattamenti e violazioni.
+#
+#   audio-transcriber riunione.wav --vocab privacy-gdpr-it
+
+GDPR, titolare del trattamento, responsabile del trattamento,
+base giuridica, legittimo interesse, registro dei trattamenti, DPIA,
+valutazione d'impatto, DPO, misure tecniche e organizzative,
+pseudonimizzazione, minimizzazione, data retention, portabilita',
+data breach, notifica al Garante, Garante privacy, trasferimento extra UE,
+clausole contrattuali standard, accountability, privacy by design

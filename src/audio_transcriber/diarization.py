@@ -1,147 +1,179 @@
-# -*- coding: utf-8 -*-
-"""Diarizzazione "chi dice cosa" con pyannote (su CPU) e assegnazione
-degli speaker ai segmenti trascritti."""
+"""Speaker diarization with pyannote, and mapping speakers onto segments.
+
+pyannote runs on the CPU here. It can work fully offline from a local
+``config.yaml``, or online from the Hugging Face repository with a token.
+"""
 import os
 import re
 import sys
 
+from .audio import SAMPLE_RATE
 from .cleaning import clean_text
+from .hardware import module_available
+from .i18n import t
+
+DEFAULT_PIPELINE = "pyannote/speaker-diarization-3.1"
+
+#: Extensions that mark a config entry as a path rather than a repo id.
+_WEIGHT_SUFFIXES = (".bin", ".pt", ".ckpt", ".onnx", ".safetensors")
+_CONFIG_SUFFIXES = (".yaml", ".yml")
+
+
+def looks_like_path(value):
+    """Whether a config value names a file rather than a Hugging Face repo."""
+    return (os.sep in value or "/" in value
+            or value.lower().endswith(_WEIGHT_SUFFIXES + _CONFIG_SUFFIXES))
+
+
+#: Why diarization cannot run here, if it cannot.
+NOT_INSTALLED = "not_installed"
+NO_MODEL = "no_model"
+READY = "ready"
+
+
+def availability(model=None, token=None):
+    """``(state, detail)``: can this machine work out who said what?
+
+    Asked before anything is offered rather than after an upload, so a front
+    end can grey the option out and say why instead of accepting a job that is
+    going to fail. Imports nothing heavy: pyannote pulls in PyTorch."""
+    if not module_available("pyannote.audio"):
+        return NOT_INSTALLED, "pyannote.audio"
+    token = token or os.environ.get("HUGGINGFACE_TOKEN") or os.environ.get("HF_TOKEN")
+    if token:
+        return READY, "token"
+    from . import paths
+
+    config = model or paths.diarization_config()
+    if os.path.exists(config):
+        return READY, config
+    return NO_MODEL, config
 
 
 def check_diar_assets(model, token):
-    """Pre-flight: verifica che tutto il necessario per la diarizzazione ci sia
-    PRIMA di avviare la (lunga) trascrizione. Esce con un messaggio chiaro se
-    manca qualcosa. Non scarica e non carica nulla di pesante."""
+    """Pre-flight check, run before the long transcription starts.
+
+    Exits with a clear message if something is missing, so nobody waits an hour
+    for a transcript only to find the diarization cannot run. Downloads
+    nothing and loads nothing heavy."""
     try:
         import pyannote.audio  # noqa: F401
     except ImportError:
-        sys.exit("Diarizzazione: manca pyannote. Esegui: pip install pyannote.audio")
+        sys.exit(t("diarize.missing"))
 
-    is_local = os.path.exists(model)
-    looks_local = (os.sep in model or "/" in model
-                   or model.lower().endswith((".yaml", ".yml")))
-
-    if not is_local:
-        if looks_local:
-            print(f"  Pre-flight: config locale non trovato ({model}); userei il repo HF.")
+    if not os.path.exists(model):
+        if looks_like_path(model):
+            print(t("diarize.local_config_missing", path=model))
         if not token:
-            sys.exit("Diarizzazione: manca sia un config locale sia un token HF.\n"
-                     "  Metti i file offline (pyannote-diar/config.yaml) oppure imposta HF_TOKEN\n"
-                     "  con il permesso 'Read access to public gated repos'.")
-        print("  Pre-flight: uso online (repo HF) con token presente.")
+            sys.exit(t("diarize.no_config_no_token"))
+        print(t("diarize.online_ok"))
         return
 
-    # Config locale presente: controllo i modelli referenziati (embedding/segmentation)
     try:
-        with open(model, encoding="utf-8") as f:
-            text = f.read()
-    except Exception as e:
-        sys.exit(f"Diarizzazione: impossibile leggere il config {model}: {e}")
+        with open(model, encoding="utf-8") as handle:
+            content = handle.read()
+    except OSError as exc:
+        sys.exit(t("diarize.config_unreadable", path=model, error=exc))
 
-    refs = re.findall(r"^\s*(embedding|segmentation)\s*:\s*(.+?)\s*$", text, re.M)
+    references = re.findall(r"^\s*(embedding|segmentation)\s*:\s*(.+?)\s*$",
+                            content, re.M)
     base = os.path.dirname(os.path.abspath(model))
-    missing, warn = [], []
-    for key, val in refs:
-        val = val.strip().strip('"').strip("'")
-        is_path = (os.sep in val or "/" in val
-                   or val.lower().endswith((".bin", ".pt", ".ckpt", ".onnx", ".safetensors")))
-        if not is_path:
-            continue  # e' un id HF: lo scarichera' pyannote (serve token, gia' gestito)
-        if os.path.exists(val):
+    missing, relative = [], []
+    for key, value in references:
+        value = value.strip().strip('"').strip("'")
+        if not looks_like_path(value):
+            continue  # a repo id: pyannote will fetch it, token already checked
+        if os.path.exists(value):
             continue
-        if os.path.exists(os.path.join(base, val)):
-            warn.append((key, val))
+        if os.path.exists(os.path.join(base, value)):
+            relative.append((key, value))
             continue
-        missing.append((key, val))
+        missing.append((key, value))
 
     if missing:
-        lines = "\n".join(f"    - {k}: {v}" for k, v in missing)
-        sys.exit("Diarizzazione: nel config mancano file locali (non trovati):\n"
-                 + lines + f"\n  Controlla i percorsi in {model}")
-    for key, val in warn:
-        print(f"  ATTENZIONE: '{key}' ({val}) esiste relativo al config ma pyannote lo risolve\n"
-              f"  rispetto alla cartella di lancio: lancia dallo stesso folder o usa un percorso assoluto.")
-    print(f"  Pre-flight diarizzazione OK: config e modelli locali presenti ({model}).")
+        listed = "\n".join(f"    - {key}: {value}" for key, value in missing)
+        sys.exit(t("diarize.missing_files", files=listed, path=model))
+    for key, value in relative:
+        print(t("diarize.relative_path_warning", key=key, value=value))
+    print(t("diarize.preflight_ok", path=model))
 
 
-def diarize(audio, token, num_speakers, model="pyannote/speaker-diarization-3.1"):
-    """Restituisce i turni di parola come lista di (start, end, speaker_label).
-    `model` puo' essere l'id HF (scarica online, richiede token) oppure il
-    percorso a un config.yaml LOCALE (uso offline, nessun token)."""
+def diarize(audio, token, num_speakers, model=DEFAULT_PIPELINE,
+            sample_rate=SAMPLE_RATE):
+    """Return speech turns as a list of ``(start, end, speaker_label)``.
+
+    ``model`` is either a Hugging Face id (downloaded, needs a token) or the
+    path of a local ``config.yaml`` (offline, no token)."""
     try:
         import torch
         from pyannote.audio import Pipeline
     except ImportError:
-        sys.exit("Manca pyannote. Esegui: pip install pyannote.audio")
+        sys.exit(t("diarize.missing"))
+
     is_local = os.path.exists(model)
-    if not is_local and (os.sep in model or "/" in model or model.lower().endswith((".yaml", ".yml"))):
-        # sembrava un config locale ma non c'e': ripiego sul repo HF
-        fallback = "pyannote/speaker-diarization-3.1"
-        print(f"  (config locale non trovato: {model} --> uso il repo HF {fallback})")
-        model = fallback
+    if not is_local and looks_like_path(model):
+        print(t("diarize.config_fallback", path=model, fallback=DEFAULT_PIPELINE))
+        model = DEFAULT_PIPELINE
     if not is_local and not token:
-        sys.exit(
-            "Per --diarize serve un token Hugging Face (o un config.yaml locale via --diar-model).\n"
-            "  - Passa --hf-token TOKEN oppure imposta HUGGINGFACE_TOKEN.\n"
-            "  - Il token deve avere il permesso 'Read access to public gated repos'.\n"
-            "  - Accetta le condizioni su huggingface.co dei modelli:\n"
-            "      pyannote/speaker-diarization-3.1, pyannote/segmentation-3.0,\n"
-            "      pyannote/wespeaker-voxceleb-resnet34-LM"
-        )
-    print(f"Carico la pipeline di diarizzazione pyannote (CPU) da: {model}")
+        sys.exit(t("diarize.token_required"))
+
+    print(t("diarize.loading", model=model))
     if is_local:
-        pl = Pipeline.from_pretrained(model)  # config locale: nessun token
+        pipeline = Pipeline.from_pretrained(model)  # local config: no token
     else:
         try:
-            pl = Pipeline.from_pretrained(model, use_auth_token=token)
-        except TypeError:
-            pl = Pipeline.from_pretrained(model, token=token)
-    if pl is None:
-        sys.exit("Diarizzazione non inizializzata: token non valido o condizioni dei modelli non accettate.")
+            pipeline = Pipeline.from_pretrained(model, use_auth_token=token)
+        except TypeError:  # newer pyannote renamed the argument
+            pipeline = Pipeline.from_pretrained(model, token=token)
+    if pipeline is None:
+        sys.exit(t("diarize.not_initialised"))
 
-    pl.to(torch.device("cpu"))
-    waveform = torch.from_numpy(audio).unsqueeze(0)  # (1, campioni)
-    kwargs = {}
-    if num_speakers:
-        kwargs["num_speakers"] = num_speakers
-    print("Diarizzazione in corso (puo' richiedere qualche minuto)...")
-    diar = pl({"waveform": waveform, "sample_rate": 16000}, **kwargs)
-    turns = [(t.start, t.end, lab) for t, _, lab in diar.itertracks(yield_label=True)]
-    n_spk = len({l for _, _, l in turns})
-    print(f"   turni rilevati: {len(turns)} | speaker: {n_spk}")
+    pipeline.to(torch.device("cpu"))
+    waveform = torch.from_numpy(audio).unsqueeze(0)  # (1, samples)
+    options = {"num_speakers": num_speakers} if num_speakers else {}
+
+    print(t("diarize.running"))
+    annotation = pipeline({"waveform": waveform, "sample_rate": sample_rate}, **options)
+    turns = [(segment.start, segment.end, label)
+             for segment, _, label in annotation.itertracks(yield_label=True)]
+    print(t("diarize.result", turns=len(turns),
+            speakers=len({label for _, _, label in turns})))
     return turns
 
 
 def assign_speakers(segments, turns):
-    """Assegna a ogni segmento trascritto lo speaker col maggior overlap
-    temporale; se il segmento non ha timestamp usa lo speaker precedente."""
-    out, last = [], (turns[0][2] if turns else "SPEAKER_00")
-    for s in segments:
-        st, en = s.get("start"), s.get("end")
-        spk = None
-        if st is not None and en is not None and turns:
+    """Give each segment the speaker it overlaps with most.
+
+    A segment without timestamps inherits the previous speaker, which is the
+    least surprising guess in a conversation."""
+    assigned = []
+    last = turns[0][2] if turns else "SPEAKER_00"
+    for segment in segments:
+        start, end = segment.get("start"), segment.get("end")
+        speaker = None
+        if start is not None and end is not None and turns:
             best = 0.0
-            for ts, te, lab in turns:
-                ov = min(en, te) - max(st, ts)
-                if ov > best:
-                    best, spk = ov, lab
-        if spk is None:
-            spk = last
-        last = spk
-        out.append({**s, "speaker": spk})
-    return out
+            for turn_start, turn_end, label in turns:
+                overlap = min(end, turn_end) - max(start, turn_start)
+                if overlap > best:
+                    best, speaker = overlap, label
+        if speaker is None:
+            speaker = last
+        last = speaker
+        assigned.append({**segment, "speaker": speaker})
+    return assigned
 
 
-def format_dialogue(seg_spk):
-    """Unisce i segmenti consecutivi dello stesso speaker in un turno leggibile."""
-    blocks, cur_spk, buf = [], None, []
-    for s in seg_spk:
-        if s["speaker"] != cur_spk:
-            if buf:
-                blocks.append((cur_spk, clean_text(" ".join(buf))))
-            cur_spk, buf = s["speaker"], [s["text"]]
+def format_dialogue(segments):
+    """Merge consecutive segments from the same speaker into readable turns."""
+    blocks, current_speaker, buffer = [], None, []
+    for segment in segments:
+        if segment["speaker"] != current_speaker:
+            if buffer:
+                blocks.append((current_speaker, clean_text(" ".join(buffer))))
+            current_speaker, buffer = segment["speaker"], [segment["text"]]
         else:
-            buf.append(s["text"])
-    if buf:
-        blocks.append((cur_spk, clean_text(" ".join(buf))))
-    return "\n\n".join(f"[{spk}] {txt}" for spk, txt in blocks if txt)
+            buffer.append(segment["text"])
+    if buffer:
+        blocks.append((current_speaker, clean_text(" ".join(buffer))))
+    return "\n\n".join(f"[{speaker}] {text}" for speaker, text in blocks if text)

@@ -1,0 +1,11 @@
+# title: Service desk e assistenza IT
+# language: it
+# ITIL, ticket, livelli di servizio, gestione del parco macchine.
+#
+#   audio-transcriber riunione.wav --vocab it-service-desk-it
+
+ITIL, service desk, ticket, presa in carico, severita', incident, problem,
+change, richiesta di servizio, SLA, tempo di risposta, tempo di risoluzione,
+escalation, primo livello, secondo livello, knowledge base, workaround,
+root cause analysis, post mortem, CMDB, provisioning, dismissione,
+help desk, first call resolution, manutenzione programmata

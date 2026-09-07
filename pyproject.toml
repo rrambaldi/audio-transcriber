@@ -4,25 +4,89 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "audio-transcriber-ov"
-version = "0.1.0"
-description = "Local audio/video transcription with Whisper on Intel iGPU (OpenVINO), optional speaker diarization. No cloud, your data stays on your machine."
+version = "0.3.0"
+description = "Local audio/video transcription with Whisper — Intel iGPU via OpenVINO or CPU-only servers via faster-whisper — with optional speaker diarization. No cloud, your data stays on your machine."
 readme = "README.md"
 license = { text = "MIT" }
 authors = [{ name = "Roberto Rambaldi" }]
-requires-python = ">=3.10"
-keywords = ["whisper", "openvino", "transcription", "diarization", "speech-to-text"]
+requires-python = ">=3.11"
+keywords = ["whisper", "openvino", "faster-whisper", "transcription", "diarization",
+            "speech-to-text", "qt", "desktop"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Environment :: X11 Applications :: Qt",
+    "Environment :: Web Environment",
+    "Intended Audience :: End Users/Desktop",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Multimedia :: Sound/Audio :: Speech",
+    "Topic :: Text Processing :: Linguistic",
+]
+# The core stays light: the transcription engine is chosen with an extra, so a
+# server never pulls in OpenVINO and a laptop never pulls in CTranslate2
+# unless it wants both.
 dependencies = [
-    "optimum-intel[openvino]",
-    "transformers",
     "imageio-ffmpeg",
     "numpy",
 ]
 
+[project.urls]
+Homepage = "https://github.com/rrambaldi/audio-transcriber"
+Repository = "https://github.com/rrambaldi/audio-transcriber"
+Issues = "https://github.com/rrambaldi/audio-transcriber/issues"
+Changelog = "https://github.com/rrambaldi/audio-transcriber/blob/main/CHANGELOG.md"
+
 [project.optional-dependencies]
+# Servers and machines without a GPU: CTranslate2, int8 quantisation.
+cpu = ["faster-whisper>=1.0"]
+# PCs with an Intel iGPU or NPU.
+openvino = ["optimum-intel[openvino]", "transformers"]
+# "Who said what" (runs on the CPU).
 diarize = ["pyannote.audio"]
+# The local web interface ("audio-transcriber web").
+web = ["fastapi>=0.110", "uvicorn>=0.27", "python-multipart>=0.0.9"]
+# The desktop window ("audio-transcriber gui"). The full PySide6 rather than
+# PySide6-Essentials because QtMultimedia — the microphone and the player —
+# ships in the add-ons half; the window still opens with Essentials alone,
+# only without those two.
+gui = ["PySide6>=6.6"]
+all = ["faster-whisper>=1.0", "optimum-intel[openvino]", "transformers", "pyannote.audio",
+       "fastapi>=0.110", "uvicorn>=0.27", "python-multipart>=0.0.9", "PySide6>=6.6"]
+dev = ["pytest>=7", "ruff>=0.5", "fastapi>=0.110", "httpx>=0.27", "python-multipart>=0.0.9"]
 
 [project.scripts]
 audio-transcriber = "audio_transcriber.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+# The bundled keyword sets and the web interface are data, not modules.
+[tool.setuptools.package-data]
+audio_transcriber = ["data/vocabularies/*.txt", "web/static/*", "web/static/fonts/*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "C4", "SIM"]
+ignore = [
+    "B008",   # function call in default argument: not a pattern used here
+    "SIM105", # contextlib.suppress is not clearer than try/except: pass here
+]
+
+[tool.ruff.lint.per-file-ignores]
+# The message catalogue is data: wrapping the strings would make it harder to
+# read and to diff against a translation.
+"src/audio_transcriber/i18n.py" = ["E501"]
+"tests/*" = ["E501"]

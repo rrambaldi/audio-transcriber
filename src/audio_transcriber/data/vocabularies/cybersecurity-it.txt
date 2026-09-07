@@ -1,0 +1,13 @@
+# title: Cybersecurity operativa
+# language: it
+# SOC, incidenti, vulnerabilita'. Per conformita' e analisi del rischio
+# combinalo con iso27001-it.
+#
+#   audio-transcriber riunione.wav --vocab cybersecurity-it
+
+SOC, SIEM, EDR, XDR, incident response, falso positivo, IOC,
+threat intelligence, phishing, spear phishing, social engineering,
+ransomware, malware, exploit, CVE, CVSS, patch management,
+penetration test, vulnerability assessment, hardening, zero trust, MFA,
+account privilegiato, PAM, data breach, backup immutabile, NIS2,
+superficie di attacco, esfiltrazione

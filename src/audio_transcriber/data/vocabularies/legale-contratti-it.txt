@@ -1,0 +1,12 @@
+# title: Legale e contrattualistica
+# language: it
+# Clausole, trattative contrattuali, adempimenti formali.
+#
+#   audio-transcriber riunione.wav --vocab legale-contratti-it
+
+clausola, premesse, corrispettivo, decorrenza, rinnovo tacito, disdetta,
+recesso, risoluzione, inadempimento, diffida, penale, manleva, indennizzo,
+limitazione di responsabilita', forza maggiore, NDA,
+accordo di riservatezza, proprieta' intellettuale, licenza d'uso,
+subappalto, foro competente, legge applicabile, arbitrato, firma digitale,
+PEC, procura, DPA, clausola risolutiva espressa

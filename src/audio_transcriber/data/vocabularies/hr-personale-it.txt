@@ -1,0 +1,11 @@
+# title: Risorse umane e personale
+# language: it
+# Selezione, contratti, valutazione, formazione.
+#
+#   audio-transcriber riunione.wav --vocab hr-personale-it
+
+recruiting, screening, job description, onboarding, periodo di prova,
+CCNL, inquadramento, RAL, superminimo, welfare aziendale, buoni pasto, ROL,
+smart working, lavoro agile, straordinari, performance review,
+obiettivi individuali, piano formativo, sicurezza sul lavoro, RSPP,
+turnover, organigramma, employer branding, colloquio di uscita

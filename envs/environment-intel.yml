@@ -1,3 +1,5 @@
+# Ambiente per PC con iGPU/NPU Intel (backend OpenVINO).
+# Per un server senza GPU usa environment-cpu.yml.
 name: srt-ov
 channels:
   - conda-forge
@@ -9,4 +11,6 @@ dependencies:
       - transformers
       - imageio-ffmpeg   # ffmpeg incluso: nessuna installazione esterna
       - numpy
+      - faster-whisper   # utile anche qui come fallback su CPU
       - pyannote.audio   # solo per --diarize ("chi dice cosa"), gira su CPU
+      - PySide6          # solo per la finestra desktop (audio-transcriber gui)

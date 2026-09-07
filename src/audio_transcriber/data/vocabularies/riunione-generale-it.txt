@@ -1,0 +1,11 @@
+# title: Riunioni di lavoro (generico)
+# language: it
+# Il vocabolario comune a qualunque riunione. Volutamente corto: e' quello che
+# si combina con il set del dominio di cui si parla.
+#
+#   audio-transcriber riunione.wav --vocab riunione-generale-it
+
+action item, follow-up, deliverable, milestone, kickoff, stand-up,
+one to one, roadmap, owner, stakeholder, KPI, OKR, SLA, ROI, escalation,
+workshop, retrospettiva, feedback, recap, deadline, quick win, blocker,
+ordine del giorno, prossimi passi

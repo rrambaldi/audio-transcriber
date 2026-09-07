@@ -1,0 +1,11 @@
+# title: Marketing digitale, SEO e advertising
+# language: it
+# Ricerca organica, campagne a pagamento, analytics.
+#
+#   audio-transcriber riunione.wav --vocab digital-marketing-it
+
+SEO, SEM, SERP, keyword, intento di ricerca, on page, off page, backlink,
+link building, meta description, tag title, crawling, indicizzazione,
+Core Web Vitals, Google Analytics, GA4, tag manager, CTR, CPC, CPM, CPA,
+ROAS, Google Ads, Meta Ads, retargeting, remarketing, A/B test,
+bounce rate, carrello abbandonato

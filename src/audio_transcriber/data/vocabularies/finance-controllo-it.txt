@@ -1,0 +1,12 @@
+# title: Finance e controllo di gestione
+# language: it
+# Budget, consuntivi, marginalita', cassa.
+#
+#   audio-transcriber riunione.wav --vocab finance-controllo-it
+
+budget, forecast, consuntivo, scostamento, conto economico,
+stato patrimoniale, cash flow, EBITDA, EBIT, margine operativo lordo,
+margine di contribuzione, centro di costo, commessa, ammortamento,
+accantonamento, ratei e risconti, capex, opex, break even,
+punto di pareggio, ROI, ROE, DSO, capitale circolante, covenant,
+bilancio riclassificato, analisi degli scostamenti

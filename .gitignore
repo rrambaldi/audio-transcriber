@@ -1,17 +1,21 @@
-# Segreti (token Hugging Face)
+# Secrets (Hugging Face token)
 .env
 
-# Modelli scaricati/convertiti (si rigenerano al primo avvio)
+# Personal working notes, never published
+.local/
+
+# Downloaded and converted models (regenerated on first run)
 whisper-ov-models/
 pyannote-diar/
 
-# Registrazioni e trascrizioni personali
+# Recordings and transcripts
 recordings/
 *.wav
 *.mp3
 *.m4a
 *.mp4
 *.mkv
+*.flac
 
 # Python
 __pycache__/
@@ -19,7 +23,9 @@ __pycache__/
 *.egg-info/
 build/
 dist/
-.venv/
+.venv*/
+.pytest_cache/
+.ruff_cache/
 
 # IDE / OS
 .vscode/

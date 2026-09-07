@@ -1,0 +1,12 @@
+# title: Acquisti e fornitori
+# language: it
+# Procurement, gare, contratti di fornitura.
+#
+#   audio-transcriber riunione.wav --vocab acquisti-fornitori-it
+
+richiesta di acquisto, RdA, ordine di acquisto, albo fornitori,
+qualifica fornitore, RFI, RFP, RFQ, capitolato, offerta tecnica,
+offerta economica, aggiudicazione, trattativa privata, contratto quadro,
+termini di consegna, DDT, collaudo, penale, SLA contrattuale, disdetta,
+canone annuo, TCO, spending review, vendor lock in, subfornitura,
+non conformita'

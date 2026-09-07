@@ -1,0 +1,455 @@
+/* An editorial sheet, not an app chrome: ivory paper, forest ink, two columns
+   with the explanation in the narrow one and the controls in the wide one.
+
+   Two typefaces, both self-hosted so the page keeps working with no network
+   and calls nobody: Fraunces for the headings — an old-style serif with enough
+   character to carry a title — and Karla for everything you read while typing.
+   Licences sit next to the files.
+
+   Fields are a single rule under the text, so the form reads like a printed
+   one. That rule is therefore the only affordance an input has, and it is
+   drawn dark enough to pass WCAG 1.4.11 (3:1) rather than as a hairline; every
+   text pair in both schemes clears AA. */
+
+@font-face {
+  font-family: "Fraunces";
+  src: url("fonts/fraunces.woff2") format("woff2-variations");
+  font-weight: 400 700;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Karla";
+  src: url("fonts/karla.woff2") format("woff2-variations");
+  font-weight: 400 700;
+  font-display: swap;
+}
+
+:root {
+  color-scheme: light dark;
+
+  --paper: #F4F0E6;
+  --sheet: #FBF9F3;
+  --ink: #1E241C;
+  --muted: #565B4C;
+  --rule: #D8D2C0;
+  --line: #8A8471;
+  --forest: #2C4B39;
+  --forest-wash: #E8EDE4;
+  --clay: #8A3B22;
+  --ochre: #7A5A12;
+
+  /* What a field is painted on. A field is drawn as a bare underline, so this
+     is normally the page itself — but the browser paints two things with it
+     that must not be transparent: the list a <select> drops down, and an
+     autofilled field, which Chrome otherwise floods with its own yellow. */
+  --field-bg: #F4F0E6;
+
+  --serif: "Fraunces", "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+  --sans: "Karla", "Avenir Next", Corbel, "Segoe UI", system-ui, sans-serif;
+  --measure: 68ch;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --paper: #171A14;
+    --sheet: #1F231B;
+    --ink: #EDE8DA;
+    --muted: #ADAB93;
+    --rule: #363C31;
+    --line: #6E7563;
+    --forest: #A9C7A4;
+    --forest-wash: #262D23;
+    --clay: #E7A183;
+    --ochre: #D6B871;
+    --field-bg: #171A14;
+  }
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  padding: 0 clamp(1rem, 5vw, 4rem) 6rem;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 16px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* --- masthead ---------------------------------------------------------- */
+
+.masthead {
+  max-width: 72rem;
+  margin: 0 auto;
+  padding: clamp(2.5rem, 7vw, 5rem) 0 1.6rem;
+  border-bottom: 1px solid var(--ink);
+}
+.eyebrow, .tab, .button, label, legend, .meta, th {
+  font-family: var(--sans);
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+.eyebrow { margin: 0 0 0.6rem; color: var(--muted); }
+h1 {
+  font-family: var(--serif);
+  font-weight: 500;
+  font-size: clamp(2.4rem, 7vw, 4.2rem);
+  line-height: 0.95;
+  letter-spacing: -0.02em;
+  margin: 0;
+  font-variation-settings: "opsz" 144, "SOFT" 0, "WONK" 1;
+}
+.standfirst {
+  font-family: var(--serif);
+  font-size: clamp(1rem, 2vw, 1.15rem);
+  font-style: italic;
+  color: var(--muted);
+  margin: 0.8rem 0 0;
+  max-width: 42ch;
+}
+
+/* --- the sheet: narrow column of prose, wide column of controls -------- */
+
+main { max-width: 72rem; margin: 0 auto; }
+
+.sheet {
+  display: grid;
+  grid-template-columns: minmax(0, 15rem) minmax(0, 1fr);
+  gap: clamp(1.5rem, 5vw, 4rem);
+  padding: clamp(2rem, 5vw, 3.5rem) 0;
+  border-bottom: 1px solid var(--rule);
+}
+@media (max-width: 55rem) {
+  .sheet { grid-template-columns: minmax(0, 1fr); gap: 1.2rem; }
+}
+
+.lede h2 {
+  font-family: var(--serif);
+  font-weight: 500;
+  font-size: clamp(1.5rem, 3vw, 2rem);
+  line-height: 1.05;
+  letter-spacing: -0.01em;
+  margin: 0 0 0.6rem;
+  font-variation-settings: "opsz" 72, "WONK" 1;
+}
+.lede .note { margin: 0; }
+.fields { min-width: 0; max-width: var(--measure); }
+
+h3 {
+  font-family: var(--serif);
+  font-weight: 600;
+  font-size: 1rem;
+  margin: 1.8rem 0 0.7rem;
+  display: flex;
+  align-items: baseline;
+  gap: 0.8rem;
+}
+
+.note { color: var(--muted); font-size: 0.9rem; line-height: 1.5; }
+.error { color: var(--clay); font-size: 0.9rem; }
+.ok { color: var(--forest); font-size: 0.9rem; }
+
+/* --- fields: one rule under the text ----------------------------------- */
+
+.field { display: grid; gap: 0.3rem; margin-bottom: 1.4rem; }
+.field label { color: var(--muted); }
+
+input[type="text"], input[type="number"], input[type="search"], select, textarea {
+  font-family: var(--sans);
+  font-size: 1rem;
+  color: var(--ink);
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--line);
+  border-radius: 0;
+  padding: 0.4rem 0.1rem;
+  width: 100%;
+  transition: border-color 0.15s, background 0.15s;
+}
+select, select option, select optgroup {
+  /* The dropdown is drawn by the browser, not by this stylesheet: without an
+     explicit pair it ends up as the theme's colours against ours, which is how
+     you get ivory text on white — or on Chrome's yellow. */
+  background-color: var(--field-bg);
+  color: var(--ink);
+}
+select {
+  appearance: none;
+  background-image: linear-gradient(45deg, transparent 50%, var(--ink) 50%),
+                    linear-gradient(135deg, var(--ink) 50%, transparent 50%);
+  background-position: right 0.7rem center, right 0.35rem center;
+  background-size: 0.35rem 0.35rem, 0.35rem 0.35rem;
+  background-repeat: no-repeat;
+  padding-right: 1.6rem;
+}
+textarea {
+  border: 1px solid var(--line);
+  padding: 0.6rem;
+  line-height: 1.55;
+  resize: vertical;
+}
+/* Chrome and Firefox repaint an autofilled field with their own background,
+   which under a dark scheme leaves the text unreadable. The inset shadow is
+   the only way to override it, and the absurd transition keeps it from
+   flashing back a moment later. */
+input:-webkit-autofill, input:-webkit-autofill:hover, input:-webkit-autofill:focus,
+select:-webkit-autofill, textarea:-webkit-autofill {
+  -webkit-text-fill-color: var(--ink);
+  -webkit-box-shadow: 0 0 0 100px var(--field-bg) inset;
+  box-shadow: 0 0 0 100px var(--field-bg) inset;
+  caret-color: var(--ink);
+  transition: background-color 100000s ease-in-out 0s;
+}
+input:autofill, select:autofill, textarea:autofill {
+  color: var(--ink);
+  background-color: var(--field-bg);
+}
+
+input:hover, select:hover, textarea:hover { border-color: var(--ink); }
+input:focus-visible, select:focus-visible, textarea:focus-visible,
+button:focus-visible, a:focus-visible, .tab:focus-visible, [type="checkbox"]:focus-visible {
+  outline: 2px solid var(--forest);
+  outline-offset: 3px;
+}
+input:focus, select:focus, textarea:focus { border-color: var(--forest); }
+
+.field.checkbox {
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 0.2rem 0.6rem;
+  align-content: end;
+}
+.field.checkbox .note { grid-column: 1 / -1; margin: 0; font-size: 0.8rem; }
+.field.unavailable label { color: var(--muted); cursor: not-allowed; }
+[type="checkbox"] { accent-color: var(--forest); width: 1rem; height: 1rem; margin: 0; }
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+  gap: 0 2rem;
+  margin-top: 1.8rem;
+}
+.search-field { max-width: 22rem; }
+
+.visually-hidden {
+  position: absolute;
+  width: 1px; height: 1px;
+  padding: 0; margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* --- buttons: typographic, never boxy ---------------------------------- */
+
+.button, button, .link {
+  font-family: var(--sans);
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  font-weight: 600;
+  color: var(--ink);
+  background: none;
+  border: none;
+  border-bottom: 1px solid var(--line);
+  border-radius: 0;
+  padding: 0.35rem 0.1rem;
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-block;
+  transition: border-color 0.15s, color 0.15s;
+}
+.button:hover, button:hover { border-color: var(--forest); color: var(--forest); }
+.button.send {
+  border-bottom-width: 2px;
+  border-color: var(--forest);
+  color: var(--forest);
+  padding-right: 1.4rem;
+  position: relative;
+}
+.button.send::after {
+  content: "\2192";
+  position: absolute;
+  right: 0.1rem;
+  transition: transform 0.15s;
+}
+.button.send:hover::after { transform: translateX(0.2rem); }
+.button.danger { color: var(--clay); border-color: var(--clay); }
+.button.danger:hover { color: var(--clay); border-bottom-width: 2px; }
+button:disabled { opacity: 0.45; cursor: default; }
+.link {
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 0.85rem;
+  font-weight: 400;
+  color: var(--forest);
+  border-bottom: 1px solid var(--rule);
+  padding: 0;
+}
+.link:hover { border-color: var(--forest); }
+.submit-line { display: flex; align-items: center; gap: 1.2rem; margin-top: 2rem; flex-wrap: wrap; }
+menu .spacer { flex: 1; }
+
+/* --- tabs -------------------------------------------------------------- */
+
+.tabs { display: flex; gap: 1.4rem; margin-bottom: 1.4rem; border-bottom: 1px solid var(--rule); }
+.tab {
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--muted);
+  padding: 0 0 0.6rem;
+  margin-bottom: -1px;
+}
+.tab.on { color: var(--ink); border-bottom-color: var(--ink); }
+.tab:hover { color: var(--forest); }
+
+/* --- the drop area ----------------------------------------------------- */
+
+.drop {
+  border: 1px dashed var(--line);
+  padding: 1.6rem 1.2rem;
+  transition: border-color 0.15s, background 0.15s;
+}
+.drop p { margin: 0.3rem 0; }
+.drop.over { border-color: var(--forest); background: var(--forest-wash); }
+.record-line { display: flex; align-items: baseline; gap: 1rem; }
+.timer { font-variant-numeric: tabular-nums; font-size: 1.4rem; font-family: var(--serif); color: var(--muted); }
+button.recording { color: var(--clay); border-color: var(--clay); border-bottom-width: 2px; }
+audio { width: 100%; margin-top: 1rem; }
+
+/* --- keyword sets ------------------------------------------------------ */
+
+fieldset.vocab { border: none; border-top: 1px solid var(--rule); padding: 1.4rem 0 0; margin: 2.4rem 0 0; }
+legend { color: var(--muted); padding: 0; }
+/* Nineteen sets read as a block in columns, not as a column to scroll. */
+.sets {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr));
+  gap: 0 2rem;
+  align-items: start;
+}
+.set { padding: 0.5rem 0; border-bottom: 1px solid var(--rule); min-width: 0; }
+.set-head { display: flex; align-items: baseline; gap: 0.55rem; }
+.set label {
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--ink);
+  cursor: pointer;
+}
+.set .meta {
+  display: block;
+  text-transform: none;
+  letter-spacing: 0.02em;
+  font-weight: 400;
+  font-size: 0.78rem;
+  color: var(--muted);
+  padding-left: 1.55rem;
+}
+.set .meta .link { font-size: 0.78rem; }
+.set-filter { max-width: 18rem; margin-bottom: 0.6rem; }
+/* Notes inside the grid — "nothing matches", "none installed" — are prose
+   about the whole list, so they span it rather than sitting in one column. */
+.sets > .note, .no-match { grid-column: 1 / -1; }
+.count { margin: 0 0 0.8rem; }
+.set-preview {
+  font-family: var(--sans);
+  font-size: 0.82rem;
+  line-height: 1.45;
+  color: var(--muted);
+  background: var(--forest-wash);
+  padding: 0.6rem 0.8rem;
+  margin: 0.5rem 0 0.3rem 1.55rem;
+  white-space: pre-wrap;
+}
+.budget { font-size: 0.85rem; color: var(--muted); margin-top: 1.2rem; }
+.budget.over { color: var(--clay); }
+
+/* --- lists of jobs and entries ----------------------------------------- */
+
+.row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.3rem 1.5rem;
+  align-items: baseline;
+  padding: 1rem 0;
+  border-bottom: 1px solid var(--rule);
+}
+.row:first-child { padding-top: 0; }
+.row .title { font-family: var(--serif); font-size: 1.15rem; font-weight: 600; line-height: 1.25; }
+.row .meta {
+  text-transform: none;
+  letter-spacing: 0.02em;
+  font-weight: 400;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+.row .actions { display: flex; gap: 1rem; }
+.row .state { color: var(--forest); }
+.row .state.failed { color: var(--clay); }
+.bar { grid-column: 1 / -1; height: 2px; background: var(--rule); margin-top: 0.5rem; }
+.bar > span { display: block; height: 100%; background: var(--forest); transition: width 0.5s; }
+
+/* --- dialogs ----------------------------------------------------------- */
+
+dialog {
+  --field-bg: var(--sheet);
+  border: 1px solid var(--ink);
+  background: var(--sheet);
+  color: var(--ink);
+  max-width: min(52rem, 92vw);
+  width: 100%;
+  padding: clamp(1.4rem, 4vw, 2.4rem);
+  font-family: var(--sans);
+}
+dialog::backdrop { background: rgba(23, 26, 20, 0.55); }
+dialog h2 {
+  font-family: var(--serif);
+  font-weight: 500;
+  font-size: 1.6rem;
+  line-height: 1.1;
+  margin: 0 0 0.4rem;
+  font-variation-settings: "opsz" 72, "WONK" 1;
+}
+.viewer-head { border-bottom: 1px solid var(--rule); padding-bottom: 0.8rem; margin-bottom: 1rem; }
+menu { display: flex; gap: 1.2rem; align-items: center; padding: 0; margin: 1.8rem 0 0; flex-wrap: wrap; }
+
+.prose, .segments {
+  max-height: 52vh;
+  overflow: auto;
+  font-size: 1rem;
+  line-height: 1.7;
+  white-space: pre-wrap;
+}
+.prose { max-width: var(--measure); }
+.segment {
+  display: grid;
+  grid-template-columns: 3.6rem minmax(0, 1fr);
+  gap: 0.8rem;
+  padding: 0.3rem 0;
+  white-space: normal;
+}
+.segment:hover { background: var(--forest-wash); }
+.stamp {
+  font-variant-numeric: tabular-nums;
+  font-size: 0.8rem;
+  letter-spacing: 0.04em;
+  color: var(--forest);
+  border: none;
+  padding: 0;
+  text-align: left;
+}
+.speaker {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--muted);
+  margin-right: 0.5rem;
+}
+
+footer { max-width: 72rem; margin: 0 auto; padding-top: 2rem; }

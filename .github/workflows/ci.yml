@@ -1,0 +1,78 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Test on Python ${{ matrix.python-version }} (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest]
+        python-version: ["3.11", "3.12", "3.13"]
+        include:
+          # The tool is used on Windows too, so the path handling is checked there.
+          - os: windows-latest
+            python-version: "3.12"
+          - os: macos-latest
+            python-version: "3.12"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+      # The test suite deliberately needs no transcription engine: it must stay
+      # runnable without downloading gigabytes of models.
+      - run: pip install -e ".[dev]"
+      - run: pytest
+
+  gui:
+    name: Test the desktop window (Qt)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      # Qt links against these even for the offscreen platform plugin, which
+      # is what the tests use: no display is needed, but the libraries are.
+      - run: sudo apt-get update && sudo apt-get install -y libegl1 libxkbcommon-x11-0 libdbus-1-3
+      # PySide6 is a few hundred megabytes, so it is installed here and not in
+      # the matrix above: the window's own decisions are tested without it, and
+      # this job covers the widgets themselves.
+      - run: pip install -e ".[dev,gui]"
+      - run: pytest tests/test_gui.py tests/test_gui_window.py -v
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -e ".[dev]"
+      - run: ruff check .
+
+  build:
+    name: Build the package
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install build twine
+      - run: python -m build
+      - run: twine check dist/*
