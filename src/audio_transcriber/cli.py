@@ -518,22 +518,35 @@ def command_gui(settings):
 
 
 def command_hardware(args):
-    """Report what the machine can do, and what it would choose."""
+    """Report what the machine can do, and what it would choose.
+
+    Returns 1 when this installation cannot transcribe at all, so a script can
+    tell, but it always prints the whole report first."""
     from .backends import resolve_backend
+    from .diarization import NO_MODEL, NOT_INSTALLED, availability
     from .hardware import summary
     from .transcription import recommend_model
 
     print(summary())
-    backend = resolve_backend("auto", args.device or "auto")
-    print(t("hardware.auto_backend", backend=backend))
-    print(t("hardware.auto_model",
-            model=recommend_model(backend, args.device or "auto")))
+    device = args.device or "auto"
+    try:
+        backend = resolve_backend("auto", device)
+    except SystemExit as exc:
+        # This is the command people run *because* something is missing, so an
+        # absent engine belongs in the report rather than in place of it:
+        # exiting here would hide the hardware summary and the diarization
+        # state, which are exactly what they came for.
+        print(exc)
+        backend = None
+    if backend:
+        print(t("hardware.auto_backend", backend=backend))
+        print(t("hardware.auto_model", model=recommend_model(backend, device)))
 
-    from .diarization import NO_MODEL, NOT_INSTALLED, availability
     state, detail = availability()
     print(t({NOT_INSTALLED: "hardware.diarize_missing",
              NO_MODEL: "hardware.diarize_unconfigured"}.get(state, "hardware.diarize_ready"),
             detail=detail))
+    return 0 if backend else 1
 
 
 def command_paths(settings=None):

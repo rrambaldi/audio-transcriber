@@ -72,10 +72,29 @@ def test_no_arguments_prints_help_and_fails():
     assert cli.main([]) == 1
 
 
-def test_hardware_reports_the_machine(capsys):
-    cli.main(["hardware"])
+def test_hardware_reports_the_machine(capsys, monkeypatch):
+    from audio_transcriber import backends
+
+    monkeypatch.setenv("AUDIO_TRANSCRIBER_LANG", "en")
+    monkeypatch.setattr(backends, "is_installed",
+                        lambda name: name == backends.FASTER_WHISPER)
+    assert cli.main(["hardware"]) == 0
     output = capsys.readouterr().out
-    assert "CPU" in output and "backend" in output
+    assert "CPU" in output and "faster-whisper" in output
+
+
+def test_hardware_still_reports_when_no_engine_is_installed(capsys, monkeypatch):
+    """This is the command people run *because* something is missing, so it has
+    to say so instead of exiting on the first question it cannot answer."""
+    from audio_transcriber import backends
+
+    monkeypatch.setenv("AUDIO_TRANSCRIBER_LANG", "en")
+    monkeypatch.setattr(backends, "is_installed", lambda name: False)
+    assert cli.main(["hardware"]) == 1
+    output = capsys.readouterr().out
+    assert "CPU" in output                       # the hardware summary survived
+    assert "No transcription backend is installed" in output
+    assert "diarization" in output               # and the report carried on
 
 
 def test_paths_lists_the_managed_directories(capsys, tmp_path):

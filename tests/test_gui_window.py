@@ -20,8 +20,15 @@ pytest.importorskip("PySide6", reason="the [gui] extra is not installed")
 # before any of it is touched: no window ever appears, on any machine.
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
-from PySide6.QtCore import Qt  # noqa: E402
-from PySide6.QtWidgets import QApplication, QMessageBox  # noqa: E402
+try:
+    from PySide6.QtCore import Qt
+    from PySide6.QtWidgets import QApplication, QMessageBox
+except ImportError as exc:      # pragma: no cover - depends on the machine
+    # PySide6 is installed but will not load: a partial install, or a Linux box
+    # without the system libraries Qt links against. That is worth skipping
+    # rather than erroring — it is the same situation as not having Qt, and
+    # "audio-transcriber gui" says so too.
+    pytest.skip(f"PySide6 cannot be loaded here: {exc}", allow_module_level=True)
 
 from audio_transcriber import i18n, paths  # noqa: E402
 from audio_transcriber.gui.window import MainWindow  # noqa: E402
