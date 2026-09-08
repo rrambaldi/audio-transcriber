@@ -290,6 +290,39 @@ def search_summary(query, count):
 
 
 # --------------------------------------------------------------------------
+# what the recording menus say
+# --------------------------------------------------------------------------
+
+def source_label(source, with_host_api=False):
+    """How one recordable source reads in a menu.
+
+    A loopback is marked as such, because "Speakers" among the *recording*
+    sources is otherwise a contradiction: it records what those speakers
+    play. ``with_host_api`` is for the "together with" menu, which mixes
+    sources from different audio systems and would otherwise show two
+    identical names."""
+    label = (t("gui.rec_loopback_label", name=source.label)
+             if source.is_loopback else source.label)
+    return f"{label} - {source.host_api}" if with_host_api else label
+
+
+def mix_candidates(sources, primary_key):
+    """What may be recorded *together with* the chosen source.
+
+    Anything but the source itself: mixing a microphone with itself would
+    only make it twice as loud. Loopbacks come first, because they are the
+    reason this menu exists — a call has the others in the speakers."""
+    others = [source for source in sources if source.key != primary_key]
+    return sorted(others, key=lambda source: not source.is_loopback)
+
+
+def host_api_summary(sources):
+    """Tooltip for one audio system: how many sources it offers."""
+    loopbacks = sum(1 for source in sources if source.is_loopback)
+    return t("gui.rec_host_api_summary", count=len(sources), loopbacks=loopbacks)
+
+
+# --------------------------------------------------------------------------
 # recording and file names
 # --------------------------------------------------------------------------
 

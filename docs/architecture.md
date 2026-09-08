@@ -34,6 +34,7 @@ input file      │                          \      /
 | `jobs.py` | the queue both interfaces submit to: one transcription at a time, in a worker thread |
 | `web/` | the optional local interface: a JSON API and one static page |
 | `gui/` | the optional desktop window; `gui/options.py` holds its decisions and imports no Qt |
+| `recording.py` | recording from this machine's devices: audio systems, loopback, mixing — no Qt |
 | `formatting.py` | durations, clock positions and file sizes, worded the same way everywhere |
 | `audio.py` | one job: any container in, a numpy array out |
 | `transcription.py` | orchestration — chooses an engine, checks it fits, returns a uniform result |
@@ -67,6 +68,14 @@ time in a worker thread, report progress, file the result. The only difference
 is what becomes of the source file — an upload or a recording the program made
 is *moved* into the library entry, a file the user picked is *copied* — which
 is why `submit()` takes a store mode.
+
+**Recording is an engine, not a widget.** `recording.py` holds the device
+enumeration, the WAV writing and the mixing of two sources, and it is handed
+the two audio libraries as objects. That is what makes it testable on a machine
+with no microphone, no PortAudio and no sound server: the tests pass fakes and
+assert on the samples that reach the file. The Qt recorder stays as a fallback
+for installations without the `[record]` extra, and the widget picks between
+them.
 
 **The window's decisions are not in the widgets.** Everything the desktop
 interface actually decides — which menus to offer, what a table row says, how a

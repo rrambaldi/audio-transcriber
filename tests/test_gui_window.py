@@ -186,6 +186,138 @@ def test_without_qtmultimedia_the_player_says_why_on_the_page(
     panel.deleteLater()
 
 
+# --- choosing what to record from -----------------------------------------
+
+def make_device_recorder(tmp_path, application, store=None):
+    """The Audacity-style recorder, driven by devices that do not exist."""
+    from audio_fakes import audio_source, two_engines
+    from audio_transcriber.gui.recorder import DeviceRecorder, make_recorder
+    from audio_transcriber.recording import LOOPBACK, WASAPI
+
+    inputs = [audio_source(key="portaudio:0:Mic", host_api="MME", label="Mic"),
+              audio_source(key="portaudio:2:Mic", host_api="Windows WASAPI",
+                           label="Mic"),
+              audio_source(key="portaudio:2:Line", host_api="Windows WASAPI",
+                           label="Line in")]
+    loopbacks = [audio_source(key="wasapi:loopback:Speakers",
+                              host_api="Windows WASAPI", kind=LOOPBACK,
+                              engine=WASAPI, channels=2, label="Altoparlanti")]
+    backends = two_engines(inputs, loopbacks)
+    recorder = make_recorder(str(tmp_path / "uploads"), store=store,
+                             backends=backends)
+    assert isinstance(recorder, DeviceRecorder)
+    return recorder, backends
+
+
+def test_the_recorder_offers_the_audio_systems_and_their_sources(tmp_path, application):
+    recorder, _ = make_device_recorder(tmp_path, application)
+    systems = [recorder.host_apis.itemText(i) for i in range(recorder.host_apis.count())]
+    assert systems == ["MME", "Windows WASAPI"]
+
+    recorder.host_apis.setCurrentIndex(systems.index("Windows WASAPI"))
+    sources = [recorder.sources.itemText(i) for i in range(recorder.sources.count())]
+    assert sources == ["Mic", "Line in", "[loopback] Altoparlanti"]
+    recorder.deleteLater()
+
+
+def test_choosing_another_audio_system_changes_the_sources(tmp_path, application):
+    recorder, _ = make_device_recorder(tmp_path, application)
+    recorder.host_apis.setCurrentIndex(0)                       # MME
+    assert recorder.sources.count() == 1
+    recorder.host_apis.setCurrentIndex(1)                       # WASAPI
+    assert recorder.sources.count() == 3
+    recorder.deleteLater()
+
+
+def test_the_second_source_menu_leaves_out_the_one_being_recorded(tmp_path, application):
+    recorder, _ = make_device_recorder(tmp_path, application)
+    recorder.host_apis.setCurrentIndex(1)
+    recorder.sources.setCurrentIndex(0)                          # Mic on WASAPI
+    keys = [recorder.mix_sources.itemData(i)
+            for i in range(recorder.mix_sources.count())]
+    assert recorder.sources.currentData() not in keys
+    assert keys[0] == "wasapi:loopback:Speakers"                 # loopbacks first
+    recorder.deleteLater()
+
+
+def test_recording_two_sources_writes_one_file_and_hands_it_over(tmp_path, application):
+    """The whole point: a microphone and the speakers of a call in one file."""
+    recorder, backends = make_device_recorder(tmp_path, application)
+    handed = []
+    recorder.recorded.connect(handed.append)
+
+    recorder.host_apis.setCurrentIndex(1)
+    recorder.sources.setCurrentIndex(0)
+    recorder.mix_enabled.setChecked(True)
+    recorder.start()
+    assert recorder.recording is True
+    assert wait_for(lambda: recorder._session.frames > 0)
+    recorder.stop()
+
+    assert len(handed) == 1 and os.path.exists(handed[0])
+    assert handed[0].endswith(".wav")
+    opened = [source.key for source, _channels, _rate in backends[0].opened]
+    assert opened == ["portaudio:2:Mic"]
+    assert [source.key for source, _c, _r in backends[1].opened] == [
+        "wasapi:loopback:Speakers"]
+    recorder.deleteLater()
+
+
+def test_reloading_looks_for_devices_again(tmp_path, application):
+    """PortAudio reads the devices once, at startup: a headset plugged in
+    afterwards is invisible until something asks it to look again."""
+    from audio_fakes import audio_source
+
+    recorder, backends = make_device_recorder(tmp_path, application)
+    before = recorder.host_apis.count()
+    backends[0]._sources.append(
+        audio_source(key="portaudio:5:USB", host_api="Windows WDM-KS",
+                     label="Headset"))
+    recorder.rescan()
+    assert recorder.host_apis.count() == before + 1
+    recorder.deleteLater()
+
+
+def test_a_source_that_will_not_open_is_reported_not_swallowed(tmp_path, application):
+    from audio_fakes import audio_source, two_engines
+    from audio_transcriber.gui.recorder import DeviceRecorder
+
+    class Refusing:
+        name = "portaudio"
+
+        def available(self):
+            return True
+
+        def sources(self):
+            return [audio_source()]
+
+        def open(self, *args):
+            raise OSError("Invalid number of channels")
+
+    backends = (Refusing(), two_engines()[1])
+    recorder = DeviceRecorder(str(tmp_path / "uploads"), backends=backends)
+    said = []
+    recorder.failed.connect(said.append)
+    recorder.start()
+    assert recorder.recording is False
+    assert said and "Invalid number of channels" in said[0]
+    assert "Invalid number of channels" in recorder.message.text()
+    recorder.deleteLater()
+
+
+def test_without_the_audio_libraries_the_window_still_records_through_qt(tmp_path):
+    """The fallback the [record] extra is optional because of."""
+    from audio_fakes import two_engines
+    from audio_transcriber.gui.qt_recorder import QtRecorder
+    from audio_transcriber.gui.recorder import make_recorder
+
+    recorder = make_recorder(str(tmp_path / "uploads"),
+                             backends=two_engines(available=False))
+    assert isinstance(recorder, QtRecorder)
+    assert "record" in recorder.message.text() or not recorder.button.isEnabled()
+    recorder.deleteLater()
+
+
 # --- transcribing ---------------------------------------------------------
 
 def test_a_file_added_is_queued_and_the_table_follows_it(window, tmp_path, queue):

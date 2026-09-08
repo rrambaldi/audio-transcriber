@@ -51,7 +51,7 @@ jobs:
       # the matrix above: the window's own decisions are tested without it, and
       # this job covers the widgets themselves.
       - run: pip install -e ".[dev,gui]"
-      - run: pytest tests/test_gui.py tests/test_gui_window.py -v
+      - run: pytest tests/test_gui.py tests/test_gui_window.py tests/test_recording.py -v
 
   lint:
     name: Lint

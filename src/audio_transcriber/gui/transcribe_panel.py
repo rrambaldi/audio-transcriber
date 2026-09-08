@@ -38,7 +38,7 @@ from ..i18n import t
 from ..library import STORE_COPY, STORE_MOVE
 from ..vocabularies import MAX_PROMPT_CHARS
 from . import options
-from .recorder import Recorder
+from .recorder import make_recorder
 
 #: How often the queue is re-read. Twice a second is imperceptible on a
 #: transcription measured in minutes, and costs nothing.
@@ -107,7 +107,7 @@ class TranscribePanel(QWidget):
 
         self.files = FileList()
         self.files.files_dropped.connect(self.add_files)
-        self.recorder = Recorder(self.queue.upload_dir())
+        self.recorder = make_recorder(self.queue.upload_dir(), store=self.store)
         self.recorder.recorded.connect(self._recorded)
         self.recorder.failed.connect(self.message.emit)
 

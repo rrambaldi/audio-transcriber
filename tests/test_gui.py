@@ -227,6 +227,58 @@ def test_the_search_summary_says_what_was_searched():
     assert "'risk'" in options.search_summary(" risk ", 2)
 
 
+# --- what the recording menus say -----------------------------------------
+
+def test_a_loopback_is_marked_as_one_in_the_menu():
+    """"Speakers" among the recording sources is otherwise a contradiction."""
+    from audio_fakes import audio_source
+    from audio_transcriber.recording import LOOPBACK
+
+    speakers = audio_source(key="wasapi:loopback:Speakers", kind=LOOPBACK,
+                            label="Altoparlanti")
+    assert options.source_label(speakers) == "[loopback] Altoparlanti"
+    assert options.source_label(audio_source(label="Mic")) == "Mic"
+
+
+def test_the_second_source_is_labelled_with_its_audio_system():
+    """The "together with" menu mixes audio systems, and the same device shows
+    up under each of them: without the suffix it would list twins."""
+    from audio_fakes import audio_source
+
+    mic = audio_source(host_api="MME", label="Mic")
+    assert options.source_label(mic, with_host_api=True) == "Mic - MME"
+
+
+def test_the_second_source_menu_offers_the_loopbacks_first():
+    """They are the reason it exists: a call has the others in the speakers."""
+    from audio_fakes import audio_source
+    from audio_transcriber.recording import LOOPBACK
+
+    mic = audio_source(key="portaudio:0:Mic")
+    other = audio_source(key="portaudio:1:Line")
+    speakers = audio_source(key="wasapi:loopback:Speakers", kind=LOOPBACK)
+    candidates = options.mix_candidates([mic, other, speakers], mic.key)
+    assert [source.key for source in candidates] == [speakers.key, other.key]
+
+
+def test_a_source_is_never_offered_to_be_mixed_with_itself():
+    """It would only make the same microphone twice as loud."""
+    from audio_fakes import audio_source
+
+    mic = audio_source()
+    assert options.mix_candidates([mic], mic.key) == []
+
+
+def test_an_audio_system_says_how_many_sources_it_has():
+    from audio_fakes import audio_source
+    from audio_transcriber.recording import LOOPBACK
+
+    summary = options.host_api_summary([audio_source(),
+                                        audio_source(key="wasapi:loopback:S",
+                                                     kind=LOOPBACK)])
+    assert "2" in summary and "1" in summary
+
+
 # --- names, drops and recordings ------------------------------------------
 
 def test_a_recording_is_named_after_the_moment_it_was_made():

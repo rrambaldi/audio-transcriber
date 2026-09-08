@@ -255,6 +255,27 @@ MESSAGES = {
         "gui.nothing_to_do": "Add a file, or record one, first.",
         "gui.job_finished": "Filed in the library: {entry}",
 
+        "gui.rec_host_api": "Audio system",
+        "gui.rec_host_api_tip":
+            "How Windows is asked for the sound: WASAPI is the native path and the only "
+            "one that can record what the speakers are playing. MME and DirectSound are "
+            "older wrappers over the same devices, kept for drivers that need them.",
+        "gui.rec_host_api_summary": "{count} sources, {loopbacks} of them loopback",
+        "gui.rec_source": "Source",
+        "gui.rec_reload_tip":
+            "Look for devices again. PortAudio reads them once, when it starts, so a\n"
+            "microphone connected after this window did needs asking.",
+        "gui.rec_source_tip": "The device to record from, among those this audio system offers.",
+        "gui.rec_loopback_label": "[loopback] {name}",
+        "gui.rec_mix": "Together with",
+        "gui.rec_mix_tip":
+            "Record a second source into the same file. A microphone plus the loopback "
+            "of the speakers are the two halves of a call: your voice and everyone "
+            "else's. The two sound cards keep their own time, so the first source sets "
+            "the pace and the second is held alongside it.",
+        "gui.rec_basic":
+            "This engine records from a microphone only. Choosing the audio system, and "
+            "recording what the speakers play, need: pip install \"audio-transcriber-ov[record]\"",
         "gui.rec_device": "Microphone",
         "gui.rec_device_tip": "Where the recording comes from; the list follows what the system offers.",
         "gui.rec_start": "Record",
@@ -588,6 +609,28 @@ MESSAGES = {
         "gui.nothing_to_do": "Prima aggiungi un file, o registrane uno.",
         "gui.job_finished": "Archiviata in libreria: {entry}",
 
+        "gui.rec_host_api": "Sistema audio",
+        "gui.rec_host_api_tip":
+            "Come si chiede il suono a Windows: WASAPI e' la via nativa ed e' la sola che "
+            "puo' registrare quello che gli altoparlanti stanno riproducendo. MME e "
+            "DirectSound sono involucri piu' vecchi sugli stessi dispositivi, utili per i "
+            "driver che li richiedono.",
+        "gui.rec_host_api_summary": "{count} sorgenti, di cui {loopbacks} in loopback",
+        "gui.rec_source": "Sorgente",
+        "gui.rec_reload_tip":
+            "Cerca di nuovo i dispositivi. PortAudio li legge una volta sola, all'avvio,\n"
+            "percio' un microfono collegato dopo questa finestra va chiesto.",
+        "gui.rec_source_tip": "Il dispositivo da cui registrare, fra quelli che offre questo sistema audio.",
+        "gui.rec_loopback_label": "[loopback] {name}",
+        "gui.rec_mix": "Insieme a",
+        "gui.rec_mix_tip":
+            "Registra una seconda sorgente nello stesso file. Un microfono piu' il loopback "
+            "degli altoparlanti sono le due meta' di una call: la tua voce e quella degli "
+            "altri. Le due schede audio hanno ciascuna il proprio tempo, percio' la prima "
+            "sorgente da' il ritmo e la seconda le viene tenuta accanto.",
+        "gui.rec_basic":
+            "Questo motore registra solo da microfono. Per scegliere il sistema audio, e per "
+            "registrare quello che riproducono gli altoparlanti: pip install \"audio-transcriber-ov[record]\"",
         "gui.rec_device": "Microfono",
         "gui.rec_device_tip": "Da dove arriva la registrazione; l'elenco segue quello che offre il sistema.",
         "gui.rec_start": "Registra",

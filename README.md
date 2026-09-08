@@ -34,8 +34,10 @@ audio-transcriber meeting.mp4        # -> meeting.txt
   and selectable from the command line or the web page.
 - **A local web interface**, optional: drop a file in the browser or record
   from it, watch the job, then read, search and annotate the library.
-- **A desktop window**, optional: the same thing in Qt, with a microphone that
-  needs no certificate and a player that reads along with the transcript.
+- **A desktop window**, optional: the same thing in Qt, with a player that
+  reads along with the transcript and a recorder that can capture the
+  microphone, what the speakers are playing, or both mixed together — which is
+  how you record a call.
 - English and Italian interface.
 
 ## Install
@@ -54,6 +56,7 @@ pip install -e ".[all]"        # both engines, plus diarization
 pip install -e ".[diarize]"    # diarization, on top of either
 pip install -e ".[web]"        # the local web interface, on top of either
 pip install -e ".[gui]"        # the desktop window (Qt), on top of either
+pip install -e ".[record]"     # host-API choice, loopback and mixing for the window
 ```
 
 Python 3.11 or newer. Conda users: `envs/environment-cpu.yml` for a GPU-less
@@ -210,7 +213,15 @@ was detected, and where the files are).
 Recording is the thing a window does better than a browser: a page needs
 `https://` or `localhost` before it may touch a microphone, this does not.
 Press *Record*, press *Stop*, and the recording queues itself for
-transcription. It needs a graphical session, so on a headless server use
+transcription.
+
+With the `[record]` extra it also offers what Audacity does — the audio system
+(MME, DirectSound, WASAPI, WDM-KS) and its sources, **including the loopback of
+an output device**, so a call can be recorded from the speakers. And a second
+source mixed into the same file: a microphone plus that loopback are the two
+halves of a meeting held over Teams, your voice and everyone else's.
+
+The window needs a graphical session, so on a headless server use
 `audio-transcriber web` instead. See [docs/gui.md](docs/gui.md).
 
 ## Choosing a backend
@@ -269,6 +280,8 @@ small server you may prefer to leave it off.
 - [x] Record straight from the browser
 - [x] Browsing, searching and annotating the library from that UI
 - [x] Desktop window in Qt, recording from a microphone included
+- [x] Recording what the speakers play (WASAPI loopback), and mixing it with
+      the microphone
 - [ ] Summaries of a transcript
 
 ## Contributing

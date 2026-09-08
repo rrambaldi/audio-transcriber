@@ -1,7 +1,8 @@
 # The desktop window
 
 ```bash
-pip install -e ".[gui]"       # PySide6 (Qt 6)
+pip install -e ".[gui]"           # PySide6 (Qt 6)
+pip install -e ".[gui,record]"    # and the audio-system, loopback and mix menus
 audio-transcriber gui
 ```
 
@@ -34,28 +35,65 @@ diarization is available, and every directory in use — with a button that open
 
 ## Recording
 
-The window records straight from a microphone with QtMultimedia, which is the
-one thing it does better than the browser: a page needs a secure context
+The window records straight from the machine's own devices, which is the one
+thing it does better than the browser: a page needs a secure context
 (`https://` or `localhost`) before it may touch a microphone, a window does
-not. Pick the input, press *Record*, pause and resume as needed, press *Stop* —
-and the recording is queued for transcription immediately, because whoever
-pressed stop has just finished a meeting.
+not. Press *Record*, pause and resume as needed, press *Stop* — and the
+recording is queued for transcription immediately, because whoever pressed
+stop has just finished a meeting.
 
-The microphone menu follows the machine: Qt reports a device being plugged in
-or taken away, so a headset connected after the window opened appears by
-itself, and one unplugged mid-session does not leave a stale name behind.
+With the `[record]` extra installed there are two menus, the ones Audacity
+puts in front of you:
 
-Recordings are mono, in the best container this Qt build can encode (AAC in
-MP4, then FLAC, then WAV): speech, and Whisper resamples to 16 kHz anyway. The
-file is written into the cache directory — the volume `[paths] cache` points at
-— and *moved* into the library entry when the transcription succeeds.
+**Audio system** — MME, DirectSound, WASAPI, WDM-KS. WASAPI is the native path
+on Windows and the only one that can record what the speakers are playing; the
+others are older wrappers over the same devices, kept for drivers that want
+them. The same microphone therefore appears under several of them, which is not
+a bug in the list but the shape of Windows audio.
 
-QtMultimedia ships in `PySide6-Addons`, which is why the `[gui]` extra names
-both halves of PySide6 explicitly: pip only checks the name `PySide6`, so an
-environment that already has `PySide6-Essentials` — or a Qt installed from
+**Source** — the devices of that audio system, with one addition: under WASAPI
+each output device also appears as `[loopback] …`. Recording *that* records
+what the machine plays, which for a call is everyone except you.
+
+**Together with** — a second source mixed into the same file. A microphone plus
+the loopback of the speakers are the two halves of a meeting held over Teams:
+your voice and everyone else's. Without it a loopback recording has the others
+and not you, and a microphone recording has you and, if you are lucky and
+wearing no headphones, a thin echo of the others.
+
+The mix is honest about its one limitation. Two sound cards run on independent
+clocks and drift apart over an hour, so the first source sets the pace and the
+second is held alongside it: whatever it has arrived is used, silence fills a
+gap, and audio more than half a second ahead is dropped rather than allowed to
+slide further and further behind. For a transcript that is invisible; for
+music it would not be good enough.
+
+*Reload* asks for the device list again. PortAudio reads it once, when it
+initialises, so a headset connected after the window opened is genuinely
+invisible until something restarts it — which is what that button does.
+
+Recordings are mono 16-bit WAV at the device's own sample rate. No resampling
+happens in this program on purpose: every recording goes through ffmpeg on its
+way to Whisper anyway, and ffmpeg resamples better than a few lines of numpy
+would. An hour is about 350 MB at 48 kHz. The file is written into the cache
+directory — the volume `[paths] cache` points at — and *moved* into the library
+entry when the transcription succeeds.
+
+### Without the [record] extra
+
+The window falls back to recording through Qt: one flat list of microphones,
+no host API to choose, no loopback, no mixing. It says so, and what to install.
+Qt is also the fallback wherever the two audio libraries do not work —
+`sounddevice` needs a PortAudio shared library, and `soundcard` speaks WASAPI
+on Windows, PulseAudio on Linux and CoreAudio on macOS, where there is no
+system loopback without a virtual device.
+
+QtMultimedia itself ships in `PySide6-Addons`, which is why the `[gui]` extra
+names both halves of PySide6 explicitly: pip only checks the name `PySide6`, so
+an environment that already has `PySide6-Essentials` — or a Qt installed from
 conda-forge — satisfies the requirement and never gains multimedia. If it is
-missing anyway, the window still opens and both the recorder and the player
-say so on the page:
+missing anyway, the window still opens and both the recorder and the player say
+so on the page:
 
 ```bash
 python -m pip install "PySide6-Addons>=6.6"
@@ -110,7 +148,7 @@ with conda providing nothing but the interpreter:
 ```bash
 conda create -n at python=3.12 pip
 conda activate at
-python -m pip install -e ".[openvino,gui]"
+python -m pip install -e ".[openvino,gui,record]"
 ```
 
 ## Jobs
@@ -157,9 +195,15 @@ dependencies. `audio-transcriber gui` says so rather than showing a traceback.
 | `gui/window.py` | the window, the three tabs, what happens when it closes |
 | `gui/transcribe_panel.py` | sources, options, the queue table |
 | `gui/library_panel.py` | the entry list, the reading pane, the notes editor, the player |
-| `gui/recorder.py` | the microphone |
+| `gui/recorder.py` | the audio-system and source menus, and the mix |
+| `gui/qt_recorder.py` | the fallback recorder, on QtMultimedia alone |
 | `gui/system_panel.py` | hardware and directories |
 | `gui/multimedia.py` | QtMultimedia when it is there, and a clear answer when it is not |
+
+The engine underneath the menus is `recording.py`, next to `pipeline.py` and
+with no Qt in it: the two audio libraries are objects it is handed, so
+enumeration, mixing and what ends up in the WAV are tested with fakes rather
+than with a microphone.
 
 Keeping the decisions in `options.py` is what lets the test suite check them on
 a server with no display and no PySide6 installed; `tests/test_gui_window.py`

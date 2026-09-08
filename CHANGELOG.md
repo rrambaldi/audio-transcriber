@@ -8,6 +8,28 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- **Recording knows about audio systems, loopback and mixing**, behind the new
+  `[record]` extra (`sounddevice` + `soundcard`). Two menus, the ones Audacity
+  shows: the audio system — MME, DirectSound, WASAPI, WDM-KS — and its
+  sources, with every output device also offered under WASAPI as
+  `[loopback] …`. Recording that records what the machine plays, which for a
+  call is everyone except you; a third menu, "together with", mixes a second
+  source into the same file, so a microphone and the speakers' loopback give
+  both halves of a meeting held over Teams. Qt cannot do any of this — its API
+  has only a flat list of inputs — so the engine is a new `recording.py`, with
+  the two libraries handed to it as objects and no Qt in it at all. Without the
+  extra the window records through QtMultimedia as before and says what the
+  other engine would add.
+- The mix states its limitation rather than hiding it: two sound cards keep
+  independent clocks, so the first source sets the pace and the second is held
+  alongside it — silence fills a gap, and audio more than half a second ahead
+  is dropped instead of drifting further behind every minute.
+- *Reload* next to the audio system, because PortAudio reads the device list
+  once when it initialises: a headset connected after the window opened is
+  invisible until PortAudio is restarted, which is what the button does.
+- Recordings are mono 16-bit WAV at the device's own rate. Nothing resamples
+  here on purpose: every recording passes through ffmpeg on its way to Whisper,
+  which does it better than a few lines of numpy would.
 - **A desktop window**, `audio-transcriber gui`, behind the new `[gui]` extra
   (PySide6/Qt 6): three tabs over the same core. *Transcribe* takes dropped
   files or a recording, offers the model, the language, the engine,
