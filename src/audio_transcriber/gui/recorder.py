@@ -17,6 +17,7 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QPushButton,
+    QSizePolicy,
     QVBoxLayout,
     QWidget,
 )
@@ -42,10 +43,19 @@ class Recorder(QWidget):
         self._session = None
         self._recorder = None
         self._audio_input = None
+        self._watcher = None
         self._target = None
 
         self.devices = QComboBox()
         self.devices.setToolTip(t("gui.rec_device_tip"))
+        # A device name is long ("Microphone Array (Intel Smart Sound...)") and
+        # the menu is the only thing here that has to be read rather than
+        # clicked, so it gets the width and its own line.
+        self.devices.setMinimumWidth(220)
+        self.devices.setSizePolicy(QSizePolicy.Policy.Expanding,
+                                   QSizePolicy.Policy.Fixed)
+        self.devices.setSizeAdjustPolicy(
+            QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
         self.button = QPushButton(t("gui.rec_start"))
         self.button.clicked.connect(self.toggle)
         self.pause_button = QPushButton(t("gui.rec_pause"))
@@ -55,21 +65,28 @@ class Recorder(QWidget):
         self.message = QLabel("")
         self.message.setWordWrap(True)
 
-        row = QHBoxLayout()
-        row.addWidget(QLabel(t("gui.rec_device")))
-        row.addWidget(self.devices, 1)
-        row.addWidget(self.button)
-        row.addWidget(self.pause_button)
-        row.addWidget(self.elapsed)
+        chooser = QHBoxLayout()
+        chooser.addWidget(QLabel(t("gui.rec_device")))
+        chooser.addWidget(self.devices, 1)
+        buttons = QHBoxLayout()
+        buttons.addWidget(self.button)
+        buttons.addWidget(self.pause_button)
+        buttons.addStretch(1)
+        buttons.addWidget(self.elapsed)
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
-        layout.addLayout(row)
+        layout.addLayout(chooser)
+        layout.addLayout(buttons)
         layout.addWidget(self.message)
 
         if not multimedia.AVAILABLE:
             self._disable(t("gui.rec_no_multimedia"))
             return
         self._build_session()
+        # Qt tells us when a microphone is plugged in or taken away, so the
+        # menu is never a snapshot of what was there when the window opened.
+        self._watcher = multimedia.QMediaDevices(self)
+        self._watcher.audioInputsChanged.connect(self.refresh_devices)
         self.refresh_devices()
 
     # --- setup ------------------------------------------------------------
@@ -96,9 +113,13 @@ class Recorder(QWidget):
         self._recorder.setAudioChannelCount(1)
 
     def refresh_devices(self):
-        """Repopulate the microphone menu, keeping the current choice if it
-        is still there."""
-        if not multimedia.AVAILABLE:
+        """Repopulate the microphone menu, keeping the current choice if it is
+        still there.
+
+        Also a slot: Qt calls it when the machine's microphones change, which
+        is why the menu never needs the window to be reopened. It must
+        therefore leave a recording in progress alone."""
+        if not multimedia.AVAILABLE or self.recording:
             return
         previous = self.devices.currentData()
         self.devices.clear()
@@ -109,6 +130,7 @@ class Recorder(QWidget):
             self._disable(t("gui.rec_no_device"))
             return
         self.button.setEnabled(True)
+        self.devices.setEnabled(True)
         self.message.setText("")
         for index in range(self.devices.count()):
             data = self.devices.itemData(index)

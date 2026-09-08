@@ -132,6 +132,41 @@ def test_this_machine_tab_reports_hardware_and_paths(window):
     assert window.system.hardware_form.rowCount() >= 2
 
 
+# --- recording ------------------------------------------------------------
+
+def test_the_microphone_menu_has_room_to_be_read(window):
+    """It used to be 85 pixels wide, squeezed between a label and two buttons,
+    so a real device name — "Microphone Array (Intel Smart Sound...)" — showed
+    as nothing at all and looked like a dead control."""
+    window.resize(1180, 760)
+    window.show()                    # offscreen: nothing appears anywhere
+    QApplication.processEvents()
+    assert window.transcribe.recorder.devices.width() >= 200
+
+
+def test_the_microphone_list_is_not_a_snapshot(window):
+    """Plugging in a headset after the window opened used to mean reopening
+    it. Qt reports the change, and refresh_devices is the slot it calls."""
+    from audio_transcriber.gui import multimedia
+
+    recorder = window.transcribe.recorder
+    if not multimedia.AVAILABLE:
+        pytest.skip("QtMultimedia is not installed")
+    assert recorder._watcher is not None
+    recorder.refresh_devices()       # safe to call at any moment
+    assert recorder.devices.count() == len(multimedia.input_devices())
+
+
+def test_with_no_microphone_the_recorder_says_so_instead_of_failing_later(window):
+    from audio_transcriber.gui import multimedia
+
+    if multimedia.input_devices():
+        pytest.skip("this machine has a microphone")
+    recorder = window.transcribe.recorder
+    assert recorder.button.isEnabled() is False
+    assert "microphone" in recorder.message.text().lower()
+
+
 # --- transcribing ---------------------------------------------------------
 
 def test_a_file_added_is_queued_and_the_table_follows_it(window, tmp_path, queue):

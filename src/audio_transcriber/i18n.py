@@ -194,6 +194,7 @@ MESSAGES = {
         "gui.tab_details": "Details",
 
         "gui.group_sources": "Recordings to transcribe",
+        "gui.group_record": "Record a meeting",
         "gui.add_files": "Add files...",
         "gui.remove_files": "Remove",
         "gui.clear_files": "Clear",
@@ -261,7 +262,7 @@ MESSAGES = {
         "gui.rec_queued": "Recording queued for transcription.",
         "gui.rec_empty": "Nothing was recorded: the microphone produced no sound.",
         "gui.rec_failed": "Recording failed.",
-        "gui.rec_no_device": "No microphone found. Connect one, then reopen the window.",
+        "gui.rec_no_device": "No microphone found. Connect one — the menu notices by itself.",
         "gui.rec_no_multimedia":
             "Recording needs QtMultimedia: pip install PySide6-Addons (or the full PySide6).",
         "gui.recording_title": "Recording {when}",
@@ -523,6 +524,7 @@ MESSAGES = {
         "gui.tab_details": "Dettagli",
 
         "gui.group_sources": "Registrazioni da trascrivere",
+        "gui.group_record": "Registra una riunione",
         "gui.add_files": "Aggiungi file...",
         "gui.remove_files": "Togli",
         "gui.clear_files": "Svuota",
@@ -590,7 +592,7 @@ MESSAGES = {
         "gui.rec_queued": "Registrazione messa in coda per la trascrizione.",
         "gui.rec_empty": "Non e' stato registrato nulla: dal microfono non arrivava suono.",
         "gui.rec_failed": "Registrazione fallita.",
-        "gui.rec_no_device": "Nessun microfono trovato. Collegane uno e riapri la finestra.",
+        "gui.rec_no_device": "Nessun microfono trovato. Collegane uno: l'elenco se ne accorge da solo.",
         "gui.rec_no_multimedia":
             "Per registrare serve QtMultimedia: pip install PySide6-Addons (o PySide6 completo).",
         "gui.recording_title": "Registrazione {when}",

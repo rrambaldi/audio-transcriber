@@ -199,7 +199,17 @@ class TranscribePanel(QWidget):
         source_layout = QVBoxLayout(sources)
         source_layout.addLayout(buttons)
         source_layout.addWidget(self.files, 1)
-        source_layout.addWidget(self.recorder)
+
+        # Its own box: recording is one of the two ways in, not a line under
+        # the file list, and the microphone menu needs the width to be read.
+        record = QGroupBox(t("gui.group_record"))
+        record_layout = QVBoxLayout(record)
+        record_layout.addWidget(self.recorder)
+        left = QWidget()
+        left_layout = QVBoxLayout(left)
+        left_layout.setContentsMargins(0, 0, 0, 0)
+        left_layout.addWidget(sources, 1)
+        left_layout.addWidget(record)
 
         settings_box = QGroupBox(t("gui.group_options"))
         form = QFormLayout(settings_box)
@@ -235,7 +245,7 @@ class TranscribePanel(QWidget):
         top = QWidget()
         top_layout = QHBoxLayout(top)
         top_layout.setContentsMargins(0, 0, 0, 0)
-        top_layout.addWidget(sources, 3)
+        top_layout.addWidget(left, 3)
         top_layout.addWidget(settings_box, 2)
         top_layout.addWidget(vocab_box, 3)
 

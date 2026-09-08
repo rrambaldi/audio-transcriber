@@ -41,6 +41,10 @@ not. Pick the input, press *Record*, pause and resume as needed, press *Stop* â€
 and the recording is queued for transcription immediately, because whoever
 pressed stop has just finished a meeting.
 
+The microphone menu follows the machine: Qt reports a device being plugged in
+or taken away, so a headset connected after the window opened appears by
+itself, and one unplugged mid-session does not leave a stale name behind.
+
 Recordings are mono, in the best container this Qt build can encode (AAC in
 MP4, then FLAC, then WAV): speech, and Whisper resamples to 16 kHz anyway. The
 file is written into the cache directory â€” the volume `[paths] cache` points at
