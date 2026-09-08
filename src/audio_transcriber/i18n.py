@@ -181,8 +181,10 @@ MESSAGES = {
             "  pip install \"audio-transcriber-ov[gui]\"",
         "gui.broken":
             "PySide6 is installed but cannot be loaded: {error}\n"
-            "  On a headless machine this usually means the system libraries Qt links\n"
-            "  against are missing. The web interface needs none of them: try 'web'.",
+            "  A DLL or shared-library failure here almost always means two Qt\n"
+            "  installations in one environment - conda's Qt found on PATH before the\n"
+            "  one pip bundles - or, on a headless machine, missing system libraries.\n"
+            "  See docs/gui.md. The web interface needs none of this: try 'web'.",
         "gui.app_name": "Audio Transcriber",
         "gui.window_title": "audio-transcriber {version}",
         "gui.ready": "Library: {path}",
@@ -511,8 +513,11 @@ MESSAGES = {
             "  pip install \"audio-transcriber-ov[gui]\"",
         "gui.broken":
             "PySide6 e' installato ma non si carica: {error}\n"
-            "  Su una macchina senza ambiente grafico mancano di solito le librerie di\n"
-            "  sistema a cui Qt si appoggia. L'interfaccia web non ne ha bisogno: prova 'web'.",
+            "  Un errore di DLL o di libreria condivisa qui vuol dire quasi sempre due Qt\n"
+            "  nello stesso ambiente - quello di conda trovato nel PATH prima di quello\n"
+            "  che pip si porta dietro - oppure, su una macchina senza ambiente grafico,\n"
+            "  librerie di sistema mancanti. Vedi docs/gui.md. L'interfaccia web non ha\n"
+            "  bisogno di niente di tutto questo: prova 'web'.",
         "gui.app_name": "Audio Transcriber",
         "gui.window_title": "audio-transcriber {version}",
         "gui.ready": "Libreria: {path}",

@@ -84,6 +84,23 @@ leaves half the binding managed by conda and half by pip, which is one way to
 end up with a Qt that imports and still has no QtMultimedia. Conda is the right
 tool for the interpreter here; the Qt wheels come from PyPI.
 
+The same clash has a second face, and this one is not an install error but a
+startup failure:
+
+```
+PySide6 is installed but cannot be loaded: DLL load failed while importing
+QtCore: the specified procedure could not be found
+```
+
+Both Qt builds are present, and an activated conda environment puts its own
+`Library\bin` on PATH ahead of the DLLs pip ships next to the `.pyd` files —
+so a 6.11.2 binding loads a 6.11.0 `Qt6Core.dll` and looks for an export that
+is not in it. Nothing can be patched into place here: the search order is the
+bug. Rebuild the environment with conda providing only the interpreter.
+
+Do not reach for `conda remove qt6-main` in a full Anaconda `base` either:
+Navigator, Spyder and qtconsole are Qt applications, and they go with it.
+
 Order matters, and only in that direction. Once pip has written its wheels into
 `site-packages/PySide6`, a later `conda remove pyside6` deletes the paths conda
 still has on record — which are now pip's files — and takes the working install
