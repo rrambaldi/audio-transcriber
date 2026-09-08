@@ -57,7 +57,10 @@ pip install -e ".[gui]"        # the desktop window (Qt), on top of either
 ```
 
 Python 3.11 or newer. Conda users: `envs/environment-cpu.yml` for a GPU-less
-server, `envs/environment-intel.yml` for an Intel machine.
+server, `envs/environment-intel.yml` for an Intel machine. Let conda provide
+the interpreter and pip provide the rest — a Qt installed with
+`conda install pyside6` cannot be completed or replaced by pip afterwards, see
+[docs/gui.md](docs/gui.md).
 
 Not sure what your machine can do?
 

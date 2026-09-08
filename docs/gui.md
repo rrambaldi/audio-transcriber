@@ -61,8 +61,28 @@ say so on the page:
 python -m pip install "PySide6-Addons>=6.6"
 ```
 
-If PySide6 came from conda rather than pip, remove it there first
-(`conda remove pyside6`) instead of layering the PyPI halves over it.
+### If Qt came from conda
+
+A `conda install pyside6` registers itself without the metadata pip needs in
+order to replace it, so installing the PyPI halves over it stops with
+
+```
+Cannot uninstall shiboken6 6.11.0
+The package's contents are unknown: no RECORD file was found for shiboken6.
+```
+
+Nothing is broken at that point — pip abandons the whole transaction — but the
+fix is to take Qt out of conda's hands rather than to force pip past it:
+
+```bash
+conda remove pyside6 shiboken6        # --force if conda objects
+python -m pip install -e ".[gui]"
+```
+
+Do **not** follow the hint pip prints (`--ignore-installed --no-deps`): it
+leaves half the binding managed by conda and half by pip, which is one way to
+end up with a Qt that imports and still has no QtMultimedia. Conda is the right
+tool for the interpreter here; the Qt wheels come from PyPI.
 
 ## Jobs
 
