@@ -84,6 +84,18 @@ leaves half the binding managed by conda and half by pip, which is one way to
 end up with a Qt that imports and still has no QtMultimedia. Conda is the right
 tool for the interpreter here; the Qt wheels come from PyPI.
 
+Order matters, and only in that direction. Once pip has written its wheels into
+`site-packages/PySide6`, a later `conda remove pyside6` deletes the paths conda
+still has on record — which are now pip's files — and takes the working install
+with it. An environment that already got there is better left alone, or rebuilt
+with conda providing nothing but the interpreter:
+
+```bash
+conda create -n at python=3.12 pip
+conda activate at
+python -m pip install -e ".[openvino,gui]"
+```
+
 ## Jobs
 
 The queue is the one the web interface uses (`jobs.py`), running in a worker
