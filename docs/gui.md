@@ -50,9 +50,19 @@ MP4, then FLAC, then WAV): speech, and Whisper resamples to 16 kHz anyway. The
 file is written into the cache directory — the volume `[paths] cache` points at
 — and *moved* into the library entry when the transcription succeeds.
 
-QtMultimedia ships in `PySide6-Addons`, which the full `PySide6` pulls in. With
-`PySide6-Essentials` alone the window still opens: the *Record* button and the
-player say what to install instead of failing.
+QtMultimedia ships in `PySide6-Addons`, which is why the `[gui]` extra names
+both halves of PySide6 explicitly: pip only checks the name `PySide6`, so an
+environment that already has `PySide6-Essentials` — or a Qt installed from
+conda-forge — satisfies the requirement and never gains multimedia. If it is
+missing anyway, the window still opens and both the recorder and the player
+say so on the page:
+
+```bash
+python -m pip install "PySide6-Addons>=6.6"
+```
+
+If PySide6 came from conda rather than pip, remove it there first
+(`conda remove pyside6`) instead of layering the PyPI halves over it.
 
 ## Jobs
 

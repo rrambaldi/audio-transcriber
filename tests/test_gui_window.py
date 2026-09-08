@@ -167,6 +167,25 @@ def test_with_no_microphone_the_recorder_says_so_instead_of_failing_later(window
     assert "microphone" in recorder.message.text().lower()
 
 
+def test_without_qtmultimedia_the_player_says_why_on_the_page(
+        application, tmp_path, monkeypatch):
+    """PySide6 ships in two halves and only the add-ons half has QtMultimedia,
+    so this branch runs on other people's machines and never on the one it was
+    written on. A tooltip on a disabled button was not enough: on several
+    platforms it never appears."""
+    from audio_transcriber.gui import multimedia
+    from audio_transcriber.gui.library_panel import LibraryPanel
+    from audio_transcriber.library import Library
+
+    monkeypatch.setattr(multimedia, "AVAILABLE", False)
+    panel = LibraryPanel(Library(str(tmp_path / "library")))
+    assert panel.player is None
+    assert panel.play.isEnabled() is False
+    assert panel.player_note.isHidden() is False
+    assert "QtMultimedia" in panel.player_note.text()
+    panel.deleteLater()
+
+
 # --- transcribing ---------------------------------------------------------
 
 def test_a_file_added_is_queued_and_the_table_follows_it(window, tmp_path, queue):

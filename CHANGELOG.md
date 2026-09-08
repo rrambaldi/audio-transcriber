@@ -21,9 +21,12 @@ All notable changes to this project are documented here. The format follows
   the best container the Qt build can encode. This is the one thing a window
   does better than a browser, which needs a secure context before it may
   capture audio; pressing *Stop* queues the recording for transcription
-  straight away. QtMultimedia lives in `PySide6-Addons`: with
-  `PySide6-Essentials` alone the window still opens, and the recorder and the
-  player say what to install.
+  straight away. QtMultimedia lives in `PySide6-Addons`, so the `[gui]` extra
+  names both halves of PySide6 — pip only checks the name "PySide6", and an
+  environment that already has `PySide6-Essentials` (or a Qt from conda-forge)
+  would otherwise satisfy it and never gain multimedia. Without that half the
+  window still opens, and the recorder and the player say, on the page, what
+  is missing.
 - The window remembers, in a `gui.ini` next to `config.toml`, its size and the
   choices last used — including the terms typed in its own vocabulary box,
   which are the desktop counterpart of the browser's `localStorage` and never

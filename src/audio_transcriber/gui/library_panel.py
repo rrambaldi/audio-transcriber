@@ -87,8 +87,13 @@ class LibraryPanel(QWidget):
         self.table.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
         self.table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         self.table.setSortingEnabled(False)
-        self.table.horizontalHeader().setSectionResizeMode(
-            1, QHeaderView.ResizeMode.Stretch)
+        # Every column but the title is as wide as its content and no wider:
+        # six columns in a narrow pane otherwise push the last three out of
+        # sight behind a horizontal scrollbar, and the date is what people
+        # look for first.
+        header = self.table.horizontalHeader()
+        header.setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
+        header.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
         self.table.itemSelectionChanged.connect(self._selection_changed)
 
     def _build_reader(self):
@@ -126,6 +131,9 @@ class LibraryPanel(QWidget):
         self.position.setRange(0, 0)
         self.position.sliderMoved.connect(self._seek_ms)
         self.clock = QLabel(f"{format_clock(0)} / {format_clock(0)}")
+        self.player_note = QLabel("")
+        self.player_note.setWordWrap(True)
+        self.player_note.hide()
         self.player = None
         self.audio_output = None
         if multimedia.AVAILABLE:
@@ -136,8 +144,12 @@ class LibraryPanel(QWidget):
             self.player.durationChanged.connect(self._duration_changed)
             self.player.playbackStateChanged.connect(self._playback_changed)
         else:
+            # A tooltip on a disabled button is not an explanation: on several
+            # platforms it never appears at all. The reason goes on the page.
             self.play.setEnabled(False)
-            self.play.setToolTip(t("gui.player_no_multimedia"))
+            self.position.setEnabled(False)
+            self.player_note.setText(t("gui.player_no_multimedia"))
+            self.player_note.show()
 
     def _assemble(self):
         left = QWidget()
@@ -167,6 +179,7 @@ class LibraryPanel(QWidget):
         player_row.addWidget(self.position, 1)
         player_row.addWidget(self.clock)
         right_layout.addLayout(player_row)
+        right_layout.addWidget(self.player_note)
         right_layout.addWidget(self.tabs, 1)
 
         self.rename = QPushButton(t("gui.rename"))
@@ -189,6 +202,9 @@ class LibraryPanel(QWidget):
         splitter.addWidget(right)
         splitter.setStretchFactor(0, 2)
         splitter.setStretchFactor(1, 3)
+        # The list needs enough of the width to show its columns; the reading
+        # pane keeps the larger share.
+        splitter.setSizes([520, 660])
         layout = QVBoxLayout(self)
         layout.addWidget(splitter)
         self._enable_actions(False)
