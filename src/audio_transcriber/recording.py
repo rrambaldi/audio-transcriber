@@ -29,6 +29,7 @@ pipeline already hands every recording to ffmpeg, which resamples to 16 kHz
 better than a few lines of numpy would, and an archived recording is worth
 keeping at the rate it was captured.
 """
+import math
 import os
 import threading
 import wave
@@ -374,71 +375,209 @@ def mix(primary, secondary):
             [secondary, np.zeros(len(primary) - len(secondary), dtype=np.float32)])
     return primary + secondary[:len(primary)]
 
+# --------------------------------------------------------------------------
+# does this look like speech?
+# --------------------------------------------------------------------------
 
-class Recording:
-    """One recording in progress, writing a mono WAV in a worker thread.
+#: What :class:`SpeechProbe` concluded.
+SILENCE = "silence"        #: nothing above the noise floor
+SOUND = "sound"            #: something, but it does not behave like a voice
+SPEECH = "speech"          #: bursts and pauses in the band a voice lives in
 
-    ``mix_with`` records a second source into the same file — a microphone and
-    the loopback of the speakers, which together are the two halves of a call.
-    It is opened at the primary's sample rate, and both are downmixed to mono
-    before being added."""
+#: Speech happens between roughly these frequencies. Below sits mains hum and
+#: rumble, above sits hiss: a voice keeps most of its energy in between.
+SPEECH_BAND_HZ = (100.0, 4000.0)
 
-    def __init__(self, path, source, mix_with=None, backends=None,
+#: How much of the energy has to be in that band before this looks like a
+#: voice rather than hum or hiss.
+MIN_BAND_RATIO = 0.5
+
+#: Decibels between the quiet moments and the loud ones. Speech pauses - for
+#: breath, for the other person, between syllables - and that is what separates
+#: it from a fan, a tone, or a steady hiss, which sit at one level all day.
+#: Measured on synthetic signals: a constant tone and white noise come out
+#: under 2 dB, someone talking without pausing at all still manages 8, and
+#: normal conversation 20 to 40. Six leaves room for the awkward case without
+#: letting noise through.
+MIN_DYNAMIC_DB = 6.0
+
+#: A fraction of the time outside those pauses. Below it something clicked
+#: once; above it nothing ever paused, which is not conversation.
+ACTIVE_FRACTION = (0.05, 0.95)
+
+#: Nothing quieter than this counts as sound at all.
+SILENCE_DB = -50.0
+
+#: Enough audio to judge on. Under a second and a half, a pause between two
+#: words looks exactly like a silent microphone.
+MIN_SECONDS = 1.5
+
+#: How much is kept: the verdict follows the last few seconds, so pointing the
+#: microphone at something new does not have to outweigh a minute of history.
+WINDOW_SECONDS = 6.0
+
+
+def band_ratio(block, samplerate, band=SPEECH_BAND_HZ):
+    """Fraction of a block's energy inside ``band``.
+
+    A voice keeps most of it between 100 Hz and 4 kHz. Mains hum sits below,
+    hiss and fan noise spread above: both come out low here, which is what
+    makes this worth measuring at all."""
+    data = np.asarray(block, dtype=np.float32)
+    if data.size < 16:
+        return 0.0
+    spectrum = np.abs(np.fft.rfft(data)) ** 2
+    total = float(spectrum.sum())
+    if total <= 0.0:
+        return 0.0
+    frequencies = np.fft.rfftfreq(data.size, d=1.0 / float(samplerate))
+    inside = (frequencies >= band[0]) & (frequencies <= band[1])
+    return float(spectrum[inside].sum() / total)
+
+
+def rms_db(block):
+    """Loudness of a block in decibels below full scale, floored."""
+    data = np.asarray(block, dtype=np.float32)
+    if data.size == 0:
+        return -120.0
+    mean_square = float(np.mean(np.square(data, dtype=np.float64)))
+    if mean_square <= 0.0:
+        return -120.0
+    return 10.0 * math.log10(mean_square)
+
+
+class SpeechProbe:
+    """Guesses whether what is arriving sounds like somebody talking.
+
+    It is a guess, and the interface says so: three measurements over the last
+    few seconds, not recognition. Whether the words are *words* is Whisper's
+    job, and Whisper needs a model, a minute and a file.
+
+    What it looks at is what separates a voice from the two things a level
+    meter cannot tell it apart from. A fan, a tone or a hiss holds one level
+    indefinitely, while speech pauses — so the gap between the quiet and the
+    loud moments has to be there. And a voice puts its energy between 100 Hz
+    and 4 kHz, while hum sits underneath and hiss spreads above."""
+
+    def __init__(self, samplerate, window_seconds=WINDOW_SECONDS,
                  block_seconds=BLOCK_SECONDS):
-        self.path = os.path.abspath(path)
+        self.samplerate = int(samplerate or WASAPI_RATE)
+        self._keep = max(4, int(window_seconds / max(block_seconds, 0.01)))
+        self._min_blocks = max(2, int(MIN_SECONDS / max(block_seconds, 0.01)))
+        self._levels = []
+        self._bands = []
+        self._lock = threading.Lock()
+
+    def add(self, block):
+        """Take one block of mono audio into the window."""
+        level, band = rms_db(block), band_ratio(block, self.samplerate)
+        with self._lock:
+            self._levels.append(level)
+            self._bands.append(band)
+            del self._levels[:-self._keep]
+            del self._bands[:-self._keep]
+
+    def reset(self):
+        with self._lock:
+            self._levels = []
+            self._bands = []
+
+    def measure(self):
+        """``(verdict, detail)`` for the last few seconds.
+
+        ``detail`` carries the three numbers behind the verdict, because a
+        guess that cannot be argued with is not much use to whoever has to fix
+        the microphone."""
+        with self._lock:
+            levels = list(self._levels)
+            bands = list(self._bands)
+        if len(levels) < self._min_blocks:
+            return None, {"ready": False}
+
+        loud = float(np.percentile(levels, 90))
+        quiet = float(np.percentile(levels, 20))
+        dynamic = loud - quiet
+        threshold = quiet + 6.0
+        active = float(np.mean([level > threshold for level in levels]))
+        # Weighted towards the loud blocks: the band of a pause is noise, and
+        # averaging it in would drag every verdict down.
+        loud_bands = [band for band, level in zip(bands, levels, strict=True)
+                      if level > threshold]
+        band = float(np.mean(loud_bands or bands))
+        detail = {"ready": True, "level_db": loud, "floor_db": quiet,
+                  "dynamic_db": dynamic, "active": active, "band_ratio": band}
+
+        if loud < SILENCE_DB:
+            return SILENCE, detail
+        if (dynamic >= MIN_DYNAMIC_DB
+                and ACTIVE_FRACTION[0] <= active <= ACTIVE_FRACTION[1]
+                and band >= MIN_BAND_RATIO):
+            return SPEECH, detail
+        return SOUND, detail
+
+
+# --------------------------------------------------------------------------
+# capturing: recording to a file, or only listening
+# --------------------------------------------------------------------------
+
+class _Capture:
+    """Devices held open and read in a worker thread.
+
+    What recording and monitoring have in common, which is nearly everything:
+    resolving a source to an engine, opening one or two streams, reading them
+    in step, measuring the levels, and shutting down without leaving a device
+    held. The difference is what each does with the audio, which is the
+    :meth:`_consume` hook."""
+
+    def __init__(self, source, mix_with=None, backends=None,
+                 block_seconds=BLOCK_SECONDS):
         self.source = source
         self.mix_with = mix_with
         self.samplerate = int(source.samplerate or WASAPI_RATE)
         self.error = None
-        self.frames = 0
         #: Peak of the last block read, one per source, primary first. Read by
         #: the interface on a timer to draw a level meter.
         self.levels = [0.0]
-        self._loudest = 0.0
         self._backends = backends
         self._block = max(1, int(self.samplerate * block_seconds))
         self._streams = []
         self._residual = np.zeros(0, dtype=np.float32)
-        self._writer = None
         self._thread = None
         self._stop = threading.Event()
         self._paused = threading.Event()
         self._lock = threading.Lock()
+        self._loudest = 0.0
 
     # --- lifecycle --------------------------------------------------------
 
     def start(self):
-        """Open the devices and begin writing. Raises on a device that will
-        not open, because that is worth hearing about before the meeting."""
+        """Open the devices and begin reading. Raises on a device that will
+        not open, because that is worth hearing about now."""
         if self._thread is not None:
-            raise RecordingError("this recording has already been started")
+            raise RecordingError("this capture has already been started")
         try:
             self._open()
         except Exception as exc:
             self._close()
             raise RecordingError(str(exc) or exc.__class__.__name__) from exc
-        self._thread = threading.Thread(target=self._run, name="recorder",
+        self._thread = threading.Thread(target=self._run, name="capture",
                                         daemon=True)
         self._thread.start()
         return self
 
     def stop(self, timeout=5.0):
-        """Finish the file and return its path, or ``None`` if it is empty."""
+        """Stop reading and let go of the devices."""
         self._stop.set()
         if self._thread is not None:
             self._thread.join(timeout)
             self._thread = None
         self._close()
-        if not self.frames:
-            try:
-                os.unlink(self.path)
-            except OSError:
-                pass
-            return None
-        return self.path
+        with self._lock:
+            self.levels = [0.0] * len(self.levels)
+        return None
 
     def pause(self):
-        """Stop writing without closing the devices."""
+        """Keep the devices and the meters, stop consuming what they give."""
         self._paused.set()
 
     def resume(self):
@@ -454,21 +593,11 @@ class Recording:
 
     @property
     def silent(self):
-        """Whether nothing louder than the noise floor ever arrived.
-
-        Checked when the recording stops: a muted microphone produces a
-        perfectly valid file full of zeros, which Whisper then transcribes into
-        nothing at all. Better to say it while the meeting is still fresh."""
+        """Whether nothing louder than the noise floor ever arrived."""
         with self._lock:
-            return self.frames > 0 and self._loudest < SILENCE_PEAK
+            return self._loudest > 0.0 and self._loudest < SILENCE_PEAK
 
-    @property
-    def elapsed_seconds(self):
-        """Seconds actually written, which is what a paused recording holds."""
-        with self._lock:
-            return self.frames / float(self.samplerate)
-
-    # --- internals --------------------------------------------------------
+    # --- devices ----------------------------------------------------------
 
     def _engine_for(self, source):
         for engine in engines(*(self._backends or (None, None))):
@@ -477,7 +606,6 @@ class Recording:
         raise RecordingError(f"no engine for source '{source.key}'")
 
     def _open(self):
-        os.makedirs(os.path.dirname(self.path) or ".", exist_ok=True)
         primary = self._engine_for(self.source).open(
             self.source, self.source.channels, self.samplerate)
         self._streams.append(primary)
@@ -485,12 +613,7 @@ class Recording:
             second = self._engine_for(self.mix_with).open(
                 self.mix_with, self.mix_with.channels, self.samplerate)
             self._streams.append(second)
-        # noqa below: the writer deliberately outlives this call - it is
-        # closed by stop(), because a recording spans many blocks.
-        self._writer = wave.open(self.path, "wb")   # noqa: SIM115
-        self._writer.setnchannels(1)
-        self._writer.setsampwidth(2)
-        self._writer.setframerate(self.samplerate)
+        self._prepare()
 
     def _close(self):
         while self._streams:
@@ -499,19 +622,15 @@ class Recording:
                 stream.close()
             except Exception:
                 pass
-        if self._writer is not None:
-            try:
-                self._writer.close()
-            except Exception:
-                pass
-            self._writer = None
+        self._release()
+
+    # --- the loop ---------------------------------------------------------
 
     def _run(self):
-        """Read, mix, write, until stopped.
+        """Read, measure, hand over, until stopped.
 
-        Any failure ends the recording with a message rather than a traceback
-        nobody sees: what has been written so far stays on disk and is still
-        worth transcribing."""
+        Any failure ends the capture with a message rather than a traceback
+        nobody sees."""
         primary = self._streams[0]
         secondary = self._streams[1] if len(self._streams) > 1 else None
         try:
@@ -530,9 +649,7 @@ class Recording:
                     self._loudest = max(self._loudest, *levels)
                 if self._paused.is_set():
                     continue
-                self._writer.writeframes(to_pcm16(block).tobytes())
-                with self._lock:
-                    self.frames += len(block)
+                self._consume(block)
         except Exception as exc:       # noqa: BLE001 - reported, not raised
             self.error = str(exc) or exc.__class__.__name__
 
@@ -554,3 +671,105 @@ class Recording:
         block = self._residual[:frames]
         self._residual = self._residual[len(block):]
         return block
+
+    # --- hooks ------------------------------------------------------------
+
+    def _prepare(self):
+        """Called once the devices are open, before the thread starts."""
+
+    def _consume(self, block):
+        """Called with every mono block, unless paused."""
+
+    def _release(self):
+        """Called once the devices are closed."""
+
+
+class Recording(_Capture):
+    """One recording in progress, writing a mono WAV in a worker thread.
+
+    ``mix_with`` records a second source into the same file — a microphone and
+    the loopback of the speakers, which together are the two halves of a call.
+    It is opened at the primary's sample rate, and both are downmixed to mono
+    before being added."""
+
+    def __init__(self, path, source, mix_with=None, backends=None,
+                 block_seconds=BLOCK_SECONDS):
+        super().__init__(source, mix_with=mix_with, backends=backends,
+                         block_seconds=block_seconds)
+        self.path = os.path.abspath(path)
+        self.frames = 0
+        self._writer = None
+
+    def stop(self, timeout=5.0):
+        """Finish the file and return its path, or ``None`` if it is empty."""
+        super().stop(timeout)
+        if not self.frames:
+            try:
+                os.unlink(self.path)
+            except OSError:
+                pass
+            return None
+        return self.path
+
+    @property
+    def elapsed_seconds(self):
+        """Seconds actually written, which is what a paused recording holds."""
+        with self._lock:
+            return self.frames / float(self.samplerate)
+
+    @property
+    def silent(self):
+        """Whether the recording is nothing but silence.
+
+        A muted microphone writes a perfectly valid file full of zeros, which
+        Whisper then transcribes into nothing at all. Better to say it while
+        the meeting is still fresh."""
+        with self._lock:
+            return self.frames > 0 and self._loudest < SILENCE_PEAK
+
+    def _prepare(self):
+        os.makedirs(os.path.dirname(self.path) or ".", exist_ok=True)
+        # noqa below: the writer deliberately outlives this call - it is
+        # closed by stop(), because a recording spans many blocks.
+        self._writer = wave.open(self.path, "wb")   # noqa: SIM115
+        self._writer.setnchannels(1)
+        self._writer.setsampwidth(2)
+        self._writer.setframerate(self.samplerate)
+
+    def _consume(self, block):
+        self._writer.writeframes(to_pcm16(block).tobytes())
+        with self._lock:
+            self.frames += len(block)
+
+    def _release(self):
+        if self._writer is not None:
+            try:
+                self._writer.close()
+            except Exception:
+                pass
+            self._writer = None
+
+
+class Monitor(_Capture):
+    """The devices open, the meters live, and nothing written anywhere.
+
+    What the "test audio" button does: it answers "is anything arriving, and
+    does it sound like somebody talking" before an hour of meeting depends on
+    the answer. Nothing is kept — no file, no library entry — which is the
+    whole difference from :class:`Recording`."""
+
+    def __init__(self, source, mix_with=None, backends=None,
+                 block_seconds=BLOCK_SECONDS):
+        super().__init__(source, mix_with=mix_with, backends=backends,
+                         block_seconds=block_seconds)
+        self.probe = SpeechProbe(self.samplerate, block_seconds=block_seconds)
+
+    def measure(self):
+        """``(verdict, detail)``: see :meth:`SpeechProbe.measure`."""
+        return self.probe.measure()
+
+    def _prepare(self):
+        self.probe.reset()
+
+    def _consume(self, block):
+        self.probe.add(block)

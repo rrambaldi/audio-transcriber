@@ -29,6 +29,21 @@ All notable changes to this project are documented here. The format follows
   the two libraries handed to it as objects and no Qt in it at all. Without the
   extra the window records through QtMultimedia as before and says what the
   other engine would add.
+- **A "test audio" button**: it opens the chosen source without recording
+  anything, so the meters move, and after a second and a half it says whether
+  what is arriving behaves like somebody talking — silence, sound that is not a
+  voice (a fan, a tone, music), or speech — with the three numbers behind the
+  guess: the level, the decibels between the quiet and the loud moments, and
+  how much of the energy sits between 100 Hz and 4 kHz. It is a heuristic and
+  says so; recognition is Whisper's job and needs a model and a file. It stops
+  itself after thirty seconds, since it holds the microphone open, and pressing
+  *Record* takes the device back from it. The thresholds were calibrated on
+  synthetic signals — a tone, mains hum, white noise, constant noise inside the
+  speech band, and speech loud, quiet, hurried and over a noisy room — which
+  are now the tests.
+- `recording.py` grew a `Monitor` alongside `Recording`, both on a shared base:
+  holding devices open and reading them in step is what they have in common,
+  and what each does with the audio — a WAV file, or a verdict — is one hook.
 - **Level meters while recording**, one per source, on the row of the source
   they measure. The question they answer is "is anything arriving at all",
   which is the one worth asking before a meeting rather than after: a wrong

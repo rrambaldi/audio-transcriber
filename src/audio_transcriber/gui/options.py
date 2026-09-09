@@ -13,7 +13,7 @@ import math
 import os
 from datetime import datetime
 
-from .. import vocabularies
+from .. import recording, vocabularies
 from ..backends import BACKENDS
 from ..formatting import format_bytes, format_clock, format_duration
 from ..i18n import t
@@ -336,6 +336,25 @@ def level_percent(peak):
     if decibels <= LEVEL_FLOOR_DB:
         return 0
     return int(round((decibels - LEVEL_FLOOR_DB) / -LEVEL_FLOOR_DB * 100))
+
+
+def speech_verdict(verdict, detail):
+    """One line about what the audio test is hearing, and the numbers behind it.
+
+    The numbers are there on purpose: a verdict nobody can argue with is no
+    help to someone whose microphone is not working. Level, dynamics and how
+    much of the energy sits in the band a voice lives in are exactly what the
+    guess is made of."""
+    if not detail or not detail.get("ready"):
+        return t("gui.rec_test_listening")
+    key = {recording.SILENCE: "gui.rec_test_silence",
+           recording.SOUND: "gui.rec_test_sound",
+           recording.SPEECH: "gui.rec_test_speech"}.get(verdict)
+    if key is None:
+        return t("gui.rec_test_listening")
+    return t(key, level=int(round(detail["level_db"])),
+             dynamic=int(round(detail["dynamic_db"])),
+             band=int(round(detail["band_ratio"] * 100)))
 
 
 def host_api_summary(sources):

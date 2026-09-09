@@ -140,6 +140,181 @@ def test_the_peak_of_a_block_is_the_loudest_sample_in_it():
     assert recording.peak(None) == 0.0
 
 
+# --- does it sound like speech? -------------------------------------------
+#
+# Synthetic signals rather than a recording of a voice: the point is to pin
+# down what the heuristic distinguishes, and a fan, a tone and a hiss are
+# exactly the things a level meter cannot tell from speech.
+
+RATE = 48000
+BLOCK = int(RATE * 0.1)
+
+
+def band_noise(rng, frames=BLOCK, low=300, high=3400, level=0.1):
+    """White noise with everything outside a speech band taken out."""
+    spectrum = np.fft.rfft(rng.standard_normal(frames))
+    frequencies = np.fft.rfftfreq(frames, 1 / RATE)
+    spectrum[(frequencies < low) | (frequencies > high)] = 0
+    shaped = np.fft.irfft(spectrum, frames)
+    return (shaped / (np.abs(shaped).max() or 1) * level).astype(np.float32)
+
+
+def tone(hz, level, index=0, frames=BLOCK):
+    moment = (np.arange(frames) + index * frames) / RATE
+    return (level * np.sin(2 * np.pi * hz * moment)).astype(np.float32)
+
+
+def verdict_of(blocks):
+    probe = recording.SpeechProbe(RATE)
+    for block in blocks:
+        probe.add(block)
+    return probe.measure()
+
+
+def test_digital_silence_reads_as_silence():
+    assert verdict_of([np.zeros(BLOCK, dtype=np.float32)] * 60)[0] == recording.SILENCE
+
+
+def test_a_quiet_room_reads_as_silence():
+    rng = np.random.default_rng(1)
+    room = [(rng.standard_normal(BLOCK) * 0.0003).astype(np.float32) for _ in range(60)]
+    assert verdict_of(room)[0] == recording.SILENCE
+
+
+def test_a_steady_tone_is_sound_but_not_speech():
+    """A level meter cannot tell this from a voice. Speech pauses; a tone
+    does not, and that is the whole difference being measured."""
+    assert verdict_of([tone(1000, 0.1, i) for i in range(60)])[0] == recording.SOUND
+
+
+def test_mains_hum_is_sound_but_not_speech():
+    assert verdict_of([tone(50, 0.05, i) for i in range(60)])[0] == recording.SOUND
+
+
+def test_constant_noise_inside_the_speech_band_is_still_not_speech():
+    """The band alone proves nothing: this sits right where a voice sits and
+    is rejected on its lack of pauses."""
+    rng = np.random.default_rng(2)
+    steady = [band_noise(rng, level=0.15) for _ in range(60)]
+    assert verdict_of(steady)[0] == recording.SOUND
+
+
+def test_bursts_and_pauses_in_the_speech_band_are_speech():
+    rng = np.random.default_rng(3)
+    blocks = []
+    for index in range(60):
+        room = (rng.standard_normal(BLOCK) * 0.001).astype(np.float32)
+        talking = (index % 9) < 5
+        blocks.append(band_noise(rng, level=0.15) + room if talking else room)
+    verdict, detail = verdict_of(blocks)
+    assert verdict == recording.SPEECH
+    assert detail["dynamic_db"] > recording.MIN_DYNAMIC_DB
+    assert detail["band_ratio"] > recording.MIN_BAND_RATIO
+
+
+def test_quiet_distant_speech_is_still_speech():
+    """Someone across the room, at a tenth of the level: the verdict must not
+    depend on standing over the microphone."""
+    rng = np.random.default_rng(4)
+    blocks = []
+    for index in range(60):
+        room = (rng.standard_normal(BLOCK) * 0.0005).astype(np.float32)
+        blocks.append(band_noise(rng, level=0.02) + room if (index % 9) < 5 else room)
+    assert verdict_of(blocks)[0] == recording.SPEECH
+
+
+def test_speech_without_long_pauses_is_still_speech():
+    """Reading aloud without stopping: the pauses are between syllables, and
+    that is why the threshold is six decibels and not twelve."""
+    rng = np.random.default_rng(5)
+    blocks = []
+    for index in range(60):
+        moment = (np.arange(BLOCK) + index * BLOCK) / RATE
+        syllables = 0.55 + 0.45 * np.sin(2 * np.pi * 4.0 * moment)
+        blocks.append((band_noise(rng, level=0.15) * syllables).astype(np.float32))
+    assert verdict_of(blocks)[0] == recording.SPEECH
+
+
+def test_speech_over_a_noisy_room_is_still_speech():
+    rng = np.random.default_rng(6)
+    blocks = []
+    for index in range(60):
+        air_conditioning = (rng.standard_normal(BLOCK) * 0.004).astype(np.float32)
+        talking = (index % 9) < 5
+        blocks.append(band_noise(rng, level=0.12) + air_conditioning
+                      if talking else air_conditioning)
+    assert verdict_of(blocks)[0] == recording.SPEECH
+
+
+def test_half_a_second_is_not_enough_to_judge():
+    """A pause between two words looks exactly like a dead microphone."""
+    verdict, detail = verdict_of([np.zeros(BLOCK, dtype=np.float32)] * 5)
+    assert verdict is None and detail["ready"] is False
+
+
+def test_the_verdict_follows_the_last_few_seconds():
+    """Point the microphone at something else and the answer has to change,
+    without a minute of history outvoting it."""
+    rng = np.random.default_rng(8)
+    probe = recording.SpeechProbe(RATE)
+    for _ in range(120):
+        probe.add(np.zeros(BLOCK, dtype=np.float32))
+    assert probe.measure()[0] == recording.SILENCE
+    for index in range(60):
+        room = (rng.standard_normal(BLOCK) * 0.001).astype(np.float32)
+        probe.add(band_noise(rng, level=0.15) + room if (index % 9) < 5 else room)
+    assert probe.measure()[0] == recording.SPEECH
+
+
+def test_the_speech_band_ratio_measures_what_it_says():
+    rng = np.random.default_rng(9)
+    assert recording.band_ratio(band_noise(rng), RATE) > 0.9
+    assert recording.band_ratio(tone(50, 0.5), RATE) < 0.1
+    assert recording.band_ratio(np.zeros(BLOCK, dtype=np.float32), RATE) == 0.0
+
+
+def test_loudness_in_decibels_has_a_floor_instead_of_an_infinity():
+    assert recording.rms_db(np.zeros(BLOCK, dtype=np.float32)) == -120.0
+    assert recording.rms_db(np.full(BLOCK, 1.0, dtype=np.float32)) == pytest.approx(0.0)
+
+
+# --- monitoring: the meters without a file --------------------------------
+
+def test_monitoring_holds_the_devices_and_writes_nothing(tmp_path):
+    """What "test audio" does: the levels move, and nothing is kept."""
+    mic = source(samplerate=1000)
+    stream = FakeStream(fill=0.3)
+    monitor = recording.Monitor(
+        mic, backends=(FakeEngine(recording.PORTAUDIO, [mic], stream=stream),
+                       FakeEngine(recording.WASAPI)),
+        block_seconds=0.05)
+    monitor.start()
+    wait_until(lambda: monitor.levels[0] > 0)
+    assert monitor.levels[0] == pytest.approx(0.3)
+    monitor.stop()
+    assert stream.closed is True
+    assert monitor.running is False
+    assert list(tmp_path.iterdir()) == []          # nothing written anywhere
+
+
+def test_monitoring_reaches_a_verdict_about_what_it_hears(tmp_path):
+    mic = source(samplerate=RATE)
+    rng = np.random.default_rng(11)
+    blocks = []
+    for index in range(80):
+        room = (rng.standard_normal(BLOCK) * 0.001).astype(np.float32)
+        talking = (index % 9) < 5
+        blocks.append((band_noise(rng, level=0.15) + room if talking
+                       else room).reshape(-1, 1))
+    monitor = recording.Monitor(
+        mic, backends=(FakeEngine(recording.PORTAUDIO, [mic],
+                                  stream=FakeStream(blocks=blocks, pace=0.001)),
+                       FakeEngine(recording.WASAPI)))
+    monitor.start()
+    wait_until(lambda: monitor.measure()[0] == recording.SPEECH)
+    monitor.stop()
+
+
 # --- recording ------------------------------------------------------------
 
 def read_wav(path):

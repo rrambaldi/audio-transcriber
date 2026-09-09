@@ -20,6 +20,7 @@ this module steps aside for
 PySide6.
 """
 import os
+import time
 
 from PySide6.QtCore import Qt, QTimer, Signal
 from PySide6.QtWidgets import (
@@ -40,8 +41,12 @@ from ..i18n import t
 from . import options
 from .qt_recorder import QtRecorder
 
-#: How often the elapsed time and the engine's health are re-read.
+#: How often the elapsed time, the levels and the engine's health are re-read.
 TICK_MS = 200
+
+#: An audio test stops itself after this long. It holds the microphone open,
+#: and a test nobody remembered to stop would hold it all afternoon.
+MAX_TEST_SECONDS = 30
 
 
 def make_recorder(target_dir, store=None, parent=None, backends=None):
@@ -71,6 +76,8 @@ class DeviceRecorder(QWidget):
         self._store = store
         self._backends = backends
         self._session = None
+        self._monitor = None
+        self._test_started = 0.0
         self._sources = []
 
         self.host_apis = QComboBox()
@@ -96,6 +103,12 @@ class DeviceRecorder(QWidget):
         self.reload_button.clicked.connect(self.rescan)
         self.level = _level_bar()
         self.mix_level = _level_bar()
+        self.test_button = QPushButton(t("gui.rec_test"))
+        self.test_button.setToolTip(t("gui.rec_test_tip"))
+        self.test_button.clicked.connect(self.toggle_test)
+        self.verdict = QLabel("")
+        self.verdict.setWordWrap(True)
+        _reserve_two_lines(self.verdict)
         self.button = QPushButton(t("gui.rec_start"))
         self.button.clicked.connect(self.toggle)
         self.pause_button = QPushButton(t("gui.rec_pause"))
@@ -104,6 +117,7 @@ class DeviceRecorder(QWidget):
         self.elapsed = QLabel(format_clock(0))
         self.message = QLabel("")
         self.message.setWordWrap(True)
+        _reserve_two_lines(self.message)
 
         self._assemble()
         self.refresh_devices()
@@ -134,9 +148,11 @@ class DeviceRecorder(QWidget):
         buttons = QHBoxLayout()
         buttons.addWidget(self.button)
         buttons.addWidget(self.pause_button)
+        buttons.addWidget(self.test_button)
         buttons.addStretch(1)
         buttons.addWidget(self.elapsed)
         layout.addLayout(buttons)
+        layout.addWidget(self.verdict)
         layout.addWidget(self.message)
 
     # --- the menus --------------------------------------------------------
@@ -220,6 +236,62 @@ class DeviceRecorder(QWidget):
             return None
         return recording.find(self.mix_sources.currentData(), self._backends)
 
+    # --- the audio test ---------------------------------------------------
+
+    @property
+    def testing(self):
+        return self._monitor is not None and self._monitor.running
+
+    def toggle_test(self):
+        if self._monitor is not None:
+            self.stop_test()
+        else:
+            self.start_test()
+
+    def start_test(self):
+        """Open the chosen source without recording anything.
+
+        The meters move and, after a second and a half, the window says
+        whether what is arriving behaves like somebody talking. Nothing is
+        written: this is the question asked *before* an hour of meeting
+        depends on the answer."""
+        if self.recording or self._monitor is not None:
+            return
+        source = self.chosen_source()
+        if source is None:
+            self.message.setText(t("gui.rec_no_device"))
+            return
+        monitor = recording.Monitor(source, mix_with=self.chosen_mix(),
+                                    backends=self._backends)
+        try:
+            monitor.start()
+        except recording.RecordingError as exc:
+            self.message.setText(str(exc))
+            self.failed.emit(str(exc))
+            return
+        self._monitor = monitor
+        self._test_started = time.monotonic()
+        self.message.setText("")
+        self.verdict.setText(t("gui.rec_test_listening"))
+        self.test_button.setText(t("gui.rec_test_stop"))
+        self._freeze(True)
+
+    def stop_test(self, timed_out=False):
+        """Let go of the device, keeping the verdict on screen."""
+        monitor, self._monitor = self._monitor, None
+        self.test_button.setText(t("gui.rec_test"))
+        self._freeze(False)
+        self._show_levels([])
+        if monitor is None:
+            return
+        error = monitor.error
+        monitor.stop()
+        if error:
+            self.message.setText(error)
+            self.failed.emit(error)
+        elif timed_out:
+            self.message.setText(t("gui.rec_test_over"))
+
     # --- recording --------------------------------------------------------
 
     @property
@@ -236,6 +308,8 @@ class DeviceRecorder(QWidget):
         """Open the chosen devices and begin writing into the target folder."""
         if self.recording:
             return
+        if self._monitor is not None:
+            self.stop_test()          # the device cannot be in two hands
         source = self.chosen_source()
         if source is None:
             self.message.setText(t("gui.rec_no_device"))
@@ -293,21 +367,34 @@ class DeviceRecorder(QWidget):
                             else t("gui.rec_start"))
         self.pause_button.setEnabled(recording_now)
         self.pause_button.setText(t("gui.rec_pause"))
+        self.test_button.setEnabled(not recording_now)
+        self._freeze(recording_now)
+
+    def _freeze(self, frozen):
+        """Hold the menus still while a device of theirs is open."""
         for widget in (self.host_apis, self.sources, self.mix_enabled,
                        self.mix_sources, self.reload_button):
-            widget.setEnabled(not recording_now)
-        if not recording_now:
+            widget.setEnabled(not frozen)
+        if not frozen:
             self._source_chosen()      # restores what may and may not be mixed
 
     def _tick(self):
-        """Follow the worker thread: the clock, the levels, and a device that
-        gave up."""
-        if self._session is None:
+        """Follow the worker thread: the clock, the levels, the verdict, and a
+        device that gave up."""
+        if self._session is not None:
+            self.elapsed.setText(format_clock(self._session.elapsed_seconds))
+            self._show_levels(self._session.levels)
+            if self._session.error or not self._session.running:
+                self.stop()
             return
-        self.elapsed.setText(format_clock(self._session.elapsed_seconds))
-        self._show_levels(self._session.levels)
-        if self._session.error or not self._session.running:
-            self.stop()
+        if self._monitor is None:
+            return
+        self._show_levels(self._monitor.levels)
+        self.verdict.setText(options.speech_verdict(*self._monitor.measure()))
+        if self._monitor.error or not self._monitor.running:
+            self.stop_test()
+        elif time.monotonic() - self._test_started > MAX_TEST_SECONDS:
+            self.stop_test(timed_out=True)
 
     def _show_levels(self, levels):
         """Draw the input levels: the answer to "is anything arriving at all".
@@ -343,6 +430,16 @@ class DeviceRecorder(QWidget):
         self._store.setValue("record_source", self.sources.currentData())
         self._store.setValue("record_mix", self.mix_sources.currentData())
         self._store.setValue("record_mix_enabled", self.mix_enabled.isChecked())
+
+
+def _reserve_two_lines(label):
+    """Keep room for a wrapped sentence before there is one.
+
+    A word-wrapped label starts one line tall, and the box around it is sized
+    from that: the moment a verdict arrives it needs two lines and the second
+    one is simply cut off, which is how the first version of this shipped."""
+    label.setMinimumHeight(2 * label.fontMetrics().height() + 2)
+    return label
 
 
 def _level_bar():

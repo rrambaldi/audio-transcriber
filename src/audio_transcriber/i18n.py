@@ -286,6 +286,26 @@ MESSAGES = {
         "gui.rec_silent":
             "That recording never rose above silence. Check the level meter and the "
             "source before trusting the next one - the file is in the queue anyway.",
+        "gui.rec_test": "Test audio",
+        "gui.rec_test_stop": "Stop the test",
+        "gui.rec_test_tip":
+            "Open the chosen source without recording anything: the level bars move, "
+            "and after a second and a half this says whether what is arriving behaves "
+            "like somebody talking. It is a guess from the level, its dynamics and the "
+            "band a voice lives in - not recognition, which is Whisper's job and needs "
+            "a model and a file. It stops itself after 30 seconds.",
+        "gui.rec_test_listening": "Listening...",
+        "gui.rec_test_silence":
+            "Nothing is arriving ({level} dB). The wrong source, a muted microphone, or "
+            "Windows refusing this application the microphone.",
+        "gui.rec_test_sound":
+            "Sound, but it does not behave like a voice: {level} dB, {dynamic} dB "
+            "between the quiet and the loud moments, {band}% of it in the speech band. "
+            "A fan, a tone or music looks like this.",
+        "gui.rec_test_speech":
+            "This sounds like speech: peaks at {level} dB, {dynamic} dB of dynamics, "
+            "{band}% in the speech band.",
+        "gui.rec_test_over": "The test stopped itself after 30 seconds.",
         "gui.rec_start": "Record",
         "gui.rec_stop": "Stop",
         "gui.rec_pause": "Pause",
@@ -649,6 +669,27 @@ MESSAGES = {
         "gui.rec_silent":
             "Quella registrazione non e' mai salita sopra il silenzio. Controlla la barra del "
             "livello e la sorgente prima di fidarti della prossima: il file e' comunque in coda.",
+        "gui.rec_test": "Prova audio",
+        "gui.rec_test_stop": "Ferma la prova",
+        "gui.rec_test_tip":
+            "Apre la sorgente scelta senza registrare niente: le barre del livello si "
+            "muovono e dopo un secondo e mezzo qui viene detto se quello che arriva si "
+            "comporta come qualcuno che parla. E' una stima basata sul livello, sulla sua "
+            "dinamica e sulla banda in cui vive una voce - non un riconoscimento, che e' "
+            "il mestiere di Whisper e richiede un modello e un file. Si ferma da se' dopo "
+            "30 secondi.",
+        "gui.rec_test_listening": "Ascolto...",
+        "gui.rec_test_silence":
+            "Non arriva nulla ({level} dB). Sorgente sbagliata, microfono disattivato, "
+            "oppure Windows che nega il microfono a questa applicazione.",
+        "gui.rec_test_sound":
+            "C'e' del suono, ma non si comporta come una voce: {level} dB, {dynamic} dB "
+            "fra i momenti piano e quelli forti, {band}% in banda vocale. Una ventola, un "
+            "tono o della musica danno questo risultato.",
+        "gui.rec_test_speech":
+            "Sembra parlato: picchi a {level} dB, {dynamic} dB di dinamica, {band}% in "
+            "banda vocale.",
+        "gui.rec_test_over": "La prova si e' fermata da se' dopo 30 secondi.",
         "gui.rec_start": "Registra",
         "gui.rec_stop": "Ferma",
         "gui.rec_pause": "Pausa",

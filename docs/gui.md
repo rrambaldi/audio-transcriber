@@ -68,6 +68,31 @@ gap, and audio more than half a second ahead is dropped rather than allowed to
 slide further and further behind. For a transcript that is invisible; for
 music it would not be good enough.
 
+**Test audio** opens the chosen source without recording anything: the meters
+move, and after a second and a half the window says whether what is arriving
+behaves like somebody talking. It stops itself after thirty seconds, because it
+holds the microphone open while it runs, and pressing *Record* takes the device
+back from it.
+
+The verdict is one of three, with the numbers behind it:
+
+| | what it means |
+|---|---|
+| *Nothing is arriving* | under -50 dBFS: the wrong source, a muted microphone, or Windows refusing this application the microphone |
+| *Sound, but not a voice* | something is there and it holds one level: a fan, a tone, music, a hiss |
+| *Sounds like speech* | bursts and pauses, in the band a voice lives in |
+
+It is a guess, and it says so. Three measurements over the last few seconds —
+the level, the decibels between the quiet moments and the loud ones, and how
+much of the energy sits between 100 Hz and 4 kHz — are enough to tell a voice
+from the two things a level meter cannot: a steady noise at the right level,
+and silence with a hum in it. Whether the words are *words* is Whisper's job,
+and Whisper needs a model, a file and a few minutes. The thresholds were
+calibrated on synthetic signals, which are now the tests: a tone, mains hum,
+white noise and constant noise inside the speech band all have to come out as
+"sound", while bursts with pauses — loud, quiet, over a noisy room, and without
+long pauses at all — have to come out as speech.
+
 **The level meters** sit on the row of the source they measure, one per
 source, and move while recording. They exist for one question — is anything
 arriving at all — because the classic failure is a recording that turns out to

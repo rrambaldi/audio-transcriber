@@ -12,6 +12,7 @@ worker only pretends to transcribe, so no model, no display and no microphone
 are needed."""
 import os
 
+import numpy as np
 import pytest
 
 pytest.importorskip("PySide6", reason="the [gui] extra is not installed")
@@ -313,6 +314,96 @@ def test_a_silent_recording_is_flagged_even_though_it_was_filed(tmp_path, applic
     recorder.stop()
     assert len(handed) == 1 and os.path.exists(handed[0])
     assert said and "silence" in said[0].lower()
+    recorder.deleteLater()
+
+
+def test_the_audio_test_opens_the_device_without_recording(tmp_path, application):
+    """"Test audio" answers "is anything arriving" before an hour of meeting
+    depends on the answer, and must leave nothing behind."""
+    recorder, backends = make_device_recorder(tmp_path, application)
+    recorder.start_test()
+    assert recorder.testing is True
+    assert recorder.recording is False
+    assert recorder.host_apis.isEnabled() is False      # the menus are frozen
+    assert wait_for(lambda: recorder._monitor.levels[0] > 0)
+    recorder._tick()
+    assert recorder.level.value() > 0
+    assert recorder.verdict.text()
+
+    recorder.stop_test()
+    assert recorder.testing is False
+    assert recorder.host_apis.isEnabled() is True
+    assert recorder.level.value() == 0
+    assert not list((tmp_path / "uploads").glob("*")) if (tmp_path / "uploads").exists() else True
+    recorder.deleteLater()
+
+
+def test_the_audio_test_says_when_it_hears_speech(tmp_path, application):
+    """The synthetic signal is bursts of band-limited noise with pauses, which
+    is what the heuristic is built to recognise; the sentence has to reach the
+    label."""
+    from audio_fakes import FakeStream, audio_source, two_engines
+    from audio_transcriber.gui.recorder import DeviceRecorder
+
+    rate, block = 48000, 4800
+    rng = np.random.default_rng(21)
+    blocks = []
+    for index in range(120):
+        room = (rng.standard_normal(block) * 0.001).astype(np.float32)
+        if (index % 9) < 5:
+            spectrum = np.fft.rfft(rng.standard_normal(block))
+            frequencies = np.fft.rfftfreq(block, 1 / rate)
+            spectrum[(frequencies < 300) | (frequencies > 3400)] = 0
+            shaped = np.fft.irfft(spectrum, block)
+            room = room + (shaped / (np.abs(shaped).max() or 1) * 0.15).astype(np.float32)
+        blocks.append(room.reshape(-1, 1))
+
+    mic = audio_source(samplerate=rate)
+    backends = two_engines([mic], stream=FakeStream(blocks=blocks, pace=0.001))
+    recorder = DeviceRecorder(str(tmp_path / "uploads"), backends=backends)
+    recorder.start_test()
+    assert wait_for(lambda: recorder._monitor.measure()[0] == "speech")
+    recorder._tick()
+    assert "speech" in recorder.verdict.text().lower()
+    recorder.stop_test()
+    recorder.deleteLater()
+
+
+def test_the_verdict_has_room_for_two_lines_before_there_is_one(tmp_path, application):
+    """A word-wrapped label starts one line tall and the box is sized from
+    that, so the first verdict had its second line cut off. Reserved height is
+    the fix, and this is the assertion that would have caught it."""
+    recorder, _ = make_device_recorder(tmp_path, application)
+    two_lines = 2 * recorder.verdict.fontMetrics().height()
+    assert recorder.verdict.minimumHeight() >= two_lines
+    assert recorder.message.minimumHeight() >= two_lines
+    recorder.deleteLater()
+
+
+def test_starting_a_recording_takes_the_device_back_from_the_test(tmp_path, application):
+    recorder, _ = make_device_recorder(tmp_path, application)
+    recorder.start_test()
+    assert recorder.testing is True
+    recorder.start()
+    assert recorder.testing is False
+    assert recorder.recording is True
+    recorder.stop()
+    recorder.deleteLater()
+
+
+def test_a_forgotten_test_stops_itself(tmp_path, application, monkeypatch):
+    """It holds the microphone open; nobody should be able to leave it that
+    way all afternoon."""
+    from audio_transcriber.gui import recorder as recorder_module
+
+    recorder, _ = make_device_recorder(tmp_path, application)
+    recorder.start_test()
+    monkeypatch.setattr(recorder_module.time, "monotonic",
+                        lambda: recorder._test_started
+                        + recorder_module.MAX_TEST_SECONDS + 1)
+    recorder._tick()
+    assert recorder.testing is False
+    assert "30" in recorder.message.text()
     recorder.deleteLater()
 
 
