@@ -29,6 +29,24 @@ All notable changes to this project are documented here. The format follows
   the two libraries handed to it as objects and no Qt in it at all. Without the
   extra the window records through QtMultimedia as before and says what the
   other engine would add.
+- **A run says what it is doing, not only how far it has got.** The stages —
+  starting, audio decoded, loading the model, converting it, compiling for the
+  device, transcribing, who said what, laying out the text — are reported as
+  they are reached, and the desktop window shows them in the status column
+  next to the state. The engine's own progress is now mapped into the slice of
+  the bar that belongs to transcribing instead of being passed straight
+  through, so a model coming up can no longer send the bar back to zero, and
+  diarization gets a slice of its own because it takes about as long again as
+  the transcription.
+  This matters most where the bar cannot move: faster-whisper reports every
+  segment, while the OpenVINO backend hands nothing back until it has finished
+  the whole file, and "transcribing" next to a motionless bar is the difference
+  between waiting and wondering. Both backends now report their setup, which is
+  where the first minutes of a run actually go.
+- `pipeline.run` takes a progress callback of one *or* two arguments — the
+  percentage, and the message key of the stage — and works out which by
+  looking at the signature once, rather than by calling it and catching
+  TypeError.
 - **One list in the desktop window, and one button that runs it.** A file
   added — dropped anywhere on the tab, chosen with *Add files…*, or just
   recorded — lands in the queue itself, marked *not started*, and *Transcribe*

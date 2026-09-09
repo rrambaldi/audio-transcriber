@@ -63,8 +63,19 @@ def resolve_device(device):
     return fallback
 
 
-def transcribe(audio, model_name, language, device, model_dir, prompt, **_unused):
-    """Transcribe and return ``(segments, raw_text, device_used)``."""
+def transcribe(audio, model_name, language, device, model_dir, prompt,
+               progress=None, **_unused):
+    """Transcribe and return ``(segments, raw_text, device_used)``.
+
+    ``progress`` is reported for the setup only. The transcription itself is a
+    single call into the pipeline over the whole recording, which hands nothing
+    back until it is done — so the bar shows the model being converted,
+    loaded and compiled, and then stands still. Reporting the real thing would
+    mean chunking the audio here and calling the pipeline per chunk."""
+    def report(percent, stage):
+        if progress:
+            progress(percent, stage)
+
     try:
         from optimum.intel import OVModelForSpeechSeq2Seq
         from transformers import AutoProcessor, pipeline
@@ -76,11 +87,13 @@ def transcribe(audio, model_name, language, device, model_dir, prompt, **_unused
     os.makedirs(model_dir, exist_ok=True)
     converted = os.path.join(model_dir, re.sub(r"[^\w.-]", "_", hf_id) + "-ov")
 
+    report(2, "stage.loading_model")
     if os.path.isdir(converted) and os.listdir(converted):
         print(t("openvino.reusing_model", path=converted))
         model = OVModelForSpeechSeq2Seq.from_pretrained(converted, device=device)
         processor = AutoProcessor.from_pretrained(converted)
     else:
+        report(4, "stage.converting_model")
         print(t("openvino.converting", model=hf_id))
         model = OVModelForSpeechSeq2Seq.from_pretrained(hf_id, export=True, device=device)
         processor = AutoProcessor.from_pretrained(hf_id)
@@ -88,6 +101,7 @@ def transcribe(audio, model_name, language, device, model_dir, prompt, **_unused
         processor.save_pretrained(converted)
         print(t("openvino.model_saved", path=converted))
 
+    report(20, "stage.compiling_model")
     print(t("openvino.compiling", device=device))
     try:
         model.to(device)
@@ -127,6 +141,7 @@ def transcribe(audio, model_name, language, device, model_dir, prompt, **_unused
         return pipe({"raw": audio, "sampling_rate": 16000},
                     return_timestamps=True, generate_kwargs=generate_kwargs)
 
+    report(30, "stage.transcribing")
     print(t("transcribe.running"))
     try:
         result = run(with_prompt=True)
@@ -134,6 +149,7 @@ def transcribe(audio, model_name, language, device, model_dir, prompt, **_unused
         print(t("openvino.prompt_failed", error=exc))
         result = run(with_prompt=False)
 
+    report(100, "stage.laying_out")
     segments = []
     for chunk in result.get("chunks", []):
         text = (chunk.get("text") or "").strip()

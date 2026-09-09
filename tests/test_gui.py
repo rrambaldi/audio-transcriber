@@ -126,6 +126,25 @@ def test_a_finished_job_carries_its_entry_and_its_figures():
     assert row["entry_id"] == "2026-09-04_1200_x" and row["finished"] is True
 
 
+def test_a_running_job_says_which_stage_it_is_in():
+    """On an engine that reports no progress of its own the bar stands still
+    for the whole transcription: the stage is the difference between waiting
+    and wondering."""
+    row = options.job_row(make_job(status=jobs.RUNNING, progress=5,
+                                   stage="stage.loading_model"))
+    assert row["status"] == "running: loading the model"
+
+
+def test_a_running_job_with_no_stage_yet_just_says_running():
+    assert options.job_row(make_job(status=jobs.RUNNING))["status"] == "running"
+
+
+def test_a_finished_job_does_not_still_show_a_stage():
+    """The last stage reached is not what a finished job is doing."""
+    row = options.job_row(make_job(status=jobs.DONE, stage="stage.laying_out"))
+    assert row["status"] == "done"
+
+
 def test_a_failed_job_says_why_on_one_line():
     row = options.job_row(make_job(status=jobs.FAILED,
                                    error="ffmpeg failed\nsecond line"))

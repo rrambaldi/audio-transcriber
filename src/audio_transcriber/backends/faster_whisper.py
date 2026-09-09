@@ -80,6 +80,11 @@ def transcribe(audio, model_name, language, device, model_dir, prompt,
     print(t("faster_whisper.loading", model=name, device=device,
             compute_type=compute_type, threads=threads))
     print(t("faster_whisper.cache", path=model_dir))
+    if progress:
+        # Loading a model is a download the first time and a few seconds every
+        # time after: worth a mark of its own, or the bar sits at nothing while
+        # it happens.
+        progress(0, "stage.loading_model")
 
     def load(precision):
         return WhisperModel(name, device=device, compute_type=precision,

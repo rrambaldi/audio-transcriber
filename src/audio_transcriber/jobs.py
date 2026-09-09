@@ -79,6 +79,10 @@ class Job:
         self.store = store
         self.status = QUEUED
         self.progress = 0
+        #: Message key of the stage the run is in, for the status column. A
+        #: percentage alone stands still for the whole of a long
+        #: transcription on an engine that cannot report its own progress.
+        self.stage = None
         #: Set by :meth:`JobQueue.cancel`; read by the progress callback.
         self.cancel_requested = False
         self.error = None
@@ -97,6 +101,7 @@ class Job:
             "filename": self.filename,
             "status": self.status,
             "progress": self.progress,
+            "stage": self.stage,
             "error": self.error,
             "entry_id": self.entry_id,
             "words": self.words,
@@ -335,8 +340,9 @@ class JobQueue:
 
     def _transcribe(self, job):
         """The real work: what the CLI does, minus the printing."""
-        result = pipeline.run(job.source, job.settings, prompt=job.prompt,
-                              progress=lambda percent: self._advance(job, percent))
+        result = pipeline.run(
+            job.source, job.settings, prompt=job.prompt,
+            progress=lambda percent, stage=None: self._advance(job, percent, stage))
         entry = pipeline.file_in_library(self.library, job.source, result,
                                          job.settings, title=job.title,
                                          store=job.store)
@@ -347,13 +353,15 @@ class JobQueue:
 
 
     @staticmethod
-    def _advance(job, percent):
+    def _advance(job, percent, stage=None):
         """Record progress, and stop here if the job has been cancelled.
 
         The engines run inside one long blocking call; this callback is the
         only moment they give control back, so it is also the only place a
         cancellation can take effect."""
         job.progress = percent
+        if stage:
+            job.stage = stage
         if job.cancel_requested:
             raise Cancelled(job.id)
 

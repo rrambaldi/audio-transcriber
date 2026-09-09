@@ -142,8 +142,13 @@ class TranscribePanel(QWidget):
         self.table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self.table.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
         self.table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
-        self.table.horizontalHeader().setSectionResizeMode(
-            0, QHeaderView.ResizeMode.Stretch)
+        # The status column now carries the stage as well ("running:
+        # converting the model"), which does not fit a width chosen while it
+        # said "queued". Every column but the title is sized to its contents,
+        # and the title absorbs the difference.
+        header = self.table.horizontalHeader()
+        header.setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
+        header.setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
         self.table.itemDoubleClicked.connect(self._open_selected_entry)
         # Not only on the refresh tick: clicking a row and finding the buttons
         # still describing the previous one is half a second of lying.

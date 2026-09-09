@@ -44,6 +44,23 @@ Under it:
 | *Remove from the list* | it has finished, and the transcription stays in the library |
 | *Clear the finished* | all of them at once |
 
+**The progress bar and the stage.** A run reports what it is doing as well as
+how far along it is: starting, audio decoded, loading the model, converting it
+(the first time, with OpenVINO), compiling for the device, transcribing, who
+said what, laying out the text. The status column shows the stage next to the
+state — *running: loading the model* — and the engine's own count of the audio
+it has got through is mapped into the slice of the bar that belongs to
+transcribing, so it never sends the bar backwards. With diarization on, the
+transcription gets the first half of that slice and diarization the second,
+because it takes about as long again.
+
+This is worth more than it sounds. faster-whisper reports every segment, so
+its bar really moves; the OpenVINO backend hands nothing back until it has
+finished the whole recording, and there the bar stops at the low thirties for
+the duration. The stage is what says the difference between waiting and
+wondering. Making that bar move for real would mean chunking the audio in the
+backend and calling the pipeline per chunk.
+
 **Stopping the transcription that is running** asks first, and says what it can
 honestly promise. The engines run inside one long blocking call, and the only
 moment they hand control back is the progress callback: with faster-whisper

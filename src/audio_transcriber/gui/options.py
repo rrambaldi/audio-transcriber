@@ -160,10 +160,18 @@ _STATUS_KEYS = {HELD: "gui.status_held", QUEUED: "gui.status_queued",
 
 
 def status_text(job):
-    """What the status column says, the error included when there is one."""
+    """What the status column says: the state, and what it is doing in it.
+
+    The stage matters more than it looks. A transcription is one long blocking
+    call, and on an engine that reports no progress of its own the bar stands
+    still for the whole of it — "transcribing" next to a motionless bar is the
+    difference between waiting and wondering."""
     label = t(_STATUS_KEYS.get(job.status, "gui.status_queued"))
     if job.status == FAILED and job.error:
         return f"{label}: {first_line(job.error)}"
+    stage = getattr(job, "stage", None)
+    if job.status == RUNNING and stage:
+        return f"{label}: {t(stage)}"
     return label
 
 

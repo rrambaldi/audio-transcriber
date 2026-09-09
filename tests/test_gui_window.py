@@ -584,6 +584,34 @@ def test_an_oversized_vocabulary_keeps_the_file_out_of_the_queue(window, tmp_pat
     assert said and str(MAX_CUSTOM_VOCABULARY) in said[-1]
 
 
+def test_the_table_shows_the_stage_of_the_job_that_is_running(window, tmp_path, queue):
+    """What the queue reports while a long transcription is under way."""
+    blocked = threading.Event()
+
+    def runner(job):
+        queue._advance(job, 5, "stage.loading_model")
+        blocked.wait(5)
+
+    queue._runner = runner
+    window.transcribe.add_files([sample(tmp_path)])
+    window.transcribe.start_queue()
+    assert wait_for(lambda: queue.jobs()[0].stage == "stage.loading_model")
+    window.transcribe.refresh()
+    assert window.transcribe.table.item(0, 1).text() == "running: loading the model"
+    blocked.set()
+
+
+def test_the_status_column_grows_to_fit_the_stage(window):
+    """It was sized while it said "queued" and then truncated "running:
+    converting the model" to "running: ...", which is the one thing the stage
+    was added to avoid."""
+    from PySide6.QtWidgets import QHeaderView
+
+    header = window.transcribe.table.horizontalHeader()
+    assert header.sectionResizeMode(1) == QHeaderView.ResizeMode.ResizeToContents
+    assert header.sectionResizeMode(0) == QHeaderView.ResizeMode.Stretch
+
+
 def test_a_failed_job_is_shown_with_its_reason(window, tmp_path, queue):
     window.transcribe.add_files([sample(tmp_path, "boom.wav")])
     window.transcribe.start_queue()

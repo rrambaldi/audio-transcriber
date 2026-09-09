@@ -162,6 +162,16 @@ MESSAGES = {
         "vocab.unknown": "Unknown keyword set '{name}'.",
         "vocab.show_stats": "{source}  {language}  {terms} terms  {chars} characters",
 
+        # --- stages of one run, shown while it is under way -----------------
+        "stage.starting": "starting",
+        "stage.decoded": "audio decoded",
+        "stage.loading_model": "loading the model",
+        "stage.converting_model": "converting the model",
+        "stage.compiling_model": "compiling for the device",
+        "stage.transcribing": "transcribing",
+        "stage.diarizing": "working out who said what",
+        "stage.laying_out": "laying out the text",
+
         # --- web interface ----------------------------------------------------
         "web.starting": "Web interface: http://{host}:{port}  (Ctrl-C to stop)",
         "web.exposed":
@@ -569,6 +579,16 @@ MESSAGES = {
             "  considera davvero: la parte finale viene ignorata. Usa meno termini, piu' mirati.",
         "vocab.unknown": "Set di parole chiave '{name}' sconosciuto.",
         "vocab.show_stats": "{source}  {language}  {terms} termini  {chars} caratteri",
+
+        # --- stages of one run, shown while it is under way -----------------
+        "stage.starting": "avvio",
+        "stage.decoded": "audio decodificato",
+        "stage.loading_model": "caricamento del modello",
+        "stage.converting_model": "conversione del modello",
+        "stage.compiling_model": "compilazione per il dispositivo",
+        "stage.transcribing": "trascrizione",
+        "stage.diarizing": "chi ha detto cosa",
+        "stage.laying_out": "impaginazione del testo",
 
         # --- web interface ----------------------------------------------------
         "web.starting": "Interfaccia web: http://{host}:{port}  (Ctrl-C per fermarla)",
