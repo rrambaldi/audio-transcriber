@@ -18,7 +18,15 @@ from .cleaning import clean_segments, paragraphs_from_blob, to_paragraphs
 from .config import read_prompt
 from .diarization import assign_speakers, check_diar_assets, diarize, format_dialogue
 from .i18n import t
-from .subtitles import OVERRIDABLE, SubtitleError, to_srt, to_vtt, validate
+from .subtitles import (
+    OVERRIDABLE,
+    SubtitleError,
+    tally,
+    timings_measured,
+    to_srt,
+    to_vtt,
+    validate,
+)
 from .subtitles import cues as build_cues
 from .subtitles import preset as subtitle_preset
 from .transcription import transcribe
@@ -263,8 +271,15 @@ def file_in_library(library, source, result, settings, title=None, store="copy")
         },
         stats={"words": len(result.text.split()), "segments": len(result.segments)},
     )
-    kinds, cue_list, _problems = write_subtitles(entry, result, settings)
+    kinds, cue_list, problems = write_subtitles(entry, result, settings)
     if kinds:
-        entry.update(subtitles={"formats": kinds, "cues": len(cue_list),
-                                "preset": subtitle_spec(settings).get("name")})
+        entry.update(subtitles={
+            "formats": kinds, "cues": len(cue_list),
+            "preset": subtitle_spec(settings).get("name"),
+            # What a subtitler would object to, kept with the cues rather than
+            # only printed once: the entry is what someone comes back to.
+            "remarks": tally(problems),
+            "timings": "measured" if timings_measured(result.segments)
+                       else "interpolated",
+        })
     return entry

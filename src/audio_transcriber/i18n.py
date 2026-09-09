@@ -67,8 +67,21 @@ MESSAGES = {
         "openvino.model_saved": "Model saved to: {path}",
         "openvino.compiling": "Compiling for device '{device}'...",
         "openvino.compile_warning": "  (compile: {error})",
-        "openvino.prompt_failed":
-            "  (initial prompt not applied: {error}\n   retrying without it)",
+        "openvino.no_vad":
+            "  NOTE: this backend has no voice-activity filter, so over a long silence\n"
+            "  Whisper can invent a phrase ('Thanks for watching'). Obvious ones are\n"
+            "  removed from the transcript afterwards. The faster-whisper backend cuts\n"
+            "  the silences out before the model sees them: --backend faster-whisper.",
+        "openvino.falling_back_to_long_form":
+            "  (single-word timings were refused by this model: {error}\n"
+            "   retrying for segment timings - subtitle cuts will be interpolated)",
+        "openvino.falling_back_to_windowed":
+            "  (this optimum-intel cannot run Whisper's own long-form loop: {error}\n"
+            "   falling back to fixed 30 s windows. Where two windows overlap the words\n"
+            "   can come out twice; the duplicates are cut from the transcript afterwards,\n"
+            "   and the keyword prompt is dropped because it makes the overlap worse.)",
+        "openvino.transcription_failed":
+            "Backend 'openvino': the transcription did not run.\n  {error}",
 
         # --- faster-whisper backend -----------------------------------------
         "faster_whisper.missing":
@@ -474,6 +487,31 @@ MESSAGES = {
         "cli.config_invalid": "Invalid configuration file {path}: {error}",
         "cli.paths_header": "Directories used by audio-transcriber:",
         "cli.paths_missing": "(not created yet)",
+        # --- subtitles ------------------------------------------------------
+        "cli.subtitles_written": "Subtitles written to {path}  ({cues} cues)",
+        "cli.subtitles_problems": "  {total} remarks on the cues cut by '{preset}':",
+        "cli.subtitles_from_speech":
+            "    from how fast people spoke - the trade's own remedy is to shorten the\n"
+            "    text, and rewriting what somebody said is not something this program does:",
+        "cli.subtitles_from_timings":
+            "    from the times the engine reported:",
+        "cli.subtitles_from_layout":
+            "    from how the cues were laid out - these ones are the program's own doing:",
+        "cli.subtitles_interpolated":
+            "    Note: the engine timed segments but not single words, so every cue's times\n"
+            "    were interpolated across its segment by character count. Expect them to\n"
+            "    drift from the speech, and read the timing remarks above as approximate.\n"
+            "    The faster-whisper backend times every word when subtitles are asked for.",
+        "subtitles.empty": "nothing to show",
+        "subtitles.backwards": "ends before it starts",
+        "subtitles.too_wide": "a line wider than the preset allows",
+        "subtitles.too_many_lines": "more lines than the preset allows",
+        "subtitles.too_short": "on screen too briefly to be read",
+        "subtitles.too_long": "on screen longer than the preset allows",
+        "subtitles.too_fast": "more characters a second than the preset allows",
+        "subtitles.too_many_words": "more words a minute than the preset allows",
+        "subtitles.overlap": "overlaps the cue after it",
+        "subtitles.gap_too_small": "too small a gap before the next cue",
         # --- summaries ------------------------------------------------------
         "summary.empty": "Nothing to summarise: the transcript is empty.",
         "summary.unknown_engine": "Unknown summary engine: {name}. Valid values: {valid}",
@@ -561,8 +599,21 @@ MESSAGES = {
         "openvino.model_saved": "Modello salvato in: {path}",
         "openvino.compiling": "Compilazione per il device '{device}'...",
         "openvino.compile_warning": "  (compile: {error})",
-        "openvino.prompt_failed":
-            "  (prompt iniziale non applicato: {error}\n   riprovo senza)",
+        "openvino.no_vad":
+            "  NOTA: questo backend non ha un filtro di attivita' vocale, quindi su un\n"
+            "  silenzio lungo Whisper puo' inventare una frase ('Grazie a tutti'). Quelle\n"
+            "  evidenti vengono tolte dalla trascrizione dopo. Il backend faster-whisper\n"
+            "  taglia i silenzi prima che il modello li veda: --backend faster-whisper.",
+        "openvino.falling_back_to_long_form":
+            "  (questo modello ha rifiutato i tempi per singola parola: {error}\n"
+            "   riprovo con i tempi dei segmenti - i tagli dei sottotitoli saranno interpolati)",
+        "openvino.falling_back_to_windowed":
+            "  (questo optimum-intel non sa eseguire il ciclo long-form di Whisper: {error}\n"
+            "   torno a finestre fisse da 30 s. Dove due finestre si sovrappongono le parole\n"
+            "   possono uscire due volte; i doppioni vengono tagliati dalla trascrizione dopo,\n"
+            "   e il prompt di parole chiave viene lasciato cadere perche' peggiora la cosa.)",
+        "openvino.transcription_failed":
+            "Backend 'openvino': la trascrizione non e' partita.\n  {error}",
 
         # --- faster-whisper backend -----------------------------------------
         "faster_whisper.missing":
@@ -974,6 +1025,32 @@ MESSAGES = {
         "cli.config_invalid": "File di configurazione non valido {path}: {error}",
         "cli.paths_header": "Cartelle usate da audio-transcriber:",
         "cli.paths_missing": "(non ancora creata)",
+        # --- subtitles ------------------------------------------------------
+        "cli.subtitles_written": "Sottotitoli scritti in {path}  ({cues} battute)",
+        "cli.subtitles_problems": "  {total} rilievi sulle battute tagliate con '{preset}':",
+        "cli.subtitles_from_speech":
+            "    da quanto velocemente si e' parlato - il rimedio del mestiere e' accorciare\n"
+            "    il testo, e riscrivere quello che uno ha detto questo programma non lo fa:",
+        "cli.subtitles_from_timings":
+            "    dai tempi riportati dal motore:",
+        "cli.subtitles_from_layout":
+            "    dall'impaginazione delle battute - questi sono responsabilita' del programma:",
+        "cli.subtitles_interpolated":
+            "    Nota: il motore ha dato i tempi dei segmenti ma non delle singole parole,\n"
+            "    quindi i tempi di ogni battuta sono interpolati sul segmento a conteggio di\n"
+            "    caratteri. Aspettati che scivolino rispetto al parlato, e leggi i rilievi sui\n"
+            "    tempi qui sopra come approssimativi. Il backend faster-whisper cronometra\n"
+            "    ogni parola quando si chiedono i sottotitoli.",
+        "subtitles.empty": "senza testo",
+        "subtitles.backwards": "finisce prima di iniziare",
+        "subtitles.too_wide": "una riga piu' larga di quanto il preset consenta",
+        "subtitles.too_many_lines": "piu' righe di quante il preset consenta",
+        "subtitles.too_short": "in scena troppo poco per essere letta",
+        "subtitles.too_long": "in scena piu' a lungo di quanto il preset consenta",
+        "subtitles.too_fast": "piu' caratteri al secondo di quanti il preset consenta",
+        "subtitles.too_many_words": "piu' parole al minuto di quante il preset consenta",
+        "subtitles.overlap": "si sovrappone alla battuta successiva",
+        "subtitles.gap_too_small": "stacco troppo piccolo prima della battuta successiva",
         # --- summaries ------------------------------------------------------
         "summary.empty": "Non c'e' niente da riassumere: la trascrizione e' vuota.",
         "summary.unknown_engine": "Motore di riassunto sconosciuto: {name}. Valori validi: {valid}",

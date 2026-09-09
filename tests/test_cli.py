@@ -303,3 +303,55 @@ def test_an_unknown_vocab_is_reported_not_traced():
     with pytest.raises(SystemExit) as error:
         cli.main(["vocab", "show", "nope"])
     assert "nope" in str(error.value)
+
+
+# --- what the subtitle report says ----------------------------------------
+
+def report(counts, measured=True, language="en"):
+    from audio_transcriber.i18n import set_language
+    set_language(language)
+    from audio_transcriber.subtitles import preset
+    cli.report_subtitle_problems(counts, preset("bbc"), measured=measured)
+
+
+def test_the_report_is_written_out_not_left_as_message_keys(capsys):
+    """Every remark has a sentence in the catalogue; a raw key on screen means
+    one is missing."""
+    report({"subtitles.too_fast": 38, "subtitles.too_short": 3})
+    printed = capsys.readouterr().err
+    assert "subtitles." not in printed
+    assert "cli." not in printed
+    assert "x38" in printed
+
+
+def test_the_report_separates_the_speech_from_the_clock(capsys):
+    report({"subtitles.too_fast": 38, "subtitles.too_short": 3,
+            "subtitles.too_wide": 1})
+    printed = capsys.readouterr().err
+    assert "how fast people spoke" in printed
+    assert "the times the engine reported" in printed
+    assert "the program's own doing" in printed
+
+
+def test_only_the_groups_with_something_in_them_are_printed(capsys):
+    report({"subtitles.too_fast": 2})
+    printed = capsys.readouterr().err
+    assert "how fast people spoke" in printed
+    assert "the times the engine reported" not in printed
+
+
+def test_an_interpolated_clock_is_admitted_to(capsys):
+    """Half the timing remarks rest on times nobody measured, and saying so is
+    the difference between a report and a number."""
+    report({"subtitles.too_short": 3}, measured=False)
+    assert "interpolated" in capsys.readouterr().err
+
+
+def test_nothing_is_said_about_the_clock_when_no_remark_depends_on_it(capsys):
+    report({"subtitles.too_fast": 3}, measured=False)
+    assert "interpolated" not in capsys.readouterr().err
+
+
+def test_no_remarks_means_no_report(capsys):
+    report({})
+    assert capsys.readouterr().err == ""

@@ -97,11 +97,17 @@ style can replace `netflix` without touching the package.
    out to exactly the minimum rather than left to flicker.
 
 **Word timings.** When subtitles are asked for, the engine is asked to time
-every word — faster-whisper can — and the cuts then fall exactly where the
-speaker paused. Without them the times are interpolated across the segment by
-character count, which is good to a few tenths of a second: enough to notice in
-a subtitle, which is why the real thing is worth the small cost. The OpenVINO
-backend reports timings per chunk, so there the interpolation is what you get.
+every word, and the cuts then fall exactly where the speaker paused. Without
+them the times are interpolated across the segment by character count, which is
+good to a few tenths of a second on a segment of a few seconds: enough to notice
+in a subtitle, which is why the real thing is worth the small cost. Across a
+segment of a minute it is not good at all, and the report says so rather than
+letting a plausible-looking clock pass for a measured one — every remark about
+a duration, a gap or an overlap then rests on times nobody measured.
+
+faster-whisper times every word. The OpenVINO backend asks for it too, from a
+model that can produce it, and falls back to segment timings with a warning
+where the exported model cannot.
 
 ## What it will not do
 

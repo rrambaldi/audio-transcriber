@@ -385,6 +385,60 @@ All notable changes to this project are documented here. The format follows
 
 ### Fixed
 
+- **The OpenVINO backend no longer transcribes the overlap between its windows
+  twice.** A recording longer than Whisper's thirty-second window has to be
+  broken up, and this backend was using the Hugging Face pipeline's fixed
+  windows: thirty seconds at a time with five of overlap, stitched back
+  together afterwards by matching the words two windows have in common. Over a
+  silence or a crosstalk that match fails, and then both copies are kept — the
+  tail of one passage reappearing at the head of the next, three or four times
+  in a twenty-minute meeting, each time introduced by a phrase the model
+  invented over the silence ("Grazie a tutti"). It now asks for Whisper's own
+  long-form loop instead, which starts each window at the timestamp the last
+  one reached: no overlap to stitch, so nothing to double, and the model's own
+  safeguards apply — retry a window at a higher temperature, reject one whose
+  output is too repetitive or too unlikely, skip one that is probably silence.
+  Where `optimum-intel` is too old to run that loop it falls back to fixed
+  windows and says so, dropping the keyword prompt on the way, because prompt
+  tokens are what makes the stitching mismatch in the first place.
+- **The OpenVINO backend now honours `word_timestamps`, and admits that it
+  cannot honour `vad`.** Both were being swallowed by `**_unused`. Asking for
+  subtitles asks the engine to time every word, so that a cue is cut where the
+  speaker paused; this backend was silently ignoring that and handing back
+  segments of a minute, whose cue times were then interpolated across them by
+  character count — a plausible-looking clock that had never been measured.
+  It now asks for word timings and rebuilds its segments from them, falling
+  back with a warning on a model that cannot produce them. There is still no
+  voice-activity filter here, which is one reason phrases get invented over
+  silence, and that is now said out loud with a pointer to the backend that
+  has one.
+- **A doubled passage is cut from the transcript whichever engine produced
+  it.** `clean_segments()` compared each segment with the whole of the one
+  before it, which catches an exact repeat and misses the shape the failure
+  actually takes: a partial overlap, differing by a word or two, sometimes
+  with the botched half of a sentence in front of it, sometimes both copies
+  inside one segment. The head of each segment is now *aligned* against the
+  two before it, and what they already said is cut, along with a hallucinated
+  phrase glued to either edge of a segment rather than making up all of it.
+  Word timings are trimmed with the text so the two cannot drift apart, and a
+  segment that lost its opening keeps an honest start instead of one that puts
+  every subtitle in it early by the length of the doubling. The thresholds are
+  deliberately shy of speech: six words repeated back to back inside a
+  segment, eight for a repeat across two, and an alignment that has to account
+  for three quarters of what it cuts — "ogni asset ha i suoi impatti" said by
+  three people in one conversation is the record, not an artefact.
+- **The subtitle report was printing message keys.** Every `subtitles.*`
+  remark and both `cli.subtitles_*` lines were missing from the catalogues, so
+  writing an `.srt` from the command line reported `subtitles.too_fast x38`.
+  They are written out now, and grouped by who can do anything about them:
+  what comes from how fast people spoke (the trade's remedy is to shorten the
+  text, which this program declines), what comes from the times the engine
+  reported, and what comes from this program's own layout. Where the times
+  were interpolated rather than measured the report says so, because half the
+  remarks then rest on a clock nobody measured. The library entry keeps the
+  same tally in `metadata.json`, so a run filed in the library reports what a
+  run written beside its input reports.
+
 - **`audio-transcriber hardware` no longer stops on a machine with no
   transcription engine installed.** Working out which backend `auto` would pick
   ends in "none is installed", which was reported by exiting — swallowing the
