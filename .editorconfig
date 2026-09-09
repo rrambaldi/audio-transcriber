@@ -11,5 +11,10 @@ indent_size = 4
 [*.{yml,yaml,json,toml}]
 indent_size = 2
 
+# cmd.exe mis-parses a batch file with LF-only line endings: labels and
+# "goto" stop working, which is exactly what install.cmd is built out of.
+[*.{cmd,bat}]
+end_of_line = crlf
+
 [*.md]
 trim_trailing_whitespace = false

@@ -59,6 +59,12 @@ pip install -e ".[gui]"        # the desktop window (Qt), on top of either
 pip install -e ".[record]"     # host-API choice, loopback and mixing for the window
 ```
 
+On Windows there is a script for all of this: **`install.cmd`** from the
+checkout, inside the environment you want it in. It pulls, installs, checks the
+two things that go wrong on Windows — a Qt from conda shadowing the one pip
+installs, and a missing QtMultimedia — and prints what to run. Pass the extras
+if the default (`openvino,gui,record`) is not yours: `install.cmd cpu,gui`.
+
 Python 3.11 or newer. Conda users: `envs/environment-cpu.yml` for a GPU-less
 server, `envs/environment-intel.yml` for an Intel machine. Let conda provide
 the interpreter and pip provide the rest — a Qt installed with

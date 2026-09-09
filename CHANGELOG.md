@@ -8,6 +8,12 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- **`install.cmd`**, for Windows: pull, install into the active environment,
+  and a report of what to run. It also checks the two things that actually go
+  wrong there — a Qt inherited from conda shadowing the one pip installs, and a
+  PySide6 without QtMultimedia — and names the cure for each instead of leaving
+  a traceback to interpret. `install.cmd cpu,gui` for a machine with no Intel
+  iGPU; the default is `openvino,gui,record`.
 - **Recording knows about audio systems, loopback and mixing**, behind the new
   `[record]` extra (`sounddevice` + `soundcard`). Two menus, the ones Audacity
   shows: the audio system — MME, DirectSound, WASAPI, WDM-KS — and its

@@ -1,0 +1,5 @@
+# cmd.exe mis-parses batch files with LF-only line endings - labels and
+# "goto" stop working - so these keep CRLF whatever a checkout's
+# core.autocrlf says.
+*.cmd text eol=crlf
+*.bat text eol=crlf
