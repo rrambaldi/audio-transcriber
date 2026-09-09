@@ -148,14 +148,18 @@ def test_a_finished_job_does_not_still_show_a_stage():
 def test_a_failed_job_says_why_on_one_line():
     row = options.job_row(make_job(status=jobs.FAILED,
                                    error="ffmpeg failed\nsecond line"))
-    assert row["status"] == "failed: ffmpeg failed"
+    # The state stays a state; the reason goes on the recording's own line,
+    # where it has the width of the column instead of a corner of the status
+    # cell.
+    assert row["status"] == "failed"
+    assert row["details"] == "ffmpeg failed"
     assert row["failed"] is True
 
 
 def test_the_summary_distinguishes_working_from_finished():
     assert "Nothing" in options.queue_summary([])
     busy = options.queue_summary([make_job(status=jobs.RUNNING), make_job()])
-    assert "1 running, 1 waiting" in busy
+    assert "1 running" in busy and "1 waiting" in busy
     idle = options.queue_summary([make_job(status=jobs.DONE),
                                   make_job(status=jobs.FAILED)])
     assert "1 transcribed, 1 failed" in idle

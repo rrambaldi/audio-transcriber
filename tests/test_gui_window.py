@@ -33,6 +33,7 @@ except ImportError as exc:      # pragma: no cover - depends on the machine
     pytest.skip(f"PySide6 cannot be loaded here: {exc}", allow_module_level=True)
 
 from audio_transcriber import i18n, paths  # noqa: E402
+from audio_transcriber.gui import widgets  # noqa: E402
 from audio_transcriber.gui.window import MainWindow  # noqa: E402
 from audio_transcriber.jobs import JobQueue  # noqa: E402
 from audio_transcriber.library import STORE_COPY  # noqa: E402
@@ -469,7 +470,11 @@ def test_a_file_added_waits_in_the_queue_until_transcribe_is_pressed(
     window.transcribe.refresh()
     assert window.transcribe.table.item(0, 0).text() == "meeting"
     assert window.transcribe.table.item(0, 1).text() == "done"
-    assert window.transcribe.table.cellWidget(0, 2).value() == 100
+    # No bar on a row that has finished: a measurement of something that is
+    # not happening. What it did is on the second line of the recording.
+    assert window.transcribe.table.cellWidget(0, 2) is None
+    details = window.transcribe.table.item(0, 0).data(widgets.DETAILS_ROLE)
+    assert "2 words" in details
     assert window.transcribe.start.isEnabled() is False    # nothing left to start
 
 
@@ -617,7 +622,9 @@ def test_a_failed_job_is_shown_with_its_reason(window, tmp_path, queue):
     window.transcribe.start_queue()
     assert wait_for(lambda: queue.jobs()[0].status == "failed")
     window.transcribe.refresh()
-    assert window.transcribe.table.item(0, 1).text().startswith("failed: the model exploded")
+    assert window.transcribe.table.item(0, 1).text() == "failed"
+    assert window.transcribe.table.item(0, 0).data(
+        widgets.DETAILS_ROLE).startswith("the model exploded")
 
 
 def test_forgetting_one_job_keeps_the_right_row_selected(window, tmp_path, queue):
@@ -735,7 +742,7 @@ def test_the_window_asks_what_you_want_out_of_it(window):
     from PySide6.QtWidgets import QGroupBox
 
     titles = [box.title() for box in window.transcribe.findChildren(QGroupBox)]
-    assert "What do you want out of it?" in titles
+    assert "1 · What do you want out of it?" in titles
     assert set(window.transcribe.output_buttons) == {"text", "speakers", "subtitles"}
     assert window.transcribe.chosen_output() == "text"      # the plain default
 
@@ -829,6 +836,66 @@ def test_choosing_subtitles_ticks_the_file_it_will_write(window):
     panel.output_buttons["subtitles"].setChecked(True)
 
     assert panel.save_srt.isChecked() is True
+
+
+def test_the_tab_reads_as_three_steps(window):
+    """A sequence, not a dashboard: three columns side by side with the start
+    button in the bottom-left corner made the eye cross the window three times
+    for a task that is a straight line."""
+    from PySide6.QtWidgets import QGroupBox
+
+    titles = [box.title() for box in window.transcribe.findChildren(QGroupBox)]
+    assert titles[:3] != [] and "1 · What do you want out of it?" in titles
+    assert "2 · Which recordings" in titles
+    assert "3 · How to transcribe them" in titles
+    # ...and the two ways in are two tabs, not one under the other
+    assert window.transcribe.sources.count() == 2
+    assert window.transcribe.sources.tabText(0) == "Add files"
+
+
+def test_the_keyword_sets_start_put_away_and_say_so(window):
+    """Nineteen sets took a third of the window before anything had been
+    chosen. Closed is fine; closed and silent about a choice is not."""
+    panel = window.transcribe
+    assert panel.vocab_panel.is_open() is False
+    assert panel.vocab_panel.button.text().endswith("none")
+
+    panel.vocabularies.item(0).setCheckState(Qt.CheckState.Checked)
+    assert panel.vocab_panel.button.text().endswith("1 chosen")
+
+
+def test_the_start_button_says_how_much_it_starts(window, tmp_path, queue):
+    """A button that says only "Transcribe" leaves the count to be worked out
+    from the list."""
+    panel = window.transcribe
+    assert panel.start.text() == "Transcribe"
+
+    panel.add_files([sample(tmp_path), sample(tmp_path, name="second.wav")])
+    assert panel.start.text() == "Transcribe 2 recordings"
+    # and it is the one filled button on the tab, and the default one
+    assert panel.start.objectName() == "primary"
+    assert panel.start.isDefault() is True
+
+
+def test_the_queue_line_lists_the_states_instead_of_choosing_one(window, tmp_path, queue):
+    """One running at 34% and one waiting used to read "1 waiting, press
+    Transcribe", which the table on the same screen contradicted."""
+    running = queue.submit(sample(tmp_path), title="prima", start=False)
+    waiting = queue.submit(sample(tmp_path, name="b.wav"), title="seconda",
+                           start=False)
+    running.status, running.progress = "running", 34
+    waiting.status = "held"
+    window.transcribe.refresh()
+
+    line = window.transcribe.summary.text()
+    assert "1 running" in line and "34" in line
+    assert "1 not started" in line
+
+
+def test_the_status_bar_says_what_is_in_the_library(window):
+    """It used to hold the library path, permanently, in the one place a
+    message can appear."""
+    assert "recordings in the library" in window.statusBar().currentMessage()
 
 
 def test_the_chosen_output_is_remembered(window, queue):

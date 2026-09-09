@@ -56,7 +56,7 @@ class MainWindow(QMainWindow):
         self.library.message.connect(self.announce)
         self.transcribe.entry_requested.connect(self.show_entry)
         self.transcribe.job_finished.connect(self._job_finished)
-        self.statusBar().showMessage(t("gui.ready", path=self.queue.library.root))
+        self.statusBar().showMessage(self._library_line())
         self._restore_geometry()
 
     # --- moving between the tabs ------------------------------------------
@@ -70,11 +70,26 @@ class MainWindow(QMainWindow):
         if self.library.show_entry(entry_id):
             self.tabs.setCurrentWidget(self.library)
 
+    def _library_line(self):
+        """What the status bar says when it has nothing else to say.
+
+        It used to hold the path of the library, permanently — a piece of
+        configuration parked in the one place a message can appear, which is
+        why every message it showed vanished back into a directory name.
+        Where the files are is a question the "This machine" tab answers."""
+        try:
+            count = len(self.queue.library.entries())
+        except OSError:             # a library on a disconnected drive
+            count = 0
+        return t("gui.ready", count=count)
+
     def _job_finished(self, entry_id):
         """A transcription has been filed: the library list is now stale."""
         self.library.reload()
         if entry_id:
             self.announce(t("gui.job_finished", entry=entry_id))
+        self.statusBar().clearMessage()
+        self.statusBar().showMessage(self._library_line())
 
     # --- geometry ---------------------------------------------------------
 

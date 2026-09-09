@@ -197,7 +197,7 @@ MESSAGES = {
             "  See docs/gui.md. The web interface needs none of this: try 'web'.",
         "gui.app_name": "Audio Transcriber",
         "gui.window_title": "audio-transcriber {version}",
-        "gui.ready": "Library: {path}",
+        "gui.ready": "{count} recordings in the library",
         "gui.tab_transcribe": "Transcribe",
         "gui.tab_library": "Library",
         "gui.tab_system": "This machine",
@@ -288,16 +288,30 @@ MESSAGES = {
 
         "gui.group_queue": "Transcription queue",
         "gui.start": "Transcribe",
+        "gui.start_one": "Transcribe 1 recording",
+        "gui.start_many": "Transcribe {count} recordings",
+        "gui.step_output": "1 \u00b7 What do you want out of it?",
+        "gui.step_sources": "2 \u00b7 Which recordings",
+        "gui.step_options": "3 \u00b7 How to transcribe them",
+        "gui.tab_files": "Add files",
+        "gui.tab_record": "Record",
+        "gui.vocab_none": "none",
+        "gui.vocab_chosen": "{count} chosen",
+        "gui.vocab_chosen_terms": "{count} chosen, plus your own terms",
+        "gui.vocab_terms_only": "your own terms",
+        "gui.n_words": "{count} words",
+        "gui.queue_part_running": "{count} running, at {percent}%",
+        "gui.queue_part_waiting": "{count} waiting",
+        "gui.queue_part_held": "{count} not started",
+        "gui.queue_press_start": "Press Transcribe to start them.",
         "gui.start_tip":
             "Start what is in the queue. Files wait here until you press this, so the "
             "model, the language and the keyword sets can still be changed after "
             "choosing them.",
         "gui.started": "Started: {count}.",
         "gui.status_held": "not started",
-        "gui.queue_held": "{count} in the queue, waiting for you to press Transcribe.",
         "gui.queue_hint":
-            "A file you add lands in the queue below; it runs when you press "
-            "Transcribe. What is waiting can be taken back out.",
+            "Everything you add waits here until you press Transcribe.",
         "gui.cancel_job": "Take out of the queue",
         "gui.cancel_job_tip":
             "Remove a job that has not started yet. Nothing is lost: the file stays "
@@ -319,6 +333,7 @@ MESSAGES = {
         "gui.open_entry": "Open in the library",
         "gui.forget_job": "Remove from the list",
         "gui.col_title": "Title",
+        "gui.col_recording": "Recording",
         "gui.col_status": "Status",
         "gui.col_progress": "Progress",
         "gui.col_model": "Model",
@@ -333,9 +348,6 @@ MESSAGES = {
         "gui.status_failed": "failed",
         "gui.status_cancelled": "cancelled",
         "gui.queue_empty": "Nothing in the queue.",
-        "gui.queue_busy":
-            "{running} running, {waiting} waiting: one at a time, because two "
-            "transcriptions at once finish no sooner.",
         "gui.queue_idle": "Finished: {done} transcribed, {failed} failed, {cancelled} cancelled.",
         "gui.queued": "In the queue: {count}. Press Transcribe to start.",
         "gui.job_finished": "Filed in the library: {entry}",
@@ -675,7 +687,7 @@ MESSAGES = {
             "  bisogno di niente di tutto questo: prova 'web'.",
         "gui.app_name": "Audio Transcriber",
         "gui.window_title": "audio-transcriber {version}",
-        "gui.ready": "Libreria: {path}",
+        "gui.ready": "{count} registrazioni in libreria",
         "gui.tab_transcribe": "Trascrivi",
         "gui.tab_library": "Libreria",
         "gui.tab_system": "Questa macchina",
@@ -768,16 +780,30 @@ MESSAGES = {
 
         "gui.group_queue": "Coda di trascrizione",
         "gui.start": "Trascrivi",
+        "gui.start_one": "Trascrivi 1 registrazione",
+        "gui.start_many": "Trascrivi {count} registrazioni",
+        "gui.step_output": "1 \u00b7 Cosa vuoi ottenere?",
+        "gui.step_sources": "2 \u00b7 Quali registrazioni",
+        "gui.step_options": "3 \u00b7 Come trascriverle",
+        "gui.tab_files": "Aggiungi file",
+        "gui.tab_record": "Registra",
+        "gui.vocab_none": "nessuno",
+        "gui.vocab_chosen": "{count} scelti",
+        "gui.vocab_chosen_terms": "{count} scelti, piu' i tuoi termini",
+        "gui.vocab_terms_only": "i tuoi termini",
+        "gui.n_words": "{count} parole",
+        "gui.queue_part_running": "{count} in corso, al {percent}%",
+        "gui.queue_part_waiting": "{count} in attesa",
+        "gui.queue_part_held": "{count} da avviare",
+        "gui.queue_press_start": "Premi Trascrivi per avviarle.",
         "gui.start_tip":
             "Avvia quello che c'e' in coda. I file restano in attesa fino a quando premi "
             "questo, cosi' il modello, la lingua e i set di parole chiave si possono "
             "ancora cambiare dopo averli scelti.",
         "gui.started": "Avviate: {count}.",
         "gui.status_held": "da avviare",
-        "gui.queue_held": "{count} in coda, in attesa che premi Trascrivi.",
         "gui.queue_hint":
-            "Un file che aggiungi finisce nella coda qui sotto; parte quando premi "
-            "Trascrivi. Quello che e' in attesa si puo' togliere.",
+            "Quello che aggiungi resta in attesa finche' non premi Trascrivi.",
         "gui.cancel_job": "Togli dalla coda",
         "gui.cancel_job_tip":
             "Togli un lavoro che non e' ancora partito. Non si perde niente: il file "
@@ -800,6 +826,7 @@ MESSAGES = {
         "gui.open_entry": "Apri nella libreria",
         "gui.forget_job": "Togli dall'elenco",
         "gui.col_title": "Titolo",
+        "gui.col_recording": "Registrazione",
         "gui.col_status": "Stato",
         "gui.col_progress": "Avanzamento",
         "gui.col_model": "Modello",
@@ -814,9 +841,6 @@ MESSAGES = {
         "gui.status_failed": "fallita",
         "gui.status_cancelled": "annullata",
         "gui.queue_empty": "Nessun lavoro in coda.",
-        "gui.queue_busy":
-            "{running} in corso, {waiting} in attesa: una alla volta, perche' due "
-            "trascrizioni insieme non finiscono prima.",
         "gui.queue_idle": "Finito: {done} trascritte, {failed} fallite, {cancelled} annullate.",
         "gui.queued": "In coda: {count}. Premi Trascrivi per partire.",
         "gui.job_finished": "Archiviata in libreria: {entry}",

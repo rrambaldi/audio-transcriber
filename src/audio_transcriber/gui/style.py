@@ -98,6 +98,10 @@ def note(label):
     return label
 
 
+#: Where the stylesheet this module installs begins, so it can be replaced
+#: without touching whatever else the application had set.
+MARKER = "/* audio-transcriber: readable disabled text */"
+
 #: Which text colour is read against which background, for the palette below.
 _PAIRS = (
     (QPalette.ColorRole.WindowText, QPalette.ColorRole.Window),
@@ -129,4 +133,63 @@ def apply(application, minimum=MIN_CONTRAST):
         palette.setColor(QPalette.ColorGroup.Disabled, role,
                          readable(ink, ground, minimum))
     application.setPalette(palette)
+    # Ours always goes last and is replaced rather than appended, so applying
+    # twice — a second window, a test — does not pile the rules up.
+    kept = application.styleSheet().split(MARKER)[0].rstrip()
+    application.setStyleSheet(
+        f"{kept}\n{MARKER}\n{_disabled_qss(palette)}".strip())
     return palette
+
+
+def _disabled_qss(palette):
+    """The same floor again, as a stylesheet, because Windows ignores the palette.
+
+    The native Windows style draws disabled text through the system theme and
+    never looks at ``QPalette.Disabled``, so the palette above is honoured on
+    Linux and macOS and quietly dropped on the one platform most of this
+    program's users are on. A stylesheet is the only thing that style obeys.
+
+    Only the text colour is set, and only for the widgets that carry words:
+    the indicator of a disabled checkbox, the border of a disabled field and
+    everything else the theme draws stay exactly as the desktop draws them."""
+    text = palette.color(QPalette.ColorGroup.Disabled,
+                         QPalette.ColorRole.WindowText).name()
+    button = palette.color(QPalette.ColorGroup.Disabled,
+                           QPalette.ColorRole.ButtonText).name()
+    field = palette.color(QPalette.ColorGroup.Disabled,
+                          QPalette.ColorRole.Text).name()
+    return (f"QLabel:disabled, QRadioButton:disabled, QCheckBox:disabled, "
+            f"QGroupBox:disabled {{ color: {text}; }}\n"
+            f"QPushButton:disabled, QToolButton:disabled {{ color: {button}; }}\n"
+            f"QComboBox:disabled, QSpinBox:disabled, QLineEdit:disabled, "
+            f"QPlainTextEdit:disabled, QTextEdit:disabled {{ color: {field}; }}\n"
+            + _primary_qss(palette))
+
+
+def _primary_qss(palette):
+    """The one filled button on a screen: the action the screen is for.
+
+    Everything else the window draws is left to the desktop, and this is the
+    exception because it is not decoration. "Transcribe" was the first of six
+    identical buttons in a row, which is the same as having no primary action
+    at all — the tab had no visible answer to "and now what".
+
+    The colours are the desktop's own selection colours, so a filled button
+    still belongs to the theme it is drawn in."""
+    fill = palette.color(QPalette.ColorGroup.Active,
+                         QPalette.ColorRole.Highlight)
+    ink = palette.color(QPalette.ColorGroup.Active,
+                        QPalette.ColorRole.HighlightedText)
+    off = palette.color(QPalette.ColorGroup.Disabled,
+                        QPalette.ColorRole.ButtonText)
+    edge = palette.color(QPalette.ColorGroup.Disabled,
+                         QPalette.ColorRole.Mid)
+    return (
+        f"QPushButton#primary {{ background: {fill.name()}; color: {ink.name()};"
+        f" border: 1px solid {fill.name()}; padding: 6px 16px;"
+        f" font-weight: 600; }}\n"
+        f"QPushButton#primary:hover {{ background: {fill.darker(112).name()};"
+        f" border-color: {fill.darker(112).name()}; }}\n"
+        f"QPushButton#primary:pressed {{ background: {fill.darker(125).name()}; }}\n"
+        f"QPushButton#primary:disabled {{ background: transparent;"
+        f" color: {off.name()}; border: 1px solid {edge.name()}; }}")

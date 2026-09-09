@@ -10,6 +10,7 @@ twice a second is cheaper than making that thread talk to the GUI.
 import os
 
 from PySide6.QtCore import Qt, QTimer, Signal
+from PySide6.QtGui import QKeySequence, QShortcut
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QButtonGroup,
@@ -29,10 +30,12 @@ from PySide6.QtWidgets import (
     QProgressBar,
     QPushButton,
     QRadioButton,
+    QScrollArea,
     QSpinBox,
     QSplitter,
     QTableWidget,
     QTableWidgetItem,
+    QTabWidget,
     QVBoxLayout,
     QWidget,
 )
@@ -42,7 +45,7 @@ from ..diarization import availability as diarization_availability
 from ..i18n import t
 from ..library import STORE_COPY, STORE_MOVE
 from ..vocabularies import MAX_PROMPT_CHARS
-from . import options, style
+from . import options, style, widgets
 from .recorder import make_recorder
 
 #: How often the queue is re-read. Twice a second is imperceptible on a
@@ -85,11 +88,39 @@ class TranscribePanel(QWidget):
         self._output_chosen()
         self.refresh()
 
+        self._add_shortcuts()
+
         self.timer = QTimer(self)
         self.timer.timeout.connect(self.refresh)
         self.timer.start(REFRESH_MS)
 
     # --- construction -----------------------------------------------------
+
+    def _add_shortcuts(self):
+        """The four keys somebody who uses this every day will reach for.
+
+        There were none at all: not even Enter, on a tab whose whole purpose
+        is one button."""
+        for keys, slot in (
+            (QKeySequence.StandardKey.Open, self.choose_files),
+            (QKeySequence("Ctrl+Return"), self.start_queue),
+            (QKeySequence("Ctrl+Enter"), self.start_queue),
+        ):
+            QShortcut(keys, self, activated=slot)
+        # Delete belongs to the list, not to the whole tab: it must not fire
+        # while somebody is writing their own terms.
+        QShortcut(QKeySequence.StandardKey.Delete, self.table,
+                  activated=self._delete_selected)
+
+    def _delete_selected(self):
+        """Take the selected job out, whichever "out" applies to it."""
+        row = self._selected_row()
+        if row is None:
+            return
+        if row["cancellable"]:
+            self.cancel_selected()
+        elif row["finished"]:
+            self.forget_selected()
 
     def _build_options(self):
         defaults = options.defaults_from(self.settings)
@@ -166,6 +197,7 @@ class TranscribePanel(QWidget):
                               if item["name"] in defaults["vocabulary"]
                               else Qt.CheckState.Unchecked)
             self.vocabularies.addItem(row)
+        self.vocabularies.itemChanged.connect(lambda _item: self._update_summary())
 
         self.subtitle_preset = QComboBox()
         self.subtitle_preset.setToolTip(t("gui.sub_preset_tip"))
@@ -199,10 +231,13 @@ class TranscribePanel(QWidget):
         self.table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self.table.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
         self.table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
-        # The status column now carries the stage as well ("running:
-        # converting the model"), which does not fit a width chosen while it
-        # said "queued". Every column but the title is sized to its contents,
-        # and the title absorbs the difference.
+        self.table.setShowGrid(False)
+        self.table.setAlternatingRowColors(True)
+        # The recording is a title with its facts under it, painted by a
+        # delegate: model, duration and words were three columns that stood
+        # empty for the whole of a job and filled a moment before the row
+        # stopped being interesting.
+        self.table.setItemDelegateForColumn(0, widgets.JobDelegate(self.table))
         header = self.table.horizontalHeader()
         header.setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
         header.setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
@@ -213,36 +248,12 @@ class TranscribePanel(QWidget):
         self.summary = QLabel("")
 
     def _assemble(self):
-        sources = QGroupBox(t("gui.group_sources"))
-        buttons = QHBoxLayout()
-        add = QPushButton(t("gui.add_files"))
-        add.clicked.connect(self.choose_files)
-        buttons.addWidget(add)
-        buttons.addStretch(1)
-        self.drop_hint = QLabel(t("gui.drop_hint"))
-        self.drop_hint.setWordWrap(True)
-        self.drop_hint.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.drop_hint.setFrameShape(QFrame.Shape.StyledPanel)
-        self.drop_hint.setMinimumHeight(56)
-        source_layout = QVBoxLayout(sources)
-        source_layout.addLayout(buttons)
-        source_layout.addWidget(self.drop_hint, 1)
-        queue_hint = QLabel(t("gui.queue_hint"))
-        queue_hint.setWordWrap(True)        # a narrow window must not cut it
-        source_layout.addWidget(queue_hint)
-
-        # Its own box: recording is one of the two ways in, not a line under
-        # the file list, and the microphone menu needs the width to be read.
-        record = QGroupBox(t("gui.group_record"))
-        record_layout = QVBoxLayout(record)
-        record_layout.addWidget(self.recorder)
-        left = QWidget()
-        left_layout = QVBoxLayout(left)
-        left_layout.setContentsMargins(0, 0, 0, 0)
-        left_layout.addWidget(sources, 1)
-        left_layout.addWidget(record)
-
-        output_box = QGroupBox(t("gui.group_output"))
+        # The tab is a sequence, not a dashboard: what you want, what to run
+        # it on, how to run it. It used to be three columns side by side with
+        # the button that starts everything in the bottom-left corner, so the
+        # eye crossed the window three times for a task that is a straight
+        # line.
+        output_box = QGroupBox(t("gui.step_output"))
         output_layout = QVBoxLayout(output_box)
         for _label, _note, value in options.output_choices():
             output_layout.addWidget(self.output_buttons[value])
@@ -263,7 +274,42 @@ class TranscribePanel(QWidget):
         # in a tooltip nobody hovers.
         output_layout.addWidget(self.output_unavailable)
 
-        settings_box = QGroupBox(t("gui.group_options"))
+        # --- step 2: the two ways in, as two tabs rather than one under the
+        # other. A microphone is not an option of the file list, it is the
+        # other half of the question, and the browser page has said so with
+        # two tabs since it was written.
+        sources_box = QGroupBox(t("gui.step_sources"))
+        add = QPushButton(t("gui.add_files"))
+        add.clicked.connect(self.choose_files)
+        buttons = QHBoxLayout()
+        buttons.addWidget(add)
+        buttons.addStretch(1)
+        self.drop_hint = QLabel(t("gui.drop_hint"))
+        self.drop_hint.setWordWrap(True)
+        self.drop_hint.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.drop_hint.setFrameShape(QFrame.Shape.StyledPanel)
+        self.drop_hint.setMinimumHeight(72)
+        files_page = QWidget()
+        files_layout = QVBoxLayout(files_page)
+        files_layout.addLayout(buttons)
+        files_layout.addWidget(self.drop_hint, 1)
+        record_page = QWidget()
+        record_layout = QVBoxLayout(record_page)
+        record_layout.addWidget(self.recorder)
+        record_layout.addStretch(1)
+        self.sources = QTabWidget()
+        self.sources.addTab(files_page, t("gui.tab_files"))
+        self.sources.addTab(record_page, t("gui.tab_record"))
+        queue_hint = QLabel(t("gui.queue_hint"))
+        queue_hint.setWordWrap(True)        # a narrow window must not cut it
+        style.note(queue_hint)
+        sources_layout = QVBoxLayout(sources_box)
+        sources_layout.addWidget(self.sources)
+        sources_layout.addWidget(queue_hint)
+
+        # --- step 3: the details, and the ones that are rarely touched put
+        # away behind a row that says what is inside them.
+        settings_box = QGroupBox(t("gui.step_options"))
         self.form = QFormLayout(settings_box)
         self.form.addRow(t("gui.label_model"), self.model)
         self.form.addRow(t("gui.label_language"), self.language)
@@ -290,14 +336,39 @@ class TranscribePanel(QWidget):
         save_row.addStretch(1)
         subtitle_form.addRow(t("gui.label_sub_save"), _wrap(save_row))
 
-        vocab_box = QGroupBox(t("gui.group_vocabulary"))
-        vocab_layout = QVBoxLayout(vocab_box)
+        vocab_content = QWidget()
+        vocab_layout = QVBoxLayout(vocab_content)
+        vocab_layout.setContentsMargins(0, 0, 0, 0)
         vocab_layout.addWidget(self.vocabularies, 2)
         vocab_layout.addWidget(QLabel(t("gui.vocab_custom")))
         vocab_layout.addWidget(self.custom, 1)
         vocab_layout.addWidget(self.prompt_size)
+        self.vocab_panel = widgets.Disclosure(t("gui.group_vocabulary"),
+                                              vocab_content)
+
+        steps = QWidget()
+        steps_layout = QVBoxLayout(steps)
+        steps_layout.setContentsMargins(0, 0, 8, 0)
+        steps_layout.addWidget(output_box)
+        steps_layout.addWidget(sources_box)
+        steps_layout.addWidget(settings_box)
+        steps_layout.addWidget(self.subtitle_box)
+        steps_layout.addWidget(self.vocab_panel)
+        steps_layout.addStretch(1)
+        # Three steps are taller than a laptop screen once the keyword panel
+        # is open, and a window that cannot show its own third step is worse
+        # than one that scrolls.
+        left = QScrollArea()
+        left.setWidget(steps)
+        left.setWidgetResizable(True)
+        left.setFrameShape(QFrame.Shape.NoFrame)
 
         self.start = QPushButton(t("gui.start"))
+        # The one filled button on the tab: see gui/style.py. It is also the
+        # default, so Enter does what the screen is for.
+        self.start.setObjectName("primary")
+        self.start.setDefault(True)
+        self.start.setAutoDefault(True)
         self.start.setToolTip(t("gui.start_tip"))
         self.start.clicked.connect(self.start_queue)
         self.open_entry = QPushButton(t("gui.open_entry"))
@@ -314,42 +385,29 @@ class TranscribePanel(QWidget):
         self.clear_finished.clicked.connect(self.forget_finished)
         actions = QHBoxLayout()
         actions.addWidget(self.start)
-        actions.addWidget(self.open_entry)
-        actions.addWidget(self.cancel_job)
         actions.addWidget(self.stop_job)
         actions.addStretch(1)
+        actions.addWidget(self.open_entry)
+        actions.addWidget(self.cancel_job)
         actions.addWidget(self.forget)
         actions.addWidget(self.clear_finished)
-
-        top = QWidget()
-        top_layout = QHBoxLayout(top)
-        top_layout.setContentsMargins(0, 0, 0, 0)
-        middle = QWidget()
-        middle_layout = QVBoxLayout(middle)
-        middle_layout.setContentsMargins(0, 0, 0, 0)
-        middle_layout.addWidget(output_box)
-        middle_layout.addWidget(settings_box)
-        middle_layout.addWidget(self.subtitle_box)
-        middle_layout.addStretch(1)
-
-        top_layout.addWidget(left, 3)
-        top_layout.addWidget(middle, 3)
-        top_layout.addWidget(vocab_box, 3)
 
         # The queue is a box with a name on it: it is the one place work
         # actually is, and before it had neither a title nor any way to take
         # something out of it.
-        bottom = QGroupBox(t("gui.group_queue"))
-        bottom_layout = QVBoxLayout(bottom)
-        bottom_layout.addWidget(self.table, 1)
-        bottom_layout.addLayout(actions)
-        bottom_layout.addWidget(self.summary)
+        right = QGroupBox(t("gui.group_queue"))
+        right_layout = QVBoxLayout(right)
+        right_layout.addWidget(self.table, 1)
+        right_layout.addWidget(self.summary)
+        right_layout.addLayout(actions)
 
-        splitter = QSplitter(Qt.Orientation.Vertical)
-        splitter.addWidget(top)
-        splitter.addWidget(bottom)
-        splitter.setStretchFactor(0, 2)
-        splitter.setStretchFactor(1, 3)
+        # Side by side, not one over the other: pressing Transcribe has to
+        # produce something visible, and the list is what it produces.
+        splitter = QSplitter(Qt.Orientation.Horizontal)
+        splitter.addWidget(left)
+        splitter.addWidget(right)
+        splitter.setStretchFactor(0, 4)
+        splitter.setStretchFactor(1, 5)
         layout = QVBoxLayout(self)
         layout.addWidget(splitter)
 
@@ -433,6 +491,7 @@ class TranscribePanel(QWidget):
             return
         self.prompt_size.setText(t("gui.vocab_chars", chars=len(text),
                                    limit=MAX_PROMPT_CHARS))
+        self._update_summary()
 
     # --- sources ----------------------------------------------------------
 
@@ -529,6 +588,8 @@ class TranscribePanel(QWidget):
         finished = self._newly_finished(rows)
         self._rows = rows
         self.summary.setText(options.queue_summary(jobs))
+        self.start.setText(options.start_label(
+            sum(1 for row in rows if row["held"])))
         self._update_buttons()
         for row in finished:
             self.job_finished.emit(row["entry_id"] or "")
@@ -550,16 +611,13 @@ class TranscribePanel(QWidget):
         selected = self.selected_job_id()
         self.table.setRowCount(len(rows))
         for index, row in enumerate(rows):
-            for column, key in enumerate(("title", "status")):
-                self.table.setItem(index, column, _cell(row[key], row["id"]))
-            bar = QProgressBar()
-            bar.setRange(0, 100)
-            bar.setValue(row["progress"])
-            bar.setTextVisible(True)
-            self.table.setCellWidget(index, 2, bar)
-            for column, key in enumerate(("model", "duration", "words"), start=3):
-                self.table.setItem(index, column, _cell(row[key], row["id"]))
+            title = _cell(row["title"], row["id"])
+            title.setData(widgets.DETAILS_ROLE, row["details"])
+            self.table.setItem(index, 0, title)
+            self.table.setItem(index, 1, _cell(row["status"], row["id"]))
+            self._set_progress(index, row)
             self.table.item(index, 1).setToolTip(row["tooltip"] or "")
+        self.table.resizeRowsToContents()
         if selected:
             # Looked up in the new rows, not the old ones: a job that
             # disappeared shifts every index after it.
@@ -568,17 +626,32 @@ class TranscribePanel(QWidget):
                     self.table.selectRow(index)
                     break
 
+    def _set_progress(self, index, row):
+        """A bar for the job that is running, and nothing for the others.
+
+        A bar at 0% on a row that failed, or on one that has not started, is
+        a measurement of something that is not happening."""
+        bar = self.table.cellWidget(index, 2)
+        if not row["running"]:
+            if bar is not None:
+                self.table.removeCellWidget(index, 2)
+            if self.table.item(index, 2) is None:
+                self.table.setItem(index, 2, _cell("", row["id"]))
+            return
+        if bar is None:
+            bar = QProgressBar()
+            bar.setRange(0, 100)
+            bar.setTextVisible(True)
+            self.table.setCellWidget(index, 2, bar)
+        bar.setValue(row["progress"])
+
     def _update_table(self, rows):
         for index, row in enumerate(rows):
             self.table.item(index, 0).setText(row["title"])
+            self.table.item(index, 0).setData(widgets.DETAILS_ROLE, row["details"])
             self.table.item(index, 1).setText(row["status"])
             self.table.item(index, 1).setToolTip(row["tooltip"] or "")
-            bar = self.table.cellWidget(index, 2)
-            if bar is not None:
-                bar.setValue(row["progress"])
-            self.table.item(index, 3).setText(row["model"])
-            self.table.item(index, 4).setText(row["duration"])
-            self.table.item(index, 5).setText(row["words"])
+            self._set_progress(index, row)
 
     def selected_job_id(self):
         items = self.table.selectedItems()
@@ -587,6 +660,20 @@ class TranscribePanel(QWidget):
     def _selected_row(self):
         job_id = self.selected_job_id()
         return next((row for row in self._rows if row["id"] == job_id), None)
+
+    def _update_summary(self):
+        """The keyword panel, closed, still has to say what was chosen."""
+        chosen = len(self.chosen_vocabularies())
+        typed = bool(self.custom.toPlainText().strip())
+        if chosen and typed:
+            summary = t("gui.vocab_chosen_terms", count=chosen)
+        elif chosen:
+            summary = t("gui.vocab_chosen", count=chosen)
+        elif typed:
+            summary = t("gui.vocab_terms_only")
+        else:
+            summary = t("gui.vocab_none")
+        self.vocab_panel.set_summary(summary)
 
     def _update_buttons(self):
         """Only what applies to the selected job is offered.

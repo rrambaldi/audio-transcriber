@@ -29,10 +29,11 @@ def application():
 
 @pytest.fixture
 def palette_restored(application):
-    """The palette is application-wide: put it back for the other tests."""
-    before = QPalette(application.palette())
+    """Both are application-wide: put them back for the other tests."""
+    before, sheet = QPalette(application.palette()), application.styleSheet()
     yield
     application.setPalette(before)
+    application.setStyleSheet(sheet)
 
 
 def test_the_ratio_matches_the_wcag_formula():
@@ -85,3 +86,26 @@ def test_disabled_text_stays_readable(application, palette_restored):
         ink = palette.color(QPalette.ColorGroup.Disabled, role)
         ground = palette.color(QPalette.ColorGroup.Disabled, ground_role)
         assert style.contrast(ink, ground) >= style.MIN_CONTRAST, role
+
+
+def test_the_floor_is_repeated_as_a_stylesheet(application, palette_restored):
+    """The native Windows style draws disabled text from the system theme and
+    never reads QPalette.Disabled, so the palette alone is honoured on Linux
+    and dropped on the platform most of these users are on."""
+    style.apply(application)
+    sheet = application.styleSheet()
+
+    assert "QRadioButton:disabled" in sheet
+    assert "QPushButton:disabled" in sheet
+    colour = QColor(sheet.split("color: ")[1].split(";")[0])
+    ground = application.palette().color(QPalette.ColorGroup.Disabled,
+                                         QPalette.ColorRole.Window)
+    assert style.contrast(colour, ground) >= style.MIN_CONTRAST
+
+
+def test_applying_twice_does_not_pile_up_stylesheets(application, palette_restored):
+    style.apply(application)
+    once = len(application.styleSheet())
+    style.apply(application)
+
+    assert len(application.styleSheet()) == once

@@ -240,9 +240,13 @@ def media_filter():
 # --------------------------------------------------------------------------
 
 def job_headers():
-    """Column headings of the queue table, in order."""
-    return [t("gui.col_title"), t("gui.col_status"), t("gui.col_progress"),
-            t("gui.col_model"), t("gui.col_duration"), t("gui.col_words")]
+    """Column headings of the queue table, in order.
+
+    Three, not six. Model, duration and word count used to be columns of
+    their own, which meant they were empty for the whole of a job's life and
+    filled in a moment before the row stopped being interesting; they are the
+    second line of the recording now, where they read as facts about it."""
+    return [t("gui.col_recording"), t("gui.col_status"), t("gui.col_progress")]
 
 
 #: Human wording for each job state.
@@ -259,12 +263,28 @@ def status_text(job):
     still for the whole of it — "transcribing" next to a motionless bar is the
     difference between waiting and wondering."""
     label = t(_STATUS_KEYS.get(job.status, "gui.status_queued"))
-    if job.status == FAILED and job.error:
-        return f"{label}: {first_line(job.error)}"
     stage = getattr(job, "stage", None)
     if job.status == RUNNING and stage:
         return f"{label}: {t(stage)}"
     return label
+
+
+def job_details(job):
+    """The second line of a queue row: what is known about the recording.
+
+    Only what is known. A job that has not started has a model and nothing
+    else, and a dash under three headings said less than nothing — it looked
+    like a value that had failed to arrive."""
+    if job.status == FAILED and job.error:
+        # The whole width of the recording column, instead of a hundred
+        # characters of ffmpeg squeezed into the status cell.
+        return first_line(job.error)
+    parts = [job.settings.get("model") or AUTO]
+    if job.audio_duration:
+        parts.append(format_duration(job.audio_duration))
+    if job.words:
+        parts.append(t("gui.n_words", count=job.words))
+    return "  ·  ".join(str(part) for part in parts if part)
 
 
 def job_row(job):
@@ -272,6 +292,7 @@ def job_row(job):
     return {
         "id": job.id,
         "title": job.title,
+        "details": job_details(job),
         "status": status_text(job),
         "progress": int(job.progress or 0),
         "model": job.settings.get("model") or AUTO,
@@ -287,20 +308,42 @@ def job_row(job):
     }
 
 
+def start_label(held):
+    """What the primary button says: the verb, and how much it will start.
+
+    A button that says only "Transcribe" leaves the count to be worked out
+    from the list; with it on the button, pressing it is a decision with a
+    known size."""
+    if not held:
+        return t("gui.start")
+    return t("gui.start_one" if held == 1 else "gui.start_many", count=held)
+
+
 def queue_summary(jobs):
-    """One line under the table: what the queue is doing right now."""
+    """One line under the table: what the queue is doing right now.
+
+    States are listed, not chosen between. The first version of this picked
+    the one it thought mattered most — what is waiting for a button — and so
+    a queue with one job running at 34% and one waiting said "1 waiting,
+    press Transcribe", which is a screen telling the user something it can
+    see is not the whole truth."""
     if not jobs:
         return t("gui.queue_empty")
     held = sum(1 for job in jobs if job.status == HELD)
     running = sum(1 for job in jobs if job.status == RUNNING)
     waiting = sum(1 for job in jobs if job.status == QUEUED)
+    parts = []
+    if running:
+        percent = max(int(job.progress or 0) for job in jobs
+                      if job.status == RUNNING)
+        parts.append(t("gui.queue_part_running", count=running, percent=percent))
+    if waiting:
+        parts.append(t("gui.queue_part_waiting", count=waiting))
     if held:
-        # What needs doing wins over what is happening: the table already
-        # shows the running job and its bar, and this line is the only place
-        # that can say the queue is waiting for a button.
-        return t("gui.queue_held", count=held)
-    if running or waiting:
-        return t("gui.queue_busy", running=running, waiting=waiting)
+        parts.append(t("gui.queue_part_held", count=held))
+    if parts:
+        line = "  ·  ".join(parts)
+        return f"{line}  {t('gui.queue_press_start')}" if held else line
     failed = sum(1 for job in jobs if job.status == FAILED)
     done = sum(1 for job in jobs if job.status == DONE)
     cancelled = sum(1 for job in jobs if job.status == CANCELLED)

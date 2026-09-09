@@ -287,6 +287,45 @@ All notable changes to this project are documented here. The format follows
   reliably accepts (about 900 characters), instead of letting it be truncated
   in silence.
 
+### Changed
+
+- **The Transcribe tab is read as three steps.** *1 what do you want out of it
+  · 2 which recordings · 3 how to transcribe them*, down the left of the tab,
+  with the queue beside them instead of underneath. It was three panels side
+  by side with the button that starts everything in the bottom-left corner:
+  the order things were read in was not the order they are done in, and the
+  eye crossed the window three times for a task that is a straight line.
+
+  What follows from it: the two ways in are two tabs, *Add files* and
+  *Record*, the pair the browser page already had — a microphone is not an
+  option of the file list, it is the other half of the question. The keyword
+  sets start closed behind a row that says what is inside them ("Keyword sets
+  — 3 chosen"), because nineteen of them took a third of the window before
+  anything had been chosen. *Transcribe* is the one filled button on the tab,
+  says how much it will start ("Transcribe 2 recordings"), and is the default,
+  so Enter does what the screen is for; <kbd>Ctrl</kbd>+<kbd>O</kbd>,
+  <kbd>Ctrl</kbd>+<kbd>Enter</kbd> and <kbd>Delete</kbd> work, where there was
+  not one keyboard shortcut in the whole window.
+
+- **A queue row is a recording, not six columns.** Title, and underneath the
+  facts known so far — model, length, words — or, when it failed, the reason
+  with the whole width of the column instead of a hundred characters of ffmpeg
+  squeezed into the status cell. Model, duration and word count were columns
+  of their own, which meant they stood empty for the whole of a job's life and
+  filled a moment before the row stopped being interesting. Only the job that
+  is actually running carries a progress bar: one at 0% on a row that failed,
+  or on one that has not started, measures something that is not happening.
+
+- **The queue line lists the states instead of choosing between them.** With
+  one job running at 34% and one waiting it used to say "1 not started, press
+  Transcribe" — the table on the same screen contradicted it. It now reads
+  "1 running, at 34% · 1 not started. Press Transcribe to start them."
+
+- **The status bar says what is in the library**, not where it is. A path
+  parked permanently in the one place a message can appear is why every
+  message it showed vanished back into a directory name; where the files live
+  is a question the "This machine" tab answers.
+
 ### Fixed
 
 - **Accessibility, after an audit of both interfaces.** Nine things, most of

@@ -19,8 +19,16 @@ the moment it came from — without a browser, a server or a port.
 
 Three tabs.
 
-**Transcribe.** Drop recordings anywhere on the tab (or *Add files…*), or press
-*Record* and speak; both land in the queue below.
+**Transcribe** is read as three steps down the left of the tab, with the queue
+beside it: *1 what do you want out of it · 2 which recordings · 3 how to
+transcribe them*. It used to be three panels side by side with the button that
+starts everything in the bottom-left corner, which made the eye cross the
+window three times for a task that is a straight line.
+
+Recordings arrive in step 2, by dropping them anywhere on the tab, through
+*Add files…*, or from the microphone: the two ways in are two tabs, the same
+pair the browser page has, because a microphone is not an option of the file
+list but the other half of the question.
 
 **What do you want out of it?** — the first thing the tab asks, because it is
 the first thing to decide:
@@ -56,10 +64,14 @@ each file the moment it was added, which left no room to change the model or
 tick a keyword set once the files were in. One list, and one button that runs
 it.
 
-**The queue** — its own box, titled, because it is where the work actually is —
-holds every job newest first: not started, waiting its turn, transcribing with
-a progress bar, done with its word count, failed with the reason, or cancelled.
-Under it:
+**The queue** — beside the steps, because pressing *Transcribe* has to produce
+something visible and the list is what it produces — holds every job newest
+first. A row is a recording: its title, and under it the facts known so far
+(the model, the length, the word count) or, if it failed, the reason with the
+whole width of the column. The state is a word, and only the job that is
+actually running carries a bar. *Transcribe* is the one filled button on the
+tab and says how much it will start — "Transcribe 2 recordings" — and it is
+the default, so Enter does what the screen is for. Under it:
 
 | button | when |
 |---|---|
@@ -69,6 +81,16 @@ Under it:
 | *Stop* | it is the one running (see below) |
 | *Remove from the list* | it has finished, and the transcription stays in the library |
 | *Clear the finished* | all of them at once |
+
+Four keys, for the people who do this a dozen times a day: <kbd>Ctrl</kbd>+<kbd>O</kbd>
+adds files, <kbd>Ctrl</kbd>+<kbd>Enter</kbd> transcribes, <kbd>Delete</kbd> takes
+the selected row out of the queue or off the list, and the tabs answer
+<kbd>Ctrl</kbd>+<kbd>Tab</kbd> as Qt's own.
+
+**The keyword sets start put away**, behind a row that says what is inside —
+"Keyword sets — 3 chosen" — because nineteen sets took a third of the window
+before anything had been chosen, and they matter on the third transcription
+rather than the first.
 
 **The progress bar and the stage.** A run reports what it is doing as well as
 how far along it is: starting, audio decoded, loading the model, converting it
