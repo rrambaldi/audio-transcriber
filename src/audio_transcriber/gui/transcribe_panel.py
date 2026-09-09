@@ -15,7 +15,6 @@ from PySide6.QtWidgets import (
     QAbstractItemView,
     QDialog,
     QFileDialog,
-    QFrame,
     QGroupBox,
     QHBoxLayout,
     QHeaderView,
@@ -23,11 +22,8 @@ from PySide6.QtWidgets import (
     QMessageBox,
     QProgressBar,
     QPushButton,
-    QScrollArea,
-    QSplitter,
     QTableWidget,
     QTableWidgetItem,
-    QTabWidget,
     QVBoxLayout,
     QWidget,
 )
@@ -37,7 +33,6 @@ from ..jobs import HELD
 from ..library import STORE_COPY, STORE_MOVE, LibraryError
 from . import multimedia, options, style, widgets
 from .job_dialog import JobDialog
-from .options_form import OptionsForm
 from .recorder import make_recorder
 
 #: How often the queue is re-read. Twice a second is imperceptible on a
@@ -76,16 +71,9 @@ class TranscribePanel(QWidget):
         self.recorder.recorded.connect(self._recorded)
         self.recorder.failed.connect(self.message.emit)
 
-        # The same four questions the per-recording dialog asks. Here they are
-        # what the next recording starts from; there they are one recording's
-        # own answers. One widget, so the two cannot drift apart.
-        self.options = OptionsForm(self.settings)
-
         self._build_player()
         self._build_queue_table()
         self._assemble()
-        self._load_state()
-        self.options.update_summaries()
         self.refresh()
 
         self._add_shortcuts()
@@ -161,71 +149,41 @@ class TranscribePanel(QWidget):
         self.summary = QLabel("")
 
     def _assemble(self):
-        # Recordings first: you have the file in front of you before deciding
-        # what to make of it, and the questions below are about something
-        # that exists rather than about the next thing you might add.
+        """A header saying where recordings come from, and the queue.
+
+        Everything else — what you want out of a recording, how to transcribe
+        it, the subtitle numbers, the keywords — is asked about *one*
+        recording, in the dialog its Transcribe button opens. A column of
+        options beside the queue was answering those questions for a file
+        that did not exist yet, and answering them once for all of them."""
+        # Not the primary button: the one filled thing on this tab is
+        # Transcribe, under the list. This is the way in for people who would
+        # rather not drag anything.
         add = QPushButton(t("gui.add_files"))
         add.clicked.connect(self.choose_files)
-        buttons = QHBoxLayout()
-        buttons.addWidget(add)
-        buttons.addStretch(1)
+        add_row = QHBoxLayout()
+        add_row.addWidget(add)
+        add_row.addStretch(1)
         self.drop_hint = QLabel(t("gui.drop_hint"))
         self.drop_hint.setWordWrap(True)
-        self.drop_hint.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.drop_hint.setFrameShape(QFrame.Shape.StyledPanel)
-        self.drop_hint.setMinimumHeight(72)
-        files_page = QWidget()
-        files_layout = QVBoxLayout(files_page)
+        style.note(self.drop_hint)
+        files = QWidget()
+        files_layout = QVBoxLayout(files)
         files_layout.setContentsMargins(0, 0, 0, 0)
-        files_layout.addLayout(buttons)
-        files_layout.addWidget(self.drop_hint, 1)
-        record_page = QWidget()
-        record_layout = QVBoxLayout(record_page)
-        record_layout.setContentsMargins(0, 0, 0, 0)
-        record_layout.addWidget(self.recorder)
-        record_layout.addStretch(1)
-        # A microphone is not an option of the file list, it is the other half
-        # of the question, and the browser page has said so with two tabs
-        # since it was written.
-        self.sources = QTabWidget()
-        self.sources.addTab(files_page, t("gui.tab_files"))
-        self.sources.addTab(record_page, t("gui.tab_record"))
-        queue_hint = QLabel(t("gui.queue_hint"))
-        queue_hint.setWordWrap(True)        # a narrow window must not cut it
-        style.note(queue_hint)
-        sources_page = QWidget()
-        sources_layout = QVBoxLayout(sources_page)
-        sources_layout.setContentsMargins(0, 0, 0, 0)
-        sources_layout.addWidget(self.sources)
-        sources_layout.addWidget(queue_hint)
-        self.step_sources = widgets.Disclosure(t("gui.step_sources"),
-                                               sources_page, open_now=True,
-                                               key="sources")
+        files_layout.addLayout(add_row)
+        files_layout.addWidget(self.drop_hint)
+        files_layout.addStretch(1)
 
-        self.steps = [self.step_sources] + self.options.sections
-        steps = QWidget()
-        steps_layout = QVBoxLayout(steps)
-        steps_layout.setContentsMargins(0, 0, 8, 0)
-        steps_layout.setSpacing(10)
-        steps_layout.addWidget(self.step_sources)
-        steps_layout.addWidget(self.options)
-        steps_layout.addStretch(1)
-        # Open, the list is taller than a laptop screen, and a window that
-        # cannot show its own last section is worse than one that scrolls.
-        left = QScrollArea()
-        left.setWidget(steps)
-        left.setWidgetResizable(True)
-        left.setFrameShape(QFrame.Shape.NoFrame)
-        # Wide enough for the widest section with its panel open: below that
-        # the column scrolls sideways, which is the one thing a list of five
-        # rows must never do.
-        left.setMinimumWidth(400)
+        header = QGroupBox(t("gui.group_sources"))
+        header_layout = QHBoxLayout(header)
+        header_layout.addWidget(files, 2)
+        header_layout.addWidget(widgets.separator_line(), 0)
+        header_layout.addWidget(self.recorder, 3)
 
         self.start = QPushButton(t("gui.start"))
-        # The one filled button on the tab: see gui/style.py. It is also the
-        # default, so Enter does what the screen is for. It starts everything
-        # that is waiting, with the answers on the left; a row's own button
-        # starts that one, and asks first.
+        # The one filled button under the list. It starts everything that is
+        # waiting, asking once for all of them; a row's own button starts
+        # that one and asks about it alone.
         self.start.setObjectName("primary")
         self.start.setDefault(True)
         self.start.setAutoDefault(True)
@@ -238,40 +196,15 @@ class TranscribePanel(QWidget):
         actions.addStretch(1)
         actions.addWidget(self.clear_finished)
 
-        # The queue is a box with a name on it: it is the one place work
-        # actually is, and before it had neither a title nor any way to take
-        # something out of it.
-        right = QGroupBox(t("gui.group_queue"))
-        right_layout = QVBoxLayout(right)
-        right_layout.addWidget(self.table, 1)
-        right_layout.addWidget(self.summary)
-        right_layout.addLayout(actions)
+        queue_box = QGroupBox(t("gui.group_queue"))
+        queue_layout = QVBoxLayout(queue_box)
+        queue_layout.addWidget(self.table, 1)
+        queue_layout.addWidget(self.summary)
+        queue_layout.addLayout(actions)
 
-        # Side by side, not one over the other: pressing Transcribe has to
-        # produce something visible, and the list is what it produces.
-        self.splitter = QSplitter(Qt.Orientation.Horizontal)
-        self.splitter.addWidget(left)
-        self.splitter.addWidget(right)
-        self.splitter.setStretchFactor(0, 0)
-        self.splitter.setStretchFactor(1, 1)
-        self.splitter.setChildrenCollapsible(False)
-        # Stretch factors only share out what is left over, and the table asks
-        # for everything it can get: without a starting size the steps column
-        # was squeezed to less than its own content and scrolled sideways.
-        self.splitter.setSizes([440, 740])
         layout = QVBoxLayout(self)
-        layout.addWidget(self.splitter)
-
-    # --- what the options say ----------------------------------------------
-
-    def chosen_output(self):
-        return self.options.chosen_output()
-
-    def chosen_vocabularies(self):
-        return self.options.chosen_vocabularies()
-
-    def choices(self):
-        return self.options.choices()
+        layout.addWidget(header)
+        layout.addWidget(queue_box, 1)
 
     # --- sources ----------------------------------------------------------
 
@@ -323,22 +256,16 @@ class TranscribePanel(QWidget):
     # --- the queue --------------------------------------------------------
 
     def submit_paths(self, paths, store=STORE_COPY, title=None):
-        """Hand files to the queue; returns whether anything was queued."""
-        text = self.options.custom_text()
-        problem = options.custom_vocabulary_problem(text)
-        if problem:
-            self.message.emit(problem)
-            return False
-        overrides = _overrides(self.choices())
-        names = self.chosen_vocabularies()
-        self._save_state()
+        """Put files in the queue and leave them there.
+
+        Nothing is decided here. What a recording is for is asked when it is
+        started, which is the only moment somebody is looking at that
+        recording rather than at a folder."""
         queued = 0
         for path in paths:
-            self.queue.submit(
-                path, title=title or options.title_from_path(path),
-                filename=os.path.basename(path), overrides=overrides,
-                vocabularies=names, custom_vocabulary=text, store=store,
-                start=False)
+            self.queue.submit(path, title=title or options.title_from_path(path),
+                              filename=os.path.basename(path), store=store,
+                              start=False)
             queued += 1
         if queued:
             self.message.emit(t("gui.queued", count=queued))
@@ -346,13 +273,35 @@ class TranscribePanel(QWidget):
         return bool(queued)
 
     def start_queue(self):
-        """Run everything that is waiting to be started."""
-        started = self.queue.start()
-        if not started:
+        """Start everything that is waiting, asking once for all of it."""
+        held = [row["id"] for row in self._rows if row["held"]]
+        if not held:
             return False
-        self.message.emit(t("gui.started", count=started))
+        answers = self._ask(t("gui.job_dialog_all", count=len(held)))
+        if answers is None:
+            return False
+        started = 0
+        for job_id in held:
+            self.queue.reconfigure(job_id, **answers)
+            started += self.queue.start(job_id)
+        if started:
+            self.message.emit(t("gui.started", count=started))
         self.refresh()
-        return True
+        return bool(started)
+
+    def _ask(self, title):
+        """Put the four questions, and remember the answers for next time.
+
+        Where the defaults come from, now that the tab has no options of its
+        own: ``config.toml`` first, then whatever was answered last, which is
+        what makes a queue of six meetings six confirmations rather than six
+        forms."""
+        dialog = JobDialog(title, self.settings, store=self.store, parent=self)
+        if dialog.exec() != QDialog.DialogCode.Accepted:
+            return None
+        return {"overrides": _overrides(dialog.choices()),
+                "vocabularies": dialog.vocabularies(),
+                "custom_vocabulary": dialog.custom_text()}
 
     def refresh(self):
         """Re-read the queue and update the table in place."""
@@ -365,9 +314,8 @@ class TranscribePanel(QWidget):
         finished = self._newly_finished(rows)
         self._rows = rows
         self.summary.setText(options.queue_summary(jobs))
-        held = sum(1 for row in rows if row["held"])
-        self.start.setText(options.start_label(held))
-        self._sources_summary(held)
+        self.start.setText(options.start_label(
+            sum(1 for row in rows if row["held"])))
         self._update_actions()
         # After the labels are on the buttons, not before: an empty button
         # asks for a third of the width a labelled one does.
@@ -467,12 +415,6 @@ class TranscribePanel(QWidget):
         job_id = self.selected_job_id()
         return next((row for row in self._rows if row["id"] == job_id), None)
 
-    def _sources_summary(self, held):
-        """Step 2, closed: how much is waiting to be started."""
-        self.step_sources.set_summary(
-            t("gui.step_sources_waiting", count=held) if held
-            else t("gui.step_sources_empty"))
-
     def _update_actions(self):
         """Say what every row's buttons do, for the state that row is in."""
         playing = self._playing if self._is_playing() else None
@@ -564,23 +506,15 @@ class TranscribePanel(QWidget):
             self.entry_requested.emit(row["entry_id"])
 
     def transcribe_row(self, job_id):
-        """Ask what this recording is for, then start it.
-
-        The dialog opens on the answers from the list on the left, so a queue
-        of six meetings takes one confirmation each and the odd one that
-        needs subtitles is changed where it is noticed."""
+        """Ask what this recording is for, then start it."""
         self.queue.retry(job_id)            # a failed one goes back to waiting
         job = self.queue.get(job_id)
         if job is None or job.status != HELD:
             return False
-        dialog = JobDialog(job.title, self.settings, self.options.choices(),
-                           self.options.chosen_vocabularies(),
-                           self.options.custom_text(), parent=self)
-        if dialog.exec() != QDialog.DialogCode.Accepted:
+        answers = self._ask(t("gui.job_dialog_title", title=job.title))
+        if answers is None:
             return False
-        self.queue.reconfigure(job_id, overrides=_overrides(dialog.choices()),
-                               vocabularies=dialog.vocabularies(),
-                               custom_vocabulary=dialog.custom_text())
+        self.queue.reconfigure(job_id, **answers)
         started = self.queue.start(job_id)
         if started:
             self.message.emit(t("gui.started", count=started))
@@ -653,30 +587,10 @@ class TranscribePanel(QWidget):
 
     # --- what is remembered between sessions ------------------------------
 
-    def _load_state(self):
-        """Restore the choices, which are a habit rather than a configuration."""
-        self.options.load_state(self.store)
-        if self.store is None:
-            return
-        where = self.store.value("splitter")
-        if where is not None:
-            self.splitter.restoreState(where)
-        remembered_open = self.store.value("open_sources", None)
-        if remembered_open is not None:
-            self.step_sources.set_open(remembered_open in (True, "true"))
-
-    def _save_state(self):
-        if self.store is None:
-            return
-        self.options.save_state(self.store)
-        self.store.setValue("open_sources", self.step_sources.is_open())
-        self.store.setValue("splitter", self.splitter.saveState())
-
     def shutdown(self):
-        """Stop polling, stop recording, remember the choices."""
+        """Stop polling and stop recording."""
         self.timer.stop()
         self.recorder.stop()
-        self._save_state()
 
 
 def _overrides(chosen):

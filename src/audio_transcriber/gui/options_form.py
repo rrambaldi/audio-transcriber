@@ -42,10 +42,9 @@ from . import options, style, widgets
 class OptionsForm(QWidget):
     """The sections that say what to do with a recording."""
 
-    def __init__(self, settings=None, numbered=True, parent=None):
+    def __init__(self, settings=None, parent=None):
         super().__init__(parent)
         self.settings = dict(settings or {})
-        self._numbered = numbered
         self._build()
         self._assemble()
         self._output_chosen()
@@ -184,7 +183,7 @@ class OptionsForm(QWidget):
         output_layout.addWidget(self.output_note)
         self._reserve_note_lines(3)
         output_layout.addWidget(self.output_unavailable)
-        self.step_output = widgets.Disclosure(self._title("gui.step_output"),
+        self.step_output = widgets.Disclosure(t("gui.step_output"),
                                               output_page, open_now=True,
                                               key="output")
 
@@ -201,7 +200,7 @@ class OptionsForm(QWidget):
         speakers_row.addStretch(1)
         self.form.addRow("", _wrap(speakers_row))
         self._speakers_row = self.form.rowCount() - 1
-        self.step_options = widgets.Disclosure(self._title("gui.step_options"),
+        self.step_options = widgets.Disclosure(t("gui.step_options"),
                                                options_page, key="options")
 
         subtitle_page = QWidget()
@@ -245,14 +244,6 @@ class OptionsForm(QWidget):
                 QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
             box.setMinimumContentsLength(12)
         self._count_prompt()
-
-    def _title(self, key):
-        """Section titles are numbered in the tab and plain in the dialog.
-
-        In the tab they are steps in a sequence; in a dialog about one
-        recording there is no sequence to be at step two of."""
-        title = t(key)
-        return title if self._numbered else title.split("·", 1)[-1].strip()
 
     def _reserve_note_lines(self, lines):
         """Keep room for the longest note so the sections below do not move.

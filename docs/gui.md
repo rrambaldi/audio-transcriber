@@ -19,65 +19,33 @@ the moment it came from — without a browser, a server or a port.
 
 Three tabs.
 
-**Transcribe** is read as a list of sections down the left of the tab, with
-the queue beside it: *1 which recordings · 2 what do you want out of it · 3
-how to transcribe them*, then *Subtitles* and *Keyword sets*. The recordings
-come first on purpose — you have the file in front of you before deciding
-what to make of it, and the questions below are then about something that
-exists rather than about the next thing you might add.
+**Transcribe** is a header and a queue, and nothing else. Across the top:
+*Add files…* for people who would rather not drag anything, and the recorder
+— device, *Record*, *Pause*, the level meter. Dropping a recording anywhere
+on the tab puts it in the queue. Under that, the queue itself, taking the
+rest of the window.
 
-Every section opens and closes, and **a closed one still reports what it
-holds** — *3 · How to transcribe them — auto · Italiano (it) · auto*,
-*Keyword sets — 3 chosen* — because closing a section must not hide a choice.
-Which ones you leave open is remembered, like the model and the language.
-
-**A section that does not apply stays in the list and goes quiet**, saying
-which answer would bring it to life: *Subtitles — only with "Subtitles"*. It
-opens itself the moment you choose that answer. Taking the row out instead
-would change the shape of the list under the pointer, and the reason is worth
-more than the line it costs.
-
-Recordings arrive in step 2, by dropping them anywhere on the tab, through
-*Add files…*, or from the microphone: the two ways in are two tabs, the same
-pair the browser page has, because a microphone is not an option of the file
-list but the other half of the question.
-
-**What do you want out of it?** — the first thing the tab asks, because it is
-the first thing to decide:
-
-| answer | what you get |
-|---|---|
-| *Just the text* | paragraphs, broken where the speech pauses. No timestamps, nobody named |
-| *The text, with who said what* | the same text as a dialogue, one block per turn; needs diarization |
-| *Subtitles* | cues with times, cut to be readable, saved as `.srt` or `.vtt` |
-
-One note under the three says what the chosen one produces. **The controls of
-the other two answers go away**: with *just the text* there is no subtitle
-preset and no speaker count to wonder about, and choosing *subtitles* brings up
-the box that says how they are cut — including "who said what", which is
-optional there and marks a change of voice inside the cues. The answer is
-remembered between sessions.
-
-*The text, with who said what* is disabled outright, with the reason on it,
-when this machine cannot diarize: a job that fails after forty minutes is a
-worse way to find that out. `[general] output` in `config.toml` decides which
-answer is preselected, and the command line says the same thing with
-`--output text|speakers|subtitles`.
-
-Then the model — `auto` is labelled with what it resolves to on this machine —
-the spoken language, the engine, and the keyword sets: the installed ones, your
-own, or both. See [vocabularies.md](vocabularies.md).
+There is deliberately **no column of options**. What a recording is for —
+plain text, who said what, subtitles, with which model and which keywords —
+is asked about *one* recording, in the dialog its *Transcribe* button opens.
+Options beside the queue were answering those questions for a file that did
+not exist yet, and answering them once for all of them; a queue is half a
+dozen recordings at a time and one of them is the interview that needs
+subtitles.
 
 **A file you add goes into the queue and waits there**, marked *not started*.
-*Transcribe* runs the lot. That is deliberately two steps rather than one: the
-first version of this tab kept the chosen files in a separate list waiting for
-a button and nobody could tell how to begin, and the version after it started
-each file the moment it was added, which left no room to change the model or
-tick a keyword set once the files were in. One list, and one button that runs
-it.
+It is started from its own row, or all of them together from the button under
+the list — which asks the same four questions once, for the lot. Deliberately
+two steps rather than one: the first version of this tab kept the chosen
+files in a separate list waiting for a button and nobody could tell how to
+begin, and the version after it started each file the moment it was added,
+which left no room to say what that file was for.
 
-**The queue** — beside the steps, because pressing *Transcribe* has to produce
-something visible and the list is what it produces — holds every job newest
+The answers are remembered, so the second recording of the morning starts
+from what the first one was told: six meetings in the queue should be six
+confirmations, not six forms.
+
+**The queue** — the whole of the tab under the header — holds every job newest
 first. A row is a recording: its title, and under it the facts known so far
 (the model, the length, the word count) or, if it failed, the reason with the
 whole width of the column. The state is a word, and only the job that is

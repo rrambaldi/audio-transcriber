@@ -122,20 +122,6 @@ def test_the_window_has_the_three_tabs(window):
     assert labels == ["Transcribe", "Library", "This machine"]
 
 
-def test_the_options_offer_the_installed_keyword_sets(window):
-    names = [window.transcribe.options.vocabularies.item(row).data(Qt.ItemDataRole.UserRole)
-             for row in range(window.transcribe.options.vocabularies.count())]
-    assert "iso27001-it" in names
-
-
-def test_diarization_is_greyed_out_when_the_machine_cannot_do_it(window):
-    """Offering it would only produce a job that fails after the wait."""
-    from audio_transcriber.diarization import availability
-
-    ready = availability()[0] == "ready"
-    assert window.transcribe.options.diarize.isEnabled() is ready
-
-
 def test_this_machine_tab_reports_hardware_and_paths(window):
     assert window.system.hardware_form.rowCount() >= 2
 
@@ -612,17 +598,6 @@ def test_a_drop_of_something_that_is_not_a_file_queues_nothing(window, tmp_path)
     assert window.queue.jobs() == []
 
 
-def test_an_oversized_vocabulary_keeps_the_file_out_of_the_queue(window, tmp_path):
-    from audio_transcriber.vocabularies import MAX_CUSTOM_VOCABULARY
-
-    said = []
-    window.transcribe.message.connect(said.append)
-    window.transcribe.options.custom.setPlainText("x" * (MAX_CUSTOM_VOCABULARY + 1))
-    assert window.transcribe.add_files([sample(tmp_path)]) is False
-    assert window.queue.jobs() == []
-    assert said and str(MAX_CUSTOM_VOCABULARY) in said[-1]
-
-
 def test_the_table_shows_the_stage_of_the_job_that_is_running(window, tmp_path, queue):
     """What the queue reports while a long transcription is under way."""
     blocked = threading.Event()
@@ -679,43 +654,6 @@ def test_forgetting_one_job_keeps_the_right_row_selected(window, tmp_path, queue
     assert window.transcribe.table.rowCount() == 1
 
 
-def test_the_subtitle_numbers_reach_the_job(window, tmp_path, queue):
-    """The window's job is to collect them; the cutting is the core's."""
-    panel = window.transcribe
-    panel.options.output_buttons["subtitles"].setChecked(True)
-    panel.options.subtitle_preset.setCurrentIndex(panel.options.subtitle_preset.findData("ebu_broadcast"))
-    panel.options.subtitle_chars.setValue(32)
-    panel.options.subtitle_words.setValue(9)
-    panel.options.save_srt.setChecked(True)
-    panel.add_files([sample(tmp_path)])
-
-    settings = queue.jobs()[0].settings
-    assert settings["subtitles"] == "srt"
-    assert settings["subtitle_preset"] == "ebu_broadcast"
-    assert settings["subtitle_chars"] == 32
-    assert settings["subtitle_words"] == 9
-
-
-def test_zero_means_whatever_the_preset_says(window, tmp_path, queue):
-    """A spin box at zero is "not chosen", not "no characters allowed"."""
-    panel = window.transcribe
-    panel.options.output_buttons["subtitles"].setChecked(True)
-    panel.options.subtitle_chars.setValue(0)
-    panel.options.subtitle_words.setValue(0)
-    panel.options.save_srt.setChecked(False)
-    panel.options.save_vtt.setChecked(False)
-    panel.add_files([sample(tmp_path)])
-
-    # The queue drops overrides that are None - that is how "not chosen here"
-    # leaves the configured value standing - so the keys are simply absent.
-    settings = queue.jobs()[0].settings
-    assert settings.get("subtitle_chars") is None
-    assert settings.get("subtitle_words") is None
-    # Subtitles were the chosen output, so a format is assumed rather than
-    # producing cues nobody keeps.
-    assert settings.get("subtitles") == "srt"
-
-
 def test_an_entry_can_be_cut_into_subtitles_from_the_library(window, tmp_path,
                                                              queue, monkeypatch):
     """From the segments, so an entry transcribed months ago can be cut again
@@ -751,153 +689,7 @@ def test_an_entry_without_timestamps_cannot_be_cut(window, tmp_path, queue):
     assert said and "timestamps" in said[-1]
 
 
-def test_the_chosen_options_are_remembered_for_next_time(window, tmp_path, queue):
-    window.transcribe.options.model.setCurrentIndex(window.transcribe.options.model.findData("base"))
-    window.transcribe.options.custom.setPlainText("alpha, beta")
-    window.transcribe.add_files([sample(tmp_path)])
-    window.transcribe.start_queue()
-    assert queue.jobs()[0].settings["model"] == "base"
-    assert queue.jobs()[0].prompt == "alpha, beta"
-
-    later = MainWindow(SETTINGS, queue=queue)
-    try:
-        assert later.transcribe.options.model.currentData() == "base"
-        assert later.transcribe.options.custom.toPlainText() == "alpha, beta"
-    finally:
-        later.transcribe.shutdown()
-        later.deleteLater()
-
-
 # --- what the run is for --------------------------------------------------
-
-def test_the_window_asks_what_you_want_out_of_it(window):
-    """The choice people arrive with, in three words rather than in five
-    scattered controls."""
-    titles = [step.button.text() for step in window.transcribe.steps]
-    assert any(title.startswith("2 · What do you want out of it?")
-               for title in titles)
-    assert set(window.transcribe.options.output_buttons) == {"text", "speakers", "subtitles"}
-    assert window.transcribe.chosen_output() == "text"      # the plain default
-
-
-def test_choosing_plain_text_ignores_the_subtitle_numbers(window, tmp_path, queue):
-    """Which is the point of choosing: the knobs of the other two answers stop
-    applying, instead of quietly doing something."""
-    panel = window.transcribe
-    panel.options.output_buttons["subtitles"].setChecked(True)
-    panel.options.save_srt.setChecked(True)
-    panel.options.output_buttons["text"].setChecked(True)
-    panel.add_files([sample(tmp_path)])
-
-    settings = queue.jobs()[0].settings
-    assert settings["output"] == "text"
-    assert settings["subtitles"] is None
-    assert settings["diarize"] is False
-
-
-def test_choosing_who_said_what_turns_diarization_on(window, tmp_path, queue):
-    panel = window.transcribe
-    panel.options.output_buttons["speakers"].setChecked(True)
-    panel.add_files([sample(tmp_path)])
-
-    settings = queue.jobs()[0].settings
-    assert settings["output"] == "speakers"
-    assert settings["diarize"] is True
-    assert settings["subtitles"] is None
-
-
-def test_the_controls_of_the_other_answers_are_greyed_out(window):
-    """A subtitle preset next to "just the text" is a control that does
-    nothing, and a control that does nothing is a question the window cannot
-    answer."""
-    panel = window.transcribe
-    panel.options.output_buttons["text"].setChecked(True)
-    assert panel.options.subtitle_preset.isEnabled() is False
-    assert panel.options.save_srt.isEnabled() is False
-    assert panel.options.speakers.isEnabled() is False
-
-    panel.options.output_buttons["subtitles"].setChecked(True)
-    assert panel.options.subtitle_preset.isEnabled() is True
-    assert panel.options.save_srt.isEnabled() is True
-
-
-def test_the_subtitle_section_waits_for_the_answer_that_needs_it(window):
-    """It stays in the list and goes quiet, saying which answer brings it to
-    life: a list that changes shape under the pointer is harder to learn than
-    one row that waits. And it opens itself when it becomes live."""
-    panel = window.transcribe
-    panel.options.output_buttons["text"].setChecked(True)
-    assert panel.options.step_subtitles.is_available() is False
-    assert panel.options.step_subtitles.is_open() is False
-    assert "Subtitles" in panel.options.step_subtitles.button.text()
-    assert panel.options.form.isRowVisible(panel.options._speakers_row) is False
-
-    panel.options.output_buttons["subtitles"].setChecked(True)
-    assert panel.options.step_subtitles.is_available() is True
-    assert panel.options.step_subtitles.is_open() is True
-    assert panel.options.form.isRowVisible(panel.options._speakers_row) is True
-
-
-def test_the_note_says_what_the_chosen_answer_produces(window):
-    """One note, for the answer that is chosen: three at once is a paragraph
-    to read before the first click."""
-    panel = window.transcribe
-    panel.options.output_buttons["text"].setChecked(True)
-    plain = panel.options.output_note.text()
-    panel.options.output_buttons["subtitles"].setChecked(True)
-
-    assert plain and plain != panel.options.output_note.text()
-    assert ".srt" in panel.options.output_note.text()
-    # And it keeps its height, so choosing does not shift the boxes below it.
-    assert panel.options.output_note.minimumHeight() > 0
-
-
-def test_who_said_what_is_refused_when_the_machine_cannot_diarize(window):
-    """An output this machine cannot produce is not offered: a job that fails
-    after the wait is a worse way to find that out."""
-    from audio_transcriber.diarization import availability
-
-    ready = availability(None)[0] == "ready"
-    assert window.transcribe.options.output_buttons["speakers"].isEnabled() is ready
-    if not ready:
-        assert window.transcribe.chosen_output() != "speakers"
-        assert window.transcribe.options.output_buttons["speakers"].toolTip()
-
-
-def test_choosing_subtitles_ticks_the_file_it_will_write(window):
-    """The answer is the files, and one is written either way: an empty box
-    over an .srt on disk is the form lying about what it does."""
-    panel = window.transcribe
-    panel.options.save_srt.setChecked(False)
-    panel.options.save_vtt.setChecked(False)
-    panel.options.output_buttons["subtitles"].setChecked(True)
-
-    assert panel.options.save_srt.isChecked() is True
-
-
-def test_the_tab_reads_as_three_steps(window):
-    """A sequence, not a dashboard: three columns side by side with the start
-    button in the bottom-left corner made the eye cross the window three times
-    for a task that is a straight line."""
-    titles = [step.button.text() for step in window.transcribe.steps]
-    assert [title.split(" — ")[0] for title in titles] == [
-        "1 · Which recordings", "2 · What do you want out of it?",
-        "3 · How to transcribe them", "Subtitles", "Keyword sets"]
-    # ...and the two ways in are two tabs, not one under the other
-    assert window.transcribe.sources.count() == 2
-    assert window.transcribe.sources.tabText(0) == "Add files"
-
-
-def test_the_keyword_sets_start_put_away_and_say_so(window):
-    """Nineteen sets took a third of the window before anything had been
-    chosen. Closed is fine; closed and silent about a choice is not."""
-    panel = window.transcribe
-    assert panel.options.vocab_panel.is_open() is False
-    assert panel.options.vocab_panel.button.text().endswith("none")
-
-    panel.options.vocabularies.item(0).setCheckState(Qt.CheckState.Checked)
-    assert panel.options.vocab_panel.button.text().endswith("1 chosen")
-
 
 def test_the_start_button_says_how_much_it_starts(window, tmp_path, queue):
     """A button that says only "Transcribe" leaves the count to be worked out
@@ -933,49 +725,27 @@ def test_the_status_bar_says_what_is_in_the_library(window):
     assert "recordings in the library" in window.statusBar().currentMessage()
 
 
-def test_every_closed_section_reports_what_it_holds(window, tmp_path, queue):
-    """Closing a section must not hide a choice: the row is the summary."""
-    panel = window.transcribe
-    panel.options.output_buttons["subtitles"].setChecked(True)
-    panel.add_files([sample(tmp_path)])
-
-    said = {step.key: step.button.text() for step in panel.steps}
-    assert said["output"].endswith("Subtitles")
-    assert said["sources"].endswith("1 waiting")
-    assert "auto" in said["options"] and "Italian" in said["options"]
-    assert "netflix" in said["subtitles"] and ".srt" in said["subtitles"]
-    assert said["vocabulary"].endswith("none")
-
-
-def test_which_sections_were_open_is_remembered(window, queue):
-    """The list is a habit, like the model and the language beside it."""
-    window.transcribe.options.step_options.set_open(True)
-    window.transcribe.options.step_output.set_open(False)
-    window.transcribe._save_state()
-
-    later = MainWindow(SETTINGS, queue=queue)
-    try:
-        assert later.transcribe.options.step_options.is_open() is True
-        assert later.transcribe.options.step_output.is_open() is False
-    finally:
-        later.transcribe.shutdown()
-        later.deleteLater()
-
-
 # --- starting one recording ------------------------------------------------
 
 class FakeDialog:
-    """Stands in for the per-recording dialog: records how it was seeded."""
+    """Stands in for the per-recording dialog: records how it was opened.
+
+    Every test gets it, through an autouse fixture, so that a test which
+    starts a transcription can never open a real modal dialog and hang the
+    suite waiting for a click that will not come."""
 
     answer = True
     seen = {}
     choices_to_give = {}
 
     def __init__(self, title, settings=None, defaults=None, vocabularies=None,
-                 custom_text=None, parent=None):
-        FakeDialog.seen = {"title": title, "defaults": defaults,
-                           "vocabularies": vocabularies, "custom": custom_text}
-        self._choices = dict(defaults or {})
+                 custom_text=None, store=None, parent=None):
+        FakeDialog.seen = {"title": title, "settings": settings, "store": store}
+        self._choices = {"model": "auto", "language": "it", "backend": "auto",
+                         "output": "text", "diarize": False, "speakers": 0,
+                         "subtitle_preset": "netflix", "subtitle_chars": 0,
+                         "subtitle_words": 0, "srt": False, "vtt": False}
+        self._choices.update(defaults or {})
         self._choices.update(FakeDialog.choices_to_give)
 
     def exec(self):
@@ -987,13 +757,13 @@ class FakeDialog:
         return self._choices
 
     def vocabularies(self):
-        return FakeDialog.seen["vocabularies"] or []
+        return []
 
     def custom_text(self):
-        return FakeDialog.seen["custom"] or ""
+        return ""
 
 
-@pytest.fixture
+@pytest.fixture(autouse=True)
 def fake_dialog(monkeypatch):
     from audio_transcriber.gui import transcribe_panel
 
@@ -1012,9 +782,9 @@ def test_starting_one_recording_asks_what_it_is_for(window, tmp_path, queue,
     fake_dialog.choices_to_give = {"output": "subtitles"}
 
     assert window.transcribe.transcribe_row(queue.jobs()[0].id) is True
-    assert fake_dialog.seen["title"] == "meeting"
-    # ...seeded from the answers on the left
-    assert fake_dialog.seen["defaults"]["model"] == window.transcribe.options.model.currentData()
+    assert fake_dialog.seen["title"] == 'Transcribe "meeting"'
+    # ...and it is handed the store, which is where the last answers are
+    assert fake_dialog.seen["store"] is window.transcribe.store
     assert queue.jobs()[0].settings["output"] == "subtitles"
     assert queue.jobs()[0].settings["subtitles"] == "srt"
     assert queue.jobs()[0].status != "held"
@@ -1032,7 +802,7 @@ def test_saying_no_to_the_dialog_leaves_the_recording_waiting(window, tmp_path,
 
 def test_the_answers_reach_only_the_recording_that_was_asked(window, tmp_path,
                                                              queue, fake_dialog):
-    """The other rows keep what the tab said when they were added."""
+    """The other rows are untouched: they have not been asked yet."""
     window.transcribe.add_files([sample(tmp_path, "one.wav"),
                                  sample(tmp_path, "two.wav")])
     window.transcribe.refresh()
@@ -1042,19 +812,6 @@ def test_the_answers_reach_only_the_recording_that_was_asked(window, tmp_path,
     window.transcribe.transcribe_row(asked.id)
     assert asked.settings["model"] == "medium"
     assert other.settings["model"] != "medium"
-
-
-def test_the_chosen_output_is_remembered(window, queue):
-    """It is the first thing you choose; asking again every morning is rude."""
-    window.transcribe.options.output_buttons["subtitles"].setChecked(True)
-    window.transcribe._save_state()
-
-    later = MainWindow(SETTINGS, queue=queue)
-    try:
-        assert later.transcribe.chosen_output() == "subtitles"
-    finally:
-        later.transcribe.shutdown()
-        later.deleteLater()
 
 
 # --- from a finished job to the library -----------------------------------

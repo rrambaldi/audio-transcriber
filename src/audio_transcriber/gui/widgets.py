@@ -39,6 +39,14 @@ def separator():
     return line
 
 
+def separator_line():
+    """The same, standing up: two things side by side in one box."""
+    line = QFrame()
+    line.setFrameShape(QFrame.Shape.VLine)
+    line.setFrameShadow(QFrame.Shadow.Plain)
+    return line
+
+
 class Disclosure(QWidget):
     """A row in a list of sections: a title that opens onto its content.
 

@@ -298,20 +298,17 @@ MESSAGES = {
         "gui.row_stop_audio": "Stop playing",
         "gui.col_actions": "",
         "gui.job_dialog_title": "Transcribe \"{title}\"",
+        "gui.job_dialog_all": "Transcribe {count} recordings",
         "gui.job_dialog_note":
-            "For this recording only. The list on the left is what the next "
-            "one will start from.",
+            "These answers are kept, so the next recording starts from them.",
         "gui.row_no_audio": "The recording is not where it was: nothing to play.",
         "gui.row_no_multimedia":
             "Playing needs QtMultimedia: pip install PySide6-Addons (or the "
             "full PySide6).",
         "gui.start_one": "Transcribe 1 recording",
         "gui.start_many": "Transcribe {count} recordings",
-        "gui.step_output": "2 \u00b7 What do you want out of it?",
-        "gui.step_sources": "1 \u00b7 Which recordings",
-        "gui.step_options": "3 \u00b7 How to transcribe them",
-        "gui.step_sources_empty": "nothing yet",
-        "gui.step_sources_waiting": "{count} waiting",
+        "gui.step_output": "What do you want out of it?",
+        "gui.step_options": "How to transcribe it",
         "gui.only_with_subtitles": "only with \"{answer}\"",
         "gui.sub_chars_short": "{count} characters",
         "gui.sub_words_short": "{count} words",
@@ -812,20 +809,17 @@ MESSAGES = {
         "gui.row_stop_audio": "Ferma l'ascolto",
         "gui.col_actions": "",
         "gui.job_dialog_title": "Trascrivi \"{title}\"",
+        "gui.job_dialog_all": "Trascrivi {count} registrazioni",
         "gui.job_dialog_note":
-            "Vale solo per questa registrazione. L'elenco a sinistra e' quello "
-            "da cui parte la prossima.",
+            "Le risposte restano, cosi' la prossima registrazione parte da queste.",
         "gui.row_no_audio": "La registrazione non e' piu' dov'era: non c'e' nulla da ascoltare.",
         "gui.row_no_multimedia":
             "Per ascoltare serve QtMultimedia: pip install PySide6-Addons (o "
             "PySide6 completo).",
         "gui.start_one": "Trascrivi 1 registrazione",
         "gui.start_many": "Trascrivi {count} registrazioni",
-        "gui.step_output": "2 \u00b7 Cosa vuoi ottenere?",
-        "gui.step_sources": "1 \u00b7 Quali registrazioni",
-        "gui.step_options": "3 \u00b7 Come trascriverle",
-        "gui.step_sources_empty": "ancora niente",
-        "gui.step_sources_waiting": "{count} in attesa",
+        "gui.step_output": "Cosa vuoi ottenere?",
+        "gui.step_options": "Come trascriverla",
         "gui.only_with_subtitles": "solo con \"{answer}\"",
         "gui.sub_chars_short": "{count} caratteri",
         "gui.sub_words_short": "{count} parole",

@@ -30,7 +30,7 @@ class JobDialog(QDialog):
     """The four questions, for one recording, with Transcribe at the bottom."""
 
     def __init__(self, title, settings=None, defaults=None, vocabularies=None,
-                 custom_text=None, parent=None):
+                 custom_text=None, store=None, parent=None):
         super().__init__(parent)
         self.setWindowTitle(t("gui.job_dialog_title", title=title))
         self.setModal(True)
@@ -41,7 +41,12 @@ class JobDialog(QDialog):
         note.setWordWrap(True)
         style.note(note)
 
-        self.form = OptionsForm(settings, numbered=False)
+        self.form = OptionsForm(settings)
+        # Where the answers start from: config.toml, then whatever was
+        # answered last time. Six meetings in the queue should be six
+        # confirmations, not six forms.
+        self._store = store
+        self.form.load_state(store)
         if defaults:
             self.form.set_choices(defaults, vocabularies, custom_text)
 
@@ -71,6 +76,11 @@ class JobDialog(QDialog):
         layout.addWidget(scroll, 1)
         layout.addWidget(buttons)
         self.setWindowFlag(Qt.WindowType.WindowContextHelpButtonHint, False)
+
+    def accept(self):
+        """Keep the answers, so the next recording starts from them."""
+        self.form.save_state(self._store)
+        super().accept()
 
     # --- the answers -------------------------------------------------------
 

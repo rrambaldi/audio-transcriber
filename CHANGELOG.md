@@ -289,6 +289,16 @@ All notable changes to this project are documented here. The format follows
 
 ### Changed
 
+- **The Transcribe tab is a header and a queue.** Across the top, *Add
+  files…* and the recorder; dropping a recording anywhere on the tab queues
+  it. Everything else is the queue. The column of options beside it is gone —
+  it was answering "what do you want out of this?" for a file that did not
+  exist yet, and answering it once for every recording in the list. Those
+  four questions are now only ever asked about one recording, in the dialog
+  its own *Transcribe* button opens, and the button under the list asks them
+  once for everything that is waiting. The answers are remembered, so the
+  second recording of the morning starts from what the first one was told.
+
 - **The buttons on a queue row are push buttons**, which sounds like nothing
   and was the whole bug: a `QToolButton` defaults to *icon only*, there was no
   icon, and where the Fusion style draws the label anyway the Windows one
