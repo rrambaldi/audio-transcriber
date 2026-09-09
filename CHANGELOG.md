@@ -287,6 +287,49 @@ All notable changes to this project are documented here. The format follows
   reliably accepts (about 900 characters), instead of letting it be truncated
   in silence.
 
+### Fixed
+
+- **Accessibility, after an audit of both interfaces.** Nine things, most of
+  them one line each, all of them now held by a test.
+
+  In the window: a note explaining a choice was drawn as *disabled* text and
+  came out at **1.75:1**, where WCAG 1.4.3 asks for 4.5:1 — measured on the
+  pixels of a rendered window, not estimated. Greying a `QLabel` is the cheap
+  way to make explanatory text look secondary and it is the wrong one: the
+  criterion exempts disabled *controls*, not the sentence that explains what a
+  control does. The new `gui/style.py` mutes such text as far as it can while
+  still clearing the ratio, and lifts the whole disabled group of the desktop's
+  palette to the same floor, so "who said what" on a machine without pyannote
+  stays legible — reading why is the only thing left to do with it, and the
+  reason is now written on screen, with the command to fix it, rather than
+  hiding in a tooltip.
+
+  In the page: it no longer arrives **empty** when `/api/status` fails — every
+  label is now in the markup in English and the translation replaces it — and
+  every periodic call reports through one banner, so a server that goes away
+  says so instead of leaving the last state on screen looking alive. The focus
+  ring is drawn for the clipped file input (2.4.7); both progress bars have an
+  accessible name (4.1.2) and it is a one-line summary that is announced rather
+  than the job list, which was re-read in full every three seconds (4.1.3); the
+  library says how many recordings matched, to the reader as well as to the
+  screen reader; the recorder line folds instead of scrolling sideways at 320px
+  (1.4.10); the transcript panels can be scrolled from the keyboard (2.1.1);
+  the tab strips answer the arrow keys and take their label from the catalogue
+  instead of announcing "Sorgente" to an English reader; the quiet buttons —
+  which are also the destructive ones — are at least 24px high; field labels
+  are no longer the smallest, slowest text on the page; and the body honours
+  the reader's own font size instead of pinning 16px.
+
+- **"Cancel" now cancels** in the keyword-set dialog. It is a submit button in
+  a form whose name field is `required`, so with the name empty — exactly when
+  you open a new set and change your mind — it ran the browser's validation and
+  the dialog stayed open, with `Esc` as the only way out.
+
+- **The empty part of a progress bar can be seen.** Both tracks were drawn in
+  the divider colour, 1.33:1 against the page: at rest the input level meter
+  was indistinguishable from not being there, which is the one question it
+  exists to answer.
+
 ### Changed
 
 - **The default model is now `auto`**, worked out from the machine instead of

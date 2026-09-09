@@ -165,6 +165,15 @@ const I18N = {
     terms: "{n} terms",
     words: "{n} words",
     upload_failed: "Upload failed: {error}",
+    server_unreachable: "The server is not answering. Nothing is lost: this page reconnects on its own.",
+    retry_now: "try again now",
+    jobs_status_idle: "Nothing running.",
+    jobs_status: "{running} running, at {percent}% \u00b7 {waiting} waiting",
+    jobs_status_waiting: "{waiting} waiting.",
+    library_results: "{count} recordings.",
+    library_results_query: "{count} recordings match \"{query}\".",
+    source_tabs: "What to transcribe",
+    view_tabs: "What to show of this recording",
   },
   it: {
     tagline: "Trascrizione locale. Niente esce da questa macchina.",
@@ -311,6 +320,15 @@ const I18N = {
     terms: "{n} termini",
     words: "{n} parole",
     upload_failed: "Caricamento fallito: {error}",
+    server_unreachable: "Il server non risponde. Non si perde niente: la pagina si ricollega da sola.",
+    retry_now: "riprova adesso",
+    jobs_status_idle: "Niente in esecuzione.",
+    jobs_status: "{running} in corso, al {percent}% \u00b7 {waiting} in attesa",
+    jobs_status_waiting: "{waiting} in attesa.",
+    library_results: "{count} registrazioni.",
+    library_results_query: "{count} registrazioni contengono \"{query}\".",
+    source_tabs: "Cosa trascrivere",
+    view_tabs: "Cosa mostrare di questa registrazione",
   },
 };
 
@@ -377,10 +395,45 @@ function ask({ title, body, detail = "", confirmLabel, danger = true, input = nu
   });
 }
 
+/* --- when the server stops answering ----------------------------------- */
+
+/* The page polls, so a server that goes away is invisible: the last state
+   sits there looking alive. One banner, and every periodic fetch reports
+   through it. */
+function offline(down, retry = null) {
+  const banner = $("offline");
+  if (!down) {
+    banner.hidden = true;
+    banner.textContent = "";
+    return;
+  }
+  if (banner.hidden) {
+    banner.textContent = `${t("server_unreachable")} `;
+    if (retry) {
+      const again = el("button", { type: "button", className: "link",
+                                   textContent: t("retry_now") });
+      again.addEventListener("click", retry);
+      banner.append(again);
+    }
+    banner.hidden = false;
+  }
+}
+
 function translatePage() {
   document.documentElement.lang = lang;
   for (const node of document.querySelectorAll("[data-t]")) {
     node.textContent = t(node.dataset.t);
+  }
+  /* Written here rather than in the markup: an aria-label typed into the HTML
+     is a string that never reaches the catalogue, and the page then announces
+     one language while it shows another. */
+  $("source-tabs").setAttribute("aria-label", t("source_tabs"));
+  $("view-tabs").setAttribute("aria-label", t("view_tabs"));
+  $("record-level").setAttribute("aria-label", t("level_label"));
+  /* Zero is not a value here, it is "whatever the preset says" - which is what
+     the window's spin boxes write in the same place. */
+  for (const id of ["subtitle-chars", "subtitle-words"]) {
+    $(id).placeholder = t("sub_from_preset");
   }
   $("set-text").placeholder = t("set_placeholder");
   $("set-search").placeholder = "";
@@ -625,12 +678,34 @@ function showPane(which) {
                                    ["record", "tab-record", "pane-record"]]) {
     $(tab).classList.toggle("on", name === which);
     $(tab).setAttribute("aria-selected", String(name === which));
+    // Roving tabindex: Tab reaches the tab strip once and lands on the tab
+    // that is open; the arrows move between them, as role="tab" promises.
+    $(tab).tabIndex = name === which ? 0 : -1;
     $(pane).hidden = name !== which;
   }
 }
 
+/* A tab strip that announces itself as one has to behave like one: a screen
+   reader tells its user to press the arrows, and until now nothing happened. */
+function wireTabs(tablist, ids, show) {
+  const tabs = ids.map((id) => $(id));
+  tablist.addEventListener("keydown", (event) => {
+    const step = { ArrowRight: 1, ArrowLeft: -1, ArrowDown: 1, ArrowUp: -1 }[event.key];
+    const jump = { Home: 0, End: tabs.length - 1 }[event.key];
+    if (step === undefined && jump === undefined) return;
+    event.preventDefault();
+    const here = Math.max(0, tabs.indexOf(document.activeElement));
+    const next = jump !== undefined
+      ? jump : (here + step + tabs.length) % tabs.length;
+    show(next);
+    tabs[next].focus();
+  });
+}
+
 $("tab-file").addEventListener("click", () => showPane("file"));
 $("tab-record").addEventListener("click", () => showPane("record"));
+wireTabs($("source-tabs"), ["tab-file", "tab-record"],
+         (index) => showPane(["file", "record"][index]));
 
 function chooseFile(file, note) {
   selectedFile = file || null;
@@ -864,8 +939,26 @@ async function cancelJob(job) {
   refreshJobs();
 }
 
+/* What the list amounts to, in one line.
+   It is this line that is announced, not the list: the list is rewritten on
+   every poll, and a live region around it makes a screen reader read every
+   job again every three seconds for the length of a transcription. */
+function announceJobs(jobs) {
+  const running = jobs.filter((job) => job.status === "running");
+  const waiting = jobs.filter((job) => job.status === "queued").length;
+  const line = running.length
+    ? t("jobs_status", { running: running.length, percent: running[0].progress,
+                         waiting })
+    : waiting ? t("jobs_status_waiting", { waiting }) : t("jobs_status_idle");
+  const box = $("jobs-status");
+  // Only when it actually changed: an unchanged live region that is rewritten
+  // is still announced.
+  if (box.textContent !== line) box.textContent = line;
+}
+
 function renderJobs(jobs) {
   const box = $("jobs");
+  announceJobs(jobs);
   box.textContent = "";
   if (!jobs.length) {
     box.append(el("p", { className: "note", textContent: t("no_jobs") }));
@@ -938,6 +1031,8 @@ function renderJobs(jobs) {
     }
     if (job.status === "running") {
       row.append(el("div", { className: "bar", role: "progressbar",
+                             "aria-label": stateText(job),
+                             "aria-valuemin": 0, "aria-valuemax": 100,
                              "aria-valuenow": job.progress }, [
         el("span", { style: `width:${job.progress}%` }),
       ]));
@@ -947,7 +1042,14 @@ function renderJobs(jobs) {
 }
 
 async function refreshJobs() {
-  const data = await fetch(api("jobs")).then((r) => r.json());
+  let data;
+  try {
+    data = await fetch(api("jobs")).then((r) => r.json());
+    offline(false);
+  } catch (error) {
+    offline(true, refreshJobs);
+    return;                     // the list keeps the last state, and says so
+  }
   renderJobs(data.jobs);
   const busy = data.jobs.some((job) => job.status === "queued" || job.status === "running");
   if (busy && !polling) polling = setInterval(refreshJobs, POLL_MS);
@@ -970,9 +1072,21 @@ $("search").addEventListener("input", () => {
 async function refreshLibrary() {
   const query = $("search").value.trim();
   const url = query ? api(`library?q=${encodeURIComponent(query)}`) : api("library");
-  const data = await fetch(url).then((r) => r.json());
+  let data;
+  try {
+    data = await fetch(url).then((r) => r.json());
+    offline(false);
+  } catch (error) {
+    offline(true, refreshLibrary);
+    return;
+  }
   const box = $("library");
   box.textContent = "";
+  // The count is announced, and is also worth having on screen: a search that
+  // returns nothing and a search that returns forty looked the same.
+  $("library-status").textContent = query
+    ? t("library_results_query", { count: data.entries.length, query })
+    : t("library_results", { count: data.entries.length });
   if (!data.entries.length) {
     box.append(el("p", { className: "note",
       textContent: query ? t("no_results", { query }) : t("library_empty") }));
@@ -1005,6 +1119,7 @@ function showViewerTab(which) {
   ]) {
     $(tab).classList.toggle("on", name === which);
     $(tab).setAttribute("aria-selected", String(name === which));
+    $(tab).tabIndex = name === which ? 0 : -1;
     $(pane).hidden = name !== which;
   }
   $("notes-save").hidden = which !== "notes";
@@ -1013,6 +1128,8 @@ function showViewerTab(which) {
 $("tab-transcript").addEventListener("click", () => showViewerTab("transcript"));
 $("tab-segments").addEventListener("click", () => showViewerTab("segments"));
 $("tab-notes").addEventListener("click", () => showViewerTab("notes"));
+wireTabs($("view-tabs"), ["tab-transcript", "tab-segments", "tab-notes"],
+         (index) => showViewerTab(["transcript", "segments", "notes"][index]));
 
 function renderSegments(segments) {
   const box = $("viewer-segments");
@@ -1206,7 +1323,17 @@ $("job-form").addEventListener("submit", async (event) => {
 /* --- start ------------------------------------------------------------- */
 
 async function start() {
-  status = await fetch(api("status")).then((r) => r.json());
+  try {
+    status = await fetch(api("status")).then((r) => r.json());
+  } catch (error) {
+    /* Every label on this page is filled in by translatePage(), so a status
+       call that fails used to leave the titles and the buttons literally
+       empty. The English text is in the markup; leave it there and say what
+       happened. */
+    offline(true, start);
+    return;
+  }
+  offline(false);
   lang = I18N[status.interface_language] ? status.interface_language : "en";
   translatePage();
 

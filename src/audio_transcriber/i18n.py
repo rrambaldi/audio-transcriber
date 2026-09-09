@@ -265,6 +265,12 @@ MESSAGES = {
         "gui.language_auto": "detect it",
         "gui.backend_auto": "auto",
         "gui.diarize": "Who said what",
+        "gui.output_speakers_missing":
+            "Not on this machine: pyannote is missing. Install it with "
+            "pip install \"audio-transcriber-ov[diarize]\"",
+        "gui.output_speakers_unconfigured":
+            "Not on this machine: pyannote has no model. Set HUGGINGFACE_TOKEN, "
+            "or put a local config in {detail}.",
         "gui.diarize_unavailable":
             "Not available on this machine: {detail}\n"
             "See the 'This machine' tab.",
@@ -739,6 +745,12 @@ MESSAGES = {
         "gui.language_auto": "riconoscila",
         "gui.backend_auto": "auto",
         "gui.diarize": "Chi ha detto cosa",
+        "gui.output_speakers_missing":
+            "Non disponibile su questa macchina: manca pyannote. Si installa con "
+            "pip install \"audio-transcriber-ov[diarize]\"",
+        "gui.output_speakers_unconfigured":
+            "Non disponibile su questa macchina: pyannote non ha un modello. "
+            "Imposta HUGGINGFACE_TOKEN, oppure metti un config locale in {detail}.",
         "gui.diarize_unavailable":
             "Non disponibile su questa macchina: {detail}\n"
             "Vedi la scheda 'Questa macchina'.",

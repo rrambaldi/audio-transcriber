@@ -16,6 +16,7 @@ from PySide6.QtWidgets import QApplication, QMainWindow, QMessageBox, QTabWidget
 from .. import __version__, paths
 from ..i18n import t
 from ..jobs import JobQueue
+from . import style
 from .library_panel import LibraryPanel
 from .system_panel import SystemPanel
 from .transcribe_panel import TranscribePanel
@@ -124,6 +125,9 @@ def launch(settings=None, argv=None):
     application.setApplicationDisplayName(t("gui.app_name"))
     application.setApplicationVersion(__version__)
     application.setAttribute(Qt.ApplicationAttribute.AA_DontShowIconsInMenus, False)
+    # The desktop's own palette, with one floor imposed on it: text this
+    # window disables is still text somebody has to read. See gui/style.py.
+    style.apply(application)
 
     window = MainWindow(settings)
     window.show()

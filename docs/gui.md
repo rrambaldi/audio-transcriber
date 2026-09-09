@@ -105,6 +105,14 @@ box. The cues exist even for the other two answers: *Export the subtitles* in
 the library cuts an old entry with today's numbers. See
 [subtitles.md](subtitles.md).
 
+**The window paints with the desktop's palette**, with one floor imposed on
+it. A note that explains a control is coloured rather than disabled — greying
+a label is the cheap way to make it look secondary and it lands at 1.75:1,
+where WCAG 1.4.3 asks for 4.5:1 — and the disabled group of the palette is
+lifted to the same floor, so the answers this machine cannot produce stay
+legible: reading why is the only thing left to do with one of them. It is
+`gui/style.py`, and `tests/test_gui_style.py` measures it.
+
 **Library.** Every transcribed recording, newest first. Search the transcripts
 and the notes, read the transcript with a clickable timestamp per block, play
 the recording while reading along, jump to any moment, write notes, rename,

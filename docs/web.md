@@ -225,16 +225,31 @@ typefaces, both self-hosted under `static/fonts/` with their OFL licences —
 Fraunces for the headings, Karla for everything else — so the page loads with
 no network and calls nobody.
 
-Three properties are enforced by `tests/test_web_page.py`, because they are the
-ones that rot quietly:
+A dozen properties are enforced by `tests/test_web_page.py`, because they are
+the ones that rot quietly:
 
-- every field has a `<label for=...>` bound to it, and the tabs report which
-  one is selected;
+- every field has a `<label for=...>` bound to it, and the tab strips report
+  which one is selected, answer the arrow keys, and take their own label from
+  the catalogue rather than from the markup;
 - the two message catalogues in `app.js` define the same keys, and every
   `data-t` the markup asks for exists;
 - every colour pair in both the light and the dark palette clears WCAG AA —
   4.5:1 for text, and 3:1 for the rule under a field, which is the only
-  boundary an input has.
+  boundary an input has;
+- **the page reads before JavaScript fills it in**: every `data-t` element
+  carries its English text in the markup, so a `/api/status` that fails leaves
+  a readable page and a banner rather than empty headings and blank buttons;
+- both progress bars — the job's and the input level — have an accessible
+  name, and it is a short status line that is announced rather than the job
+  list itself, which is rewritten every three seconds;
+- the level meter's empty track is visible (a meter you cannot see at rest
+  cannot answer "is anything arriving?"), the recorder line folds instead of
+  scrolling sideways at 320px, and the quiet buttons — which are the
+  destructive ones — are at least 24px high.
+
+**When the server stops answering, the page says so.** Every periodic call
+reports through one banner, and the retry is a button in it: before, a server
+that went away left the last known state on screen looking alive.
 
 **Nothing is deleted without asking.** Removing a job from the list, deleting a
 library entry and deleting one of your own keyword sets all go through the same

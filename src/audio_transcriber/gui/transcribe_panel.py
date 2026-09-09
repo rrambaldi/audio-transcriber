@@ -37,11 +37,12 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from ..diarization import NO_MODEL
 from ..diarization import availability as diarization_availability
 from ..i18n import t
 from ..library import STORE_COPY, STORE_MOVE
 from ..vocabularies import MAX_PROMPT_CHARS
-from . import options
+from . import options, style
 from .recorder import make_recorder
 
 #: How often the queue is re-read. Twice a second is imperceptible on a
@@ -107,6 +108,10 @@ class TranscribePanel(QWidget):
             self.output_buttons[value] = button
             button.toggled.connect(self._output_chosen)
 
+        self.output_unavailable = QLabel("")
+        self.output_unavailable.setWordWrap(True)
+        style.note(self.output_unavailable)
+
         self.model = QComboBox()
         for label, value in options.model_choices():
             self.model.addItem(label, value)
@@ -143,6 +148,12 @@ class TranscribePanel(QWidget):
             unavailable.setToolTip(t("gui.diarize_unavailable", detail=detail))
             if unavailable.isChecked():
                 self.output_buttons["text"].setChecked(True)
+            # Written on screen, and written as something to do about it: the
+            # tooltip's "pyannote.audio" is the name of a module, which is not
+            # what somebody who wanted a dialogue needs to read.
+            self.output_unavailable.setText(t(
+                "gui.output_speakers_unconfigured" if state == NO_MODEL
+                else "gui.output_speakers_missing", detail=detail))
 
         self.vocabularies = QListWidget()
         self.vocabularies.setToolTip(t("gui.vocab_hint"))
@@ -240,10 +251,17 @@ class TranscribePanel(QWidget):
         # room for the controls underneath.
         self.output_note = QLabel("")
         self.output_note.setWordWrap(True)
-        self.output_note.setEnabled(False)          # a note, not a control
+        # A note, not a disabled control: greying it out is the cheap way to
+        # make it look secondary and it drops the contrast to 1.75:1, on the
+        # one sentence that has to be read before choosing.
+        style.note(self.output_note)
         self.output_note.setAlignment(Qt.AlignmentFlag.AlignTop)
         output_layout.addWidget(self.output_note)
         self._reserve_note_lines(3)
+
+        # And the reason an answer is missing belongs on the screen, not only
+        # in a tooltip nobody hovers.
+        output_layout.addWidget(self.output_unavailable)
 
         settings_box = QGroupBox(t("gui.group_options"))
         self.form = QFormLayout(settings_box)

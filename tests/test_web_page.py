@@ -125,6 +125,118 @@ def test_every_message_the_page_asks_for_exists(page, script):
     assert used - known == set()
 
 
+# --- what happens when something is missing -------------------------------
+
+def test_the_page_reads_before_javascript_fills_it_in(page):
+    """Every label is written by translatePage(), which runs after the status
+    call: when that call failed the visitor got a page whose titles, buttons
+    and labels were literally empty."""
+    empty = re.findall(r'<[^>]*\bdata-t="([^"]+)"[^>]*>\s*</', page)
+    assert empty == [], f"nodi senza testo di riserva: {empty}"
+
+
+def test_the_page_says_when_the_server_is_not_answering(page, script):
+    """The page polls, so a server that goes away is invisible: the last known
+    state sits there looking alive."""
+    assert 'id="offline"' in page and 'role="status"' in page
+    assert "function offline(" in script
+    assert "server_unreachable" in script
+    # every periodic call reports through it, and the first one too
+    assert script.count("offline(true") >= 3
+    assert script.count("offline(false)") >= 3
+
+
+def test_an_exit_never_validates(page):
+    """The name is required, and Cancel is a submit button in the same form:
+    with the name empty - which is exactly when you change your mind about a
+    new set - Cancel ran the validation and the dialog stayed open."""
+    cancel = re.search(r'<button value="cancel"[^>]*>', page).group(0)
+    assert "formnovalidate" in cancel
+
+
+# --- accessibility, checked as text ---------------------------------------
+
+def test_the_clipped_file_input_shows_its_focus(page, stylesheet):
+    """It is clipped away but still takes focus, so the ring has to be drawn
+    on the label that stands in for it (WCAG 2.4.7)."""
+    assert 'id="file"' in page and "visually-hidden" in page
+    assert "#file:focus-visible + p .button" in stylesheet
+
+
+def test_both_progress_bars_carry_a_name(page, script):
+    """A progressbar whose value changes ten times a second and has no name
+    announces a number and nothing else (WCAG 4.1.2)."""
+    assert 'setAttribute("aria-label", t("level_label"))' in script
+    assert '"aria-label": stateText(job)' in script
+    assert '"aria-valuemin": 0, "aria-valuemax": 100' in script
+    # ...and the meter is a continuous signal, not a status message
+    assert 'id="record-level"' in page and 'aria-live="off"' in page
+
+
+def test_only_a_short_line_is_announced_not_the_whole_list(page, script):
+    """The list is rewritten on every poll; a live region around it makes a
+    screen reader read every job again every three seconds (WCAG 4.1.3)."""
+    jobs = re.search(r'<div id="jobs"[^>]*>', page).group(0)
+    assert "aria-live" not in jobs
+    assert 'id="jobs-status" aria-live="polite"' in page
+    assert 'id="library-status" aria-live="polite"' in page
+    assert "function announceJobs(" in script
+    # rewriting a live region with the same text announces it again
+    assert "if (box.textContent !== line) box.textContent = line;" in script
+    # the library says how many it found - to the reader as well
+    assert "library_results" in script
+
+
+def test_the_recorder_line_folds_on_a_narrow_screen(stylesheet):
+    """Button plus timer plus a fixed 8rem meter came to more than a 320px
+    viewport is wide, which is a horizontal scrollbar (WCAG 1.4.10)."""
+    line = re.search(r"\.record-line \{[^}]*\}", stylesheet).group(0)
+    assert "flex-wrap: wrap" in line
+    level = re.search(r"\.level \{[^}]*\}", stylesheet).group(0)
+    assert "flex: 1 1" in level and "0 0 8rem" not in level
+
+
+def test_the_empty_part_of_a_bar_can_be_seen(stylesheet):
+    """--rule against the page is 1.33:1: at rest the level meter was
+    indistinguishable from not being there, which is the one question it
+    exists to answer."""
+    for selector in (r"\.level \{[^}]*\}", r"\.bar \{[^}]*\}"):
+        rule = re.search(selector, stylesheet).group(0)
+        assert "background: var(--line)" in rule, rule
+
+
+def test_the_quiet_buttons_are_big_enough_to_hit(stylesheet):
+    """"delete", "stop" and "remove from the list" are all .link, and at 22px
+    they were the smallest targets on the page (WCAG 2.2, 2.5.8)."""
+    rule = re.search(r"^\.link \{[^}]*\}", stylesheet, re.M).group(0)
+    assert "min-height: 24px" in rule
+
+
+def test_the_field_labels_are_not_the_smallest_text(stylesheet):
+    """Uppercase 0.72rem is right for a section eyebrow and wrong for the
+    words that have to be understood before acting."""
+    rule = re.search(r"\.field label[^{]*\{[^}]*\}", stylesheet).group(0)
+    assert "font-size: 0.82rem" in rule
+    assert "text-transform: none" in rule
+
+
+def test_the_tab_strips_answer_the_arrows(page, script):
+    """A strip that announces itself as role=tablist tells a screen reader to
+    press the arrows; until now nothing happened."""
+    assert "function wireTabs(" in script
+    assert "ArrowRight" in script and "Home" in script
+    assert 'tabIndex = name === which ? 0 : -1' in script
+    # and its label comes from the catalogue, not typed into the markup
+    assert "aria-label" not in re.search(r'<div class="tabs"[^>]*>', page).group(0)
+    assert 'setAttribute("aria-label", t("source_tabs"))' in script
+
+
+def test_the_subtitle_numbers_say_what_zero_means(script):
+    """Zero is not a value there, it is "whatever the preset says" - which is
+    what the window writes in the same place."""
+    assert 'placeholder = t("sub_from_preset")' in script
+
+
 # --- colour ---------------------------------------------------------------
 
 def palettes(stylesheet):

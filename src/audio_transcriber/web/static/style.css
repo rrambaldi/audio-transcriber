@@ -73,7 +73,9 @@ body {
   background: var(--paper);
   color: var(--ink);
   font-family: var(--sans);
-  font-size: 16px;
+  /* Percent, not pixels: 16px is the same size for everyone, including the
+     reader who set their browser larger on purpose. */
+  font-size: 100%;
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
 }
@@ -156,7 +158,15 @@ h3 {
 /* --- fields: one rule under the text ----------------------------------- */
 
 .field { display: grid; gap: 0.3rem; margin-bottom: 1.4rem; }
-.field label { color: var(--muted); }
+/* The uppercase 0.72rem above is right for a section eyebrow and wrong for a
+   field label: what has to be understood *before* acting was the smallest and
+   slowest text on the page. */
+.field label, fieldset.outputs label, .set-filter label {
+  color: var(--muted);
+  font-size: 0.82rem;
+  text-transform: none;
+  letter-spacing: 0.02em;
+}
 
 input[type="text"], input[type="number"], input[type="search"], select, textarea {
   font-family: var(--sans);
@@ -217,6 +227,13 @@ button:focus-visible, a:focus-visible, .tab:focus-visible,
   outline-offset: 3px;
 }
 input:focus, select:focus, textarea:focus { border-color: var(--forest); }
+/* The file input is clipped away but still takes focus, so the ring has to be
+   drawn on the label that stands in for it: otherwise Tab lands on the first
+   control of the page and disappears. */
+#file:focus-visible + p .button {
+  outline: 2px solid var(--forest);
+  outline-offset: 3px;
+}
 
 .field.checkbox {
   grid-template-columns: auto 1fr;
@@ -308,11 +325,26 @@ button:disabled { opacity: 0.45; cursor: default; }
   font-weight: 400;
   color: var(--forest);
   border-bottom: 1px solid var(--rule);
-  padding: 0;
+  /* "delete", "stop" and "remove from the list" are all of this kind, and at
+     22px they were the smallest targets on the page. The area grows, the
+     drawing does not. */
+  padding: 0.25rem 0;
+  min-height: 24px;
 }
 .link:hover { border-color: var(--forest); }
 .submit-line { display: flex; align-items: center; gap: 1.2rem; margin-top: 2rem; flex-wrap: wrap; }
 menu .spacer { flex: 1; }
+
+/* --- the server is not answering --------------------------------------- */
+
+.banner {
+  border-left: 3px solid var(--clay);
+  background: var(--forest-wash);
+  color: var(--ink);
+  padding: 0.7rem 0.9rem;
+  margin: 0 0 1.6rem;
+  font-size: 0.9rem;
+}
 
 /* --- tabs -------------------------------------------------------------- */
 
@@ -336,10 +368,14 @@ menu .spacer { flex: 1; }
 }
 .drop p { margin: 0.3rem 0; }
 .drop.over { border-color: var(--forest); background: var(--forest-wash); }
-.record-line { display: flex; align-items: baseline; gap: 1rem; }
+.record-line { display: flex; align-items: baseline; gap: 1rem; flex-wrap: wrap; }
 /* The input level while recording: the answer to "is anything arriving",
    which a timer counting up cannot give. */
-.level { flex: 0 0 8rem; height: 6px; background: var(--rule); align-self: center; }
+/* Not a fixed 8rem: at 320px the button, the timer and the meter came to more
+   than the page is wide. And the empty track is drawn in the colour of a
+   field's underline rather than a divider, because a meter you cannot see at
+   rest cannot answer "is anything arriving?". */
+.level { flex: 1 1 6rem; max-width: 12rem; height: 8px; background: var(--line); align-self: center; }
 .level > span { display: block; height: 100%; width: 0; background: var(--forest); }
 .timer { font-variant-numeric: tabular-nums; font-size: 1.4rem; font-family: var(--serif); color: var(--muted); }
 button.recording { color: var(--clay); border-color: var(--clay); border-bottom-width: 2px; }
@@ -416,7 +452,7 @@ legend { color: var(--muted); padding: 0; }
 .row .actions { display: flex; gap: 1rem; }
 .row .state { color: var(--forest); }
 .row .state.failed { color: var(--clay); }
-.bar { grid-column: 1 / -1; height: 2px; background: var(--rule); margin-top: 0.5rem; }
+.bar { grid-column: 1 / -1; height: 4px; background: var(--line); margin-top: 0.5rem; }
 .bar > span { display: block; height: 100%; background: var(--forest); transition: width 0.5s; }
 
 /* --- dialogs ----------------------------------------------------------- */
