@@ -289,6 +289,16 @@ All notable changes to this project are documented here. The format follows
 
 ### Changed
 
+- **The buttons on a queue row are push buttons**, which sounds like nothing
+  and was the whole bug: a `QToolButton` defaults to *icon only*, there was no
+  icon, and where the Fusion style draws the label anyway the Windows one
+  draws nothing — three invisible buttons, in a column of exactly the right
+  width, on the only platform it mattered on. Painting one and looking at it
+  could not catch it, because on the machine the tests run on the broken
+  version looked correct; what catches it now is a rule, checked over every
+  button in the window: a tool button either carries an icon or says out loud
+  that it is showing text.
+
 - **The recordings come first, and each one is asked what it is for.** The
   list down the left starts with where the recordings come from and only then
   asks what to do with them — you have the file in front of you before

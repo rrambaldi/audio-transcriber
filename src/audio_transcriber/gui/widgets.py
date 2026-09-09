@@ -15,6 +15,7 @@ from PySide6.QtWidgets import (
     QApplication,
     QFrame,
     QHBoxLayout,
+    QPushButton,
     QSizePolicy,
     QStyle,
     QStyledItemDelegate,
@@ -229,7 +230,16 @@ class JobActions(QWidget):
     wrong row selected). On the row there is no selection to be wrong about.
 
     What the first button does depends on the state, because "start it" and
-    "stop it" are the same place in the row and never both apply."""
+    "stop it" are the same place in the row and never both apply.
+
+    They are push buttons, and the reason is worth writing down: the
+    first version used ``QToolButton``, whose default style is
+    *ToolButtonIconOnly*. With no icon and ``autoRaise`` on, the Fusion style
+    drew the text anyway and the Windows one drew nothing at all — three
+    invisible buttons in a column that was the right width, on the only
+    platform that mattered. A push button draws its label on every style
+    there is.
+    """
 
     #: The recording's id, so the panel does not have to work out which row.
     transcribe = Signal(str)
@@ -239,17 +249,20 @@ class JobActions(QWidget):
     def __init__(self, job_id, parent=None):
         super().__init__(parent)
         self.job_id = job_id
-        self.run = QToolButton()
-        self.drop = QToolButton()
-        self.listen = QToolButton()
+        self.run = QPushButton()
+        self.listen = QPushButton()
+        self.drop = QPushButton()
         layout = QHBoxLayout(self)
-        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setContentsMargins(2, 2, 2, 2)
         layout.setSpacing(4)
         for button, signal in ((self.run, self.transcribe),
                                (self.listen, self.play),
                                (self.drop, self.remove)):
-            button.setAutoRaise(True)
-            button.clicked.connect(lambda _checked=False, s=signal: s.emit(self.job_id))
+            # Otherwise Enter in the table presses whichever of these has the
+            # focus instead of the one button the tab is for.
+            button.setAutoDefault(False)
+            button.clicked.connect(
+                lambda _checked=False, s=signal: s.emit(self.job_id))
             layout.addWidget(button)
         layout.addStretch(1)
 

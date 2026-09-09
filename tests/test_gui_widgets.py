@@ -129,3 +129,32 @@ def test_the_index_of_a_row_without_details_is_left_alone(application):
     delegate = widgets.JobDelegate()
     assert QModelIndex().data(widgets.DETAILS_ROLE) is None
     assert delegate.sizeHint(QStyleOptionViewItem(), QModelIndex()).isValid()
+
+
+def test_the_row_buttons_actually_draw_their_labels(application):
+    """The bug this test exists for: QToolButton's default style is
+    "icon only", there is no icon, and the Windows style then draws nothing —
+    three invisible buttons in a column of exactly the right width, on the
+    only platform it mattered on. So this paints them and looks."""
+    buttons = widgets.JobActions("abc")
+    buttons.update_for({"action": "Transcribe", "removable": True,
+                        "removable_label": "Remove", "play_audio": "Play",
+                        "stop_audio": "Stop playing"})
+    buttons.resize(buttons.sizeHint())
+    image = buttons.grab().toImage()
+
+    assert image.width() > 0 and image.height() > 0
+    colours = {image.pixel(x, y)
+               for x in range(0, image.width(), 2)
+               for y in range(0, image.height(), 2)}
+    # A blank widget is one colour; a widget with three labelled buttons on
+    # it is not — anti-aliased text alone puts dozens of shades on the image.
+    assert len(colours) > 4, "i pulsanti non disegnano niente"
+
+
+def test_the_row_buttons_do_not_steal_the_default(application):
+    """Enter belongs to the one button the tab is for, not to whichever of
+    these happens to have the focus."""
+    buttons = widgets.JobActions("abc")
+    assert [button.autoDefault() for button in
+            (buttons.run, buttons.listen, buttons.drop)] == [False] * 3

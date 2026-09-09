@@ -1208,3 +1208,23 @@ def test_the_actions_column_is_wide_enough_for_its_buttons(window, tmp_path):
     buttons = window.transcribe.table.cellWidget(0, 3)
 
     assert window.transcribe.table.columnWidth(3) >= buttons.sizeHint().width()
+
+
+def test_no_button_relies_on_an_icon_it_does_not_have(window):
+    """The rule that would have caught three invisible buttons on Windows.
+
+    A QToolButton defaults to "icon only". With no icon the Fusion style
+    draws the text anyway and the Windows one draws nothing, so every tool
+    button in this window either carries an icon or says out loud that it is
+    showing text. Painting one and looking at it cannot catch this: on the
+    machine the tests run on, the broken version looked fine."""
+    from PySide6.QtCore import Qt
+    from PySide6.QtWidgets import QToolButton
+
+    guilty = []
+    for button in window.findChildren(QToolButton):
+        icon_only = button.toolButtonStyle() == Qt.ToolButtonStyle.ToolButtonIconOnly
+        arrow = button.arrowType() != Qt.ArrowType.NoArrow
+        if icon_only and button.icon().isNull() and not arrow and button.text():
+            guilty.append(button.text())
+    assert guilty == []
