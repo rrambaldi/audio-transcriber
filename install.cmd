@@ -10,6 +10,7 @@ rem      conda activate srt-ov2
 rem      install.cmd                       openvino,gui,record  (the default)
 rem      install.cmd cpu,gui               a machine with no Intel iGPU
 rem      install.cmd openvino,gui,record,diarize
+rem      install.cmd openvino,gui --base   into conda's own "base", on purpose
 rem
 rem  It pulls, installs into whichever interpreter "python" resolves to, checks
 rem  the things that actually go wrong on Windows, and prints what to run.
@@ -20,6 +21,7 @@ rem ---------------------------------------------------------------------------
 
 set "EXTRAS=%~1"
 if "%EXTRAS%"=="" set "EXTRAS=openvino,gui,record"
+set "ALLOW_BASE=%~2"
 
 if not exist "pyproject.toml" goto :wrong_folder
 
@@ -43,20 +45,9 @@ rem Qt6Core.dll and looks for an export that is not there. In a full Anaconda
 rem "base" that Qt belongs to Navigator and Spyder and must not be removed, so
 rem the only cure is a different environment - said before installing, not
 rem after.
-if /i "%CONDA_DEFAULT_ENV%"=="base" goto :warn_base
-goto :update
-
-:warn_base
-echo WARNING: this is the "base" environment.
-echo          Anaconda ships its own Qt there, and it shadows the one pip
-echo          installs: "audio-transcriber gui" will fail to load QtCore.
-echo          A dedicated environment avoids it entirely:
-echo              conda create -n srt-ov2 python=3.12 pip
-echo              conda activate srt-ov2
-echo.
-echo          Ctrl-C to stop, or any key to install here anyway.
-pause >nul
-echo.
+if /i not "%CONDA_DEFAULT_ENV%"=="base" goto :update
+if /i "%ALLOW_BASE%"=="--base" goto :update
+goto :refuse_base
 
 :update
 if not exist ".git" goto :install
@@ -177,6 +168,34 @@ exit /b 1
 :no_import
 echo ERROR: installed, but "import audio_transcriber" does not work. Nothing
 echo        else will until that is explained - the output above says why.
+exit /b 1
+
+rem This one refuses rather than warns. It used to pause with "any key to
+rem continue", which is what a person presses on autopilot - and the mistake
+rem costs an afternoon: a few gigabytes of PyTorch and OpenVINO land in the
+rem environment conda itself lives in, and pip's Qt half-replaces Anaconda's
+rem there, which breaks both.
+:refuse_base
+echo ERROR: this is conda's own "base" environment, and this is almost never
+echo        where you want it.
+echo.
+echo        The window cannot work here at all: Anaconda ships its own Qt in
+echo        base, and its Library\bin comes first on PATH, so the binding pip
+echo        installs loads the wrong Qt6Core.dll and fails on QtCore. The rest
+echo        would put gigabytes of PyTorch and OpenVINO into the environment
+echo        conda runs from.
+echo.
+echo        Use one of its own:
+echo            conda create -n srt-ov2 python=3.12 pip
+echo            conda activate srt-ov2
+echo            install.cmd %EXTRAS%
+echo.
+echo        Already installed into base by mistake? docs/gui.md has the way
+echo        back: uninstall what pip put there, then "conda install
+echo        --force-reinstall pyside6" to give conda its Qt back.
+echo.
+echo        And if base really is what you mean:
+echo            install.cmd %EXTRAS% --base
 exit /b 1
 
 :end

@@ -122,6 +122,34 @@ leaves half the binding managed by conda and half by pip, which is one way to
 end up with a Qt that imports and still has no QtMultimedia. Conda is the right
 tool for the interpreter here; the Qt wheels come from PyPI.
 
+### If it went into conda's `base` by mistake
+
+`install.cmd` refuses that environment now, but an install by hand can still
+land there. Nothing is lost; the way back is to remove what pip put in and give
+conda its Qt back, in that order. The list comes from the machine rather than
+from memory — `conda list` marks pip-installed packages `pypi_0`:
+
+```bash
+conda list > pip-in-base.txt
+python -c "print('python -m pip uninstall -y '+' '.join(l.split()[0] for l in open('pip-in-base.txt') if 'pypi_0' in l and 'conda-pypi' not in l))"
+```
+
+The second line prints the command; read it, then run it. `conda-pypi` is
+excluded on purpose: despite the name it is a conda package. Then, because
+PySide6 is shipped in two halves that `conda list` does not always show:
+
+```bash
+python -m pip uninstall -y PySide6-Addons PySide6-Essentials
+conda install --force-reinstall pyside6
+```
+
+A complaint about being unable to uninstall `PySide6` itself is expected —
+that entry is conda's, and `--force-reinstall` is what puts it right. In the
+`defaults` channel there is no separate `shiboken6` package: Anaconda ships it
+inside `pyside6`, which is also why pip found a `shiboken6` with no RECORD in
+the first place. Afterwards, `conda list | findstr /I pypi` should list only
+`conda-pypi`, and `where Qt6Core.dll` only one copy.
+
 The same clash has a second face, and this one is not an install error but a
 startup failure:
 
