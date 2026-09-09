@@ -11,6 +11,7 @@ Everything runs on Qt's "offscreen" platform plugin and with a queue whose
 worker only pretends to transcribe, so no model, no display and no microphone
 are needed."""
 import os
+import threading
 
 import numpy as np
 import pytest
@@ -449,12 +450,10 @@ def test_without_the_audio_libraries_the_window_still_records_through_qt(tmp_pat
 
 # --- transcribing ---------------------------------------------------------
 
-def test_a_file_added_is_queued_and_the_table_follows_it(window, tmp_path, queue):
+def test_a_file_added_is_queued_straight_away(window, tmp_path, queue):
+    """The complaint that led here: adding a file put it in a list of its own
+    and nothing said how to begin. Adding is beginning."""
     window.transcribe.add_files([sample(tmp_path)])
-    assert window.transcribe.files.count() == 1
-    window.transcribe.submit()
-
-    assert window.transcribe.files.count() == 0      # the list empties
     assert len(queue.jobs()) == 1
     assert wait_for(lambda: queue.jobs()[0].status == "done")
     window.transcribe.refresh()
@@ -463,38 +462,113 @@ def test_a_file_added_is_queued_and_the_table_follows_it(window, tmp_path, queue
     assert window.transcribe.table.cellWidget(0, 2).value() == 100
 
 
+def test_a_drop_on_the_tab_queues_the_files(window, tmp_path, queue):
+    """The drop target is the whole tab: there is no list to aim at any more."""
+    from PySide6.QtCore import QMimeData, QPoint, QUrl
+    from PySide6.QtGui import QDropEvent
+
+    data = QMimeData()
+    data.setUrls([QUrl.fromLocalFile(sample(tmp_path))])
+    event = QDropEvent(QPoint(10, 10), Qt.DropAction.CopyAction, data,
+                       Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier)
+    window.transcribe.dropEvent(event)
+    assert len(queue.jobs()) == 1
+
+
+def test_the_queue_is_a_box_with_a_name_on_it(window):
+    """It had neither a title nor a way to take anything out of it, which is
+    half of why nobody could tell how the tab worked."""
+    from PySide6.QtWidgets import QGroupBox
+
+    titles = [box.title() for box in window.transcribe.findChildren(QGroupBox)]
+    assert "Transcription queue" in titles
+
+
+def test_a_waiting_job_can_be_taken_out_of_the_queue(window, tmp_path, queue):
+    """Only the waiting one: the buttons offer what applies to the selection
+    and nothing else."""
+    blocked = threading.Event()
+    queue._runner = lambda job: blocked.wait(5)
+    window.transcribe.add_files([sample(tmp_path, "first.wav")])
+    window.transcribe.add_files([sample(tmp_path, "second.wav")])
+    assert wait_for(lambda: queue.jobs()[-1].status == "running")
+    window.transcribe.refresh()
+
+    window.transcribe.table.selectRow(0)          # newest first: the waiting one
+    assert window.transcribe.cancel_job.isEnabled() is True
+    assert window.transcribe.stop_job.isEnabled() is False
+    window.transcribe.cancel_selected()
+    assert queue.jobs()[0].status == "cancelled"
+
+    window.transcribe.table.selectRow(1)          # the one that is running
+    assert window.transcribe.cancel_job.isEnabled() is False
+    assert window.transcribe.stop_job.isEnabled() is True
+    blocked.set()
+
+
+def test_stopping_a_running_transcription_asks_first(window, tmp_path, queue, monkeypatch):
+    """It may be forty minutes in, and what it has done is discarded."""
+    blocked = threading.Event()
+    queue._runner = lambda job: blocked.wait(5)
+    window.transcribe.add_files([sample(tmp_path)])
+    assert wait_for(lambda: queue.jobs()[0].status == "running")
+    window.transcribe.refresh()
+    window.transcribe.table.selectRow(0)
+
+    monkeypatch.setattr(QMessageBox, "question",
+                        staticmethod(lambda *a, **k: QMessageBox.StandardButton.No))
+    window.transcribe.stop_selected()
+    assert queue.jobs()[0].cancel_requested is False      # refused, so untouched
+
+    monkeypatch.setattr(QMessageBox, "question",
+                        staticmethod(lambda *a, **k: QMessageBox.StandardButton.Yes))
+    window.transcribe.stop_selected()
+    assert queue.jobs()[0].cancel_requested is True
+    blocked.set()
+
+
+def test_the_finished_jobs_can_be_cleared_in_one_go(window, tmp_path, queue):
+    window.transcribe.add_files([sample(tmp_path, "a.wav")])
+    window.transcribe.add_files([sample(tmp_path, "b.wav")])
+    assert wait_for(lambda: all(job.status == "done" for job in queue.jobs())
+                    and len(queue.jobs()) == 2)
+    window.transcribe.refresh()
+    assert window.transcribe.clear_finished.isEnabled() is True
+    window.transcribe.forget_finished()
+    assert queue.jobs() == []
+    assert window.transcribe.table.rowCount() == 0
+
+
 def test_a_local_file_is_copied_into_the_library_not_moved(window, tmp_path, queue):
     """Moving someone's own recording out of their folder is not the window's
     decision to make."""
     source = sample(tmp_path)
     window.transcribe.add_files([source])
-    window.transcribe.submit()
     assert wait_for(lambda: queue.jobs()[0].status == "done")
     assert os.path.exists(source)
 
 
-def test_submitting_nothing_says_so_instead_of_doing_nothing(window):
-    said = []
-    window.transcribe.message.connect(said.append)
-    window.transcribe.submit()
-    assert said == ["Add a file, or record one, first."]
+def test_a_drop_of_something_that_is_not_a_file_queues_nothing(window, tmp_path):
+    """A folder, or a URL to something that is not on disk."""
+    folder = tmp_path / "sub"
+    folder.mkdir()
+    assert window.transcribe.add_files([str(folder), ""]) is False
+    assert window.queue.jobs() == []
 
 
-def test_an_oversized_vocabulary_stops_the_submission(window, tmp_path):
+def test_an_oversized_vocabulary_keeps_the_file_out_of_the_queue(window, tmp_path):
     from audio_transcriber.vocabularies import MAX_CUSTOM_VOCABULARY
 
     said = []
     window.transcribe.message.connect(said.append)
     window.transcribe.custom.setPlainText("x" * (MAX_CUSTOM_VOCABULARY + 1))
-    window.transcribe.add_files([sample(tmp_path)])
-    window.transcribe.submit()
+    assert window.transcribe.add_files([sample(tmp_path)]) is False
     assert window.queue.jobs() == []
     assert said and str(MAX_CUSTOM_VOCABULARY) in said[-1]
 
 
 def test_a_failed_job_is_shown_with_its_reason(window, tmp_path, queue):
     window.transcribe.add_files([sample(tmp_path, "boom.wav")])
-    window.transcribe.submit()
     assert wait_for(lambda: queue.jobs()[0].status == "failed")
     window.transcribe.refresh()
     assert window.transcribe.table.item(0, 1).text().startswith("failed: the model exploded")
@@ -505,7 +579,6 @@ def test_forgetting_one_job_keeps_the_right_row_selected(window, tmp_path, queue
     with it: the selection has to follow the job, not its old position."""
     window.transcribe.add_files([sample(tmp_path, "first.wav"),
                                  sample(tmp_path, "second.wav")])
-    window.transcribe.submit()
     assert wait_for(lambda: len(queue.jobs()) == 2
                     and all(job.status == "done" for job in queue.jobs()))
     window.transcribe.refresh()
@@ -522,7 +595,6 @@ def test_the_chosen_options_are_remembered_for_next_time(window, tmp_path, queue
     window.transcribe.model.setCurrentIndex(window.transcribe.model.findData("base"))
     window.transcribe.custom.setPlainText("alpha, beta")
     window.transcribe.add_files([sample(tmp_path)])
-    window.transcribe.submit()
     assert queue.jobs()[0].settings["model"] == "base"
     assert queue.jobs()[0].prompt == "alpha, beta"
 
@@ -539,7 +611,6 @@ def test_the_chosen_options_are_remembered_for_next_time(window, tmp_path, queue
 
 def test_a_finished_job_opens_in_the_library(window, tmp_path, queue):
     window.transcribe.add_files([sample(tmp_path)])
-    window.transcribe.submit()
     assert wait_for(lambda: queue.jobs()[0].status == "done")
     window.transcribe.refresh()          # emits job_finished; the list reloads
 
@@ -552,7 +623,6 @@ def test_a_finished_job_opens_in_the_library(window, tmp_path, queue):
 
 def test_the_transcript_offers_a_timestamp_to_click(window, tmp_path, queue):
     window.transcribe.add_files([sample(tmp_path)])
-    window.transcribe.submit()
     assert wait_for(lambda: queue.jobs()[0].status == "done")
     window.library.reload()
     window.library.show_entry(queue.jobs()[0].entry_id)
@@ -562,7 +632,6 @@ def test_the_transcript_offers_a_timestamp_to_click(window, tmp_path, queue):
 
 def test_notes_are_written_into_the_entry(window, tmp_path, queue):
     window.transcribe.add_files([sample(tmp_path)])
-    window.transcribe.submit()
     assert wait_for(lambda: queue.jobs()[0].status == "done")
     window.library.reload()
 
@@ -580,7 +649,6 @@ def test_cancelling_the_notes_prompt_keeps_the_entry_being_written_on(
     "cancel" has to put the selection back where the note is."""
     window.transcribe.add_files([sample(tmp_path, "first.wav"),
                                  sample(tmp_path, "second.wav")])
-    window.transcribe.submit()
     assert wait_for(lambda: len(queue.jobs()) == 2
                     and all(job.status == "done" for job in queue.jobs()))
     window.library.reload()
@@ -598,7 +666,6 @@ def test_cancelling_the_notes_prompt_keeps_the_entry_being_written_on(
 
 def test_searching_looks_inside_the_transcripts(window, tmp_path, queue):
     window.transcribe.add_files([sample(tmp_path)])
-    window.transcribe.submit()
     assert wait_for(lambda: queue.jobs()[0].status == "done")
     window.library.reload()
 
@@ -613,7 +680,6 @@ def test_searching_looks_inside_the_transcripts(window, tmp_path, queue):
 
 def test_an_entry_can_be_deleted_from_the_window(window, tmp_path, queue, monkeypatch):
     window.transcribe.add_files([sample(tmp_path)])
-    window.transcribe.submit()
     assert wait_for(lambda: queue.jobs()[0].status == "done")
     window.library.reload()
     path = window.library.entry.path
@@ -649,7 +715,6 @@ def test_closing_offers_to_save_edited_notes(window, tmp_path, queue, monkeypatc
     """Notes are typed by hand and never regenerated, so neither discarding
     them silently nor writing them silently is acceptable."""
     window.transcribe.add_files([sample(tmp_path)])
-    window.transcribe.submit()
     assert wait_for(lambda: queue.jobs()[0].status == "done")
     window.library.reload()
     window.library.notes.setPlainText("Decisions: ship it.\n")

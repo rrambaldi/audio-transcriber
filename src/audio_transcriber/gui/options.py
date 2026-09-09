@@ -17,7 +17,7 @@ from .. import recording, vocabularies
 from ..backends import BACKENDS
 from ..formatting import format_bytes, format_clock, format_duration
 from ..i18n import t
-from ..jobs import DONE, FAILED, QUEUED, RUNNING
+from ..jobs import CANCELLED, DONE, FAILED, FINISHED, QUEUED, RUNNING
 from ..library import LibraryError
 from ..transcription import AUTO, LANGUAGE_CHOICES, MODEL_CHOICES, recommend_model
 from ..vocabularies import MAX_CUSTOM_VOCABULARY
@@ -146,7 +146,8 @@ def job_headers():
 
 #: Human wording for each job state.
 _STATUS_KEYS = {QUEUED: "gui.status_queued", RUNNING: "gui.status_running",
-                DONE: "gui.status_done", FAILED: "gui.status_failed"}
+                DONE: "gui.status_done", FAILED: "gui.status_failed",
+                CANCELLED: "gui.status_cancelled"}
 
 
 def status_text(job):
@@ -168,8 +169,10 @@ def job_row(job):
         "duration": format_duration(job.audio_duration),
         "words": "-" if job.words is None else str(job.words),
         "entry_id": job.entry_id,
-        "finished": job.status in (DONE, FAILED),
+        "finished": job.status in FINISHED,
         "failed": job.status == FAILED,
+        "queued": job.status == QUEUED,
+        "running": job.status == RUNNING,
         "tooltip": job.error or job.filename,
     }
 
@@ -184,7 +187,8 @@ def queue_summary(jobs):
         return t("gui.queue_busy", running=running, waiting=waiting)
     failed = sum(1 for job in jobs if job.status == FAILED)
     done = sum(1 for job in jobs if job.status == DONE)
-    return t("gui.queue_idle", done=done, failed=failed)
+    cancelled = sum(1 for job in jobs if job.status == CANCELLED)
+    return t("gui.queue_idle", done=done, failed=failed, cancelled=cancelled)
 
 
 # --------------------------------------------------------------------------

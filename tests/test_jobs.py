@@ -3,6 +3,9 @@
 The queue is tested with a fake runner: nothing here loads a model, touches the
 network or takes longer than a few milliseconds. It needs neither FastAPI nor
 Qt, because it belongs to neither front end."""
+import pathlib
+import threading
+import time
 
 import pytest
 
@@ -118,6 +121,124 @@ def test_the_prompt_combines_the_named_sets_and_the_browsers_own_text(queue, tmp
 ])
 def test_an_uploaded_name_is_reduced_to_a_file_name(name, expected):
     assert jobs_module.safe_filename(name) == expected
+
+
+# --- taking work back out -------------------------------------------------
+
+def test_a_queued_job_can_be_taken_out_before_it_starts(tmp_path):
+    """The queue runs one at a time, so anything behind the first job is
+    waiting - and waiting is exactly when someone changes their mind."""
+    blocked = threading.Event()
+
+    def runner(job):
+        blocked.wait(5)
+
+    queue = jobs_module.JobQueue(SETTINGS, runner=runner)
+    source = tmp_path / "a.wav"
+    source.write_bytes(b"x")
+    first = queue.submit(str(source), title="running")
+    waiting = queue.submit(str(source), title="waiting")
+    wait_for(queue, first.id, statuses=("running",))
+
+    assert queue.cancel(waiting.id) is True
+    assert waiting.status == "cancelled"
+    assert queue.pending_count() == 1          # only the one still running
+    blocked.set()
+    wait_for(queue, first.id)
+    assert first.status == "done"
+
+
+def test_a_cancelled_job_is_never_run(tmp_path):
+    """Even the one already handed to the worker: it checks before starting."""
+    started = []
+    blocked = threading.Event()
+
+    def runner(job):
+        started.append(job.title)
+        blocked.wait(5)
+
+    queue = jobs_module.JobQueue(SETTINGS, runner=runner)
+    source = tmp_path / "a.wav"
+    source.write_bytes(b"x")
+    first = queue.submit(str(source), title="first")
+    second = queue.submit(str(source), title="second")
+    wait_for(queue, first.id, statuses=("running",))
+    queue.cancel(second.id)
+    blocked.set()
+    wait_for(queue, first.id)
+    time.sleep(0.2)
+    assert started == ["first"]
+
+
+def test_a_running_job_stops_at_its_next_progress_report(tmp_path):
+    """The engines are one long blocking call; the progress callback is the
+    only moment they hand control back, so it is where a stop lands."""
+    reported = []
+    running = threading.Event()
+
+    def runner(job):
+        # What pipeline.run does with the callback the queue hands it.
+        for percent in range(0, 101, 10):
+            queue._advance(job, percent)
+            reported.append(percent)
+            running.set()
+            time.sleep(0.02)
+
+    queue = jobs_module.JobQueue(SETTINGS, runner=runner)
+    source = tmp_path / "a.wav"
+    source.write_bytes(b"x")
+    job = queue.submit(str(source))
+    assert running.wait(5)                     # it is under way
+    assert queue.cancel(job.id) is True
+    wait_for(queue, job.id, statuses=("cancelled",))
+    assert job.error is None                   # asked for, so not a failure
+    assert len(reported) < 11                  # it did not run to the end
+
+
+def test_a_job_cancelled_by_flag_alone_does_not_sit_there_as_queued(tmp_path):
+    """Belt and braces on the worker: whatever set the flag, a job that will
+    never run must not keep saying it is waiting."""
+    blocked = threading.Event()
+    queue = jobs_module.JobQueue(SETTINGS, runner=lambda job: blocked.wait(5))
+    source = tmp_path / "a.wav"
+    source.write_bytes(b"x")
+    first = queue.submit(str(source))
+    waiting = queue.submit(str(source))
+    wait_for(queue, first.id, statuses=("running",))
+    waiting.cancel_requested = True
+    blocked.set()
+    wait_for(queue, waiting.id, statuses=("cancelled",))
+
+
+def test_a_cancelled_job_leaves_its_recording_alone(tmp_path, monkeypatch):
+    """A failure deletes the upload it can no longer use. A cancellation must
+    not: a recording nobody has transcribed yet may be the only copy of that
+    meeting."""
+    queue = jobs_module.JobQueue(SETTINGS, runner=lambda job: None)
+    upload = pathlib.Path(queue.upload_dir()) / "meeting.wav"
+    upload.write_bytes(b"x")
+    job = queue.submit(str(upload), store=STORE_MOVE)
+    queue.cancel(job.id)
+    assert upload.exists()
+
+
+def test_a_finished_job_cannot_be_cancelled(tmp_path):
+    queue = jobs_module.JobQueue(SETTINGS, runner=lambda job: None)
+    source = tmp_path / "a.wav"
+    source.write_bytes(b"x")
+    job = queue.submit(str(source))
+    wait_for(queue, job.id)
+    assert queue.cancel(job.id) is False
+
+
+def test_a_cancelled_job_can_then_be_forgotten(tmp_path):
+    queue = jobs_module.JobQueue(SETTINGS, runner=lambda job: None)
+    source = tmp_path / "a.wav"
+    source.write_bytes(b"x")
+    job = queue.submit(str(source))
+    wait_for(queue, job.id)
+    job.status = "cancelled"
+    assert queue.remove(job.id) is True
 
 
 # --- what becomes of the file ---------------------------------------------

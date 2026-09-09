@@ -16,12 +16,14 @@ from PySide6.QtWidgets import (
     QComboBox,
     QFileDialog,
     QFormLayout,
+    QFrame,
     QGroupBox,
     QHBoxLayout,
     QHeaderView,
     QLabel,
     QListWidget,
     QListWidgetItem,
+    QMessageBox,
     QPlainTextEdit,
     QProgressBar,
     QPushButton,
@@ -45,51 +47,14 @@ from .recorder import make_recorder
 REFRESH_MS = 500
 
 
-class FileList(QListWidget):
-    """The list of files to transcribe, which also accepts a drop."""
-
-    files_dropped = Signal(list)
-
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
-        self.setAcceptDrops(True)
-        self.setToolTip(t("gui.drop_hint"))
-
-    def dragEnterEvent(self, event):
-        if event.mimeData().hasUrls():
-            event.acceptProposedAction()
-
-    def dragMoveEvent(self, event):
-        if event.mimeData().hasUrls():
-            event.acceptProposedAction()
-
-    def dropEvent(self, event):
-        paths = [url.toLocalFile() for url in event.mimeData().urls()]
-        kept = options.playable_files(paths)
-        if kept:
-            self.files_dropped.emit(kept)
-            event.acceptProposedAction()
-
-    def paths(self):
-        """Every file currently listed, in order."""
-        return [self.item(row).data(Qt.ItemDataRole.UserRole)
-                for row in range(self.count())]
-
-    def add(self, paths):
-        """Add files that are not in the list yet."""
-        known = set(self.paths())
-        for path in paths:
-            if path in known:
-                continue
-            item = QListWidgetItem(os.path.basename(path))
-            item.setData(Qt.ItemDataRole.UserRole, path)
-            item.setToolTip(path)
-            self.addItem(item)
-
-
 class TranscribePanel(QWidget):
-    """Sources, options, and the queue table."""
+    """Sources, options, and the queue.
+
+    Adding a file queues it, and the queue runs on its own: there is no
+    "start" to press. The first version kept the chosen files in a list of
+    their own, waiting for a button, and the honest verdict on it was that
+    nobody could tell how to begin — a list that looks like a queue and is
+    not one is worse than no list."""
 
     #: A finished job was double-clicked: the window should show the entry.
     entry_requested = Signal(str)
@@ -105,8 +70,7 @@ class TranscribePanel(QWidget):
         self.store = store
         self._rows = []
 
-        self.files = FileList()
-        self.files.files_dropped.connect(self.add_files)
+        self.setAcceptDrops(True)
         self.recorder = make_recorder(self.queue.upload_dir(), store=self.store)
         self.recorder.recorded.connect(self._recorded)
         self.recorder.failed.connect(self.message.emit)
@@ -181,6 +145,9 @@ class TranscribePanel(QWidget):
         self.table.horizontalHeader().setSectionResizeMode(
             0, QHeaderView.ResizeMode.Stretch)
         self.table.itemDoubleClicked.connect(self._open_selected_entry)
+        # Not only on the refresh tick: clicking a row and finding the buttons
+        # still describing the previous one is half a second of lying.
+        self.table.itemSelectionChanged.connect(self._update_buttons)
         self.summary = QLabel("")
 
     def _assemble(self):
@@ -188,17 +155,17 @@ class TranscribePanel(QWidget):
         buttons = QHBoxLayout()
         add = QPushButton(t("gui.add_files"))
         add.clicked.connect(self.choose_files)
-        remove = QPushButton(t("gui.remove_files"))
-        remove.clicked.connect(self.remove_selected_files)
-        clear = QPushButton(t("gui.clear_files"))
-        clear.clicked.connect(self.files.clear)
         buttons.addWidget(add)
-        buttons.addWidget(remove)
-        buttons.addWidget(clear)
         buttons.addStretch(1)
+        self.drop_hint = QLabel(t("gui.drop_hint"))
+        self.drop_hint.setWordWrap(True)
+        self.drop_hint.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.drop_hint.setFrameShape(QFrame.Shape.StyledPanel)
+        self.drop_hint.setMinimumHeight(56)
         source_layout = QVBoxLayout(sources)
         source_layout.addLayout(buttons)
-        source_layout.addWidget(self.files, 1)
+        source_layout.addWidget(self.drop_hint, 1)
+        source_layout.addWidget(QLabel(t("gui.queue_hint")))
 
         # Its own box: recording is one of the two ways in, not a line under
         # the file list, and the microphone menu needs the width to be read.
@@ -230,17 +197,25 @@ class TranscribePanel(QWidget):
         vocab_layout.addWidget(self.custom, 1)
         vocab_layout.addWidget(self.prompt_size)
 
-        self.start = QPushButton(t("gui.start"))
-        self.start.clicked.connect(self.submit)
         self.open_entry = QPushButton(t("gui.open_entry"))
         self.open_entry.clicked.connect(self._open_selected_entry)
+        self.cancel_job = QPushButton(t("gui.cancel_job"))
+        self.cancel_job.setToolTip(t("gui.cancel_job_tip"))
+        self.cancel_job.clicked.connect(self.cancel_selected)
+        self.stop_job = QPushButton(t("gui.stop_job"))
+        self.stop_job.setToolTip(t("gui.stop_job_tip"))
+        self.stop_job.clicked.connect(self.stop_selected)
         self.forget = QPushButton(t("gui.forget_job"))
         self.forget.clicked.connect(self.forget_selected)
+        self.clear_finished = QPushButton(t("gui.clear_finished"))
+        self.clear_finished.clicked.connect(self.forget_finished)
         actions = QHBoxLayout()
-        actions.addWidget(self.start)
-        actions.addStretch(1)
         actions.addWidget(self.open_entry)
+        actions.addWidget(self.cancel_job)
+        actions.addWidget(self.stop_job)
+        actions.addStretch(1)
         actions.addWidget(self.forget)
+        actions.addWidget(self.clear_finished)
 
         top = QWidget()
         top_layout = QHBoxLayout(top)
@@ -249,11 +224,13 @@ class TranscribePanel(QWidget):
         top_layout.addWidget(settings_box, 2)
         top_layout.addWidget(vocab_box, 3)
 
-        bottom = QWidget()
+        # The queue is a box with a name on it: it is the one place work
+        # actually is, and before it had neither a title nor any way to take
+        # something out of it.
+        bottom = QGroupBox(t("gui.group_queue"))
         bottom_layout = QVBoxLayout(bottom)
-        bottom_layout.setContentsMargins(0, 0, 0, 0)
-        bottom_layout.addLayout(actions)
         bottom_layout.addWidget(self.table, 1)
+        bottom_layout.addLayout(actions)
         bottom_layout.addWidget(self.summary)
 
         splitter = QSplitter(Qt.Orientation.Vertical)
@@ -306,13 +283,34 @@ class TranscribePanel(QWidget):
         self.add_files(paths)
 
     def add_files(self, paths):
-        kept = options.playable_files(paths)
-        if kept:
-            self.files.add(kept)
+        """Queue every file given, with the options as they stand now.
 
-    def remove_selected_files(self):
-        for item in self.files.selectedItems():
-            self.files.takeItem(self.files.row(item))
+        There is no waiting room: a file that has been chosen is a file
+        somebody wants transcribed, and the queue runs one job at a time
+        anyway. What is queued can still be taken back out."""
+        kept = options.playable_files(paths)
+        if not kept:
+            return False
+        return self.submit_paths(kept, store=STORE_COPY)
+
+    # --- files dropped anywhere on the tab --------------------------------
+
+    def dragEnterEvent(self, event):
+        if event.mimeData().hasUrls():
+            event.acceptProposedAction()
+
+    def dragMoveEvent(self, event):
+        if event.mimeData().hasUrls():
+            event.acceptProposedAction()
+
+    def dropEvent(self, event):
+        """A drop anywhere on this tab queues the files.
+
+        The whole tab rather than one list widget: the list is gone, and
+        aiming at a small target is not part of the job."""
+        paths = [url.toLocalFile() for url in event.mimeData().urls()]
+        if self.add_files(paths):
+            event.acceptProposedAction()
 
     def _recorded(self, path):
         """A finished recording goes straight into the queue.
@@ -325,15 +323,6 @@ class TranscribePanel(QWidget):
         self.message.emit(t("gui.rec_queued"))
 
     # --- the queue --------------------------------------------------------
-
-    def submit(self):
-        """Queue every listed file, then empty the list."""
-        paths = self.files.paths()
-        if not paths:
-            self.message.emit(t("gui.nothing_to_do"))
-            return
-        if self.submit_paths(paths, store=STORE_COPY):
-            self.files.clear()
 
     def submit_paths(self, paths, store=STORE_COPY, title=None):
         """Hand files to the queue; returns whether anything was queued."""
@@ -428,14 +417,62 @@ class TranscribePanel(QWidget):
         return next((row for row in self._rows if row["id"] == job_id), None)
 
     def _update_buttons(self):
+        """Only what applies to the selected job is offered.
+
+        Four buttons that are always clickable would each need a dialog to
+        explain why they did nothing."""
         row = self._selected_row()
         self.open_entry.setEnabled(bool(row and row["entry_id"]))
+        self.cancel_job.setEnabled(bool(row and row["queued"]))
+        self.stop_job.setEnabled(bool(row and row["running"]))
         self.forget.setEnabled(bool(row and row["finished"]))
+        self.clear_finished.setEnabled(any(r["finished"] for r in self._rows))
 
     def _open_selected_entry(self):
         row = self._selected_row()
         if row and row["entry_id"]:
             self.entry_requested.emit(row["entry_id"])
+
+    def cancel_selected(self):
+        """Take a queued job back out. It has not started, so nothing is lost."""
+        row = self._selected_row()
+        if not (row and row["queued"]):
+            return
+        if self.queue.cancel(row["id"]):
+            self.message.emit(t("gui.job_cancelled", title=row["title"]))
+            self.refresh()
+
+    def stop_selected(self):
+        """Stop the transcription that is running, after asking.
+
+        Worth a question: it may be forty minutes in, and what it has done so
+        far is discarded rather than filed. The dialog also says what "stop"
+        can honestly promise, which depends on the engine — the one place a
+        transcription can be interrupted is its progress callback, and the
+        OpenVINO backend never calls one."""
+        row = self._selected_row()
+        if not (row and row["running"]):
+            return
+        answer = QMessageBox.question(
+            self, t("gui.stop_job_title"),
+            t("gui.stop_job_confirm", title=row["title"]),
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No)
+        if answer != QMessageBox.StandardButton.Yes:
+            return
+        if self.queue.cancel(row["id"]):
+            self.message.emit(t("gui.job_stopping", title=row["title"]))
+            self.refresh()
+
+    def forget_finished(self):
+        """Clear every finished job out of the table at once."""
+        removed = 0
+        for row in list(self._rows):
+            if row["finished"] and self.queue.remove(row["id"]):
+                removed += 1
+        if removed:
+            self.message.emit(t("gui.forgot_jobs", count=removed))
+            self.refresh()
 
     def forget_selected(self):
         """Drop a finished job from the list; the transcription stays filed.

@@ -29,6 +29,27 @@ All notable changes to this project are documented here. The format follows
   the two libraries handed to it as objects and no Qt in it at all. Without the
   extra the window records through QtMultimedia as before and says what the
   other engine would add.
+- **A file added to the desktop window is queued straight away**, and the
+  waiting room it used to sit in is gone. The first version kept the chosen
+  files in a list of their own until a *Transcribe* button was pressed, and the
+  first person to use it could not tell how to begin: a list that looks like a
+  queue and is not one is worse than no list. Drops now land anywhere on the
+  tab, and the queue below is the only list there is.
+- **The queue is a box with a title on it, and things can be taken out of it.**
+  *Take out of the queue* drops a job that has not started; *Stop* interrupts
+  the one running, after asking, since it may be forty minutes in; *Clear the
+  finished* empties the rest. The buttons offer only what applies to the
+  selected job, and the selection updates them immediately rather than on the
+  next refresh.
+- `JobQueue.cancel()`, and a `cancelled` state that is not a failure. A waiting
+  job is dropped there and then; a running one is asked, and stops at the
+  engine's next progress report — which is why faster-whisper now calls that
+  callback on every segment instead of every five per cent. The OpenVINO
+  backend reports no progress until it has finished the file, so there a stop
+  means "run to the end and discard the result": the confirmation dialog says
+  so rather than promising otherwise. Nothing cancelled reaches the library,
+  and the source file is deliberately left alone — a recording nobody has
+  transcribed yet may be the only copy of that meeting.
 - **A "test audio" button**: it opens the chosen source without recording
   anything, so the meters move, and after a second and a half it says whether
   what is arriving behaves like somebody talking — silence, sound that is not a

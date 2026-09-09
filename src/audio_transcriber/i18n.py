@@ -198,10 +198,8 @@ MESSAGES = {
         "gui.group_sources": "Recordings to transcribe",
         "gui.group_record": "Record a meeting",
         "gui.add_files": "Add files...",
-        "gui.remove_files": "Remove",
-        "gui.clear_files": "Clear",
         "gui.choose_files": "Choose audio or video files",
-        "gui.drop_hint": "Drop audio or video files here.",
+        "gui.drop_hint": "Drop audio or video files anywhere on this tab.",
         "gui.filter_media": "Audio and video",
         "gui.filter_any": "Every file",
         "gui.filter_text": "Text file",
@@ -230,7 +228,28 @@ MESSAGES = {
         "gui.vocab_chars": "prompt: {chars} characters (Whisper reliably takes about {limit})",
         "gui.vocab_too_long": "The terms typed here are limited to {limit} characters.",
 
-        "gui.start": "Transcribe",
+        "gui.group_queue": "Transcription queue",
+        "gui.queue_hint":
+            "A file you add starts straight away, with the options as they stand. "
+            "What is waiting can be taken back out below.",
+        "gui.cancel_job": "Take out of the queue",
+        "gui.cancel_job_tip":
+            "Remove a job that has not started yet. Nothing is lost: the file stays "
+            "where it is.",
+        "gui.stop_job": "Stop",
+        "gui.stop_job_tip": "Interrupt the transcription that is running.",
+        "gui.stop_job_title": "Stop this transcription",
+        "gui.stop_job_confirm":
+            "Stop transcribing '{title}'?\n\nWhat has been done so far is discarded - "
+            "nothing reaches the library - and the recording stays where it is, so it "
+            "can be queued again.\n\nIt stops at the engine's next progress report, "
+            "which for faster-whisper is the next segment, a few seconds. The OpenVINO "
+            "engine reports none until it has finished the whole file: there the "
+            "transcription runs to the end and its result is thrown away.",
+        "gui.job_cancelled": "Taken out of the queue: {title}",
+        "gui.job_stopping": "Stopping '{title}' at the next checkpoint.",
+        "gui.clear_finished": "Clear the finished",
+        "gui.forgot_jobs": "Cleared {count} finished from the list.",
         "gui.open_entry": "Open in the library",
         "gui.forget_job": "Remove from the list",
         "gui.col_title": "Title",
@@ -246,13 +265,13 @@ MESSAGES = {
         "gui.status_running": "running",
         "gui.status_done": "done",
         "gui.status_failed": "failed",
+        "gui.status_cancelled": "cancelled",
         "gui.queue_empty": "Nothing in the queue.",
         "gui.queue_busy":
             "{running} running, {waiting} waiting: one at a time, because two "
             "transcriptions at once finish no sooner.",
-        "gui.queue_idle": "Finished: {done} transcribed, {failed} failed.",
+        "gui.queue_idle": "Finished: {done} transcribed, {failed} failed, {cancelled} cancelled.",
         "gui.queued": "Queued: {count}.",
-        "gui.nothing_to_do": "Add a file, or record one, first.",
         "gui.job_finished": "Filed in the library: {entry}",
 
         "gui.rec_host_api": "Audio system",
@@ -580,10 +599,8 @@ MESSAGES = {
         "gui.group_sources": "Registrazioni da trascrivere",
         "gui.group_record": "Registra una riunione",
         "gui.add_files": "Aggiungi file...",
-        "gui.remove_files": "Togli",
-        "gui.clear_files": "Svuota",
         "gui.choose_files": "Scegli i file audio o video",
-        "gui.drop_hint": "Trascina qui i file audio o video.",
+        "gui.drop_hint": "Trascina i file audio o video in un punto qualsiasi di questa scheda.",
         "gui.filter_media": "Audio e video",
         "gui.filter_any": "Tutti i file",
         "gui.filter_text": "File di testo",
@@ -612,7 +629,29 @@ MESSAGES = {
         "gui.vocab_chars": "prompt: {chars} caratteri (Whisper ne considera davvero circa {limit})",
         "gui.vocab_too_long": "I termini scritti qui sono limitati a {limit} caratteri.",
 
-        "gui.start": "Trascrivi",
+        "gui.group_queue": "Coda di trascrizione",
+        "gui.queue_hint":
+            "Un file che aggiungi parte subito, con le opzioni come stanno adesso. "
+            "Quello che e' in attesa si puo' togliere qui sotto.",
+        "gui.cancel_job": "Togli dalla coda",
+        "gui.cancel_job_tip":
+            "Togli un lavoro che non e' ancora partito. Non si perde niente: il file "
+            "resta dov'e'.",
+        "gui.stop_job": "Ferma",
+        "gui.stop_job_tip": "Interrompi la trascrizione in corso.",
+        "gui.stop_job_title": "Ferma questa trascrizione",
+        "gui.stop_job_confirm":
+            "Fermo la trascrizione di '{title}'?\n\nQuello che ha fatto finora viene "
+            "scartato - in libreria non arriva nulla - e la registrazione resta dov'e', "
+            "quindi puoi rimetterla in coda.\n\nSi ferma al prossimo avanzamento "
+            "riportato dal motore: con faster-whisper e' il segmento successivo, pochi "
+            "secondi. Il motore OpenVINO non ne riporta nessuno finche' non ha finito "
+            "tutto il file: in quel caso la trascrizione arriva alla fine e il risultato "
+            "viene buttato.",
+        "gui.job_cancelled": "Tolto dalla coda: {title}",
+        "gui.job_stopping": "Fermo '{title}' al prossimo controllo.",
+        "gui.clear_finished": "Svuota i finiti",
+        "gui.forgot_jobs": "Tolti {count} lavori finiti dall'elenco.",
         "gui.open_entry": "Apri nella libreria",
         "gui.forget_job": "Togli dall'elenco",
         "gui.col_title": "Titolo",
@@ -628,13 +667,13 @@ MESSAGES = {
         "gui.status_running": "in corso",
         "gui.status_done": "completata",
         "gui.status_failed": "fallita",
+        "gui.status_cancelled": "annullata",
         "gui.queue_empty": "Nessun lavoro in coda.",
         "gui.queue_busy":
             "{running} in corso, {waiting} in attesa: una alla volta, perche' due "
             "trascrizioni insieme non finiscono prima.",
-        "gui.queue_idle": "Finito: {done} trascritte, {failed} fallite.",
+        "gui.queue_idle": "Finito: {done} trascritte, {failed} fallite, {cancelled} annullate.",
         "gui.queued": "In coda: {count}.",
-        "gui.nothing_to_do": "Prima aggiungi un file, o registrane uno.",
         "gui.job_finished": "Archiviata in libreria: {entry}",
 
         "gui.rec_host_api": "Sistema audio",

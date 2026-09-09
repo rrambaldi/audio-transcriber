@@ -27,6 +27,10 @@ QUEUED = "queued"
 RUNNING = "running"
 DONE = "done"
 FAILED = "failed"
+CANCELLED = "cancelled"
+
+#: Statuses that will not change again.
+FINISHED = (DONE, FAILED, CANCELLED)
 
 #: Refuse an upload larger than this (2 GiB); a long meeting is far smaller.
 MAX_UPLOAD_BYTES = 2 * 1024 * 1024 * 1024
@@ -46,6 +50,13 @@ def safe_filename(name, fallback="recording"):
     return name[:120] or fallback
 
 
+class Cancelled(Exception):
+    """Raised inside a running transcription that has been asked to stop.
+
+    It travels out through the progress callback, which is the only place the
+    engines hand control back often enough to notice."""
+
+
 class Job:
     """One queued transcription and everything the page needs to show it."""
 
@@ -61,6 +72,8 @@ class Job:
         self.store = store
         self.status = QUEUED
         self.progress = 0
+        #: Set by :meth:`JobQueue.cancel`; read by the progress callback.
+        self.cancel_requested = False
         self.error = None
         self.entry_id = None
         self.words = None
@@ -154,6 +167,28 @@ class JobQueue:
         with self._lock:
             return [self._jobs[i] for i in reversed(self._order) if i in self._jobs]
 
+    def cancel(self, job_id):
+        """Take a job out of the queue, or ask a running one to stop.
+
+        A queued job is dropped there and then. A running one can only be
+        asked: the engines are a blocking call, and the one place they hand
+        control back is the progress callback, so the transcription stops at
+        its next segment. With an engine that reports no progress at all — the
+        OpenVINO backend does not — it will run to the end, and what it
+        produces is discarded rather than filed. Either way nothing reaches
+        the library."""
+        with self._lock:
+            job = self._jobs.get(job_id)
+            if job is None or job.status in FINISHED:
+                return False
+            job.cancel_requested = True
+            if job.status == QUEUED:
+                # It has not started: it never will, and the worker skips it
+                # when it reaches the front.
+                job.status = CANCELLED
+                job.finished_at = now()
+            return True
+
     def pending_count(self):
         """Jobs queued or running: what closing the program would throw away.
 
@@ -164,10 +199,11 @@ class JobQueue:
                        if job.status in (QUEUED, RUNNING))
 
     def remove(self, job_id):
-        """Forget a finished job. A running one is left alone."""
+        """Forget a finished job. A queued or running one is left alone -
+        :meth:`cancel` is what stops those."""
         with self._lock:
             job = self._jobs.get(job_id)
-            if job is None or job.status in (QUEUED, RUNNING):
+            if job is None or job.status not in FINISHED:
                 return False
             del self._jobs[job_id]
             self._order.remove(job_id)
@@ -178,7 +214,7 @@ class JobQueue:
     def _forget_old(self):
         """Drop the oldest finished jobs once the list grows too long."""
         finished = [i for i in self._order
-                    if self._jobs[i].status in (DONE, FAILED)]
+                    if self._jobs[i].status in FINISHED]
         for job_id in finished[:max(0, len(self._order) - MAX_HISTORY)]:
             del self._jobs[job_id]
             self._order.remove(job_id)
@@ -200,6 +236,15 @@ class JobQueue:
             job = self.get(job_id)
             if job is None:
                 continue
+            if job.cancel_requested:
+                # Cancelled while it waited its turn. cancel() has normally
+                # said so already; this keeps the promise even when the flag
+                # arrived another way, instead of leaving a job that will
+                # never run sitting there as "queued".
+                if job.status == QUEUED:
+                    job.status = CANCELLED
+                    job.finished_at = now()
+                continue
             self._run(job)
 
     def _run(self, job):
@@ -217,6 +262,11 @@ class JobQueue:
         try:
             self._runner(job)
             job.progress = 100
+        except Cancelled:
+            # Asked for, so not a failure. The source file is deliberately
+            # left where it is: a recording nobody has transcribed yet may be
+            # the only copy of that meeting.
+            outcome, error = CANCELLED, None
         except (Exception, SystemExit) as exc:       # noqa: BLE001 - reported, not raised
             outcome, error = FAILED, str(exc) or exc.__class__.__name__
             if not isinstance(exc, SystemExit):
@@ -245,7 +295,7 @@ class JobQueue:
     def _transcribe(self, job):
         """The real work: what the CLI does, minus the printing."""
         result = pipeline.run(job.source, job.settings, prompt=job.prompt,
-                              progress=lambda percent: setattr(job, "progress", percent))
+                              progress=lambda percent: self._advance(job, percent))
         entry = pipeline.file_in_library(self.library, job.source, result,
                                          job.settings, title=job.title,
                                          store=job.store)
@@ -253,6 +303,18 @@ class JobQueue:
         job.words = len(result.text.split())
         job.elapsed = round(result.elapsed, 1)
         job.audio_duration = round(result.audio_duration, 1)
+
+
+    @staticmethod
+    def _advance(job, percent):
+        """Record progress, and stop here if the job has been cancelled.
+
+        The engines run inside one long blocking call; this callback is the
+        only moment they give control back, so it is also the only place a
+        cancellation can take effect."""
+        job.progress = percent
+        if job.cancel_requested:
+            raise Cancelled(job.id)
 
 
 def build_prompt(settings, names, custom=""):

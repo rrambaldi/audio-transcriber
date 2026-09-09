@@ -121,14 +121,17 @@ def transcribe(audio, model_name, language, device, model_dir, prompt,
         if text:
             segments.append({"text": text, "start": segment.start, "end": segment.end})
             texts.append(text)
-        if duration:
-            percent = int(min(segment.end / duration, 1.0) * 100)
-            if percent >= last_percent + 5:
-                last_percent = percent
-                print("\r" + t("transcribe.progress", percent=percent),
-                      end="", file=sys.stderr, flush=True)
-                if progress:
-                    progress(percent)
+        # The console line is throttled to every five per cent; the callback
+        # is not. An interface uses it to move a bar *and* as the one moment
+        # it can stop a transcription, and a stop that waits for the next five
+        # per cent of an hour of audio is not a stop.
+        percent = int(min(segment.end / duration, 1.0) * 100) if duration else 0
+        if progress:
+            progress(percent)
+        if duration and percent >= last_percent + 5:
+            last_percent = percent
+            print("\r" + t("transcribe.progress", percent=percent),
+                  end="", file=sys.stderr, flush=True)
     if progress:
         progress(100)
     if duration and last_percent >= 0:
