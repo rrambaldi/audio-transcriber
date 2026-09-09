@@ -270,7 +270,8 @@ def job_headers():
     their own, which meant they were empty for the whole of a job's life and
     filled in a moment before the row stopped being interesting; they are the
     second line of the recording now, where they read as facts about it."""
-    return [t("gui.col_recording"), t("gui.col_status"), t("gui.col_progress")]
+    return [t("gui.col_recording"), t("gui.col_status"), t("gui.col_progress"),
+            t("gui.col_actions")]
 
 
 #: Human wording for each job state.
@@ -328,7 +329,34 @@ def job_row(job):
         "held": job.status == HELD,
         "cancellable": job.status in NOT_STARTED,
         "running": job.status == RUNNING,
+        "retryable": job.status in (FAILED, CANCELLED),
         "tooltip": job.error or job.filename,
+        **job_actions(job),
+    }
+
+
+def job_actions(job):
+    """What the three buttons on a row say, for the state it is in.
+
+    "Start it" and "stop it" are the same place in the row and never both
+    apply, so the first button changes rather than the row growing a fourth
+    button that is disabled most of the time."""
+    if job.status == HELD:
+        action = t("gui.row_transcribe")
+    elif job.status in (QUEUED, RUNNING):
+        action = t("gui.row_stop")
+    elif job.status == DONE and job.entry_id:
+        action = t("gui.row_open")
+    elif job.status in (FAILED, CANCELLED):
+        action = t("gui.row_retry")
+    else:
+        action = ""
+    return {
+        "action": action,
+        "removable": job.status != RUNNING,
+        "removable_label": t("gui.row_remove"),
+        "play_audio": t("gui.row_play"),
+        "stop_audio": t("gui.row_stop_audio"),
     }
 
 

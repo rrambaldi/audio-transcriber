@@ -310,3 +310,57 @@ def test_pending_counts_only_what_is_still_to_come(queue, tmp_path):
     job = queue.submit(str(source))
     wait_for(queue, job.id)
     assert queue.pending_count() == 0
+
+
+# --- one recording at a time ----------------------------------------------
+
+def source_file(tmp_path, name="a.wav"):
+    path = tmp_path / name
+    path.write_bytes(b"x")
+    return str(path)
+
+
+def test_only_the_recording_asked_for_is_started(queue, tmp_path):
+    """The window asks each one what it is for, so it starts them one at a
+    time rather than the whole list at once."""
+    first = queue.submit(source_file(tmp_path, "a.wav"), start=False)
+    second = queue.submit(source_file(tmp_path, "b.wav"), start=False)
+
+    assert queue.start(first.id) == 1
+    assert second.status == jobs_module.HELD
+
+
+def test_a_recording_can_be_asked_what_it_is_for_before_it_starts(queue, tmp_path):
+    """The answers arrive after the job exists: the file is dropped in first
+    and asked about when it is started."""
+    job = queue.submit(source_file(tmp_path), start=False)
+
+    assert queue.reconfigure(job.id, overrides={"output": "subtitles"},
+                             vocabularies=["iso27001-it"],
+                             custom_vocabulary="ACME") is True
+    assert job.settings["output"] == "subtitles"
+    assert job.settings["subtitles"] == "srt"
+    assert job.vocabularies == ["iso27001-it"]
+    assert "ACME" in job.prompt
+
+
+def test_a_running_recording_cannot_be_reconfigured(queue, tmp_path):
+    """Settings that change under a running transcription are worse than
+    settings that cannot change."""
+    job = queue.submit(source_file(tmp_path), start=False)
+    job.status = jobs_module.RUNNING
+
+    assert queue.reconfigure(job.id, overrides={"output": "subtitles"}) is False
+    assert job.settings.get("output") != "subtitles"
+
+
+def test_a_failed_recording_goes_back_to_waiting(queue, tmp_path):
+    job = queue.submit(source_file(tmp_path), start=False)
+    job.status, job.error, job.progress = jobs_module.FAILED, "boom", 40
+
+    assert queue.retry(job.id) is True
+    assert job.status == jobs_module.HELD
+    assert job.error is None and job.progress == 0
+    # ...and a finished one does not: it produced something.
+    job.status = jobs_module.DONE
+    assert queue.retry(job.id) is False

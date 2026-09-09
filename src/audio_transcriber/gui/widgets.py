@@ -9,11 +9,12 @@ instead of in four columns that are empty for most of a job's life.
 They live here rather than in the panel because the library tab wants the
 same two things, and a second copy is how two lists start looking different.
 """
-from PySide6.QtCore import QSize, Qt
+from PySide6.QtCore import QSize, Qt, Signal
 from PySide6.QtGui import QPalette
 from PySide6.QtWidgets import (
     QApplication,
     QFrame,
+    QHBoxLayout,
     QSizePolicy,
     QStyle,
     QStyledItemDelegate,
@@ -217,3 +218,48 @@ class JobDelegate(QStyledItemDelegate):
         return QSize(size.width(), line * 2 + self.PADDING * 2)
 
 
+
+
+class JobActions(QWidget):
+    """The three things you can do to one recording, on its own row.
+
+    They used to be four buttons under the table that acted on whatever was
+    selected, which is one more step ("select, then press") and one more
+    thing to get wrong (pressing them with nothing selected, or with the
+    wrong row selected). On the row there is no selection to be wrong about.
+
+    What the first button does depends on the state, because "start it" and
+    "stop it" are the same place in the row and never both apply."""
+
+    #: The recording's id, so the panel does not have to work out which row.
+    transcribe = Signal(str)
+    remove = Signal(str)
+    play = Signal(str)
+
+    def __init__(self, job_id, parent=None):
+        super().__init__(parent)
+        self.job_id = job_id
+        self.run = QToolButton()
+        self.drop = QToolButton()
+        self.listen = QToolButton()
+        layout = QHBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(4)
+        for button, signal in ((self.run, self.transcribe),
+                               (self.listen, self.play),
+                               (self.drop, self.remove)):
+            button.setAutoRaise(True)
+            button.clicked.connect(lambda _checked=False, s=signal: s.emit(self.job_id))
+            layout.addWidget(button)
+        layout.addStretch(1)
+
+    def update_for(self, row, playing=False, playable=True, reason=""):
+        """Say what this row's buttons do now, for the state it is in."""
+        self.run.setText(row["action"])
+        self.run.setEnabled(bool(row["action"]))
+        self.run.setVisible(bool(row["action"]))
+        self.drop.setText(row["removable_label"])
+        self.drop.setEnabled(row["removable"])
+        self.listen.setText(row["stop_audio"] if playing else row["play_audio"])
+        self.listen.setEnabled(playable)
+        self.listen.setToolTip("" if playable else reason)

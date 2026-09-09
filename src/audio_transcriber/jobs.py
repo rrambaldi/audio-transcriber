@@ -184,21 +184,70 @@ class JobQueue:
             self._ensure_worker()
         return job
 
-    def start(self):
-        """Run everything that has been held back, and say how many.
+    def start(self, job_id=None):
+        """Run what has been held back, and say how many were started.
 
-        The order they were added in: a queue that reshuffled itself would be
-        one more thing to explain."""
+        With no argument, everything, in the order it was added: a queue that
+        reshuffled itself would be one more thing to explain. With one, only
+        that recording — the desktop window starts them one at a time, from a
+        button on the row, because each one is asked what it is for first."""
         with self._lock:
-            held = [job_id for job_id in self._order
-                    if self._jobs[job_id].status == HELD]
-            for job_id in held:
-                self._jobs[job_id].status = QUEUED
-        for job_id in held:
-            self._pending.put(job_id)
+            if job_id is not None:
+                job = self._jobs.get(job_id)
+                held = [job_id] if job is not None and job.status == HELD else []
+            else:
+                held = [known for known in self._order
+                        if self._jobs[known].status == HELD]
+            for known in held:
+                self._jobs[known].status = QUEUED
+        for known in held:
+            self._pending.put(known)
         if held:
             self._ensure_worker()
         return len(held)
+
+    def retry(self, job_id):
+        """Put a failed or cancelled recording back in the waiting list.
+
+        Nothing was filed for either, and the recording is still where it
+        was, so there is nothing to undo: the row goes back to "not started"
+        and can be asked again what it is for."""
+        with self._lock:
+            job = self._jobs.get(job_id)
+            if job is None or job.status not in (FAILED, CANCELLED):
+                return False
+            job.status = HELD
+            job.progress = 0
+            job.stage = None
+            job.error = None
+            job.cancel_requested = False
+            job.started_at = job.finished_at = None
+        return True
+
+    def reconfigure(self, job_id, overrides=None, vocabularies=None,
+                    custom_vocabulary=""):
+        """Change the settings of a recording that has not started yet.
+
+        The window asks what a recording is for at the moment it is started,
+        not when the file was dropped in, so the answers arrive after the job
+        exists. Only a held job can be changed: once it is queued the worker
+        may pick it up at any moment, and settings that change under a
+        running transcription are worse than settings that cannot change."""
+        with self._lock:
+            job = self._jobs.get(job_id)
+            if job is None or job.status != HELD:
+                return False
+        settings = dict(self.settings)
+        settings.update({k: v for k, v in (overrides or {}).items()
+                         if v is not None})
+        settings = resolve_output(settings)
+        names = list(vocabularies or [])
+        settings["vocabulary"] = names
+        with self._lock:
+            job.settings = settings
+            job.vocabularies = names
+            job.prompt = build_prompt(settings, names, custom_vocabulary)
+        return True
 
     def held_count(self):
         """How many jobs are waiting to be started."""

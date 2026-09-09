@@ -288,10 +288,27 @@ MESSAGES = {
 
         "gui.group_queue": "Transcription queue",
         "gui.start": "Transcribe",
+        "gui.cancel": "Cancel",
+        "gui.row_transcribe": "Transcribe",
+        "gui.row_retry": "Try again",
+        "gui.row_stop": "Stop",
+        "gui.row_open": "Open",
+        "gui.row_remove": "Remove",
+        "gui.row_play": "Play",
+        "gui.row_stop_audio": "Stop playing",
+        "gui.col_actions": "",
+        "gui.job_dialog_title": "Transcribe \"{title}\"",
+        "gui.job_dialog_note":
+            "For this recording only. The list on the left is what the next "
+            "one will start from.",
+        "gui.row_no_audio": "The recording is not where it was: nothing to play.",
+        "gui.row_no_multimedia":
+            "Playing needs QtMultimedia: pip install PySide6-Addons (or the "
+            "full PySide6).",
         "gui.start_one": "Transcribe 1 recording",
         "gui.start_many": "Transcribe {count} recordings",
-        "gui.step_output": "1 \u00b7 What do you want out of it?",
-        "gui.step_sources": "2 \u00b7 Which recordings",
+        "gui.step_output": "2 \u00b7 What do you want out of it?",
+        "gui.step_sources": "1 \u00b7 Which recordings",
         "gui.step_options": "3 \u00b7 How to transcribe them",
         "gui.step_sources_empty": "nothing yet",
         "gui.step_sources_waiting": "{count} waiting",
@@ -311,9 +328,8 @@ MESSAGES = {
         "gui.queue_part_held": "{count} not started",
         "gui.queue_press_start": "Press Transcribe to start them.",
         "gui.start_tip":
-            "Start what is in the queue. Files wait here until you press this, so the "
-            "model, the language and the keyword sets can still be changed after "
-            "choosing them.",
+            "Starts every recording that is waiting, with the answers on the left. "
+            "To change them for one recording, use Transcribe on its own row.",
         "gui.started": "Started: {count}.",
         "gui.status_held": "not started",
         "gui.queue_hint":
@@ -786,10 +802,27 @@ MESSAGES = {
 
         "gui.group_queue": "Coda di trascrizione",
         "gui.start": "Trascrivi",
+        "gui.cancel": "Annulla",
+        "gui.row_transcribe": "Trascrivi",
+        "gui.row_retry": "Riprova",
+        "gui.row_stop": "Interrompi",
+        "gui.row_open": "Apri",
+        "gui.row_remove": "Togli",
+        "gui.row_play": "Ascolta",
+        "gui.row_stop_audio": "Ferma l'ascolto",
+        "gui.col_actions": "",
+        "gui.job_dialog_title": "Trascrivi \"{title}\"",
+        "gui.job_dialog_note":
+            "Vale solo per questa registrazione. L'elenco a sinistra e' quello "
+            "da cui parte la prossima.",
+        "gui.row_no_audio": "La registrazione non e' piu' dov'era: non c'e' nulla da ascoltare.",
+        "gui.row_no_multimedia":
+            "Per ascoltare serve QtMultimedia: pip install PySide6-Addons (o "
+            "PySide6 completo).",
         "gui.start_one": "Trascrivi 1 registrazione",
         "gui.start_many": "Trascrivi {count} registrazioni",
-        "gui.step_output": "1 \u00b7 Cosa vuoi ottenere?",
-        "gui.step_sources": "2 \u00b7 Quali registrazioni",
+        "gui.step_output": "2 \u00b7 Cosa vuoi ottenere?",
+        "gui.step_sources": "1 \u00b7 Quali registrazioni",
         "gui.step_options": "3 \u00b7 Come trascriverle",
         "gui.step_sources_empty": "ancora niente",
         "gui.step_sources_waiting": "{count} in attesa",
@@ -809,9 +842,8 @@ MESSAGES = {
         "gui.queue_part_held": "{count} da avviare",
         "gui.queue_press_start": "Premi Trascrivi per avviarle.",
         "gui.start_tip":
-            "Avvia quello che c'e' in coda. I file restano in attesa fino a quando premi "
-            "questo, cosi' il modello, la lingua e i set di parole chiave si possono "
-            "ancora cambiare dopo averli scelti.",
+            "Avvia tutte le registrazioni in attesa, con le risposte qui a sinistra. "
+            "Per cambiarle su una sola, usa Trascrivi sulla sua riga.",
         "gui.started": "Avviate: {count}.",
         "gui.status_held": "da avviare",
         "gui.queue_hint":

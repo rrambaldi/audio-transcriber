@@ -20,11 +20,11 @@ the moment it came from — without a browser, a server or a port.
 Three tabs.
 
 **Transcribe** is read as a list of sections down the left of the tab, with
-the queue beside it: *1 what do you want out of it · 2 which recordings · 3
-how to transcribe them*, then *Subtitles* and *Keyword sets*. It used to be
-three panels side by side with the button that starts everything in the
-bottom-left corner, which made the eye cross the window three times for a task
-that is a straight line.
+the queue beside it: *1 which recordings · 2 what do you want out of it · 3
+how to transcribe them*, then *Subtitles* and *Keyword sets*. The recordings
+come first on purpose — you have the file in front of you before deciding
+what to make of it, and the questions below are then about something that
+exists rather than about the next thing you might add.
 
 Every section opens and closes, and **a closed one still reports what it
 holds** — *3 · How to transcribe them — auto · Italiano (it) · auto*,
@@ -93,6 +93,23 @@ the default, so Enter does what the screen is for. Under it:
 | *Stop* | it is the one running (see below) |
 | *Remove from the list* | it has finished, and the transcription stays in the library |
 | *Clear the finished* | all of them at once |
+
+**Every row carries its own buttons**, because "select the row, then press
+the button under the table" is one step more than there needs to be and one
+more thing to get wrong:
+
+| button | what it does |
+|---|---|
+| *Transcribe* · *Stop* · *Open* · *Try again* | the same place in the row, whichever of the four applies to its state |
+| *Play* | listens to the recording — the file itself before it is transcribed, the copy in the library entry afterwards |
+| *Remove* | takes it out of the queue, or off the list once it has finished |
+
+**Transcribing one recording asks what it is for**, in a dialog holding the
+same four sections as the column, seeded from them. That is the point of the
+arrangement: half a dozen recordings go in at once and one of them is the
+interview that needs subtitles, so the answers belong to the recording rather
+than to the tab. The button under the list still starts everything that is
+waiting, with the answers on the left, for when they are all the same.
 
 Four keys, for the people who do this a dozen times a day: <kbd>Ctrl</kbd>+<kbd>O</kbd>
 adds files, <kbd>Ctrl</kbd>+<kbd>Enter</kbd> transcribes, <kbd>Delete</kbd> takes

@@ -289,6 +289,30 @@ All notable changes to this project are documented here. The format follows
 
 ### Changed
 
+- **The recordings come first, and each one is asked what it is for.** The
+  list down the left starts with where the recordings come from and only then
+  asks what to do with them — you have the file in front of you before
+  deciding what to make of it — and every row in the queue carries its own
+  buttons: *Transcribe* (or *Stop*, or *Open*, or *Try again*, whichever
+  applies to its state), *Play*, and *Remove*. Selecting a row and then
+  pressing a button under the table was one step more than there needs to be
+  and one more thing to get wrong.
+
+  **Starting one recording asks what it is for**, in a dialog holding the same
+  four sections as the column and seeded from them. Options used to belong to
+  the tab: whatever the column said when a file was dropped in became that
+  file's settings for good, which is the wrong shape for the way the queue is
+  used — half a dozen recordings at once, and one of them is the interview
+  that needs subtitles. The column is now the defaults; the dialog is one
+  recording's own answers. Both are the same `OptionsForm`, because two
+  implementations of the same four questions is how they start to disagree.
+
+  *Play* listens to a recording before spending an hour on it: the file
+  itself while it waits, the copy inside the library entry once it has been
+  filed. A failed or cancelled recording can be asked again — nothing was
+  filed and the file is still where it was, so the row simply goes back to
+  waiting.
+
 - **The left of the Transcribe tab is a list of sections that open.** Five
   rows — the three steps, *Subtitles*, *Keyword sets* — each of which reports
   what it holds while it is shut: "3 · How to transcribe them — auto ·
