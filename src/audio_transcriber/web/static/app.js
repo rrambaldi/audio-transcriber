@@ -63,6 +63,16 @@ const I18N = {
     auto: "detect it",
     auto_model: "automatic ({model})",
     diarize: "Who said what",
+    sub_preset: "Subtitles",
+    sub_note: "How subtitles are cut, if you want them. The cues exist either way: an entry can be downloaded as .srt or .vtt later, with other numbers.",
+    sub_chars: "Characters per subtitle line",
+    sub_words: "Words per subtitle",
+    sub_save_srt: "Keep an .srt with the entry",
+    sub_save_vtt: "Keep a .vtt with the entry",
+    sub_preset_numbers: "{chars} x {lines}, {cps} CPS",
+    sub_from_preset: "from the preset",
+    download_srt: "subtitles (.srt)",
+    download_vtt: "subtitles (.vtt)",
     diarize_not_installed: "Needs pyannote, which is not installed on this machine: pip install \"audio-transcriber-ov[diarize]\"",
     diarize_no_model: "pyannote is installed but has no model: set HUGGINGFACE_TOKEN on the server, or put a local config in place.",
     speakers: "Speakers, if known",
@@ -191,6 +201,16 @@ const I18N = {
     auto: "rilevala",
     auto_model: "automatico ({model})",
     diarize: "Chi dice cosa",
+    sub_preset: "Sottotitoli",
+    sub_note: "Come vengono tagliati i sottotitoli, se li vuoi. Le battute ci sono comunque: una voce si puo' scaricare in .srt o .vtt anche dopo, con altri numeri.",
+    sub_chars: "Caratteri per riga di sottotitolo",
+    sub_words: "Parole per sottotitolo",
+    sub_save_srt: "Tieni un .srt nella voce",
+    sub_save_vtt: "Tieni un .vtt nella voce",
+    sub_preset_numbers: "{chars} x {lines}, {cps} CPS",
+    sub_from_preset: "dal preset",
+    download_srt: "sottotitoli (.srt)",
+    download_vtt: "sottotitoli (.vtt)",
     diarize_not_installed: "Richiede pyannote, che su questa macchina non e' installato: pip install \"audio-transcriber-ov[diarize]\"",
     diarize_no_model: "pyannote c'e' ma manca il modello: imposta HUGGINGFACE_TOKEN sul server, oppure metti un config locale.",
     speakers: "Speaker, se noti",
@@ -997,6 +1017,16 @@ async function openEntry(id) {
   $("viewer-download").href = api(`library/${encodeURIComponent(entry.id)}/transcript.txt`);
   $("viewer-download-json").href = api(`library/${encodeURIComponent(entry.id)}/transcript.json`);
   $("viewer-download-json").hidden = !(entry.segments || []).length;
+  /* Cut on request from the segments, with the preset chosen in the form, so
+     an entry transcribed months ago can be cut again with today's numbers. */
+  const timed = (entry.segments || []).length > 0;
+  const preset = $("subtitle-preset").value;
+  for (const kind of ["srt", "vtt"]) {
+    const link = $(`viewer-download-${kind}`);
+    const query = preset ? `?preset=${encodeURIComponent(preset)}` : "";
+    link.href = api(`library/${encodeURIComponent(entry.id)}/subtitles.${kind}${query}`);
+    link.hidden = !timed;
+  }
   showViewerTab("transcript");
   $("viewer").showModal();
 }
@@ -1086,6 +1116,18 @@ $("job-form").addEventListener("submit", async (event) => {
   if ($("diarize").checked && $("speakers").value) {
     body.append("speakers", $("speakers").value);
   }
+  const formats = [];
+  if ($("save-srt").checked) formats.push("srt");
+  if ($("save-vtt").checked) formats.push("vtt");
+  body.append("subtitles_save", formats.join(","));
+  body.append("subtitle_preset", $("subtitle-preset").value);
+  /* Zero and empty both mean "whatever the preset says", so neither is sent. */
+  if (Number($("subtitle-chars").value) > 0) {
+    body.append("subtitle_chars", $("subtitle-chars").value);
+  }
+  if (Number($("subtitle-words").value) > 0) {
+    body.append("subtitle_words", $("subtitle-words").value);
+  }
   for (const name of selectedInstalled()) body.append("vocabulary", name);
   body.append("custom_vocabulary", customText());
 
@@ -1135,6 +1177,20 @@ async function start() {
       selected: code === status.defaults.language }));
   }
   const diarization = status.diarization || { available: true };
+  const subtitle = status.subtitles || { presets: [], default: "", save: "" };
+  const presets = $("subtitle-preset");
+  presets.textContent = "";
+  for (const item of subtitle.presets) {
+    const numbers = t("sub_preset_numbers", {
+      chars: item.max_chars_per_line, lines: item.max_lines,
+      cps: item.max_chars_per_second,
+    });
+    presets.append(el("option", { value: item.name,
+                                  textContent: `${item.name} - ${numbers}` }));
+  }
+  presets.value = subtitle.default || "";
+  $("save-srt").checked = subtitle.save.includes("srt");
+  $("save-vtt").checked = subtitle.save.includes("vtt");
   $("diarize").checked = diarization.available && status.defaults.diarize;
   $("speakers-field").hidden = !$("diarize").checked;
   if (!diarization.available) {

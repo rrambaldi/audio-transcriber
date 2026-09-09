@@ -130,6 +130,26 @@ class TranscribePanel(QWidget):
                               else Qt.CheckState.Unchecked)
             self.vocabularies.addItem(row)
 
+        self.subtitle_preset = QComboBox()
+        self.subtitle_preset.setToolTip(t("gui.sub_preset_tip"))
+        for label, name in options.subtitle_preset_choices():
+            self.subtitle_preset.addItem(label, name)
+        _select(self.subtitle_preset, defaults["subtitle_preset"])
+        self.subtitle_chars = QSpinBox()
+        self.subtitle_chars.setRange(0, 120)
+        self.subtitle_chars.setSpecialValueText(t("gui.sub_from_preset"))
+        self.subtitle_chars.setToolTip(t("gui.sub_chars_tip"))
+        self.subtitle_words = QSpinBox()
+        self.subtitle_words.setRange(0, 60)
+        self.subtitle_words.setSpecialValueText(t("gui.sub_from_preset"))
+        self.subtitle_words.setToolTip(t("gui.sub_words_tip"))
+        self.save_srt = QCheckBox(t("gui.sub_save_srt"))
+        self.save_vtt = QCheckBox(t("gui.sub_save_vtt"))
+        for box in (self.save_srt, self.save_vtt):
+            box.setToolTip(t("gui.sub_save_tip"))
+        self.save_srt.setChecked("srt" in defaults["subtitles"])
+        self.save_vtt.setChecked("vtt" in defaults["subtitles"])
+
         self.custom = QPlainTextEdit()
         self.custom.setPlaceholderText(t("gui.vocab_custom_hint"))
         self.custom.textChanged.connect(self._count_prompt)
@@ -194,6 +214,19 @@ class TranscribePanel(QWidget):
         speakers_row.addWidget(self.speakers)
         speakers_row.addStretch(1)
         form.addRow("", _wrap(speakers_row))
+
+        # Subtitles are the other shape a transcript can take, so they belong
+        # in the same box as the model and the language rather than in a tab
+        # of their own: the cues are always there, and these say how they are
+        # cut and whether a file is kept.
+        form.addRow(t("gui.label_subtitles"), self.subtitle_preset)
+        form.addRow(t("gui.label_sub_chars"), self.subtitle_chars)
+        form.addRow(t("gui.label_sub_words"), self.subtitle_words)
+        save_row = QHBoxLayout()
+        save_row.addWidget(self.save_srt)
+        save_row.addWidget(self.save_vtt)
+        save_row.addStretch(1)
+        form.addRow(t("gui.label_sub_save"), _wrap(save_row))
 
         vocab_box = QGroupBox(t("gui.group_vocabulary"))
         vocab_layout = QVBoxLayout(vocab_box)
@@ -269,6 +302,11 @@ class TranscribePanel(QWidget):
             "backend": self.backend.currentData(),
             "diarize": self.diarize.isChecked(),
             "speakers": self.speakers.value(),
+            "subtitle_preset": self.subtitle_preset.currentData(),
+            "subtitle_chars": self.subtitle_chars.value(),
+            "subtitle_words": self.subtitle_words.value(),
+            "srt": self.save_srt.isChecked(),
+            "vtt": self.save_vtt.isChecked(),
         }
 
     def _count_prompt(self):
@@ -340,7 +378,9 @@ class TranscribePanel(QWidget):
         if problem:
             self.message.emit(problem)
             return False
-        overrides = options.overrides_from(self.choices())
+        chosen = self.choices()
+        overrides = options.overrides_from(chosen)
+        overrides.update(options.subtitle_settings(chosen))
         names = self.chosen_vocabularies()
         self._save_state()
         queued = 0
@@ -523,6 +563,11 @@ class TranscribePanel(QWidget):
             remembered = self.store.value(name, "", str)
             if remembered:
                 _select(widget, remembered)
+        _select(self.subtitle_preset, self.store.value("subtitle_preset", "", str))
+        self.subtitle_chars.setValue(int(self.store.value("subtitle_chars", 0, int) or 0))
+        self.subtitle_words.setValue(int(self.store.value("subtitle_words", 0, int) or 0))
+        self.save_srt.setChecked(bool(self.store.value("save_srt", False, bool)))
+        self.save_vtt.setChecked(bool(self.store.value("save_vtt", False, bool)))
         remembered = self.store.value("vocabulary", None)
         if remembered is not None:
             wanted = set(remembered if isinstance(remembered, list)
@@ -543,6 +588,11 @@ class TranscribePanel(QWidget):
         self.store.setValue("language", self.language.currentData())
         self.store.setValue("backend", self.backend.currentData())
         self.store.setValue("vocabulary", self.chosen_vocabularies())
+        self.store.setValue("subtitle_preset", self.subtitle_preset.currentData())
+        self.store.setValue("subtitle_chars", self.subtitle_chars.value())
+        self.store.setValue("subtitle_words", self.subtitle_words.value())
+        self.store.setValue("save_srt", self.save_srt.isChecked())
+        self.store.setValue("save_vtt", self.save_vtt.isChecked())
 
     def shutdown(self):
         """Stop polling, stop recording, remember the choices."""

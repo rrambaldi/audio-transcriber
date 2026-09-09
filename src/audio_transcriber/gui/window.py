@@ -42,7 +42,7 @@ class MainWindow(QMainWindow):
 
         self.setWindowTitle(t("gui.window_title", version=__version__))
         self.transcribe = TranscribePanel(self.queue, self.settings, self.store)
-        self.library = LibraryPanel(self.queue.library)
+        self.library = LibraryPanel(self.queue.library, self.settings)
         self.system = SystemPanel(self.settings, self.queue.library)
 
         self.tabs = QTabWidget()

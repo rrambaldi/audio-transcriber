@@ -29,6 +29,28 @@ All notable changes to this project are documented here. The format follows
   the two libraries handed to it as objects and no Qt in it at all. Without the
   extra the window records through QtMultimedia as before and says what the
   other engine would add.
+- **Subtitles**, in a `subtitles.py` of their own, and reachable from all three
+  interfaces. A transcript and a subtitle track are not the same thing:
+  Whisper's segments run twenty or thirty seconds and hundreds of characters,
+  so they are cut again against the numbers subtitling uses — characters per
+  line, lines, reading speed, minimum and maximum duration, minimum gap — held
+  in named presets (`netflix`, `bbc`, `ebu_broadcast`, `fcc_verbatim`,
+  `social_vertical`, `social_karaoke`, `kids_accessible`) shipped as data and
+  overridable by name from `<config>/srt-presets.json`, like the keyword sets.
+  `--srt`, `--vtt`, `--subtitle-preset`, `--subtitle-chars`,
+  `--subtitle-lines`, `--subtitle-words` and a `[subtitles]` section in
+  `config.toml`; the same four choices next to the model in the window and in
+  the browser; `GET /api/library/{id}/subtitles.srt` and `.vtt`, and *Export
+  the subtitles* in the window, both cutting an entry from its segments so one
+  transcribed months ago can be cut with today's numbers.
+  Line breaking follows the forbidden-break rules — never between an article
+  and its noun, an auxiliary and its participle, a verb and its clitic, or
+  between two capitalised words, which is usually a name and a surname — and
+  the word timings are asked of the engine only when subtitles are wanted,
+  because they cost time and buy a cut that falls where the speaker paused.
+  What it will not do is rewrite anybody's words: speech too fast to read is
+  reported, not condensed. See [docs/subtitles.md](docs/subtitles.md) for that
+  list and its reasons.
 - **The desktop window is not a Windows program.** Qt was always portable, but
   the recording engine was not: the loopback engine was called `WasapiEngine`
   and filed its sources under a host API named "Windows WASAPI", which on a

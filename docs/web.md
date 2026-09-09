@@ -184,6 +184,7 @@ using it directly. `GET /api/docs` serves the generated schema.
 | `PUT /api/library/{id}/notes` | replace `notes.md` (`{"notes": "..."}`) |
 | `GET /api/library/{id}/transcript.txt` | the transcript as a download |
 | `GET /api/library/{id}/transcript.json` | the timestamped segments |
+| `GET /api/library/{id}/subtitles.srt` · `.vtt` | the entry cut into subtitles on the spot; `?preset=`, `?chars=`, `?words=` |
 | `GET /api/library/{id}/audio` | the recording, with range requests so seeking works |
 
 Only a recording the entry actually holds is served: an entry created with
@@ -191,8 +192,18 @@ Only a recording the entry actually holds is served: an entry created with
 not a way to read arbitrary paths.
 
 `POST /api/jobs` takes the file plus `title`, `model`, `language`, `backend`,
-`diarize`, `speakers`, repeated `vocabulary` fields (names of installed sets)
-and `custom_vocabulary` (free text, the browser's own terms).
+`diarize`, `speakers`, repeated `vocabulary` fields (names of installed sets),
+`custom_vocabulary` (free text, the browser's own terms), and the subtitle
+settings: `subtitles_save` (`srt`, `vtt`, `srt,vtt` or empty),
+`subtitle_preset`, `subtitle_chars`, `subtitle_words`. A misspelled preset or
+format is refused before the upload is stored — an hour of transcription is a
+poor way to learn that a name was wrong.
+
+The subtitle downloads cut the entry from its segments every time, so an entry
+transcribed months ago can be cut with today's numbers; with no query the
+preset is the one it was cut with when it was made. `X-Subtitle-Cues` and
+`X-Subtitle-Preset` come back in the headers. See
+[subtitles.md](subtitles.md).
 
 ## The page itself
 

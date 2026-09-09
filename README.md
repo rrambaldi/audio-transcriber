@@ -30,6 +30,10 @@ audio-transcriber meeting.mp4        # -> meeting.txt
 - **Optional diarization** with pyannote, including a fully **offline** mode.
 - **A library**, if you want one: each transcription filed as a self-contained
   folder with the recording, the transcript, timestamps and your notes.
+- **Subtitles**, if you want them: the transcript cut into cues by the numbers
+  the trade uses — characters per line, reading speed, minimum and maximum
+  duration — as `.srt` or `.vtt`, with named presets from Netflix's guide to
+  vertical video. See [docs/subtitles.md](docs/subtitles.md).
 - **Keyword sets** to stop it mangling your technical terms — named, listed,
   and selectable from the command line or the web page.
 - **A local web interface**, optional: drop a file in the browser or record
@@ -294,6 +298,7 @@ small server you may prefer to leave it off.
 - [x] Desktop window in Qt, recording from a microphone included
 - [x] Recording what the speakers play (WASAPI loopback), and mixing it with
       the microphone
+- [x] Subtitles: cues by the trade's numbers, .srt and .vtt, named presets
 - [ ] Summaries of a transcript
 
 ## Contributing

@@ -638,6 +638,74 @@ def test_forgetting_one_job_keeps_the_right_row_selected(window, tmp_path, queue
     assert window.transcribe.table.rowCount() == 1
 
 
+def test_the_subtitle_numbers_reach_the_job(window, tmp_path, queue):
+    """The window's job is to collect them; the cutting is the core's."""
+    panel = window.transcribe
+    panel.subtitle_preset.setCurrentIndex(panel.subtitle_preset.findData("ebu_broadcast"))
+    panel.subtitle_chars.setValue(32)
+    panel.subtitle_words.setValue(9)
+    panel.save_srt.setChecked(True)
+    panel.add_files([sample(tmp_path)])
+
+    settings = queue.jobs()[0].settings
+    assert settings["subtitles"] == "srt"
+    assert settings["subtitle_preset"] == "ebu_broadcast"
+    assert settings["subtitle_chars"] == 32
+    assert settings["subtitle_words"] == 9
+
+
+def test_zero_means_whatever_the_preset_says(window, tmp_path, queue):
+    """A spin box at zero is "not chosen", not "no characters allowed"."""
+    panel = window.transcribe
+    panel.subtitle_chars.setValue(0)
+    panel.subtitle_words.setValue(0)
+    panel.save_srt.setChecked(False)
+    panel.save_vtt.setChecked(False)
+    panel.add_files([sample(tmp_path)])
+
+    # The queue drops overrides that are None - that is how "not chosen here"
+    # leaves the configured value standing - so the keys are simply absent.
+    settings = queue.jobs()[0].settings
+    assert settings.get("subtitle_chars") is None
+    assert settings.get("subtitle_words") is None
+    assert settings.get("subtitles") is None      # nothing saved unless asked
+
+
+def test_an_entry_can_be_cut_into_subtitles_from_the_library(window, tmp_path,
+                                                             queue, monkeypatch):
+    """From the segments, so an entry transcribed months ago can be cut again
+    with today's numbers."""
+    from PySide6.QtWidgets import QFileDialog
+
+    entry = queue.library.create(title="Comitato")
+    entry.write_transcript("Il primo punto all'ordine del giorno riguarda il budget.\n", [
+        {"text": "Il primo punto all'ordine del giorno riguarda il budget.",
+         "start": 0.0, "end": 4.0}])
+    entry.update(transcription={"model": "small"})
+    window.library.reload()
+
+    target = tmp_path / "comitato.srt"
+    monkeypatch.setattr(QFileDialog, "getSaveFileName",
+                        staticmethod(lambda *a, **k: (str(target), "")))
+    said = []
+    window.library.message.connect(said.append)
+    window.library.export_subtitles()
+    assert target.exists()
+    assert " --> " in target.read_text(encoding="utf-8")
+    assert said and "cues" in said[-1]
+
+
+def test_an_entry_without_timestamps_cannot_be_cut(window, tmp_path, queue):
+    entry = queue.library.create(title="Senza tempi")
+    entry.write_transcript("Testo.\n", [])
+    entry.update(transcription={"model": "small"})
+    window.library.reload()
+    said = []
+    window.library.message.connect(said.append)
+    window.library.export_subtitles()
+    assert said and "timestamps" in said[-1]
+
+
 def test_the_chosen_options_are_remembered_for_next_time(window, tmp_path, queue):
     window.transcribe.model.setCurrentIndex(window.transcribe.model.findData("base"))
     window.transcribe.custom.setPlainText("alpha, beta")

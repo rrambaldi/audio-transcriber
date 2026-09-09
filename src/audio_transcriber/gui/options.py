@@ -13,7 +13,7 @@ import math
 import os
 from datetime import datetime
 
-from .. import recording, vocabularies
+from .. import recording, subtitles, vocabularies
 from ..backends import BACKENDS
 from ..formatting import format_bytes, format_clock, format_duration
 from ..i18n import t
@@ -112,6 +112,8 @@ def defaults_from(settings):
         "diarize": bool(settings.get("diarize")),
         "speakers": int(settings.get("speakers") or 0),
         "vocabulary": vocabularies.split_names(settings.get("vocabulary")),
+        "subtitle_preset": settings.get("subtitle_preset") or subtitles.DEFAULT_PRESET,
+        "subtitles": str(settings.get("subtitles") or ""),
     }
 
 
@@ -128,6 +130,48 @@ def overrides_from(choices):
         "diarize": True if choices.get("diarize") else None,
         "speakers": choices.get("speakers") or None,
     }
+
+
+def subtitle_preset_choices():
+    """``(label, name)`` for the subtitle preset menu.
+
+    Labelled with the numbers that matter, because "bbc" tells you nothing
+    about how wide a line will be."""
+    choices = []
+    for name, spec in sorted(subtitles.presets().items()):
+        numbers = t("gui.sub_preset_numbers",
+                    chars=spec.get("max_chars_per_line", "-"),
+                    lines=spec.get("max_lines", "-"),
+                    cps=spec.get("max_chars_per_second", "-"))
+        choices.append((f"{name} - {numbers}", name))
+    return choices
+
+
+def subtitle_settings(choices):
+    """The subtitle part of what the window is asking for.
+
+    Zero means "whatever the preset says", which is how a spin box says "not
+    chosen" without a second widget next to it."""
+    formats = [kind for kind in ("srt", "vtt") if choices.get(kind)]
+    return {
+        "subtitles": ",".join(formats) or None,
+        "subtitle_preset": choices.get("subtitle_preset") or None,
+        "subtitle_chars": choices.get("subtitle_chars") or None,
+        "subtitle_words": choices.get("subtitle_words") or None,
+    }
+
+
+def subtitle_summary(entry):
+    """What the library says about an entry's subtitles, or ``None``."""
+    try:
+        data = (entry.metadata.get("subtitles") or {})
+    except LibraryError:
+        return None
+    kinds = entry.subtitles()
+    if not kinds:
+        return None
+    return t("gui.sub_saved", formats=", ".join(kinds),
+             cues=data.get("cues") or 0, preset=data.get("preset") or "-")
 
 
 def custom_vocabulary_problem(text):
@@ -281,6 +325,9 @@ def entry_details(entry):
         # Worth showing: a filed hour of audio is hundreds of megabytes, and on
         # a small disk that is the number people actually want to see.
         lines.insert(2, (t("gui.detail_size"), format_bytes(source["bytes"])))
+    saved = subtitle_summary(entry)
+    if saved:
+        lines.insert(-1, (t("gui.detail_subtitles"), saved))
     if transcription.get("diarized"):
         lines.insert(4, (t("gui.detail_speakers"),
                          str(transcription.get("speakers") or t("gui.detail_detected"))))

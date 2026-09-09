@@ -19,7 +19,7 @@ from fastapi import Body, FastAPI, File, Form, HTTPException, Request, UploadFil
 from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 
-from .. import __version__, i18n, vocabularies
+from .. import __version__, i18n, pipeline, subtitles, vocabularies
 from ..backends import BACKENDS
 from ..diarization import availability as diarization_availability
 from ..jobs import MAX_UPLOAD_BYTES, JobQueue, safe_filename
@@ -90,6 +90,16 @@ def register_routes(app):
                 "diarize": bool(settings.get("diarize")),
                 "vocabulary": vocabularies.split_names(settings.get("vocabulary")),
             },
+            "subtitles": {
+                "presets": [
+                    {"name": name,
+                     "max_chars_per_line": spec.get("max_chars_per_line"),
+                     "max_lines": spec.get("max_lines"),
+                     "max_chars_per_second": spec.get("max_chars_per_second")}
+                    for name, spec in sorted(subtitles.presets().items())],
+                "default": settings.get("subtitle_preset") or subtitles.DEFAULT_PRESET,
+                "save": settings.get("subtitles") or "",
+            },
             "library_dir": library_of(request).root,
             "max_upload_bytes": MAX_UPLOAD_BYTES,
             "max_custom_vocabulary": MAX_CUSTOM_VOCABULARY,
@@ -126,6 +136,10 @@ def register_routes(app):
         speakers: int | None = Form(None),
         vocabulary: list[str] = Form(default=[]),
         custom_vocabulary: str = Form(""),
+        subtitles_save: str = Form(""),
+        subtitle_preset: str = Form(""),
+        subtitle_chars: int | None = Form(None),
+        subtitle_words: int | None = Form(None),
     ):
         queue = request.app.state.queue
         names = vocabularies.split_names(vocabulary)
@@ -143,13 +157,27 @@ def register_routes(app):
         if backend and backend not in BACKENDS:
             raise HTTPException(status_code=400, detail=f"unknown backend '{backend}'")
 
+        try:
+            # Both are refused before the upload rather than after it: an hour
+            # of transcription that cannot save its subtitles is a poor way to
+            # find out that a preset was misspelled.
+            wanted = pipeline.subtitle_formats({"subtitles": subtitles_save})
+            if subtitle_preset:
+                subtitles.preset(subtitle_preset)
+        except subtitles.SubtitleError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
         target = await store_upload(file, queue.upload_dir())
         job = queue.submit(
             target, title=title.strip() or None,
             filename=safe_filename(file.filename),
             overrides={"model": model or None, "language": language,
                        "backend": backend or None, "diarize": diarize or None,
-                       "speakers": speakers or None},
+                       "speakers": speakers or None,
+                       "subtitles": ",".join(wanted) or None,
+                       "subtitle_preset": subtitle_preset or None,
+                       "subtitle_chars": subtitle_chars or None,
+                       "subtitle_words": subtitle_words or None},
             vocabularies=names, custom_vocabulary=custom_vocabulary)
         return job.as_dict()
 
@@ -218,6 +246,7 @@ def register_routes(app):
                 "diarized": transcription.get("diarized"),
                 "vocabulary": transcription.get("vocabulary"),
                 "has_notes": entry.has_written_notes(),
+                "subtitles": entry.subtitles(),
             })
         return {"entries": entries, "query": q}
 
@@ -236,6 +265,7 @@ def register_routes(app):
         data["notes"] = entry.read_notes()
         data["segments"] = entry.read_segments()
         data["has_audio"] = bool(entry.stored_audio())
+        data["subtitle_files"] = entry.subtitles()
         return data
 
     @app.patch("/api/library/{entry_id}")
@@ -284,6 +314,45 @@ def register_routes(app):
             raise HTTPException(status_code=404, detail="this entry has no segments")
         return FileResponse(entry.segments_path, media_type="application/json",
                             filename=f"{entry.id}.json")
+
+    @app.get("/api/library/{entry_id}/subtitles.{kind}")
+    def download_subtitles(entry_id: str, kind: str, request: Request,
+                           preset: str = "", chars: int | None = None,
+                           words: int | None = None):
+        """The entry's subtitles, cut on the spot.
+
+        From the segments rather than from a saved file, so an entry
+        transcribed months ago can be cut again with today's numbers - which
+        is why the cues are not kept as the only copy. Nothing is written: the
+        answer is the file."""
+        if kind not in ("srt", "vtt"):
+            raise HTTPException(status_code=404, detail="unknown subtitle format")
+        entry = entry_or_404(request, entry_id)
+        segments = entry.read_segments()
+        if not segments:
+            raise HTTPException(status_code=404,
+                                detail="this entry has no timestamps to cut")
+        # Asked for, else the one this entry was cut with when it was
+        # transcribed, else the server's default: a download with no query
+        # should match the file the entry already holds.
+        was_cut_with = (entry.metadata.get("subtitles") or {}).get("preset")
+        settings = dict(request.app.state.settings)
+        settings.update({"subtitle_preset": (preset or was_cut_with
+                                             or settings.get("subtitle_preset")),
+                         "subtitle_chars": chars, "subtitle_words": words})
+        try:
+            spec = pipeline.subtitle_spec(settings)
+        except subtitles.SubtitleError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        cue_list = subtitles.cues(segments, spec,
+                                  language=settings.get("language") or "it")
+        text = (subtitles.to_srt(cue_list, spec.get("line_ending", "\n"))
+                if kind == "srt" else subtitles.to_vtt(cue_list))
+        return PlainTextResponse(
+            text, media_type="text/plain; charset=utf-8",
+            headers={"Content-Disposition": f'attachment; filename="{entry.id}.{kind}"',
+                     "X-Subtitle-Cues": str(len(cue_list)),
+                     "X-Subtitle-Preset": str(spec.get("name") or "")})
 
     @app.get("/api/library/{entry_id}/audio")
     def stream_audio(entry_id: str, request: Request):

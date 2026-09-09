@@ -52,9 +52,10 @@ class LibraryPanel(QWidget):
 
     message = Signal(str)
 
-    def __init__(self, library, parent=None):
+    def __init__(self, library, settings=None, parent=None):
         super().__init__(parent)
         self.library = library
+        self.settings = dict(settings or {})
         self.entry = None
         self._rows = []
         self._notes_dirty = False
@@ -186,12 +187,15 @@ class LibraryPanel(QWidget):
         self.rename.clicked.connect(self.rename_entry)
         self.export = QPushButton(t("gui.export"))
         self.export.clicked.connect(self.export_transcript)
+        self.export_subtitles_button = QPushButton(t("gui.sub_export"))
+        self.export_subtitles_button.clicked.connect(self.export_subtitles)
         self.open_folder = QPushButton(t("gui.open_folder"))
         self.open_folder.clicked.connect(self.reveal_folder)
         self.delete = QPushButton(t("gui.delete"))
         self.delete.clicked.connect(self.delete_entry)
         actions = QHBoxLayout()
-        for button in (self.rename, self.export, self.open_folder):
+        for button in (self.rename, self.export, self.export_subtitles_button,
+                       self.open_folder):
             actions.addWidget(button)
         actions.addStretch(1)
         actions.addWidget(self.delete)
@@ -317,7 +321,8 @@ class LibraryPanel(QWidget):
         self._enable_actions(False)
 
     def _enable_actions(self, enabled):
-        for button in (self.rename, self.export, self.open_folder, self.delete):
+        for button in (self.rename, self.export, self.export_subtitles_button,
+                       self.open_folder, self.delete):
             button.setEnabled(enabled)
 
     def _anchor_clicked(self, url):
@@ -475,6 +480,48 @@ class LibraryPanel(QWidget):
             return
         self.message.emit(t("gui.exported", path=path))
 
+    def export_subtitles(self, settings=None):
+        """Cut this entry's segments into subtitles and save them.
+
+        From the segments, not from a file: an entry transcribed months ago can
+        be cut again with today's numbers, which is the whole reason the cues
+        are not stored as the only copy."""
+        if self.entry is None:
+            return
+        from .. import pipeline
+        from ..subtitles import SubtitleError
+
+        segments = self.entry.read_segments()
+        if not segments:
+            self.message.emit(t("gui.sub_none"))
+            return
+        chosen = dict(self.settings)
+        chosen.update(settings or {})
+        suggestion = os.path.join(os.path.expanduser("~"), f"{self.entry.id}.srt")
+        path, _ = QFileDialog.getSaveFileName(
+            self, t("gui.sub_export"), suggestion,
+            f"{t('gui.filter_srt')} (*.srt);;{t('gui.filter_vtt')} (*.vtt)")
+        if not path:
+            return
+        kind = "vtt" if path.lower().endswith(".vtt") else "srt"
+        try:
+            spec = pipeline.subtitle_spec(chosen)
+            cue_list = pipeline.subtitles_of(_AsResult(segments), chosen)
+        except SubtitleError as exc:
+            self.message.emit(str(exc))
+            return
+        text = (pipeline.to_srt(cue_list, spec.get("line_ending", "\n"))
+                if kind == "srt" else pipeline.to_vtt(cue_list))
+        try:
+            with open(path, "w", encoding="utf-8", newline="") as handle:
+                handle.write(text)
+        except OSError as exc:
+            self.message.emit(str(exc))
+            return
+        problems = pipeline.validate(cue_list, spec)
+        self.message.emit(t("gui.sub_exported", path=path, cues=len(cue_list),
+                            problems=len(problems)))
+
     def reveal_folder(self):
         """Open the entry's folder in the system's file manager."""
         if self.entry is None:
@@ -509,6 +556,18 @@ class LibraryPanel(QWidget):
         if self.player is not None:
             self.player.stop()
         return self._offer_to_save_notes()
+
+
+class _AsResult:
+    """The one field :mod:`pipeline`'s subtitle helpers read off a result.
+
+    Cutting subtitles needs the segments and nothing else, and a library entry
+    has those: this saves inventing a fake transcription around them."""
+
+    __slots__ = ("segments",)
+
+    def __init__(self, segments):
+        self.segments = segments
 
 
 def _title_of(entry):

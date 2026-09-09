@@ -77,6 +77,30 @@
           <label for="speakers" data-t="speakers"></label>
           <input type="number" id="speakers" name="speakers" min="1" max="20">
         </div>
+        <div class="field">
+          <label for="subtitle-preset" data-t="sub_preset"></label>
+          <select id="subtitle-preset" name="subtitle_preset" autocomplete="off"
+                  aria-describedby="sub-note"></select>
+          <p class="note" id="sub-note" data-t="sub_note"></p>
+        </div>
+        <div class="field">
+          <label for="subtitle-chars" data-t="sub_chars"></label>
+          <input type="number" id="subtitle-chars" name="subtitle_chars" min="0"
+                 max="120" placeholder="0">
+        </div>
+        <div class="field">
+          <label for="subtitle-words" data-t="sub_words"></label>
+          <input type="number" id="subtitle-words" name="subtitle_words" min="0"
+                 max="60" placeholder="0">
+        </div>
+        <div class="field checkbox">
+          <input type="checkbox" id="save-srt" name="save_srt">
+          <label for="save-srt" data-t="sub_save_srt"></label>
+        </div>
+        <div class="field checkbox">
+          <input type="checkbox" id="save-vtt" name="save_vtt">
+          <label for="save-vtt" data-t="sub_save_vtt"></label>
+        </div>
       </div>
 
       <fieldset class="vocab">
@@ -205,6 +229,8 @@
     <button type="button" class="button" id="viewer-rename" data-t="rename"></button>
     <a id="viewer-download" class="button" download data-t="download"></a>
     <a id="viewer-download-json" class="button" download data-t="download_json"></a>
+    <a id="viewer-download-srt" class="button" download data-t="download_srt"></a>
+    <a id="viewer-download-vtt" class="button" download data-t="download_vtt"></a>
     <button type="button" class="button send" id="notes-save" hidden data-t="save_notes"></button>
     <button type="button" class="button" id="viewer-close" data-t="close"></button>
   </menu>

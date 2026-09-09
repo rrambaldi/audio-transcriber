@@ -180,6 +180,26 @@ def test_the_queue_can_be_stopped_from_the_page(script):
     assert "confirm_stop_job" in script            # the running one is asked about
 
 
+def test_the_form_offers_the_subtitle_numbers(page, script):
+    """The same knobs the window has: how they are cut, and whether a file is
+    kept with the entry."""
+    for field in ("subtitle-preset", "subtitle-chars", "subtitle-words",
+                  "save-srt", "save-vtt"):
+        assert f'id="{field}"' in page
+    assert "subtitles_save" in script
+    assert "subtitle_preset" in script
+    # Zero means "whatever the preset says", and is not sent as a limit of zero.
+    assert 'Number($("subtitle-chars").value) > 0' in script
+
+
+def test_an_entry_can_be_downloaded_as_subtitles(page, script):
+    """Cut on request from the segments, so an old entry can be cut again with
+    today's numbers."""
+    assert 'id="viewer-download-srt"' in page
+    assert 'id="viewer-download-vtt"' in page
+    assert "subtitles.${kind}" in script
+
+
 def test_recording_shows_the_input_level(page, script):
     """A timer counting up says the browser is recording. It does not say that
     anything is arriving, which is the failure worth catching."""

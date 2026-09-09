@@ -213,12 +213,40 @@ MESSAGES = {
         "gui.filter_media": "Audio and video",
         "gui.filter_any": "Every file",
         "gui.filter_text": "Text file",
+        "gui.filter_srt": "SubRip subtitles",
+        "gui.filter_vtt": "WebVTT subtitles",
 
         "gui.group_options": "Options",
         "gui.label_model": "Model",
         "gui.label_language": "Spoken language",
         "gui.label_backend": "Engine",
         "gui.label_speakers": "Speakers",
+        "gui.label_subtitles": "Subtitles",
+        "gui.label_sub_chars": "Characters per line",
+        "gui.label_sub_words": "Words per subtitle",
+        "gui.label_sub_save": "Save as",
+        "gui.sub_preset_numbers": "{chars} x {lines}, {cps} CPS",
+        "gui.sub_from_preset": "from the preset",
+        "gui.sub_preset_tip":
+            "The numbers a subtitle is cut by, as a named set. Your own sets go in "
+            "srt-presets.json next to config.toml and win over these by name.",
+        "gui.sub_chars_tip":
+            "Characters on one line, spaces included. Leave it at the preset unless you "
+            "know the player: 42 is the professional reference, 32 the narrowest in use.",
+        "gui.sub_words_tip":
+            "A new subtitle every so many words. Not one of the trade's numbers - they "
+            "measure characters and reading speed - but honoured when given.",
+        "gui.sub_save_srt": ".srt",
+        "gui.sub_save_vtt": ".vtt",
+        "gui.sub_save_tip":
+            "Keep a subtitle file in the library entry, beside the transcript. The cues "
+            "themselves are always there: an entry can be exported later, with other "
+            "numbers, from the same transcription.",
+        "gui.sub_saved": "{formats} - {cues} cues, cut by '{preset}'",
+        "gui.sub_export": "Export the subtitles",
+        "gui.sub_exported": "Subtitles written to {path}  ({cues} cues, {problems} remarks)",
+        "gui.sub_none": "This entry has no timestamps, so there is nothing to cut into subtitles.",
+        "gui.detail_subtitles": "Subtitles",
         "gui.model_auto": "auto ({model} on this machine)",
         "gui.language_auto": "detect it",
         "gui.backend_auto": "auto",
@@ -634,12 +662,41 @@ MESSAGES = {
         "gui.filter_media": "Audio e video",
         "gui.filter_any": "Tutti i file",
         "gui.filter_text": "File di testo",
+        "gui.filter_srt": "Sottotitoli SubRip",
+        "gui.filter_vtt": "Sottotitoli WebVTT",
 
         "gui.group_options": "Opzioni",
         "gui.label_model": "Modello",
         "gui.label_language": "Lingua parlata",
         "gui.label_backend": "Motore",
         "gui.label_speakers": "Interlocutori",
+        "gui.label_subtitles": "Sottotitoli",
+        "gui.label_sub_chars": "Caratteri per riga",
+        "gui.label_sub_words": "Parole per sottotitolo",
+        "gui.label_sub_save": "Salva come",
+        "gui.sub_preset_numbers": "{chars} x {lines}, {cps} CPS",
+        "gui.sub_from_preset": "dal preset",
+        "gui.sub_preset_tip":
+            "I numeri con cui si taglia un sottotitolo, come insieme con un nome. I tuoi "
+            "insiemi vanno in srt-presets.json accanto a config.toml e vincono su questi "
+            "a parita' di nome.",
+        "gui.sub_chars_tip":
+            "Caratteri su una riga, spazi compresi. Lascialo al preset se non conosci il "
+            "player: 42 e' il riferimento professionale, 32 il piu' stretto in uso.",
+        "gui.sub_words_tip":
+            "Un sottotitolo nuovo ogni tot parole. Non e' uno dei numeri del mestiere - "
+            "quello misura caratteri e velocita' di lettura - ma viene rispettato.",
+        "gui.sub_save_srt": ".srt",
+        "gui.sub_save_vtt": ".vtt",
+        "gui.sub_save_tip":
+            "Tiene un file di sottotitoli nella voce di libreria, accanto alla "
+            "trascrizione. Le battute ci sono comunque: una voce si puo' esportare dopo, "
+            "con altri numeri, dalla stessa trascrizione.",
+        "gui.sub_saved": "{formats} - {cues} battute, tagliate con '{preset}'",
+        "gui.sub_export": "Esporta i sottotitoli",
+        "gui.sub_exported": "Sottotitoli scritti in {path}  ({cues} battute, {problems} rilievi)",
+        "gui.sub_none": "Questa voce non ha timestamp, quindi non c'e' nulla da tagliare in sottotitoli.",
+        "gui.detail_subtitles": "Sottotitoli",
         "gui.model_auto": "auto ({model} su questa macchina)",
         "gui.language_auto": "riconoscila",
         "gui.backend_auto": "auto",

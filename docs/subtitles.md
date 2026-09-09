@@ -17,6 +17,19 @@ something asks — so saving a file is the option, not the mechanism. An entry i
 the library can be exported later, with different numbers, from the same
 segments.
 
+## From the window and the browser
+
+Both offer the same four things next to the model and the language: which
+preset cuts the subtitles, characters per line, words per subtitle, and whether
+to keep an `.srt` or a `.vtt` with the entry. A zero in either number means
+"whatever the preset says" — the box says so.
+
+In the library, *Export the subtitles* (the window) and the `.srt` / `.vtt`
+links (the page) cut the entry again **from its segments**, so a recording
+transcribed months ago can be cut with today's numbers without transcribing it
+again. With no preset asked for, the download matches the one the entry was
+cut with when it was made.
+
 ## The numbers
 
 | key | what it limits |

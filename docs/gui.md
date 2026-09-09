@@ -74,6 +74,13 @@ transcription runs to the end and its result is discarded instead. Either way
 nothing reaches the library, and the recording stays where it is, so it can be
 queued again.
 
+**Subtitles** are the other shape a transcript can take, and they sit in the
+same box as the model: a preset (netflix, bbc, ebu_broadcast, fcc_verbatim,
+social_vertical, social_karaoke, kids_accessible), characters per line, words
+per subtitle, and whether to keep an `.srt` or a `.vtt` with the entry. The
+cues exist either way — *Export the subtitles* in the library cuts an old entry
+with today's numbers. See [subtitles.md](subtitles.md).
+
 **Library.** Every transcribed recording, newest first. Search the transcripts
 and the notes, read the transcript with a clickable timestamp per block, play
 the recording while reading along, jump to any moment, write notes, rename,

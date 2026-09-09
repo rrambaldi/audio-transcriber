@@ -176,6 +176,99 @@ def test_a_job_reports_the_stage_it_is_in(client, queue):
     blocked.set()
 
 
+# --- subtitles ------------------------------------------------------------
+
+def test_the_status_offers_the_subtitle_presets(client):
+    data = client.get("/api/status").json()["subtitles"]
+    names = [item["name"] for item in data["presets"]]
+    assert "netflix" in names and "social_karaoke" in names
+    netflix = next(item for item in data["presets"] if item["name"] == "netflix")
+    assert netflix["max_chars_per_line"] == 42
+    assert data["default"] == "netflix"
+
+
+def test_a_job_can_ask_for_subtitles(client, queue):
+    response = client.post("/api/jobs", files={"file": ("a.wav", b"x")},
+                           data={"subtitles_save": "srt,vtt",
+                                 "subtitle_preset": "ebu_broadcast",
+                                 "subtitle_chars": 32})
+    assert response.status_code == 202
+    job = queue.get(response.json()["id"])
+    assert job.settings["subtitles"] == "srt,vtt"
+    assert job.settings["subtitle_preset"] == "ebu_broadcast"
+    assert job.settings["subtitle_chars"] == 32
+
+
+def test_a_misspelled_preset_is_refused_before_the_upload(client, queue):
+    """An hour of transcription is a poor way to learn that a name was wrong."""
+    response = client.post("/api/jobs", files={"file": ("a.wav", b"x")},
+                           data={"subtitle_preset": "netflicks"})
+    assert response.status_code == 400
+    assert queue.jobs() == []
+    assert os.listdir(queue.upload_dir()) == []
+
+
+def test_an_unknown_subtitle_format_is_refused_too(client):
+    response = client.post("/api/jobs", files={"file": ("a.wav", b"x")},
+                           data={"subtitles_save": "ass"})
+    assert response.status_code == 400
+
+
+def test_the_subtitles_of_an_entry_are_cut_on_request(client, queue, tmp_path):
+    """From the segments, so an old entry can be cut with today's numbers."""
+    entry = queue.library.create(title="Comitato")
+    entry.write_transcript("Il primo punto all'ordine del giorno riguarda il budget.\n", [
+        {"text": "Il primo punto all'ordine del giorno riguarda il budget.",
+         "start": 0.0, "end": 4.0},
+    ])
+    entry.update(audio={"duration_seconds": 4.0}, stats={"words": 9},
+                 transcription={"model": "small"})
+
+    srt = client.get(f"/api/library/{entry.id}/subtitles.srt")
+    assert srt.status_code == 200
+    assert " --> " in srt.text and "," in srt.text.splitlines()[1]
+    assert srt.headers["X-Subtitle-Preset"] == "netflix"
+    assert int(srt.headers["X-Subtitle-Cues"]) >= 1
+    assert entry.id in srt.headers["content-disposition"]
+
+    narrow = client.get(f"/api/library/{entry.id}/subtitles.srt?preset=social_karaoke")
+    assert narrow.headers["X-Subtitle-Preset"] == "social_karaoke"
+    assert int(narrow.headers["X-Subtitle-Cues"]) > int(srt.headers["X-Subtitle-Cues"])
+
+    vtt = client.get(f"/api/library/{entry.id}/subtitles.vtt")
+    assert vtt.text.startswith("WEBVTT")
+
+
+def test_a_download_with_no_query_matches_what_the_entry_was_cut_with(client, queue):
+    """Otherwise the file in the entry and the file you download differ, which
+    is a confusing way to learn that a default exists."""
+    entry = queue.library.create(title="Comitato")
+    entry.write_transcript("Il primo punto all'ordine del giorno riguarda il budget.\n", [
+        {"text": "Il primo punto all'ordine del giorno riguarda il budget.",
+         "start": 0.0, "end": 4.0}])
+    entry.update(transcription={"model": "small"},
+                 subtitles={"formats": ["srt"], "cues": 2, "preset": "social_karaoke"})
+    plain = client.get(f"/api/library/{entry.id}/subtitles.srt")
+    assert plain.headers["X-Subtitle-Preset"] == "social_karaoke"
+    asked = client.get(f"/api/library/{entry.id}/subtitles.srt?preset=netflix")
+    assert asked.headers["X-Subtitle-Preset"] == "netflix"
+
+
+def test_cutting_subtitles_needs_timestamps(client, queue):
+    entry = queue.library.create(title="Senza tempi")
+    entry.write_transcript("Testo senza segmenti.\n", [])
+    entry.update(transcription={"model": "small"})
+    assert client.get(f"/api/library/{entry.id}/subtitles.srt").status_code == 404
+
+
+def test_an_unknown_subtitle_preset_is_refused_when_cutting(client, queue):
+    entry = queue.library.create(title="Comitato")
+    entry.write_transcript("Testo.\n", [{"text": "Testo.", "start": 0.0, "end": 1.0}])
+    entry.update(transcription={"model": "small"})
+    assert client.get(
+        f"/api/library/{entry.id}/subtitles.srt?preset=nope").status_code == 400
+
+
 def test_an_empty_upload_is_refused(client):
     assert client.post("/api/jobs", files={"file": ("a.wav", b"")}).status_code == 400
 
