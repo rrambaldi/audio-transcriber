@@ -29,6 +29,19 @@ All notable changes to this project are documented here. The format follows
   the two libraries handed to it as objects and no Qt in it at all. Without the
   extra the window records through QtMultimedia as before and says what the
   other engine would add.
+- **The web interface gained what the window gained, where a browser can have
+  it.** A job's status shows the stage it is in, not only its percentage;
+  *stop* interrupts the transcription that is running, after asking, and *take
+  out of the queue* drops one that has not started (`POST
+  /api/jobs/{id}/cancel`); finished rows can be cleared in one go. Recording in
+  the browser shows an input level meter next to the timer — Web Audio, the
+  same decibel scale as the window, floored at -60 dBFS — and says so when a
+  recording never rose above silence.
+  Deliberately not ported, because a page cannot have them: the audio-system
+  menu, the loopback of an output device, mixing two sources, and the "test
+  audio" button. A browser gets one microphone through `getUserMedia` and
+  nothing else. The explicit *Transcribe* button was not ported either — in the
+  browser the upload already is that decision.
 - **A run says what it is doing, not only how far it has got.** The stages —
   starting, audio decoded, loading the model, converting it, compiling for the
   device, transcribing, who said what, laying out the text — are reported as

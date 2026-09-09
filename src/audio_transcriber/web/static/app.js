@@ -120,6 +120,28 @@ const I18N = {
     running: "transcribing",
     done: "done",
     failed: "failed",
+    cancelled: "cancelled",
+    stage_starting: "starting",
+    stage_decoded: "audio decoded",
+    stage_loading_model: "loading the model",
+    stage_converting_model: "converting the model",
+    stage_compiling_model: "compiling for the device",
+    stage_transcribing: "transcribing",
+    stage_diarizing: "working out who said what",
+    stage_laying_out: "laying out the text",
+    take_out_of_queue: "take out of the queue",
+    stop_job: "stop",
+    confirm_stop_job: "Stop this transcription?",
+    confirm_stop_job_body: "\"{title}\" stops and nothing reaches the library.",
+    confirm_stop_job_detail: "It stops at the engine's next progress report - seconds with faster-whisper, and not until the whole file is done with OpenVINO, which reports none. The recording stays on the server either way, so it can be queued again.",
+    confirm_stop_job_ok: "Stop it",
+    clear_finished: "clear the finished",
+    confirm_clear_finished: "Clear the finished jobs?",
+    confirm_clear_finished_body: "{count} rows disappear from Jobs.",
+    confirm_clear_finished_detail: "The transcriptions stay in the library: nothing is deleted.",
+    confirm_clear_finished_ok: "Clear the list",
+    level_label: "Input level",
+    recording_silent: "That recording never rose above silence: check that the right microphone is being used before trusting the next one.",
     no_file: "Choose a file, or record something, first.",
     uploading: "Uploading...",
     terms: "{n} terms",
@@ -226,6 +248,28 @@ const I18N = {
     running: "in corso",
     done: "completata",
     failed: "fallita",
+    cancelled: "annullata",
+    stage_starting: "avvio",
+    stage_decoded: "audio decodificato",
+    stage_loading_model: "caricamento del modello",
+    stage_converting_model: "conversione del modello",
+    stage_compiling_model: "compilazione per il dispositivo",
+    stage_transcribing: "trascrizione",
+    stage_diarizing: "chi ha detto cosa",
+    stage_laying_out: "impaginazione del testo",
+    take_out_of_queue: "togli dalla coda",
+    stop_job: "ferma",
+    confirm_stop_job: "Fermo questa trascrizione?",
+    confirm_stop_job_body: "\"{title}\" si ferma e in libreria non arriva nulla.",
+    confirm_stop_job_detail: "Si ferma al prossimo avanzamento riportato dal motore: pochi secondi con faster-whisper, e non prima della fine del file con OpenVINO, che non ne riporta nessuno. La registrazione resta sul server in entrambi i casi, quindi si puo' rimettere in coda.",
+    confirm_stop_job_ok: "Ferma",
+    clear_finished: "svuota i finiti",
+    confirm_clear_finished: "Svuoto i lavori finiti?",
+    confirm_clear_finished_body: "{count} righe spariscono da Lavori.",
+    confirm_clear_finished_detail: "Le trascrizioni restano in libreria: non si cancella nulla.",
+    confirm_clear_finished_ok: "Svuota l'elenco",
+    level_label: "Livello in ingresso",
+    recording_silent: "Quella registrazione non e' mai salita sopra il silenzio: controlla che sia il microfono giusto prima di fidarti della prossima.",
     no_file: "Scegli prima un file, o registra qualcosa.",
     uploading: "Caricamento...",
     terms: "{n} termini",
@@ -590,6 +634,63 @@ let recorder = null;
 let recordedChunks = [];
 let recordStarted = 0;
 let recordTimer = null;
+let levelContext = null;
+let levelTimer = null;
+let loudest = 0;
+
+/* Below this, in the peak of a whole recording, nothing but the noise floor
+   ever arrived - the same figure the desktop window uses. */
+const SILENCE_PEAK = 0.001;
+
+/* Quietest peak the meter shows. A linear bar is a useless meter: ordinary
+   speech peaks at about a tenth of full scale and would barely leave the left
+   edge, so a working microphone would look broken. */
+const LEVEL_FLOOR_DB = -60;
+
+function levelPercent(peak) {
+  if (!peak || peak <= 0) return 0;
+  const decibels = 20 * Math.log10(Math.min(1, peak));
+  if (decibels <= LEVEL_FLOOR_DB) return 0;
+  return Math.round(((decibels - LEVEL_FLOOR_DB) / -LEVEL_FLOOR_DB) * 100);
+}
+
+function watchLevel(stream) {
+  /* A timer counting up says the browser is recording; it does not say
+     anything is arriving. The classic failure is an hour of digital silence
+     because the wrong input was picked or the microphone is muted. */
+  const AudioCtx = window.AudioContext || window.webkitAudioContext;
+  if (!AudioCtx) return;
+  loudest = 0;
+  levelContext = new AudioCtx();
+  const analyser = levelContext.createAnalyser();
+  analyser.fftSize = 2048;
+  levelContext.createMediaStreamSource(stream).connect(analyser);
+  const samples = new Float32Array(analyser.fftSize);
+  const meter = $("record-level");
+  meter.hidden = false;
+  levelTimer = setInterval(() => {
+    analyser.getFloatTimeDomainData(samples);
+    let peak = 0;
+    for (const sample of samples) peak = Math.max(peak, Math.abs(sample));
+    loudest = Math.max(loudest, peak);
+    const percent = levelPercent(peak);
+    meter.firstElementChild.style.width = `${percent}%`;
+    meter.setAttribute("aria-valuenow", percent);
+  }, 100);
+}
+
+function stopWatchingLevel() {
+  clearInterval(levelTimer);
+  levelTimer = null;
+  const meter = $("record-level");
+  meter.firstElementChild.style.width = "0%";
+  meter.setAttribute("aria-valuenow", 0);
+  meter.hidden = true;
+  if (levelContext) {
+    levelContext.close();
+    levelContext = null;
+  }
+}
 
 function recorderMimeType() {
   const candidates = ["audio/webm;codecs=opus", "audio/webm", "audio/ogg;codecs=opus", "audio/mp4"];
@@ -629,12 +730,20 @@ async function startRecording() {
     const stamp = new Date().toISOString().slice(0, 16).replace(/[-:]/g, "").replace("T", "-");
     const name = `recording-${stamp}.${extensionFor(type)}`;
     const seconds = (Date.now() - recordStarted) / 1000;
+    const silent = loudest > 0 && loudest < SILENCE_PEAK;
     chooseFile(new File([blob], name, { type }),
                t("recording_ready", { duration: duration(seconds) }));
+    if (silent) {
+      /* The file is real and can still be transcribed; it is just very
+         probably an hour of nothing. */
+      $("record-hint").textContent = t("recording_silent");
+      $("record-hint").className = "error";
+    }
     const preview = $("record-preview");
     preview.src = URL.createObjectURL(blob);
     preview.hidden = false;
   });
+  watchLevel(stream);
   recorder.start();
   recordStarted = Date.now();
   $("record").textContent = t("record_stop");
@@ -649,6 +758,7 @@ async function startRecording() {
 function stopRecording() {
   clearInterval(recordTimer);
   recordTimer = null;
+  stopWatchingLevel();
   if (recorder && recorder.state !== "inactive") recorder.stop();
   recorder = null;
   $("record").textContent = t("record_start");
@@ -662,6 +772,36 @@ $("record").addEventListener("click", () => {
 
 /* --- jobs -------------------------------------------------------------- */
 
+function stageLabel(stage) {
+  /* The queue reports a message key, e.g. "stage.loading_model". The
+     percentage stands still for the whole of a long transcription on an
+     engine that cannot report its own progress; the stage does not. */
+  if (!stage) return "";
+  const key = stage.replace(".", "_");
+  return I18N[lang][key] ? t(key) : "";
+}
+
+function stateText(job) {
+  const stage = job.status === "running" ? stageLabel(job.stage) : "";
+  return stage ? `${t(job.status)}: ${stage}` : t(job.status);
+}
+
+async function cancelJob(job) {
+  /* Waiting jobs go without a question - nothing has happened to them. The
+     one that is running is worth asking about: it may be forty minutes in. */
+  if (job.status === "running") {
+    const sure = await ask({
+      title: t("confirm_stop_job"),
+      body: t("confirm_stop_job_body", { title: job.title }),
+      detail: t("confirm_stop_job_detail"),
+      confirmLabel: t("confirm_stop_job_ok"),
+    });
+    if (!sure) return;
+  }
+  await fetch(api(`jobs/${job.id}/cancel`), { method: "POST" });
+  refreshJobs();
+}
+
 function renderJobs(jobs) {
   const box = $("jobs");
   box.textContent = "";
@@ -669,12 +809,31 @@ function renderJobs(jobs) {
     box.append(el("p", { className: "note", textContent: t("no_jobs") }));
     return;
   }
+  const finished = jobs.filter((job) => ["done", "failed", "cancelled"].includes(job.status));
+  if (finished.length > 1) {
+    const clear = el("button", { type: "button", className: "link",
+                                 textContent: t("clear_finished") });
+    clear.addEventListener("click", async () => {
+      const sure = await ask({
+        title: t("confirm_clear_finished"),
+        body: t("confirm_clear_finished_body", { count: finished.length }),
+        detail: t("confirm_clear_finished_detail"),
+        confirmLabel: t("confirm_clear_finished_ok"),
+        danger: false,
+      });
+      if (!sure) return;
+      await Promise.all(finished.map((job) =>
+        fetch(api(`jobs/${job.id}`), { method: "DELETE" })));
+      refreshJobs();
+    });
+    box.append(el("p", { className: "meta" }, [clear]));
+  }
   for (const job of jobs) {
     const facts = [job.model, job.language, job.vocabularies.join(", "),
       job.words ? t("words", { n: job.words }) : "",
       job.elapsed_seconds ? duration(job.elapsed_seconds) : ""].filter(Boolean).join(" · ");
     const state = el("span", { className: `state${job.status === "failed" ? " failed" : ""}`,
-                               textContent: t(job.status) });
+                               textContent: stateText(job) });
     const meta = el("div", { className: "meta" }, [state]);
     if (facts) meta.append(` · ${facts}`);
     const actions = el("div", { className: "actions" });
@@ -691,7 +850,14 @@ function renderJobs(jobs) {
       open.addEventListener("click", () => openEntry(job.entry_id));
       actions.append(open);
     }
-    if (job.status === "done" || job.status === "failed") {
+    if (job.status === "queued" || job.status === "running") {
+      const stop = el("button", { type: "button", className: "link",
+                                  textContent: job.status === "running"
+                                    ? t("stop_job") : t("take_out_of_queue") });
+      stop.addEventListener("click", () => cancelJob(job));
+      actions.append(stop);
+    }
+    if (["done", "failed", "cancelled"].includes(job.status)) {
       const remove = el("button", { type: "button", className: "link",
                                     textContent: t("remove_from_list") });
       remove.addEventListener("click", async () => {

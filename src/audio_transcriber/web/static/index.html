@@ -46,6 +46,8 @@
           <p class="record-line">
             <button type="button" id="record" class="button" data-t="record_start"></button>
             <span id="record-time" class="timer" aria-live="off"></span>
+            <span id="record-level" class="level" role="progressbar" aria-valuemin="0"
+                  aria-valuemax="100" aria-valuenow="0" hidden><span></span></span>
           </p>
           <p class="note" id="record-hint" aria-live="polite" data-t="record_hint"></p>
           <audio id="record-preview" controls hidden></audio>

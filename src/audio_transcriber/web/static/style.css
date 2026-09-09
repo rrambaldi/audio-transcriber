@@ -317,6 +317,10 @@ menu .spacer { flex: 1; }
 .drop p { margin: 0.3rem 0; }
 .drop.over { border-color: var(--forest); background: var(--forest-wash); }
 .record-line { display: flex; align-items: baseline; gap: 1rem; }
+/* The input level while recording: the answer to "is anything arriving",
+   which a timer counting up cannot give. */
+.level { flex: 0 0 8rem; height: 6px; background: var(--rule); align-self: center; }
+.level > span { display: block; height: 100%; width: 0; background: var(--forest); }
 .timer { font-variant-numeric: tabular-nums; font-size: 1.4rem; font-family: var(--serif); color: var(--muted); }
 button.recording { color: var(--clay); border-color: var(--clay); border-bottom-width: 2px; }
 audio { width: 100%; margin-top: 1rem; }

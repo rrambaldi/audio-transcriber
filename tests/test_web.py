@@ -116,6 +116,66 @@ def test_an_unknown_set_is_refused_before_the_upload_is_queued(client, queue):
     assert queue.jobs() == []
 
 
+def test_a_waiting_job_can_be_cancelled_over_http(client, queue, tmp_path):
+    """A transcription here is measured in hours: being able to stop one
+    matters as much as being able to start it."""
+    import threading
+
+    blocked = threading.Event()
+    queue._runner = lambda job: blocked.wait(5)
+    first = client.post("/api/jobs", files={"file": ("first.wav", b"x")}).json()
+    second = client.post("/api/jobs", files={"file": ("second.wav", b"x")}).json()
+    wait_for(queue, first["id"], statuses=("running",))
+
+    response = client.post(f"/api/jobs/{second['id']}/cancel")
+    assert response.status_code == 200
+    assert response.json() == {"removed": second["id"]}      # it never ran
+    assert queue.get(second["id"]) is None
+    blocked.set()
+
+
+def test_the_running_job_can_be_asked_to_stop(client, queue):
+    import threading
+
+    blocked = threading.Event()
+    queue._runner = lambda job: blocked.wait(5)
+    job = client.post("/api/jobs", files={"file": ("a.wav", b"x")}).json()
+    wait_for(queue, job["id"], statuses=("running",))
+
+    body = client.post(f"/api/jobs/{job['id']}/cancel").json()
+    assert body["id"] == job["id"]
+    assert queue.get(job["id"]).cancel_requested is True
+    blocked.set()
+
+
+def test_a_finished_job_cannot_be_cancelled_over_http(client, queue):
+    job = client.post("/api/jobs", files={"file": ("a.wav", b"x")}).json()
+    wait_for(queue, job["id"])
+    assert client.post(f"/api/jobs/{job['id']}/cancel").status_code == 409
+
+
+def test_cancelling_an_unknown_job_is_a_404(client):
+    assert client.post("/api/jobs/nope/cancel").status_code == 404
+
+
+def test_a_job_reports_the_stage_it_is_in(client, queue):
+    """The percentage stands still for the whole of a long transcription on an
+    engine that cannot report its own progress; the stage does not."""
+    import threading
+
+    blocked = threading.Event()
+
+    def runner(job):
+        queue._advance(job, 5, "stage.loading_model")
+        blocked.wait(5)
+
+    queue._runner = runner
+    job = client.post("/api/jobs", files={"file": ("a.wav", b"x")}).json()
+    wait_for(queue, job["id"], statuses=("running",))
+    assert client.get(f"/api/jobs/{job['id']}").json()["stage"] == "stage.loading_model"
+    blocked.set()
+
+
 def test_an_empty_upload_is_refused(client):
     assert client.post("/api/jobs", files={"file": ("a.wav", b"")}).status_code == 400
 

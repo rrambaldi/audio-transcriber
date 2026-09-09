@@ -18,8 +18,10 @@ because a transcription that takes an hour is easier to watch than to wait for.
   reason, when this machine cannot run it), and the keyword sets —
   the installed ones, your own, or both. See
   [vocabularies.md](vocabularies.md).
-- Watch the job: queued, transcribing with a progress bar, done or failed with
-  the error.
+- Watch the job: queued, transcribing with a progress bar **and the stage it is
+  in**, done, failed with the error, or cancelled. *Stop* interrupts the one
+  running, after asking; *take out of the queue* drops one that has not
+  started.
 - **Browse the library**: search the transcripts and notes, open an entry, play
   the recording while reading along, jump to any moment from its timestamp,
   write notes, rename, delete, download the text or the timestamps.
@@ -46,11 +48,43 @@ ssh -L 8765:127.0.0.1:8765 user@server     # then open http://127.0.0.1:8765
 
 The tab says as much, instead of failing silently, when the browser refuses.
 
+**A level meter runs while you record**, next to the timer. A clock counting up
+says the browser is recording; it does not say that anything is arriving, and
+the classic failure of this feature is an hour of digital silence because the
+wrong input was chosen or the microphone is muted. It reads in decibels with a
+floor at -60 dBFS, the same scale the desktop window uses, so ordinary speech
+fills about two thirds. And a recording that never rose above silence says so
+when it stops — the file is still there and can still be transcribed, but you
+find out now rather than from an empty transcript.
+
+What the browser cannot offer, and the window can: choosing the audio system
+(MME, DirectSound, WASAPI), recording what the speakers are playing, and mixing
+a microphone with that. A page gets one microphone through `getUserMedia` and
+nothing else. See [gui.md](gui.md).
+
 ## Jobs
 
 Uploading creates a job and returns immediately; the page polls it every three
 seconds. Jobs run **one at a time**: on a two-core server two transcriptions at
 once finish neither any sooner, and risk running out of memory.
+
+**A job says what it is doing, not only how far it has got.** The status shows
+the stage — loading the model, converting it, transcribing, who said what,
+laying out the text — because the percentage stands still for the whole of a
+long transcription on an engine that reports no progress of its own, and
+"transcribing" next to a motionless bar is the difference between waiting and
+wondering.
+
+**A job can be taken back.** *Take out of the queue* drops one that has not
+started: nothing happened to it, so it leaves no row behind. *Stop* asks first
+and then interrupts the one running — a transcription here is measured in
+hours, and being able to stop one matters as much as being able to start it.
+What a stop can promise depends on the engine: the only moment a running
+transcription can be interrupted is its progress callback, so faster-whisper
+stops within seconds while the OpenVINO backend, which reports none until it
+has finished the file, runs to the end and has its result discarded. Nothing
+cancelled reaches the library, and the uploaded file stays on the server, so it
+can be queued again.
 
 The queue lives in memory. Restarting the server forgets the queue — every
 finished transcription is already in the library, and an interrupted one has to
@@ -141,6 +175,7 @@ using it directly. `GET /api/docs` serves the generated schema.
 | `GET /api/vocabularies/{name}` | one of them |
 | `POST /api/jobs` | multipart upload; returns the job |
 | `GET /api/jobs` · `GET /api/jobs/{id}` | what is running and what happened |
+| `POST /api/jobs/{id}/cancel` | take a waiting job out, or ask the running one to stop |
 | `DELETE /api/jobs/{id}` | forget a finished job |
 | `GET /api/library?q=` | the entries, newest first; `q` searches transcripts and notes |
 | `GET /api/library/{id}` | one entry: metadata, transcript, segments, notes |

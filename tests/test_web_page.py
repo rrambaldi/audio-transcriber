@@ -163,6 +163,34 @@ CONTRAST_RULES = [
 ]
 
 
+def test_a_running_job_shows_the_stage_not_only_the_bar(script):
+    """On an engine that reports no progress of its own the bar stands still
+    for the whole transcription, exactly as in the window: the stage is what
+    says the difference between waiting and wondering."""
+    assert "function stateText(" in script
+    assert "function stageLabel(" in script
+    for stage in ("stage_loading_model", "stage_transcribing", "stage_diarizing"):
+        assert f"{stage}:" in script
+
+
+def test_the_queue_can_be_stopped_from_the_page(script):
+    """A transcription here is measured in hours; being able to stop one
+    matters as much as being able to start it."""
+    assert 'jobs/${job.id}/cancel' in script
+    assert "confirm_stop_job" in script            # the running one is asked about
+
+
+def test_recording_shows_the_input_level(page, script):
+    """A timer counting up says the browser is recording. It does not say that
+    anything is arriving, which is the failure worth catching."""
+    assert 'id="record-level"' in page
+    assert 'role="progressbar"' in page
+    assert "getFloatTimeDomainData" in script
+    assert "function levelPercent(" in script
+    assert "LEVEL_FLOOR_DB = -60" in script        # decibels, like the window
+    assert "recording_silent" in script
+
+
 @pytest.mark.parametrize("scheme", ["light", "dark"])
 def test_the_palette_meets_wcag_aa(stylesheet, scheme):
     light, dark = palettes(stylesheet)

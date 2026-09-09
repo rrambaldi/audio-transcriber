@@ -164,6 +164,26 @@ def register_routes(app):
             raise HTTPException(status_code=404, detail="unknown job")
         return job.as_dict()
 
+    @app.post("/api/jobs/{job_id}/cancel")
+    def cancel_job(job_id: str, request: Request):
+        """Take a job out of the queue, or ask the running one to stop.
+
+        A transcription here is measured in hours, so the ability to stop one
+        matters as much as the ability to start it. What a stop can promise
+        depends on the engine: the only moment a running transcription can be
+        interrupted is its progress callback, and a backend that reports none
+        until it has finished the file will run to the end - with its result
+        discarded rather than filed either way."""
+        queue = request.app.state.queue
+        job = queue.get(job_id)
+        if job is None:
+            raise HTTPException(status_code=404, detail="unknown job")
+        if not queue.cancel(job_id):
+            raise HTTPException(status_code=409,
+                                detail="this job has already finished")
+        remaining = queue.get(job_id)
+        return remaining.as_dict() if remaining else {"removed": job_id}
+
     @app.delete("/api/jobs/{job_id}")
     def forget_job(job_id: str, request: Request):
         if not request.app.state.queue.remove(job_id):
