@@ -60,10 +60,11 @@ pip install -e ".[record]"     # host-API choice, loopback and mixing for the wi
 ```
 
 On Windows there is a script for all of this: **`install.cmd`** from the
-checkout, inside the environment you want it in. It pulls, installs, checks the
-two things that go wrong on Windows — a Qt from conda shadowing the one pip
-installs, and a missing QtMultimedia — and prints what to run. Pass the extras
-if the default (`openvino,gui,record`) is not yours: `install.cmd cpu,gui`.
+checkout. It activates the conda environment it wants — `srt-ov2` by default,
+`AT_ENV` to name another — and leaves the window in it, pulls, installs, checks
+the two things that go wrong on Windows (a Qt from conda shadowing the one pip
+installs, and a missing QtMultimedia) and prints what to run. Pass the extras
+if the default `openvino,gui,record` is not yours: `install.cmd cpu,gui`.
 
 Python 3.11 or newer. Conda users: `envs/environment-cpu.yml` for a GPU-less
 server, `envs/environment-intel.yml` for an Intel machine. Let conda provide
