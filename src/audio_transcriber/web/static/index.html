@@ -158,6 +158,7 @@
 
       <div class="submit-line">
         <button type="submit" id="submit" class="button send" data-t="start">Start transcribing</button>
+        <p class="note busy" id="busy-note" role="status" hidden data-t="busy_note">A transcription is running: everything else is off until it finishes, or you stop it.</p>
         <p class="error" id="form-error" role="alert" hidden></p>
       </div>
     </form>
@@ -242,6 +243,8 @@
             aria-selected="true" aria-controls="viewer-text" data-t="transcript">Transcript</button>
     <button type="button" class="tab" id="tab-segments" role="tab"
             aria-selected="false" aria-controls="viewer-segments" data-t="segments">Timestamps</button>
+    <button type="button" class="tab" id="tab-summary" role="tab"
+            aria-selected="false" aria-controls="viewer-summary" data-t="summary">Summary</button>
     <button type="button" class="tab" id="tab-notes" role="tab"
             aria-selected="false" aria-controls="viewer-notes" data-t="notes">Notes</button>
   </div>
@@ -250,6 +253,25 @@
        class="prose" tabindex="0"></div>
   <div id="viewer-segments" role="tabpanel" aria-labelledby="tab-segments"
        class="segments" tabindex="0" hidden></div>
+  <div id="viewer-summary" role="tabpanel" aria-labelledby="tab-summary" hidden>
+    <div id="summary-text" class="prose"></div>
+    <p class="note" id="summary-empty" data-t="summary_none" hidden>No summary yet. The transcript is summarised on this machine \u2014 nothing is sent anywhere.</p>
+    <div class="row" id="summary-controls">
+      <div class="field">
+        <label for="summary-engine" data-t="summary_engine">Written by</label>
+        <select id="summary-engine"></select>
+      </div>
+      <div class="field">
+        <label for="summary-length" data-t="summary_length">How much to keep</label>
+        <select id="summary-length">
+          <option value="short" data-t="summary_short">short</option>
+          <option value="medium" selected data-t="summary_medium">medium</option>
+          <option value="long" data-t="summary_long">long</option>
+        </select>
+      </div>
+    </div>
+    <p class="note" id="summary-status" aria-live="polite"></p>
+  </div>
   <div id="viewer-notes" role="tabpanel" aria-labelledby="tab-notes" hidden>
     <div class="field">
       <label for="notes-text" data-t="notes_label">Notes on this recording</label>
@@ -266,6 +288,11 @@
     <a id="viewer-download-json" class="button" download data-t="download_json">Timestamps</a>
     <a id="viewer-download-srt" class="button" download data-t="download_srt">subtitles (.srt)</a>
     <a id="viewer-download-vtt" class="button" download data-t="download_vtt">subtitles (.vtt)</a>
+    <a id="viewer-download-summary" class="button" download data-t="download_summary">summary (.md)</a>
+    <button type="button" class="button danger" id="summary-delete" hidden
+            data-t="summary_delete">delete the summary</button>
+    <button type="button" class="button send" id="summary-run" hidden
+            data-t="summary_run">Summarise</button>
     <button type="button" class="button send" id="notes-save" hidden data-t="save_notes">Save the notes</button>
     <button type="button" class="button" id="viewer-close" data-t="close">Close</button>
   </menu>

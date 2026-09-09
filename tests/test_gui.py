@@ -357,3 +357,44 @@ def test_the_cli_has_a_gui_command(monkeypatch):
     monkeypatch.setattr(gui, "run", lambda settings: seen.setdefault("settings", settings))
     cli.main(["gui"])
     assert seen["settings"]["model"] == "auto"
+
+
+# --- summaries ------------------------------------------------------------
+
+def test_the_summary_menus_say_what_each_choice_does():
+    """"openvino" tells nobody whether it is worth waiting for."""
+    engines = options.summary_engine_choices()
+    assert engines, "the extractive engine is always available"
+    names = [name for name, _label in engines]
+    assert "extractive" in names
+    for _name, label in engines:
+        assert label and not label.startswith("gui.")
+
+    lengths = options.summary_length_choices()
+    assert [name for name, _ in lengths] == ["short", "medium", "long"]
+    assert options.summary_default_length() == "medium"
+
+
+def test_an_entry_with_no_summary_says_so_rather_than_showing_nothing(tmp_path):
+    from audio_transcriber.library import Library
+
+    entry = Library(str(tmp_path / "library")).create(title="Riunione")
+    text, note = options.summary_state(entry)
+    assert text == ""
+    assert "No summary yet" in note
+
+
+def test_a_summary_says_which_engine_wrote_it_and_when(tmp_path):
+    """Otherwise it gets quoted in a meeting without anybody knowing whether a
+    model or a sentence-picker produced it."""
+    from audio_transcriber.library import Library
+
+    entry = Library(str(tmp_path / "library")).create(title="Riunione")
+    entry.write_summary("# Riassunto\n\nTesto.\n")
+    entry.update(summary={"engine": "extractive",
+                          "created_at": "2026-09-09T18:40:00+02:00"})
+
+    text, note = options.summary_state(entry)
+    assert "Testo." in text
+    assert "extractive" in note
+    assert "2026-09-09 18:40" in note

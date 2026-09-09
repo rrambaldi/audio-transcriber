@@ -6,8 +6,99 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- **The web page offers one action while it is working: stop.** Uploading,
+  recording, transcribing, summarising, renaming, deleting, saving notes and
+  clearing finished rows all go off for as long as a job is queued or running,
+  dimmed and with the reason on them. On two cores anything asked for during a
+  transcription either waits for nothing or competes for the same cores and
+  makes it slower, so a page that lets you ask is a page that lets you make
+  things worse by accident. Reading stays: opening an entry, reading it,
+  playing the recording and downloading the text cost the machine nothing and
+  are the obvious thing to do while waiting. A control that is off because
+  this machine cannot do the thing at all — "who said what" without pyannote —
+  is marked separately so the end of a job cannot hand it back, and the ways
+  round a disabled button are closed too: a file dropped on the zone is
+  refused, and so is a form submitted with the keyboard. The block is the
+  page's own; the endpoints still accept what they always did, because the
+  queue is what actually serialises the work.
+
+### Fixed
+
+- **Half the Italian stopwords never matched anything.** They were typed
+  without accents — `perche`, `cosi`, `pero`, `piu` — and Whisper writes
+  Italian as it is spelled, so `perché`, `così`, `però` and `più` sailed
+  through the filter and into the ranking. Found by summarising a real
+  nineteen-minute recording, whose "recurring terms" came back as *esatto,
+  framework, perché, roba, così, eccetera*. Comparison is now made on the
+  accent-folded form while the word itself is kept as it was said, and the
+  list has gained the glue of actual speech: the fillers two people talking
+  say more often than they say their subject, plus the modals and the three
+  light verbs in the present. The same nineteen minutes now come back as
+  *framework, configurazione, controlli, catalogo*. The list stops at the
+  modals on purpose — chasing every conjugation would be a lemmatiser, and
+  that is not a dependency this program will take for a keyword list.
+
 ### Added
 
+- **Summaries from the browser and the window**, not just the command line. A
+  *Summary* tab sits beside the transcript and the notes in both, with the
+  button that writes one under it and — where this machine has more than one
+  engine — a menu saying which will. What comes back says who wrote it and
+  when, because a page that does not say is one somebody will quote in a
+  meeting without knowing whether a model or a sentence-picker produced it.
+
+  A summary goes into **the same queue as the transcriptions**, which is the
+  decision worth recording: a model reading an hour of transcript is minutes
+  of the same two cores a transcription needs, so running both at once would
+  make each slower without finishing either sooner. `JobQueue` therefore
+  carries two kinds of job rather than gaining a second queue — one worker,
+  one thing at a time — and a summary asked for mid-transcription waits its
+  turn where everything else is visible. The window watches its job instead of
+  doing the work on the thread that draws it, and a summary that lands while
+  somebody has moved on to another entry does not change the pane under them.
+
+  New endpoints: `POST`/`DELETE /api/library/{id}/summary`,
+  `GET /api/library/{id}/summary.md`, `GET /api/summary/engines`, and the
+  entry payload now carries its summary. `summary.summarize()` takes a
+  `progress` callback, so a long map/reduce reports which pass it is on rather
+  than standing still.
+- **Summaries written by a local model**, behind the new `[summarize-ov]`
+  extra: the `openvino` engine runs a language model on an Intel device
+  through OpenVINO GenAI, and the page stops being a list of quoted sentences
+  and becomes an abstract, the decisions, and who agreed to do what — each
+  carrying the minute it was said at. `--model auto` picks the largest
+  recommended model that fits in this machine's free memory (an 8B at int4 is
+  about 5 GB, and on an integrated GPU the model lives in system memory
+  whichever device runs it); any Hugging Face id or an already-converted
+  directory works instead. The first run converts to int4 and keeps the
+  result, which is also where the one non-obvious step lives:
+  `save_pretrained` writes the Hugging Face tokenizer, which the GenAI runtime
+  cannot read, so `openvino_tokenizer.xml` and its detokenizer are converted
+  explicitly — without that the model loads and then fails at the first
+  prompt.
+
+  **`auto` does not choose the NPU**, deliberately. Its LLM pipeline runs on
+  static shapes with the prompt capped at 1024 tokens by default and 8K at
+  best, an hour of transcript is nearer fifteen thousand, on Qwen3 it does not
+  compile above 8K, and an 8B generates slower there than on the same
+  machine's iGPU. `--device NPU` is still honoured, with a warning.
+
+  A transcript that fits goes to the model in one prompt; a longer one is read
+  in chunks and the chunk summaries summarised together, against one loaded
+  model. The prompts, the chunking and the parsing live in
+  `summarizers/prompting.py` rather than in the engine, so the next runtime
+  inherits all of it: an engine is now the one call that turns a string into a
+  string. Two habits of language models are handled rather than hoped away —
+  a reasoning model's `<think>` block never reaches the page, and a model too
+  small for the job answers by repeating the question, which is caught by
+  fencing the transcript inside the prompt and recognising the echo. That
+  earns "returned nothing usable, try another model or `--engine extractive`"
+  instead of a page that looks like a summary and is the transcript again.
+
+  Still no network, and no endpoint to configure: the model runs on the
+  machine that made the transcript.
 - **Summaries of a transcript**, in a `summary.py` of their own with the
   engines in `summarizers/`, chosen by name the way the transcription backends
   are. A summary is two jobs and only the second needs a model: *selection* —
@@ -495,6 +586,60 @@ All notable changes to this project are documented here. The format follows
 - `audio-transcriber paths` also lists the keyword-set directory.
 
 ### Fixed
+
+- **The OpenVINO backend no longer transcribes the overlap between its windows
+  twice.** A recording longer than Whisper's thirty-second window has to be
+  broken up, and this backend was using the Hugging Face pipeline's fixed
+  windows: thirty seconds at a time with five of overlap, stitched back
+  together afterwards by matching the words two windows have in common. Over a
+  silence or a crosstalk that match fails, and then both copies are kept — the
+  tail of one passage reappearing at the head of the next, three or four times
+  in a twenty-minute meeting, each time introduced by a phrase the model
+  invented over the silence ("Grazie a tutti"). It now asks for Whisper's own
+  long-form loop instead, which starts each window at the timestamp the last
+  one reached: no overlap to stitch, so nothing to double, and the model's own
+  safeguards apply — retry a window at a higher temperature, reject one whose
+  output is too repetitive or too unlikely, skip one that is probably silence.
+  Where `optimum-intel` is too old to run that loop it falls back to fixed
+  windows and says so, dropping the keyword prompt on the way, because prompt
+  tokens are what makes the stitching mismatch in the first place.
+- **The OpenVINO backend now honours `word_timestamps`, and admits that it
+  cannot honour `vad`.** Both were being swallowed by `**_unused`. Asking for
+  subtitles asks the engine to time every word, so that a cue is cut where the
+  speaker paused; this backend was silently ignoring that and handing back
+  segments of a minute, whose cue times were then interpolated across them by
+  character count — a plausible-looking clock that had never been measured.
+  It now asks for word timings and rebuilds its segments from them, falling
+  back with a warning on a model that cannot produce them. There is still no
+  voice-activity filter here, which is one reason phrases get invented over
+  silence, and that is now said out loud with a pointer to the backend that
+  has one.
+- **A doubled passage is cut from the transcript whichever engine produced
+  it.** `clean_segments()` compared each segment with the whole of the one
+  before it, which catches an exact repeat and misses the shape the failure
+  actually takes: a partial overlap, differing by a word or two, sometimes
+  with the botched half of a sentence in front of it, sometimes both copies
+  inside one segment. The head of each segment is now *aligned* against the
+  two before it, and what they already said is cut, along with a hallucinated
+  phrase glued to either edge of a segment rather than making up all of it.
+  Word timings are trimmed with the text so the two cannot drift apart, and a
+  segment that lost its opening keeps an honest start instead of one that puts
+  every subtitle in it early by the length of the doubling. The thresholds are
+  deliberately shy of speech: six words repeated back to back inside a
+  segment, eight for a repeat across two, and an alignment that has to account
+  for three quarters of what it cuts — "ogni asset ha i suoi impatti" said by
+  three people in one conversation is the record, not an artefact.
+- **The subtitle report was printing message keys.** Every `subtitles.*`
+  remark and both `cli.subtitles_*` lines were missing from the catalogues, so
+  writing an `.srt` from the command line reported `subtitles.too_fast x38`.
+  They are written out now, and grouped by who can do anything about them:
+  what comes from how fast people spoke (the trade's remedy is to shorten the
+  text, which this program declines), what comes from the times the engine
+  reported, and what comes from this program's own layout. Where the times
+  were interpolated rather than measured the report says so, because half the
+  remarks then rest on a clock nobody measured. The library entry keeps the
+  same tally in `metadata.json`, so a run filed in the library reports what a
+  run written beside its input reports.
 
 - **`audio-transcriber hardware` no longer stops on a machine with no
   transcription engine installed.** Working out which backend `auto` would pick

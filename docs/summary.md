@@ -19,7 +19,8 @@ cuts fifteen thousand tokens down to three thousand first, and a small model
 that would have drowned in the raw stream produces something usable. Same
 module, same page, different amount of help.
 
-Today one engine ships — the one that does the selection and stops there.
+Two engines ship: one that does the selection and stops there, and one that
+reads the whole thing and writes.
 
 ```bash
 audio-transcriber summarize 2026-09-04_1530          # into the library entry
@@ -32,6 +33,27 @@ The first form writes `summary.md` into the entry, beside `transcript.txt`, and
 records in `metadata.json` which engine wrote it and when. `--print` writes
 nothing anywhere. A path instead of an entry id summarises a text file and
 leaves `verbale.summary.md` beside it.
+
+## From the window and the browser
+
+Both put the summary in the entry it belongs to: a **Summary** tab beside the
+transcript and the notes, with a button under it and, when this machine has
+more than one engine, a menu saying which will write it. What comes back says
+who wrote it and when, because a page that does not say is one somebody will
+quote in a meeting without knowing whether a model or a sentence-picker
+produced it.
+
+The summary goes into **the same queue the transcriptions use**, and that is
+deliberate rather than convenient: a model reading an hour of transcript is
+minutes of the same cores a transcription needs, and running both at once
+would make each slower without finishing either sooner. So a summary asked for
+while a recording is being transcribed waits its turn, visible in Jobs like
+everything else, and the panel says where it is instead of spinning. Closing
+the browser does not stop it; the window keeps drawing while it happens.
+
+In the browser the summary can also be downloaded as `.md` or thrown away —
+the transcript is untouched either way, so another one can always be asked
+for.
 
 ## What comes out
 
@@ -83,6 +105,7 @@ audio-transcriber summarize 2026-09-04 --engine extractive
 
 | engine | needs | what it produces |
 |---|---|---|
+| `openvino` | the `[summarize-ov]` extra, an Intel device, and a model | an abstract, key points, decisions and actions — prose about the recording |
 | `extractive` | nothing beyond numpy | the sentences that carry the transcript, as they were said |
 
 `extractive` is honest about its limits, and the page says so under the title:
@@ -92,12 +115,65 @@ somebody said roughly that. In exchange it is instant, needs nothing installed,
 and runs on any machine — including in CI, which is why the whole surface
 around the engines is testable without a model.
 
-More engines are planned, and the shape of `summarizers/` is the promise that
-adding one is a single file: a local model on an Intel iGPU for the summaries
-that have to be good, a small quantised model in-process for a machine with no
-GPU. **Nothing here will ever reach the network.** The transcript does not
-leave the machine it was made on, and a summary is not a good enough reason to
-change that.
+**Nothing here reaches the network.** The model runs on this machine, there is
+no endpoint to configure, and the transcript does not leave the computer it was
+made on. A summary is not a good enough reason to change that.
+
+## The model engine
+
+```bash
+pip install "audio-transcriber-ov[summarize-ov]"
+audio-transcriber summarize 2026-09-04                      # auto everything
+audio-transcriber summarize 2026-09-04 --model Qwen/Qwen3-4B
+audio-transcriber summarize 2026-09-04 --model ~/models/mine-ov --device GPU
+```
+
+The first run converts the model to OpenVINO IR at int4 and keeps it under the
+managed model directory; every run after that loads it. It downloads several
+gigabytes, once, and says so before starting. A directory that is already
+OpenVINO IR is used as it is — and then only `openvino-genai` is needed, not
+the conversion half of the extra.
+
+`--model auto` picks the largest recommended model that fits in this machine's
+free memory, because on an integrated GPU the model lives in system memory
+whichever device runs it:
+
+| free memory | model | size at int4 |
+|---|---|---|
+| 9 GB and up | `Qwen/Qwen3-8B` | ~5 GB |
+| 5 GB and up | `Qwen/Qwen3-4B` | ~2.5 GB |
+| below that | `Qwen/Qwen3-1.7B` | ~1.1 GB |
+
+Any Hugging Face id works in place of those.
+
+### Why not the NPU
+
+It is there, it sips power, and OpenVINO can see it — and `auto` still will not
+choose it. The NPU's LLM pipeline runs on static shapes with the prompt capped
+at 1024 tokens by default and 8K at the very best; an hour of transcript is
+nearer fifteen thousand, and on Qwen3 the model does not even compile above 8K.
+In generation an 8B on the NPU runs at around ten tokens a second, which is
+slower than the same machine's iGPU. It is the right accelerator for small
+constant work and the wrong one for reading a meeting.
+
+`--device NPU` is still honoured — somebody summarising a five-minute note on
+battery has a case — with a warning that says the above in three lines.
+
+### How it reads a long transcript
+
+A transcript that fits in `chunk_tokens` (6000 by default) goes to the model in
+one prompt. A longer one is cut into chunks on sentence boundaries, each
+summarised on its own, and the chunk summaries summarised together — map and
+reduce, against one loaded model. Every line of transcript the model sees
+carries the minute it was said at, so it can cite them, and the citations are
+parsed back out into the same anchors the extractive engine produces.
+
+Two habits of language models are handled rather than hoped away. A reasoning
+model's `<think>` block never reaches the page. And a model too small for the
+job answers by repeating the question: the transcript in the prompt is fenced
+with a marker, so an answer that echoes it is recognised as an echo, and you
+get "returned nothing usable — try another model, or `--engine extractive`"
+instead of a page that looks like a summary and is the transcript again.
 
 ## How long
 
@@ -117,13 +193,20 @@ keeps an all-day recording from producing a second transcript.
 
 ```toml
 [summary]
-# auto | extractive
+# auto | openvino | extractive
 engine = "auto"
-# short | medium | long
+# short | medium | long  (the extractive engine)
 length = "medium"
+# auto, a Hugging Face id, or a converted directory
+model = "auto"
+# auto | CPU | GPU | NPU
+device = "auto"
+# tokens of transcript per pass; lower it for a small-context model
+chunk_tokens = 6000
 ```
 
-`--engine` and `--length` on the command line win over both.
+`--engine`, `--length`, `--model` and `--device` on the command line win over
+all of it.
 
 ## The reduction stage
 
@@ -142,6 +225,9 @@ fit", wrong enough that nothing should be promised on it.
 - **No editing of anybody's words.** The extractive engine quotes; it does not
   paraphrase. When a model engine arrives it will write prose, and the page
   will say which engine wrote it — that line is not decoration.
+- **No summary of a summary.** The model is asked to leave a section out
+  rather than fill it, and an empty section is left off the page instead of
+  printing a heading over nothing.
 - **Nothing automatic yet.** A summary is asked for. Summarising every
   transcription as it finishes is a setting worth having, but on a two-core
   server it would sit in the same queue as the transcriptions, and that is a

@@ -16,6 +16,7 @@ from .config import OUTPUTS, ConfigError, load_config, load_dotenv, resolve
 from .formatting import format_duration
 from .i18n import AVAILABLE_LANGUAGES, set_language, t
 from .library import STORE_COPY, STORE_MODES, Library, LibraryError
+from .subtitles import PROBLEM_GROUPS, TIMING_PROBLEMS
 from .summarizers import CHOICES as SUMMARY_ENGINES
 from .summary import LENGTHS as SUMMARY_LENGTHS
 from .transcription import BACKENDS
@@ -88,12 +89,27 @@ keep_fillers = false
 
 [summary]
 # Who writes the summary of a transcript. "auto" picks the best engine this
-# machine has: see "audio-transcriber hardware". Only "extractive" exists so
-# far — TextRank picks the sentences that carry the transcript and prints them
-# as they were said, with no model and no download.
+# machine has — see "audio-transcriber hardware":
+#   openvino    a local model on an Intel iGPU, which writes real prose;
+#               needs the [summarize-ov] extra
+#   extractive  no model at all: the sentences that carry the transcript,
+#               printed as they were said. Works everywhere, downloads nothing.
 engine = "auto"
-# How much of the transcript to keep: short | medium | long.
+# How much of the transcript to keep, with the extractive engine:
+# short | medium | long.
 # length = "medium"
+# Which model writes it: "auto" picks the largest recommended one that fits in
+# this machine's free memory. Any Hugging Face id works, as does the path of a
+# directory already converted to OpenVINO IR.
+# model = "Qwen/Qwen3-8B"
+# Intel device for the model: auto | CPU | GPU | NPU. "auto" means the iGPU,
+# then the CPU. The NPU is skipped on purpose: its LLM pipeline tops out at 8K
+# tokens of prompt, and an hour of transcript is nearer fifteen.
+# device = "auto"
+# Tokens of transcript per pass. Below this the whole thing goes in at once;
+# above it, the transcript is read in chunks and the chunks summarised
+# together. Lower it for a model with a small context window.
+# chunk_tokens = 6000
 
 [diarization]
 # Work out who said what. Needs the [diarize] extra and pyannote models.
@@ -259,6 +275,10 @@ def build_parser(defaults):
                     choices=list(SUMMARY_ENGINES), help=t("help.sum_engine"))
     sm.add_argument("--length", dest="summary_length", default=None,
                     choices=list(SUMMARY_LENGTHS), help=t("help.sum_length"))
+    sm.add_argument("--model", dest="summary_model", default=None,
+                    help=t("help.sum_model"))
+    sm.add_argument("--device", dest="summary_device", default=None,
+                    help=t("help.sum_device"))
     sm.add_argument("--out", dest="out", default=None, help=t("help.sum_out"))
     sm.add_argument("--print", dest="show", action="store_true",
                     help=t("help.sum_print"))
@@ -402,24 +422,39 @@ def write_subtitle_files(settings, target_stem, result):
         with open(path, "w", encoding="utf-8", newline="") as handle:
             handle.write(text)
         print(t("cli.subtitles_written", path=path, cues=len(cue_list)))
-    report_subtitle_problems(pipeline.validate(cue_list, spec), spec)
+    report_subtitle_problems(
+        pipeline.tally(pipeline.validate(cue_list, spec)), spec,
+        measured=pipeline.timings_measured(result.segments))
 
 
-def report_subtitle_problems(problems, spec):
-    """Say what a subtitler would object to, once per kind.
+def report_subtitle_problems(counts, spec, measured=True):
+    """Say what a subtitler would object to, grouped by who can do anything.
 
-    Not fixed silently: the guidance's own remedy for speech too fast to read
-    is to shorten the text, and shortening someone's words is not a decision
-    this program makes."""
-    if not problems:
+    Nothing is fixed silently: the guidance's own remedy for speech too fast
+    to read is to shorten the text, and shortening someone's words is not a
+    decision this program makes. But "41 remarks" on its own says nothing
+    about which of them are worth acting on, so they are split three ways —
+    the speech, the engine's clock, this program's own layout — and where the
+    clock was interpolated rather than measured, that is said outright,
+    because half these remarks then rest on times nobody ever measured."""
+    if not counts:
         return
-    counts = {}
-    for key, _where, _value in problems:
-        counts[key] = counts.get(key, 0) + 1
     print(t("cli.subtitles_problems", preset=spec.get("name", "-"),
-            total=len(problems)), file=sys.stderr)
+            total=sum(counts.values())), file=sys.stderr)
+    reported = set()
+    for heading, keys in PROBLEM_GROUPS:
+        group = {key: count for key, count in counts.items() if key in keys}
+        if not group:
+            continue
+        print(t(heading), file=sys.stderr)
+        for key, count in sorted(group.items()):
+            print(f"      {t(key)} x{count}", file=sys.stderr)
+        reported.update(group)
     for key, count in sorted(counts.items()):
-        print(f"    {t(key, cue='', value='')} x{count}", file=sys.stderr)
+        if key not in reported:         # a kind added without a group
+            print(f"      {t(key)} x{count}", file=sys.stderr)
+    if not measured and any(key in TIMING_PROBLEMS for key in counts):
+        print(t("cli.subtitles_interpolated"), file=sys.stderr)
 
 
 def write_result(args, settings, source, result):
@@ -449,9 +484,14 @@ def write_result(args, settings, source, result):
         sys.exit(str(exc))
 
     print(t("library.created", path=entry.path))
+    recorded = entry.metadata.get("subtitles") or {}
     for kind in entry.subtitles():
         print(t("cli.subtitles_written", path=entry.subtitle_path(kind),
-                cues=(entry.metadata.get("subtitles") or {}).get("cues", 0)))
+                cues=recorded.get("cues", 0)))
+    if entry.subtitles():
+        report_subtitle_problems(recorded.get("remarks") or {},
+                                 pipeline.subtitle_spec(settings),
+                                 measured=recorded.get("timings") != "interpolated")
     if args.out:
         out = os.path.abspath(os.path.expanduser(args.out))
         with open(out, "w", encoding="utf-8", newline="\n") as handle:
@@ -825,7 +865,7 @@ def collect_cli_settings(args):
              "keep_fillers", "diarize", "speakers", "diar_model", "models_dir",
              "library_dir", "vocab_dir", "subtitle_preset", "subtitle_chars",
              "subtitle_lines", "subtitle_words", "output", "summarizer",
-             "summary_length")
+             "summary_length", "summary_model", "summary_device")
     values = {name: getattr(args, name, None) for name in names}
     # --srt and --vtt are flags; together they are the "save these formats"
     # setting, and neither given means the configured value stands.

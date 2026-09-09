@@ -403,3 +403,40 @@ def test_validation_counts_words_per_minute_when_the_preset_does():
 def test_nothing_is_reported_for_an_empty_transcript(netflix):
     assert subtitles.cues([], netflix) == []
     assert subtitles.validate([], netflix) == []
+
+
+# --- telling one kind of remark from another ------------------------------
+
+def test_the_remark_groups_cover_everything_validate_can_report():
+    """A remark in no group would be printed without its heading."""
+    grouped = set()
+    for _heading, keys in subtitles.PROBLEM_GROUPS:
+        grouped |= keys
+    spec = subtitles.preset("bbc")
+    reported = set()
+    # Every branch of validate(), on cues built to break each rule.
+    cues = [subtitles.Cue(1, 0.0, 0.05, [""]),
+            subtitles.Cue(2, 5.0, 4.0, ["indietro"]),
+            subtitles.Cue(3, 10.0, 10.4, ["x" * 80]),
+            subtitles.Cue(4, 20.0, 40.0, ["a", "b", "c", "d"]),
+            subtitles.Cue(5, 41.0, 41.2, ["troppo veloce da leggere davvero"]),
+            subtitles.Cue(6, 41.1, 48.0, ["si sovrappone"])]
+    for key, _where, _value in subtitles.validate(cues, spec):
+        reported.add(key)
+    assert reported, "no rule was exercised"
+    assert reported <= grouped
+
+
+def test_word_timings_are_what_makes_a_clock_measured():
+    assert not subtitles.timings_measured([{"text": "ciao", "start": 0.0, "end": 1.0}])
+    assert subtitles.timings_measured(
+        [{"text": "ciao", "start": 0.0, "end": 1.0,
+          "words": [{"word": "ciao", "start": 0.0, "end": 1.0}]}])
+    assert not subtitles.timings_measured([])
+
+
+def test_remarks_are_counted_by_kind():
+    problems = [("subtitles.too_fast", 1, 20.0), ("subtitles.too_fast", 2, 19.0),
+                ("subtitles.too_short", 3, 0.4)]
+    assert subtitles.tally(problems) == {"subtitles.too_fast": 2,
+                                         "subtitles.too_short": 1}

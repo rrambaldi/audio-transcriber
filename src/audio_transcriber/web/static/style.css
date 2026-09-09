@@ -368,6 +368,13 @@ menu .spacer { flex: 1; }
 }
 .drop p { margin: 0.3rem 0; }
 .drop.over { border-color: var(--forest); background: var(--forest-wash); }
+
+/* While something is transcribing every other action is off, and the page has
+   to look it: a control that is disabled but looks clickable reads as a bug.
+   The drop zone is a div, so it cannot be disabled - it is dimmed and it
+   stops accepting files. */
+.drop.blocked { opacity: 0.45; border-style: solid; }
+.busy { font-weight: 600; }
 .record-line { display: flex; align-items: baseline; gap: 1rem; flex-wrap: wrap; }
 /* The input level while recording: the answer to "is anything arriving",
    which a timer counting up cannot give. */

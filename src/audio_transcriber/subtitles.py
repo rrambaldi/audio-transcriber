@@ -600,6 +600,56 @@ def to_vtt(cue_list):
 # checking the result
 # --------------------------------------------------------------------------
 
+#: Remarks that are about the speech, not about the subtitles: people spoke
+#: faster than the preset's reader is assumed to read. The guidance's own
+#: answer is to condense the text, which this module declines to do, so these
+#: are the ones nothing can be done about without rewriting what was said.
+SPEECH_PROBLEMS = frozenset({"subtitles.too_fast", "subtitles.too_many_words"})
+
+#: Remarks that are about the clock the engine reported. A cue too short, two
+#: cues on top of one another: the words are fine, the times they were given
+#: are not — and where those times were interpolated rather than measured (see
+#: :func:`timings_measured`) they are not really evidence of anything.
+TIMING_PROBLEMS = frozenset({"subtitles.too_short", "subtitles.too_long",
+                             "subtitles.overlap", "subtitles.gap_too_small",
+                             "subtitles.backwards"})
+
+#: Remarks that are this module's own doing: a line it laid out too wide, a
+#: cue it left empty. Unlike the other two groups, one of these is a defect
+#: here rather than a fact about the recording.
+LAYOUT_PROBLEMS = frozenset({"subtitles.too_wide", "subtitles.too_many_lines",
+                             "subtitles.empty"})
+
+#: The groups, in the order a report should read them: what cannot be fixed,
+#: what the engine is answerable for, what this program is answerable for.
+PROBLEM_GROUPS = (("cli.subtitles_from_speech", SPEECH_PROBLEMS),
+                  ("cli.subtitles_from_timings", TIMING_PROBLEMS),
+                  ("cli.subtitles_from_layout", LAYOUT_PROBLEMS))
+
+
+def timings_measured(segments):
+    """Whether these segments carry a time per word, or only per segment.
+
+    It decides how much the timing remarks are worth. With word timings a cue
+    starts where the speaker started; without them :func:`words_of`
+    interpolates across the segment by character count, and inside a segment
+    of a minute — which is what a fixed-window engine produces — the result is
+    a plausible-looking clock that has never been measured."""
+    return any(segment.get("words") for segment in segments or [])
+
+
+def tally(problems):
+    """The remarks counted by kind, which is how a report shows them.
+
+    One line per kind and a number, rather than one line per cue: forty cues
+    over the reading speed is one thing to know about the recording, not forty
+    things to read."""
+    counted = {}
+    for key, _where, _value in problems:
+        counted[key] = counted.get(key, 0) + 1
+    return counted
+
+
 def validate(cue_list, spec=None):
     """Everything about these cues that a subtitler would object to.
 

@@ -30,6 +30,29 @@ A device you asked for but that is not there is not fatal. It warns and falls
 back to the CPU, which is what makes one command line work on a laptop and on a
 headless server.
 
+## Long recordings, and the doubling to watch for
+
+Whisper hears thirty seconds at a time, so anything longer has to be broken up,
+and the two engines do it differently.
+
+faster-whisper runs Whisper's own loop: decode a window, start the next one
+where the last thing understood ended. It also has a **voice-activity filter**
+(`vad = true`), which cuts the silences out before the model sees them — the
+surest way not to have a phrase invented over one.
+
+OpenVINO asks for that same loop through `transformers`, and needs a recent
+enough `optimum-intel` to get it. Where it cannot, it falls back to fixed
+thirty-second windows with five seconds of overlap, stitched together by
+matching the words two windows share — and where that match fails, over a
+silence or two people talking at once, **the overlap comes out twice**. Both
+copies are then cut from the transcript by the cleaning pass, but a passage
+that was doubled and cut is not as good as one that was never doubled: if a
+transcript comes back with sentences said twice, that fallback is what
+happened, and the run says so on stderr. There is no voice-activity filter on
+this backend.
+
+On a machine with no Intel accelerator, prefer faster-whisper for both reasons.
+
 ## Precision, with faster-whisper
 
 `--compute-type` defaults to `int8` on CPU and `float16` on CUDA. `int8` roughly

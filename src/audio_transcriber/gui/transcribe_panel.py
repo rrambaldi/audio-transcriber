@@ -529,6 +529,12 @@ class TranscribePanel(QWidget):
             return
         if row["running"] or row["cancellable"] and not row["held"]:
             self.stop_selected(job_id)
+        elif not row["asks"] and row["retryable"]:
+            # A summary. Asking it the four questions about transcribing
+            # would replace its settings with answers about something else.
+            self.queue.retry(job_id)
+            self.queue.start(job_id)
+            self.refresh()
         elif row["held"] or row["retryable"]:
             self.transcribe_row(job_id)
         elif row["entry_id"]:

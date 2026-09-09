@@ -364,3 +364,78 @@ def test_a_failed_recording_goes_back_to_waiting(queue, tmp_path):
     # ...and a finished one does not: it produced something.
     job.status = jobs_module.DONE
     assert queue.retry(job.id) is False
+
+# --- summaries share the queue --------------------------------------------
+
+SEGMENTS = [
+    {"start": 0.0, "end": 8.0, "text": "Parliamo del budget del progetto ISO."},
+    {"start": 8.0, "end": 16.0, "text": "Il budget del progetto ISO va deciso."},
+    {"start": 16.0, "end": 24.0, "text": "Ha piovuto tutta la notte."},
+    {"start": 24.0, "end": 32.0, "text": "La decisione sul budget spetta al comitato."},
+]
+
+
+@pytest.fixture
+def filed(queue):
+    """An entry already in the library, ready to be summarised."""
+    entry = queue.library.create(title="Riunione ISO")
+    entry.write_transcript(" ".join(s["text"] for s in SEGMENTS), SEGMENTS)
+    entry.update(transcription={"language": "it"}, audio={"duration_seconds": 32})
+    return entry
+
+
+def test_a_summary_goes_into_the_same_queue_as_a_transcription(queue, filed):
+    """One queue, because on a small machine both are the same two cores."""
+    job = queue.summarize(filed.id)
+    assert job.kind == jobs_module.SUMMARY
+    assert job.entry_id == filed.id
+    assert job.title == "Riunione ISO"
+    assert job in queue.jobs()
+
+    finished = wait_for(queue, job.id)
+    assert finished.status == "done"
+    assert finished.progress == 100
+
+
+def test_the_summary_is_written_into_the_entry(queue, filed):
+    wait_for(queue, queue.summarize(filed.id).id)
+
+    entry = queue.library.get(filed.id)
+    assert entry.has_summary()
+    assert "budget" in entry.read_summary().lower()
+    made = entry.read_metadata()["summary"]
+    assert made["engine"] == "extractive"
+    assert made["sentences_total"] == len(SEGMENTS)
+
+
+def test_the_engine_and_the_length_can_be_chosen_per_job(queue, filed):
+    job = queue.summarize(filed.id, {"summarizer": "extractive",
+                                     "summary_length": "short"})
+    wait_for(queue, job.id)
+    assert job.settings["summary_length"] == "short"
+    assert queue.library.get(filed.id).read_metadata()["summary"]["length"] == "short"
+
+
+def test_an_entry_that_is_not_there_is_refused_before_anything_is_queued(queue):
+    """The person asking is still here; a failed job ten minutes later is not
+    an answer to a typo."""
+    from audio_transcriber.library import LibraryError
+
+    with pytest.raises(LibraryError):
+        queue.summarize("2026-01-01_0000_nothing")
+    assert queue.jobs() == []
+
+
+def test_a_summary_job_says_what_it_is(queue, filed):
+    data = queue.summarize(filed.id, start=False).as_dict()
+    assert data["kind"] == jobs_module.SUMMARY
+    assert data["entry_id"] == filed.id
+    assert data["status"] == "held"
+
+
+def test_a_summary_that_fails_is_reported_like_any_other_job(queue, filed):
+    """An empty transcript has nothing to summarise, and says so."""
+    filed.write_transcript("", [])
+    job = wait_for(queue, queue.summarize(filed.id).id)
+    assert job.status == "failed"
+    assert job.error

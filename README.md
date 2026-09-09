@@ -37,10 +37,12 @@ audio-transcriber meeting.mp4        # -> meeting.txt
   the trade uses — characters per line, reading speed, minimum and maximum
   duration — as `.srt` or `.vtt`, with named presets from Netflix's guide to
   vertical video. See [docs/subtitles.md](docs/subtitles.md).
-- **Summaries**, if you want them: the sentences that carry a transcript,
-  picked by weight and printed with the minute they were said at, as a
-  `summary.md` in the library entry. No model, no download, nothing sent
-  anywhere. See [docs/summary.md](docs/summary.md).
+- **Summaries**, if you want them, as a `summary.md` in the library entry.
+  With a local model on an Intel iGPU: an abstract, the decisions, and who
+  agreed to do what, each carrying the minute it was said at. Without one, on
+  any machine at all: the sentences that carry the transcript, picked by
+  weight. Nothing is sent anywhere — the model runs on your computer and there
+  is no endpoint to configure. See [docs/summary.md](docs/summary.md).
 - **Keyword sets** to stop it mangling your technical terms — named, listed,
   and selectable from the command line or the web page.
 - **A local web interface**, optional: drop a file in the browser or record
@@ -325,8 +327,9 @@ small server you may prefer to leave it off.
 - [x] Subtitles: cues by the trade's numbers, .srt and .vtt, named presets
 - [x] Summaries of a transcript: the module, the command, and the engine that
       needs no model
-- [ ] Summaries written by a local model — Intel iGPU where there is one, a
-      small quantised model where there is not. Never a cloud API.
+- [x] Summaries written by a local model, on an Intel iGPU through OpenVINO.
+      Never a cloud API.
+- [ ] A summary engine for a machine with no Intel device either
 
 ## Contributing
 

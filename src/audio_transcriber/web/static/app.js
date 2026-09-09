@@ -102,6 +102,9 @@ const I18N = {
     prompt_too_long: "Too long: {chars} characters, {limit} at most. Whisper ignores the rest.",
     start: "Start transcribing",
     jobs: "Jobs",
+    busy_note: "A transcription is running: everything else is off until it finishes, or you stop it.",
+    busy_note_summary: "A summary is being written: everything else is off until it finishes, or you stop it.",
+    busy_why: "Not while a transcription is running.",
     no_jobs: "Nothing running.",
     library: "Library",
     library_empty: "No recording has been transcribed yet.",
@@ -126,6 +129,26 @@ const I18N = {
     transcript: "Transcript",
     segments: "Timestamps",
     notes: "Notes",
+    summary: "Summary",
+    summary_none: "No summary yet. The transcript is summarised on this machine \u2014 nothing is sent anywhere.",
+    summary_engine: "Written by",
+    summary_length: "How much to keep",
+    summary_short: "short",
+    summary_medium: "medium",
+    summary_long: "long",
+    summary_run: "Summarise",
+    summary_again: "Summarise again",
+    summary_delete: "delete the summary",
+    download_summary: "summary (.md)",
+    summary_queued: "In the queue, behind whatever is already running.",
+    summary_running: "Being written\u2026 {stage}",
+    summary_failed: "Could not summarise: {error}",
+    summary_engine_extractive: "no model: the sentences that carry the transcript",
+    summary_engine_openvino: "a local model, on this machine's Intel device",
+    confirm_delete_summary: "Delete this summary?",
+    confirm_delete_summary_body: "The summary of \"{title}\" is deleted.",
+    confirm_delete_summary_detail: "The transcript is untouched, so you can ask for another one.",
+    confirm_delete_summary_ok: "Delete the summary",
     no_segments: "This entry has no timestamps.",
     notes_placeholder: "What was decided, what to do next, who owes what.",
     save_notes: "Save the notes",
@@ -136,6 +159,9 @@ const I18N = {
     has_notes: "notes",
     queued: "queued",
     running: "transcribing",
+    stage_summary_selecting: "choosing what matters",
+    stage_summary_reading: "reading the transcript",
+    stage_summary_writing: "writing the summary",
     done: "done",
     failed: "failed",
     cancelled: "cancelled",
@@ -257,6 +283,9 @@ const I18N = {
     prompt_too_long: "Troppo lungo: {chars} caratteri, il massimo e' {limit}. Whisper ignora il resto.",
     start: "Avvia la trascrizione",
     jobs: "Lavori",
+    busy_note: "C'\u00e8 una trascrizione in corso: tutto il resto \u00e8 sospeso finch\u00e9 non finisce, o finch\u00e9 non la interrompi.",
+    busy_note_summary: "Si sta scrivendo un riassunto: tutto il resto \u00e8 sospeso finch\u00e9 non finisce, o finch\u00e9 non lo interrompi.",
+    busy_why: "Non mentre una trascrizione \u00e8 in corso.",
     no_jobs: "Niente in corso.",
     library: "Libreria",
     library_empty: "Nessuna registrazione trascritta finora.",
@@ -281,6 +310,26 @@ const I18N = {
     transcript: "Trascrizione",
     segments: "Timestamp",
     notes: "Note",
+    summary: "Riassunto",
+    summary_none: "Nessun riassunto. La trascrizione viene riassunta su questa macchina: non esce niente da qui.",
+    summary_engine: "Scritto da",
+    summary_length: "Quanto tenere",
+    summary_short: "corto",
+    summary_medium: "medio",
+    summary_long: "lungo",
+    summary_run: "Riassumi",
+    summary_again: "Riassumi di nuovo",
+    summary_delete: "elimina il riassunto",
+    download_summary: "riassunto (.md)",
+    summary_queued: "In coda, dietro a quello che sta gia' girando.",
+    summary_running: "Lo sto scrivendo\u2026 {stage}",
+    summary_failed: "Non riassunto: {error}",
+    summary_engine_extractive: "nessun modello: le frasi che reggono la trascrizione",
+    summary_engine_openvino: "un modello locale, sul dispositivo Intel di questa macchina",
+    confirm_delete_summary: "Eliminare questo riassunto?",
+    confirm_delete_summary_body: "Il riassunto di \"{title}\" viene eliminato.",
+    confirm_delete_summary_detail: "La trascrizione resta intatta: puoi chiederne un altro quando vuoi.",
+    confirm_delete_summary_ok: "Elimina il riassunto",
     no_segments: "Questa voce non ha timestamp.",
     notes_placeholder: "Cosa e' stato deciso, cosa fare, chi deve cosa.",
     save_notes: "Salva le note",
@@ -291,6 +340,9 @@ const I18N = {
     has_notes: "note",
     queued: "in coda",
     running: "in corso",
+    stage_summary_selecting: "scelta di cosa conta",
+    stage_summary_reading: "lettura della trascrizione",
+    stage_summary_writing: "scrittura del riassunto",
     done: "completata",
     failed: "fallita",
     cancelled: "annullata",
@@ -760,6 +812,7 @@ for (const name of ["dragleave", "drop"]) {
 }
 drop.addEventListener("drop", (event) => {
   event.preventDefault();
+  if (pageBusy) return;      // the zone is a div: it cannot be disabled
   showPane("file");
   chooseFile(event.dataTransfer.files[0]);
 });
@@ -956,6 +1009,46 @@ function announceJobs(jobs) {
   if (box.textContent !== line) box.textContent = line;
 }
 
+/* While a transcription is under way the page offers exactly one action: stop
+   it. Everything else -- starting another, recording, summarising, renaming,
+   deleting, even clearing the finished rows -- is off until it ends.
+
+   The reason is the machine, not tidiness. This runs on two cores; the queue
+   already refuses to transcribe two things at once, and anything else asked
+   for meanwhile either waits pointlessly or competes for the same cores and
+   makes the transcription slower. Reading stays available: opening an entry
+   and downloading its transcript cost nothing and are the obvious thing to do
+   while waiting. */
+let pageBusy = false;
+
+function applyBusy() {
+  const why = pageBusy ? t("busy_why") : "";
+  for (const control of $("job-form").querySelectorAll("input, select, textarea, button")) {
+    // Something this machine cannot do at all -- "who said what" without
+    // pyannote -- is off for good; the end of a transcription must not hand
+    // it back.
+    if (control.dataset.locked) continue;
+    control.disabled = pageBusy;
+    control.title = why;
+  }
+  // The drop zone is a div: it cannot be disabled, so it is dimmed and its
+  // handler refuses.
+  $("drop").classList.toggle("blocked", pageBusy);
+  $("busy-note").hidden = !pageBusy;
+  for (const id of ["summary-run", "summary-delete", "notes-save",
+                    "viewer-rename", "viewer-delete"]) {
+    $(id).disabled = pageBusy;
+    $(id).title = why;
+  }
+}
+
+function setBusy(busy, kind) {
+  $("busy-note").textContent = t(kind === "summary" ? "busy_note_summary" : "busy_note");
+  if (busy === pageBusy) return;
+  pageBusy = busy;
+  applyBusy();
+}
+
 function renderJobs(jobs) {
   const box = $("jobs");
   announceJobs(jobs);
@@ -967,7 +1060,8 @@ function renderJobs(jobs) {
   const finished = jobs.filter((job) => ["done", "failed", "cancelled"].includes(job.status));
   if (finished.length > 1) {
     const clear = el("button", { type: "button", className: "link",
-                                 textContent: t("clear_finished") });
+                                 textContent: t("clear_finished"),
+                                 disabled: pageBusy, title: pageBusy ? t("busy_why") : "" });
     clear.addEventListener("click", async () => {
       const sure = await ask({
         title: t("confirm_clear_finished"),
@@ -1014,7 +1108,9 @@ function renderJobs(jobs) {
     }
     if (["done", "failed", "cancelled"].includes(job.status)) {
       const remove = el("button", { type: "button", className: "link",
-                                    textContent: t("remove_from_list") });
+                                    textContent: t("remove_from_list"),
+                                    disabled: pageBusy,
+                                    title: pageBusy ? t("busy_why") : "" });
       remove.addEventListener("click", async () => {
         const sure = await ask({
           title: t("confirm_remove_job"),
@@ -1050,8 +1146,12 @@ async function refreshJobs() {
     offline(true, refreshJobs);
     return;                     // the list keeps the last state, and says so
   }
+  const working = data.jobs.filter((job) => job.status === "queued"
+                                            || job.status === "running");
+  const busy = working.length > 0;
+  // Before the rows are drawn, so they are drawn in the right state.
+  setBusy(busy, working.length ? working[working.length - 1].kind : null);
   renderJobs(data.jobs);
-  const busy = data.jobs.some((job) => job.status === "queued" || job.status === "running");
   if (busy && !polling) polling = setInterval(refreshJobs, POLL_MS);
   if (!busy && polling) {
     clearInterval(polling);
@@ -1111,10 +1211,54 @@ async function refreshLibrary() {
 
 /* --- one entry --------------------------------------------------------- */
 
+/* Whether the entry on screen already has a summary. The footer buttons are
+   shared between the tabs, so this is what tells "delete the summary" and the
+   download link whether they have anything to act on. */
+let summaryPresent = false;
+let summaryWatch = null;
+
+async function loadSummaryEngines() {
+  /* Which engines this machine can actually run. A server with no accelerator
+     has only the extractive one, and offering a menu of one would be
+     furniture -- so the row is hidden rather than shown half-empty. */
+  let engines = [];
+  let auto = null;
+  try {
+    ({ engines, auto } = await fetch(api("summary/engines")).then((r) => r.json()));
+  } catch {
+    engines = [];
+  }
+  const select = $("summary-engine");
+  select.textContent = "";
+  for (const name of engines) {
+    const described = I18N[lang][`summary_engine_${name}`];
+    select.append(el("option", {
+      value: name,
+      textContent: described ? `${name} \u2014 ${described}` : name,
+    }));
+  }
+  select.value = auto || (engines[0] || "");
+  $("summary-engine").closest(".field").hidden = engines.length < 2;
+}
+
+function showSummary(entry) {
+  summaryPresent = Boolean((entry.summary || "").trim());
+  /* The summary is markdown, and markdown is readable as it stands: rendering
+     it would mean shipping a parser to show four headings and a list. */
+  $("summary-text").textContent = entry.summary || "";
+  $("summary-text").hidden = !summaryPresent;
+  $("summary-empty").hidden = summaryPresent;
+  $("summary-status").textContent = "";
+  $("summary-run").textContent = t(summaryPresent ? "summary_again" : "summary_run");
+  $("viewer-download-summary").href =
+    api(`library/${encodeURIComponent(entry.id)}/summary.md`);
+}
+
 function showViewerTab(which) {
   for (const [name, tab, pane] of [
     ["transcript", "tab-transcript", "viewer-text"],
     ["segments", "tab-segments", "viewer-segments"],
+    ["summary", "tab-summary", "viewer-summary"],
     ["notes", "tab-notes", "viewer-notes"],
   ]) {
     $(tab).classList.toggle("on", name === which);
@@ -1122,11 +1266,17 @@ function showViewerTab(which) {
     $(tab).tabIndex = name === which ? 0 : -1;
     $(pane).hidden = name !== which;
   }
+  /* Each tab owns its own buttons in the shared footer, so the row never
+     offers an action that belongs to a panel nobody is looking at. */
   $("notes-save").hidden = which !== "notes";
+  $("summary-run").hidden = which !== "summary";
+  $("summary-delete").hidden = which !== "summary" || !summaryPresent;
+  $("viewer-download-summary").hidden = which !== "summary" || !summaryPresent;
 }
 
 $("tab-transcript").addEventListener("click", () => showViewerTab("transcript"));
 $("tab-segments").addEventListener("click", () => showViewerTab("segments"));
+$("tab-summary").addEventListener("click", () => showViewerTab("summary"));
 $("tab-notes").addEventListener("click", () => showViewerTab("notes"));
 wireTabs($("view-tabs"), ["tab-transcript", "tab-segments", "tab-notes"],
          (index) => showViewerTab(["transcript", "segments", "notes"][index]));
@@ -1170,6 +1320,7 @@ async function openEntry(id) {
   renderSegments(entry.segments || []);
   $("notes-text").value = entry.notes || "";
   $("notes-status").textContent = "";
+  showSummary(entry);
   const player = $("viewer-audio");
   player.hidden = !entry.has_audio;
   player.src = entry.has_audio ? api(`library/${encodeURIComponent(entry.id)}/audio`) : "";
@@ -1187,6 +1338,7 @@ async function openEntry(id) {
     link.hidden = !timed;
   }
   showViewerTab("transcript");
+  applyBusy();
   $("viewer").showModal();
 }
 
@@ -1194,8 +1346,80 @@ function closeViewer() {
   const player = $("viewer-audio");
   player.pause();
   player.removeAttribute("src");
+  clearInterval(summaryWatch);
+  summaryWatch = null;
+  $("summary-run").disabled = pageBusy;
   $("viewer").close();
 }
+
+async function reloadOpenEntry() {
+  const entry = await fetch(api(`library/${encodeURIComponent(openEntryId)}`))
+    .then((r) => r.json());
+  showSummary(entry);
+  showViewerTab("summary");
+}
+
+function watchSummaryJob(jobId) {
+  /* The summary shares the queue with the transcriptions, so it may sit behind
+     an hour of audio: the panel says where it is rather than spinning. The
+     watch is dropped when the viewer closes -- nobody is reading it then. */
+  clearInterval(summaryWatch);
+  summaryWatch = setInterval(async () => {
+    let job;
+    try {
+      job = await fetch(api(`jobs/${jobId}`)).then((r) => r.json());
+    } catch {
+      return;
+    }
+    if (job.status === "queued") {
+      $("summary-status").textContent = t("summary_queued");
+    } else if (job.status === "running") {
+      $("summary-status").textContent = t("summary_running",
+                                          { stage: stageLabel(job.stage) });
+    } else {
+      clearInterval(summaryWatch);
+      summaryWatch = null;
+      $("summary-run").disabled = pageBusy;
+      if (job.status === "done") reloadOpenEntry();
+      else $("summary-status").textContent = t("summary_failed",
+                                                { error: job.error || job.status });
+    }
+  }, POLL_MS);
+}
+
+$("summary-run").addEventListener("click", async () => {
+  $("summary-run").disabled = true;
+  $("summary-status").textContent = t("summary_queued");
+  const response = await fetch(api(`library/${encodeURIComponent(openEntryId)}/summary`), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ engine: $("summary-engine").value || "",
+                           length: $("summary-length").value || "" }),
+  });
+  if (!response.ok) {
+    const problem = await response.json().catch(() => ({}));
+    $("summary-status").textContent = t("summary_failed",
+                                        { error: problem.detail || response.status });
+    $("summary-run").disabled = pageBusy;
+    return;
+  }
+  const job = await response.json();
+  refreshJobs();
+  watchSummaryJob(job.id);
+});
+
+$("summary-delete").addEventListener("click", async () => {
+  const sure = await ask({
+    title: t("confirm_delete_summary"),
+    body: t("confirm_delete_summary_body", { title: $("viewer-title").textContent }),
+    detail: t("confirm_delete_summary_detail"),
+    confirmLabel: t("confirm_delete_summary_ok"),
+  });
+  if (!sure) return;
+  await fetch(api(`library/${encodeURIComponent(openEntryId)}/summary`),
+              { method: "DELETE" });
+  reloadOpenEntry();
+});
 
 $("viewer-close").addEventListener("click", closeViewer);
 $("viewer").addEventListener("close", () => $("viewer-audio").pause());
@@ -1257,6 +1481,7 @@ $("viewer-delete").addEventListener("click", async () => {
 /* --- the upload form --------------------------------------------------- */
 
 $("job-form").addEventListener("submit", async (event) => {
+  if (pageBusy) return event.preventDefault();   // Enter, with the button off
   event.preventDefault();
   const error = $("form-error");
   error.hidden = true;
@@ -1315,7 +1540,9 @@ $("job-form").addEventListener("submit", async (event) => {
     error.textContent = t("upload_failed", { error: failure.message });
     error.hidden = false;
   } finally {
-    button.disabled = false;
+    // Not simply "false": the upload has just made the page busy, and the
+    // button it was clicked on is one of the things that goes off.
+    button.disabled = pageBusy;
     button.textContent = t("start");
   }
 });
@@ -1372,8 +1599,10 @@ async function start() {
     // An output this machine cannot produce is not offered: a job that fails
     // after the wait is a worse way to find that out.
     $("diarize").checked = false;
-    $("diarize").disabled = true;
-    $("output-speakers").disabled = true;
+    for (const id of ["diarize", "output-speakers"]) {
+      $(id).disabled = true;
+      $(id).dataset.locked = "1";
+    }
     if ($("output-speakers").checked) $("output-text").checked = true;
     $("diarize-note").textContent = t(`diarize_${diarization.reason}`);
     $("diarize-note").hidden = false;
@@ -1388,6 +1617,7 @@ async function start() {
   renderInstalled();
   renderMine();
   updatePromptSize();
+  await loadSummaryEngines();
   refreshJobs();
   refreshLibrary();
 }

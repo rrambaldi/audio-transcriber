@@ -24,7 +24,9 @@ input file      │                          \      /
     └─ output             a .txt beside the input, or a library entry
 
 summary.py               a library entry or a text file, summarised
-    └─ summarizers/       extractive.py (TextRank, no model)  -> summary.md
+    └─ summarizers/       openvino_genai.py (a local model, Intel devices)
+                          extractive.py     (TextRank, no model)  -> summary.md
+                          prompting.py      map/reduce, prompts, parsing
 ```
 
 ## The modules

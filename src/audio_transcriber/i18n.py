@@ -67,8 +67,21 @@ MESSAGES = {
         "openvino.model_saved": "Model saved to: {path}",
         "openvino.compiling": "Compiling for device '{device}'...",
         "openvino.compile_warning": "  (compile: {error})",
-        "openvino.prompt_failed":
-            "  (initial prompt not applied: {error}\n   retrying without it)",
+        "openvino.no_vad":
+            "  NOTE: this backend has no voice-activity filter, so over a long silence\n"
+            "  Whisper can invent a phrase ('Thanks for watching'). Obvious ones are\n"
+            "  removed from the transcript afterwards. The faster-whisper backend cuts\n"
+            "  the silences out before the model sees them: --backend faster-whisper.",
+        "openvino.falling_back_to_long_form":
+            "  (single-word timings were refused by this model: {error}\n"
+            "   retrying for segment timings - subtitle cuts will be interpolated)",
+        "openvino.falling_back_to_windowed":
+            "  (this optimum-intel cannot run Whisper's own long-form loop: {error}\n"
+            "   falling back to fixed 30 s windows. Where two windows overlap the words\n"
+            "   can come out twice; the duplicates are cut from the transcript afterwards,\n"
+            "   and the keyword prompt is dropped because it makes the overlap worse.)",
+        "openvino.transcription_failed":
+            "Backend 'openvino': the transcription did not run.\n  {error}",
 
         # --- faster-whisper backend -----------------------------------------
         "faster_whisper.missing":
@@ -171,6 +184,9 @@ MESSAGES = {
         "stage.transcribing": "transcribing",
         "stage.diarizing": "working out who said what",
         "stage.laying_out": "laying out the text",
+        "stage.summary_selecting": "choosing what matters",
+        "stage.summary_reading": "reading the transcript",
+        "stage.summary_writing": "writing the summary",
 
         # --- web interface ----------------------------------------------------
         "web.starting": "Web interface: http://{host}:{port}  (Ctrl-C to stop)",
@@ -203,6 +219,21 @@ MESSAGES = {
         "gui.tab_system": "This machine",
         "gui.tab_transcript": "Transcript",
         "gui.tab_notes": "Notes",
+        "gui.tab_summary": "Summary",
+        "gui.summary_none": "No summary yet. It is written on this machine; nothing is sent anywhere.",
+        "gui.summary_made_by": "written by {engine}, {when}",
+        "gui.summary_run": "Summarise",
+        "gui.summary_again": "Summarise again",
+        "gui.summary_engine": "Written by",
+        "gui.summary_length": "How much to keep",
+        "gui.summary_short": "short",
+        "gui.summary_medium": "medium",
+        "gui.summary_long": "long",
+        "gui.summary_engine_extractive": "no model: the sentences that carry the transcript",
+        "gui.summary_engine_openvino": "a local model, on this machine's Intel device",
+        "gui.summary_queued": "Summary of '{title}' queued.",
+        "gui.summary_done": "Summary of '{title}' written.",
+        "gui.summary_failed": "Could not summarise '{title}': {error}",
         "gui.tab_details": "Details",
 
         "gui.group_sources": "Recordings to transcribe",
@@ -295,6 +326,7 @@ MESSAGES = {
         "gui.row_open": "Open",
         "gui.row_remove": "Remove",
         "gui.row_play": "Play",
+        "gui.row_summary_of": "summary of the transcript \u00b7 {engine}",
         "gui.row_stop_audio": "Stop playing",
         "gui.col_actions": "",
         "gui.job_dialog_title": "Transcribe \"{title}\"",
@@ -511,6 +543,31 @@ MESSAGES = {
         "cli.config_invalid": "Invalid configuration file {path}: {error}",
         "cli.paths_header": "Directories used by audio-transcriber:",
         "cli.paths_missing": "(not created yet)",
+        # --- subtitles ------------------------------------------------------
+        "cli.subtitles_written": "Subtitles written to {path}  ({cues} cues)",
+        "cli.subtitles_problems": "  {total} remarks on the cues cut by '{preset}':",
+        "cli.subtitles_from_speech":
+            "    from how fast people spoke - the trade's own remedy is to shorten the\n"
+            "    text, and rewriting what somebody said is not something this program does:",
+        "cli.subtitles_from_timings":
+            "    from the times the engine reported:",
+        "cli.subtitles_from_layout":
+            "    from how the cues were laid out - these ones are the program's own doing:",
+        "cli.subtitles_interpolated":
+            "    Note: the engine timed segments but not single words, so every cue's times\n"
+            "    were interpolated across its segment by character count. Expect them to\n"
+            "    drift from the speech, and read the timing remarks above as approximate.\n"
+            "    The faster-whisper backend times every word when subtitles are asked for.",
+        "subtitles.empty": "nothing to show",
+        "subtitles.backwards": "ends before it starts",
+        "subtitles.too_wide": "a line wider than the preset allows",
+        "subtitles.too_many_lines": "more lines than the preset allows",
+        "subtitles.too_short": "on screen too briefly to be read",
+        "subtitles.too_long": "on screen longer than the preset allows",
+        "subtitles.too_fast": "more characters a second than the preset allows",
+        "subtitles.too_many_words": "more words a minute than the preset allows",
+        "subtitles.overlap": "overlaps the cue after it",
+        "subtitles.gap_too_small": "too small a gap before the next cue",
         # --- summaries ------------------------------------------------------
         "summary.empty": "Nothing to summarise: the transcript is empty.",
         "summary.unknown_engine": "Unknown summary engine: {name}. Valid values: {valid}",
@@ -520,6 +577,29 @@ MESSAGES = {
         "summary.stats":
             "   kept {kept} of {of} sentences | engine: {engine} | {elapsed:.1f}s",
         "summary.auto_engine": "engine that '--engine auto' would pick: {engine}",
+        "summary.npu_warning":
+            "  WARNING: the NPU runs LLMs on static shapes, with the prompt capped at\n"
+            "  1024 tokens by default and 8K at best. An hour of transcript is about\n"
+            "  15000: expect a failure or a truncated summary. '--device GPU' is the\n"
+            "  right accelerator for this.",
+        "summary.openvino_missing":
+            "Summary engine 'openvino': openvino-genai is not installed.\n"
+            "  pip install \"audio-transcriber-ov[summarize-ov]\"",
+        "summary.openvino_convert_missing":
+            "Converting a model needs optimum-intel and transformers.\n"
+            "  pip install \"audio-transcriber-ov[summarize-ov]\"",
+        "summary.converting":
+            "  Converting {model} to OpenVINO at int{bits}. This happens once, and it\n"
+            "  downloads several gigabytes.",
+        "summary.conversion_failed": "Could not convert {model}: {error}",
+        "summary.loading_model": "  Loading {path} on {device}...",
+        "summary.load_failed":
+            "The model could not be loaded on {device}: {error}",
+        "summary.pass": "  Reading part {part} of {total}...",
+        "summary.reducing": "  Writing the summary from {total} parts...",
+        "summary.model_said_nothing":
+            "{model} returned nothing usable. Try another model, or "
+            "'--engine extractive'.",
         "cli.paths_configured": "(from config.toml)",
         "cli.unknown_language": "Unknown interface language '{lang}'; using {fallback}.",
     },
@@ -575,8 +655,21 @@ MESSAGES = {
         "openvino.model_saved": "Modello salvato in: {path}",
         "openvino.compiling": "Compilazione per il device '{device}'...",
         "openvino.compile_warning": "  (compile: {error})",
-        "openvino.prompt_failed":
-            "  (prompt iniziale non applicato: {error}\n   riprovo senza)",
+        "openvino.no_vad":
+            "  NOTA: questo backend non ha un filtro di attivita' vocale, quindi su un\n"
+            "  silenzio lungo Whisper puo' inventare una frase ('Grazie a tutti'). Quelle\n"
+            "  evidenti vengono tolte dalla trascrizione dopo. Il backend faster-whisper\n"
+            "  taglia i silenzi prima che il modello li veda: --backend faster-whisper.",
+        "openvino.falling_back_to_long_form":
+            "  (questo modello ha rifiutato i tempi per singola parola: {error}\n"
+            "   riprovo con i tempi dei segmenti - i tagli dei sottotitoli saranno interpolati)",
+        "openvino.falling_back_to_windowed":
+            "  (questo optimum-intel non sa eseguire il ciclo long-form di Whisper: {error}\n"
+            "   torno a finestre fisse da 30 s. Dove due finestre si sovrappongono le parole\n"
+            "   possono uscire due volte; i doppioni vengono tagliati dalla trascrizione dopo,\n"
+            "   e il prompt di parole chiave viene lasciato cadere perche' peggiora la cosa.)",
+        "openvino.transcription_failed":
+            "Backend 'openvino': la trascrizione non e' partita.\n  {error}",
 
         # --- faster-whisper backend -----------------------------------------
         "faster_whisper.missing":
@@ -679,6 +772,9 @@ MESSAGES = {
         "stage.transcribing": "trascrizione",
         "stage.diarizing": "chi ha detto cosa",
         "stage.laying_out": "impaginazione del testo",
+        "stage.summary_selecting": "scelta di cosa conta",
+        "stage.summary_reading": "lettura della trascrizione",
+        "stage.summary_writing": "scrittura del riassunto",
 
         # --- web interface ----------------------------------------------------
         "web.starting": "Interfaccia web: http://{host}:{port}  (Ctrl-C per fermarla)",
@@ -712,6 +808,21 @@ MESSAGES = {
         "gui.tab_system": "Questa macchina",
         "gui.tab_transcript": "Trascrizione",
         "gui.tab_notes": "Note",
+        "gui.tab_summary": "Riassunto",
+        "gui.summary_none": "Nessun riassunto. Viene scritto su questa macchina: non esce niente da qui.",
+        "gui.summary_made_by": "scritto da {engine}, {when}",
+        "gui.summary_run": "Riassumi",
+        "gui.summary_again": "Riassumi di nuovo",
+        "gui.summary_engine": "Scritto da",
+        "gui.summary_length": "Quanto tenere",
+        "gui.summary_short": "corto",
+        "gui.summary_medium": "medio",
+        "gui.summary_long": "lungo",
+        "gui.summary_engine_extractive": "nessun modello: le frasi che reggono la trascrizione",
+        "gui.summary_engine_openvino": "un modello locale, sul dispositivo Intel di questa macchina",
+        "gui.summary_queued": "Riassunto di '{title}' messo in coda.",
+        "gui.summary_done": "Riassunto di '{title}' scritto.",
+        "gui.summary_failed": "Non ho riassunto '{title}': {error}",
         "gui.tab_details": "Dettagli",
 
         "gui.group_sources": "Registrazioni da trascrivere",
@@ -806,6 +917,7 @@ MESSAGES = {
         "gui.row_open": "Apri",
         "gui.row_remove": "Togli",
         "gui.row_play": "Ascolta",
+        "gui.row_summary_of": "riassunto della trascrizione \u00b7 {engine}",
         "gui.row_stop_audio": "Ferma l'ascolto",
         "gui.col_actions": "",
         "gui.job_dialog_title": "Trascrivi \"{title}\"",
@@ -1025,6 +1137,32 @@ MESSAGES = {
         "cli.config_invalid": "File di configurazione non valido {path}: {error}",
         "cli.paths_header": "Cartelle usate da audio-transcriber:",
         "cli.paths_missing": "(non ancora creata)",
+        # --- subtitles ------------------------------------------------------
+        "cli.subtitles_written": "Sottotitoli scritti in {path}  ({cues} battute)",
+        "cli.subtitles_problems": "  {total} rilievi sulle battute tagliate con '{preset}':",
+        "cli.subtitles_from_speech":
+            "    da quanto velocemente si e' parlato - il rimedio del mestiere e' accorciare\n"
+            "    il testo, e riscrivere quello che uno ha detto questo programma non lo fa:",
+        "cli.subtitles_from_timings":
+            "    dai tempi riportati dal motore:",
+        "cli.subtitles_from_layout":
+            "    dall'impaginazione delle battute - questi sono responsabilita' del programma:",
+        "cli.subtitles_interpolated":
+            "    Nota: il motore ha dato i tempi dei segmenti ma non delle singole parole,\n"
+            "    quindi i tempi di ogni battuta sono interpolati sul segmento a conteggio di\n"
+            "    caratteri. Aspettati che scivolino rispetto al parlato, e leggi i rilievi sui\n"
+            "    tempi qui sopra come approssimativi. Il backend faster-whisper cronometra\n"
+            "    ogni parola quando si chiedono i sottotitoli.",
+        "subtitles.empty": "senza testo",
+        "subtitles.backwards": "finisce prima di iniziare",
+        "subtitles.too_wide": "una riga piu' larga di quanto il preset consenta",
+        "subtitles.too_many_lines": "piu' righe di quante il preset consenta",
+        "subtitles.too_short": "in scena troppo poco per essere letta",
+        "subtitles.too_long": "in scena piu' a lungo di quanto il preset consenta",
+        "subtitles.too_fast": "piu' caratteri al secondo di quanti il preset consenta",
+        "subtitles.too_many_words": "piu' parole al minuto di quante il preset consenta",
+        "subtitles.overlap": "si sovrappone alla battuta successiva",
+        "subtitles.gap_too_small": "stacco troppo piccolo prima della battuta successiva",
         # --- summaries ------------------------------------------------------
         "summary.empty": "Non c'e' niente da riassumere: la trascrizione e' vuota.",
         "summary.unknown_engine": "Motore di riassunto sconosciuto: {name}. Valori validi: {valid}",
@@ -1034,6 +1172,29 @@ MESSAGES = {
         "summary.stats":
             "   tenute {kept} frasi su {of} | motore: {engine} | {elapsed:.1f}s",
         "summary.auto_engine": "motore che '--engine auto' sceglierebbe: {engine}",
+        "summary.npu_warning":
+            "  ATTENZIONE: l'NPU esegue gli LLM a forme statiche, con il prompt limitato\n"
+            "  a 1024 token di default e 8K al massimo. Un'ora di trascrizione sono circa\n"
+            "  15000 token: aspettati un errore o un riassunto troncato. Per questo\n"
+            "  lavoro l'acceleratore giusto e' '--device GPU'.",
+        "summary.openvino_missing":
+            "Motore di riassunto 'openvino': openvino-genai non e' installato.\n"
+            "  pip install \"audio-transcriber-ov[summarize-ov]\"",
+        "summary.openvino_convert_missing":
+            "Per convertire un modello servono optimum-intel e transformers.\n"
+            "  pip install \"audio-transcriber-ov[summarize-ov]\"",
+        "summary.converting":
+            "  Converto {model} in OpenVINO a int{bits}. Succede una volta sola, e\n"
+            "  scarica diversi gigabyte.",
+        "summary.conversion_failed": "Non sono riuscito a convertire {model}: {error}",
+        "summary.loading_model": "  Carico {path} su {device}...",
+        "summary.load_failed":
+            "Il modello non si e' potuto caricare su {device}: {error}",
+        "summary.pass": "  Leggo la parte {part} di {total}...",
+        "summary.reducing": "  Scrivo il riassunto dalle {total} parti...",
+        "summary.model_said_nothing":
+            "{model} non ha restituito niente di utilizzabile. Prova un altro modello, "
+            "oppure '--engine extractive'.",
         "cli.paths_configured": "(da config.toml)",
         "cli.unknown_language": "Lingua dell'interfaccia '{lang}' sconosciuta; uso {fallback}.",
     },
@@ -1082,6 +1243,8 @@ HELP = {
         "help.sum_query": "library entry (id, or part of the title), or the path of a text file",
         "help.sum_engine": "which engine writes the summary (default: auto)",
         "help.sum_length": "how much of the transcript to keep: short | medium | long",
+        "help.sum_model": "which model writes it: auto, a Hugging Face id, or a converted directory",
+        "help.sum_device": "Intel device to run the model on: auto | CPU | GPU | NPU",
         "help.sum_out": "write the summary to this file instead of into the entry",
         "help.sum_print": "print the summary instead of saving it anywhere",
         "help.cmd_hardware": "show the detected hardware and the backend that would be used",
@@ -1191,6 +1354,8 @@ HELP = {
         "help.sum_query": "voce di libreria (id, o parte del titolo), oppure il percorso di un file di testo",
         "help.sum_engine": "quale motore scrive il riassunto (default: auto)",
         "help.sum_length": "quanto tenere della trascrizione: short | medium | long",
+        "help.sum_model": "quale modello lo scrive: auto, un id Hugging Face, o una cartella gia' convertita",
+        "help.sum_device": "dispositivo Intel su cui eseguire il modello: auto | CPU | GPU | NPU",
         "help.sum_out": "scrivi il riassunto in questo file invece che nella voce",
         "help.sum_print": "stampa il riassunto invece di salvarlo",
         "help.cmd_hardware": "mostra l'hardware rilevato e il backend che verrebbe usato",

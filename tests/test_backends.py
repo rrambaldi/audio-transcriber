@@ -216,3 +216,56 @@ def test_auto_becomes_a_real_name_and_says_so():
 def test_an_explicit_model_is_left_alone():
     assert transcription.resolve_model("medium") == ("medium", False)
     assert transcription.resolve_model("openai/whisper-large-v3")[1] is False
+
+
+# --- what the OpenVINO pipeline hands back --------------------------------
+
+def test_chunks_become_segments():
+    chunks = [{"text": " prima parte", "timestamp": (0.0, 4.5)},
+              {"text": "seconda parte", "timestamp": (4.5, 9.0)}]
+    assert ov.segments_of(chunks) == [
+        {"text": "prima parte", "start": 0.0, "end": 4.5},
+        {"text": "seconda parte", "start": 4.5, "end": 9.0}]
+
+
+def test_a_chunk_with_no_end_takes_the_next_ones_start():
+    """What a window that ran to the end of the audio reports."""
+    chunks = [{"text": "prima", "timestamp": (0.0, None)},
+              {"text": "seconda", "timestamp": (6.0, 9.0)}]
+    assert ov.segments_of(chunks)[0]["end"] == 6.0
+
+
+def test_the_last_chunk_with_no_end_takes_the_length_of_the_recording():
+    chunks = [{"text": "ultima", "timestamp": (12.0, None)}]
+    assert ov.segments_of(chunks, audio_seconds=20.0)[0]["end"] == 20.0
+    # Nothing to fall back on: a segment with no clock cannot be laid out.
+    assert ov.segments_of(chunks) == []
+
+
+def test_a_chunk_with_no_start_is_dropped():
+    assert ov.segments_of([{"text": "senza tempo", "timestamp": (None, None)}]) == []
+
+
+def test_word_chunks_become_timed_words():
+    chunks = [{"text": " ogni", "timestamp": (1.0, 1.4)},
+              {"text": "asset", "timestamp": (1.4, 1.9)},
+              {"text": "", "timestamp": (1.9, 2.0)}]
+    assert ov.words_of(chunks) == [{"word": "ogni", "start": 1.0, "end": 1.4},
+                                   {"word": "asset", "start": 1.4, "end": 1.9}]
+
+
+def test_the_vad_it_cannot_honour_is_said_out_loud(capsys):
+    """Accepting vad=True in silence would be a promise this backend cannot
+    keep, and a hallucination over a silence is what comes of it."""
+    ov.warn_about_vad(True)
+    assert "faster-whisper" in capsys.readouterr().err
+    ov.warn_about_vad(False)
+    assert capsys.readouterr().err == ""
+
+
+def test_the_long_form_guards_are_off_by_default_nowhere():
+    """Whisper's own anti-hallucination guards, which only the long-form loop
+    applies: this is the reason to prefer it over fixed windows."""
+    assert ov.DECODING_GUARDS["condition_on_prev_tokens"] is False
+    assert ov.DECODING_GUARDS["temperature"][0] == 0.0
+    assert len(ov.DECODING_GUARDS["temperature"]) > 1

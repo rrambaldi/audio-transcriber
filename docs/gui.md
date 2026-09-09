@@ -135,6 +135,19 @@ and the notes, read the transcript with a clickable timestamp per block, play
 the recording while reading along, jump to any moment, write notes, rename,
 export the text, open the folder, delete.
 
+A **Summary** tab sits beside the transcript and the notes, with the button
+that writes one under it and — when this machine has more than one engine — a
+menu saying which will. What comes back says who wrote it and when: a page
+that does not say is one somebody will quote in a meeting without knowing
+whether a model or a sentence-picker produced it. See
+[summary.md](summary.md).
+
+The summary goes into the **same queue** as the transcriptions, not onto the
+thread that draws the window. Two reasons, and both are the same reason: a
+model reading an hour of transcript is minutes of the same cores a
+transcription needs, and a window that does that work itself is a window that
+has stopped responding.
+
 **This machine.** What `audio-transcriber hardware` and `paths` report:
 the CPU and memory found, the engine and model `auto` would pick, whether
 diarization is available, and every directory in use — with a button that opens

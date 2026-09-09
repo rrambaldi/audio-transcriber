@@ -48,6 +48,12 @@ cpu = ["faster-whisper>=1.0"]
 openvino = ["optimum-intel[openvino]", "transformers"]
 # "Who said what" (runs on the CPU).
 diarize = ["pyannote.audio"]
+# Summaries written by a local model, on an Intel iGPU or NPU. openvino-genai
+# runs the model; optimum-intel and transformers are only needed the first
+# time, to convert one — a directory that is already OpenVINO IR loads with
+# openvino-genai alone. Nothing here talks to a network service: the model
+# runs on this machine, which is the whole point of the feature.
+summarize-ov = ["openvino-genai>=2025.0", "optimum-intel[openvino]", "transformers"]
 # The local web interface ("audio-transcriber web").
 web = ["fastapi>=0.110", "uvicorn>=0.27", "python-multipart>=0.0.9"]
 # The desktop window ("audio-transcriber gui"). Both halves are named on
@@ -67,6 +73,7 @@ gui = ["PySide6>=6.6", "PySide6-Addons>=6.6"]
 # Without this extra the window still records, through Qt, from a microphone.
 record = ["sounddevice>=0.4.6", "soundcard>=0.4.2"]
 all = ["faster-whisper>=1.0", "optimum-intel[openvino]", "transformers", "pyannote.audio",
+       "openvino-genai>=2025.0",
        "fastapi>=0.110", "uvicorn>=0.27", "python-multipart>=0.0.9",
        "PySide6>=6.6", "PySide6-Addons>=6.6",
        "sounddevice>=0.4.6", "soundcard>=0.4.2"]
