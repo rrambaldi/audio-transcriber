@@ -205,6 +205,9 @@ def describe(settings=None):
         ("config", (config_dir(), False)),
         ("config file", (config_file(), False)),
         ("vocabularies", chosen("vocab_dir", vocabularies_dir())),
+        # Written by hand like the keyword sets, and asked about for the same
+        # reason: it is one of the two files here worth backing up.
+        ("srt presets", (os.path.join(config_dir(), "srt-presets.json"), False)),
         ("data", (data_dir(), False)),
         ("models", chosen("models_dir", models_root())),
         ("library", chosen("library_dir", library_dir())),

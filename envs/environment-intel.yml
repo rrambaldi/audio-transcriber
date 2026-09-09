@@ -14,3 +14,5 @@ dependencies:
       - faster-whisper   # utile anche qui come fallback su CPU
       - pyannote.audio   # solo per --diarize ("chi dice cosa"), gira su CPU
       - PySide6          # solo per la finestra desktop (audio-transcriber gui)
+      - sounddevice      # scelta del sistema audio e del dispositivo
+      - soundcard        # registrare quello che riproducono gli altoparlanti

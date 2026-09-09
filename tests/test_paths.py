@@ -108,6 +108,16 @@ def test_describe_lists_every_managed_location(monkeypatch, tmp_path):
     assert {"config", "data", "models", "library", "cache"} <= set(labels)
 
 
+def test_describe_names_the_two_files_written_by_hand(monkeypatch, tmp_path):
+    """"Where are my files" has to cover the ones you would edit or back up:
+    config.toml, the keyword sets, and the subtitle presets."""
+    monkeypatch.setenv(paths.ENV_HOME, str(tmp_path))
+    rows = {label: path for label, path, _, _ in paths.describe()}
+    assert rows["config file"].endswith("config.toml")
+    assert rows["vocabularies"].endswith("vocabularies")
+    assert rows["srt presets"].endswith("srt-presets.json")
+
+
 def test_describe_reports_where_the_files_actually_are(monkeypatch, tmp_path):
     """A [paths] entry in config.toml moves a directory; the command that
     answers "where are my files" has to follow it, or it answers wrongly."""

@@ -28,9 +28,22 @@ library/                one folder per recording, see below
 diarization/            pyannote models, when kept locally
 ```
 
-Configuration holds `config.toml` and, if you use one, the `.env` with your
-Hugging Face token. Nothing under `cache/` is precious: deleting it costs a
-re-download at worst.
+Inside the configuration directory:
+
+```
+config.toml             defaults; every value is overridable on the command line
+.env                    secrets, currently only the Hugging Face token
+vocabularies/           keyword sets written by hand, see vocabularies.md
+srt-presets.json        your own subtitle presets, see subtitles.md
+gui.ini                 what the desktop window remembers: its size and the
+                        last options used, including the terms typed into it
+```
+
+Only `config.toml`, `.env`, `vocabularies/` and `srt-presets.json` are worth
+backing up; `gui.ini` is a convenience the window rewrites as it goes. Nothing
+under `cache/` is precious either: deleting it costs a re-download at worst,
+and it is also where an upload or a fresh recording waits for its turn in the
+queue.
 
 ## Overriding the locations
 
@@ -83,8 +96,14 @@ for a single run.
 ├── source.mp4        the original recording
 ├── transcript.txt    the readable text
 ├── transcript.json   segments with timestamps, and speakers when diarized
+├── subtitles.srt     cues, when subtitles were asked for; see subtitles.md
+├── subtitles.vtt     the same cues as WebVTT, if that was asked for too
 └── notes.md          yours to write
 ```
+
+The subtitle files are optional and derived: the cues are cut from
+`transcript.json` whenever something asks, so an entry can be exported again
+later with different numbers, and deleting them loses nothing.
 
 The id is `YYYY-MM-DD_HHMM_slug`, so entries sort chronologically by name. Two
 recordings filed in the same minute get a numeric suffix rather than

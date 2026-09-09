@@ -57,23 +57,33 @@ cd audio-transcriber
 
 pip install -e ".[cpu]"        # server, or any machine without a GPU
 pip install -e ".[openvino]"   # PC with an Intel iGPU or NPU
-pip install -e ".[all]"        # both engines, plus diarization
+pip install -e ".[all]"        # everything: both engines, diarization, web,
+                               # the window and its recorder
 pip install -e ".[diarize]"    # diarization, on top of either
 pip install -e ".[web]"        # the local web interface, on top of either
 pip install -e ".[gui]"        # the desktop window (Qt), on top of either
 pip install -e ".[record]"     # host-API choice, loopback and mixing for the window
+pip install -e ".[cpu,gui,record,dev]"   # and everything a contributor needs
 ```
 
-There is a script for all of this: **`./install.sh`** on Linux and macOS,
-**`install.cmd`** on Windows, both run from the checkout. The Unix one uses the
-environment already active or a `.venv` it creates, and points at the system
-libraries Qt and PortAudio need when they are missing.
+There is a script for all of this, run from the checkout: **`./install.sh`** on
+Linux and macOS, **`install.cmd`** on Windows. Both pull, install into the
+right environment, check what usually goes wrong on that platform, and print
+what to run. Pass the extras if the default is not yours — `openvino,gui,record`
+on Windows, `cpu,gui,record` on Linux and macOS:
 
-On Windows, `install.cmd` It activates the conda environment it wants — `srt-ov2` by default,
-`AT_ENV` to name another — and leaves the window in it, pulls, installs, checks
-the two things that go wrong on Windows (a Qt from conda shadowing the one pip
-installs, and a missing QtMultimedia) and prints what to run. Pass the extras
-if the default `openvino,gui,record` is not yours: `install.cmd cpu,gui`.
+```bash
+./install.sh cpu,gui            # Linux, macOS
+install.cmd openvino,gui        # Windows
+```
+
+`install.sh` uses the environment already active, or a `.venv` in the checkout
+which it creates, and names the system libraries Qt and PortAudio need when
+they turn out to be missing. `install.cmd` activates the conda environment it
+wants (`srt-ov2` by default, `AT_ENV` to name another) and leaves the window in
+it, and it checks the two things that go wrong on Windows: a Qt inherited from
+conda shadowing the one pip installs, and a PySide6 without QtMultimedia. Both
+refuse conda's own `base`.
 
 Python 3.11 or newer. Conda users: `envs/environment-cpu.yml` for a GPU-less
 server, `envs/environment-intel.yml` for an Intel machine. Let conda provide

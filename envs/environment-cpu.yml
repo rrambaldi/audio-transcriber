@@ -10,4 +10,7 @@ dependencies:
       - faster-whisper   # Whisper su CTranslate2: veloce e quantizzato su CPU
       - imageio-ffmpeg   # ffmpeg incluso: nessuna installazione esterna
       - numpy
+      - fastapi          # interfaccia web (audio-transcriber web): e' l'interfaccia
+      - uvicorn          #   di un server, quindi qui non e' opzionale
+      - python-multipart #   (upload dei file dalla pagina)
       # - pyannote.audio # opzionale (--diarize): scarica PyTorch, ~2 GB e RAM

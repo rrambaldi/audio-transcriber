@@ -11,6 +11,7 @@ git clone https://github.com/rrambaldi/audio-transcriber
 cd audio-transcriber
 python -m venv .venv && . .venv/bin/activate     # Windows: .venv\Scripts\activate
 pip install -e ".[cpu,dev]"                      # or ".[openvino,dev]" on an Intel iGPU
+pip install -e ".[cpu,gui,record,dev]"           # to work on the desktop window too
 pytest
 ruff check .
 ```
@@ -24,8 +25,9 @@ Two modules skip themselves when their optional extra is absent:
 PySide6. What the interfaces *decide* is tested regardless, in
 `tests/test_web_page.py` and `tests/test_gui.py`, so a change to either
 interface is still covered on a machine with neither installed. Add
-`".[gui,dev]"` if you are working on the window; the Qt tests run on the
-*offscreen* platform, so no window ever appears.
+`".[gui,record,dev]"` if you are working on the window; the Qt tests run on the
+*offscreen* platform, so no window ever appears, and the recording tests
+replace both audio libraries with fakes, so they need no microphone.
 
 ## House rules
 
