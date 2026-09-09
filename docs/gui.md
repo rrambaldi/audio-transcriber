@@ -20,11 +20,33 @@ the moment it came from — without a browser, a server or a port.
 Three tabs.
 
 **Transcribe.** Drop recordings anywhere on the tab (or *Add files…*), or press
-*Record* and speak; both land in the queue below. Choose the model — `auto` is labelled with what it resolves
-to on this machine — the spoken language, the engine, "who said what" (greyed
-out, with the reason, when this machine cannot do it), and the keyword sets:
-the installed ones, your own, or both. See
-[vocabularies.md](vocabularies.md).
+*Record* and speak; both land in the queue below.
+
+**What do you want out of it?** — the first thing the tab asks, because it is
+the first thing to decide:
+
+| answer | what you get |
+|---|---|
+| *Just the text* | paragraphs, broken where the speech pauses. No timestamps, nobody named |
+| *The text, with who said what* | the same text as a dialogue, one block per turn; needs diarization |
+| *Subtitles* | cues with times, cut to be readable, saved as `.srt` or `.vtt` |
+
+One note under the three says what the chosen one produces. **The controls of
+the other two answers go away**: with *just the text* there is no subtitle
+preset and no speaker count to wonder about, and choosing *subtitles* brings up
+the box that says how they are cut — including "who said what", which is
+optional there and marks a change of voice inside the cues. The answer is
+remembered between sessions.
+
+*The text, with who said what* is disabled outright, with the reason on it,
+when this machine cannot diarize: a job that fails after forty minutes is a
+worse way to find that out. `[general] output` in `config.toml` decides which
+answer is preselected, and the command line says the same thing with
+`--output text|speakers|subtitles`.
+
+Then the model — `auto` is labelled with what it resolves to on this machine —
+the spoken language, the engine, and the keyword sets: the installed ones, your
+own, or both. See [vocabularies.md](vocabularies.md).
 
 **A file you add goes into the queue and waits there**, marked *not started*.
 *Transcribe* runs the lot. That is deliberately two steps rather than one: the
@@ -74,12 +96,14 @@ transcription runs to the end and its result is discarded instead. Either way
 nothing reaches the library, and the recording stays where it is, so it can be
 queued again.
 
-**Subtitles** are the other shape a transcript can take, and they sit in the
-same box as the model: a preset (netflix, bbc, ebu_broadcast, fcc_verbatim,
-social_vertical, social_karaoke, kids_accessible), characters per line, words
-per subtitle, and whether to keep an `.srt` or a `.vtt` with the entry. The
-cues exist either way — *Export the subtitles* in the library cuts an old entry
-with today's numbers. See [subtitles.md](subtitles.md).
+**Subtitles**, when they are the answer, get their own box: a preset (netflix,
+bbc, ebu_broadcast, fcc_verbatim, social_vertical, social_karaoke,
+kids_accessible), characters per line, words per subtitle, and whether to keep
+an `.srt`, a `.vtt` or both with the entry — one of them is written either way,
+so choosing subtitles ticks `.srt` rather than saving a file behind an empty
+box. The cues exist even for the other two answers: *Export the subtitles* in
+the library cuts an old entry with today's numbers. See
+[subtitles.md](subtitles.md).
 
 **Library.** Every transcribed recording, newest first. Search the transcripts
 and the notes, read the transcript with a clickable timestamp per block, play

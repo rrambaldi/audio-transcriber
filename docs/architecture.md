@@ -61,6 +61,16 @@ pre-flight, transcribe, clean, lay out, file — and the CLI, the web interface
 and the desktop window all call it. None can drift from the others, and neither
 interface layer contains any transcription logic: they queue, poll and display.
 
+**What a run is for is decided in one place.** All three front ends ask the
+same three-way question — text, who said what, subtitles — and none of them
+works out what it implies: `config.resolve_output()` does, and it is called
+from `config.resolve()` (the CLI's settings) and from `JobQueue.submit()`
+(after the per-job overrides are merged). The alternative was three copies of
+"text means no diarization and no subtitle files", which is three chances to
+disagree. `config.output_of()` is the reverse reading, for a `config.toml`
+written before the choice existed: the flags are read back into the answer they
+describe.
+
 **The queue belongs to neither interface.** `jobs.py` sits next to
 `pipeline.py` rather than inside `web/`, because a window on a laptop and a
 page in a browser need exactly the same thing: submit a file, run one job at a

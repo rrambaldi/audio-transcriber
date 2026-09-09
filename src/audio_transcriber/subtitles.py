@@ -172,15 +172,22 @@ def preset(name=None, overrides=None):
 # words, with a time each
 # --------------------------------------------------------------------------
 
+#: What marks a change of speaker in a subtitle. Two speakers are never put
+#: in one cue - the cue is split at the change instead - so the hyphen says
+#: "somebody else now", which is the convention every subtitle reader knows.
+SPEAKER_MARK = "- "
+
+
 class Word:
-    """One word and when it is said. The unit everything else is built from."""
+    """One word, when it is said, and by whom if that is known."""
 
-    __slots__ = ("text", "start", "end")
+    __slots__ = ("text", "start", "end", "speaker")
 
-    def __init__(self, text, start, end):
+    def __init__(self, text, start, end, speaker=None):
         self.text = text
         self.start = float(start)
         self.end = max(float(end), float(start))
+        self.speaker = speaker
 
     @property
     def length(self):
@@ -205,6 +212,7 @@ def words_of(segments):
             continue
         start = segment.get("start")
         end = segment.get("end")
+        speaker = segment.get("speaker")
         reported = segment.get("words") or []
         if reported:
             for word in reported:
@@ -212,7 +220,8 @@ def words_of(segments):
                 if not body:
                     continue
                 words.append(Word(body, word.get("start", start) or 0.0,
-                                  word.get("end", end) or 0.0))
+                                  word.get("end", end) or 0.0,
+                                  word.get("speaker", speaker)))
             continue
         if start is None or end is None:
             continue
@@ -222,7 +231,7 @@ def words_of(segments):
         at = float(start)
         for piece in pieces:
             share = span * len(piece) / total
-            words.append(Word(piece, at, at + share))
+            words.append(Word(piece, at, at + share, speaker))
             at += share
     return words
 
@@ -232,12 +241,17 @@ def words_of(segments):
 # --------------------------------------------------------------------------
 
 def sentences(words):
-    """Split a word stream on strong punctuation, then on clauses.
+    """Split a word stream on a change of speaker, then on strong punctuation.
 
-    Sentence first, clause second: it is the order the trade's guidance gives,
-    and it is why a cue rarely starts mid-thought."""
+    Sentence first, clause second, is the order the trade's guidance gives —
+    but a change of speaker comes before both. Two people in one cue would
+    have to share two lines, and splitting there instead means every cue has
+    one voice in it."""
     groups, current = [], []
     for word in words:
+        if current and word.speaker != current[-1].speaker:
+            groups.append(current)
+            current = []
         current.append(word)
         if SENTENCE_END.search(word.text):
             groups.append(current)
@@ -459,8 +473,13 @@ class Cue:
         return f"Cue({self.index}, {self.start:.2f}-{self.end:.2f}, {self.text!r})"
 
 
-def cues(segments, spec=None, language="it"):
+def cues(segments, spec=None, language="it", mark_speakers=False):
     """Turn transcribed segments into subtitle cues.
+
+    ``mark_speakers`` puts a hyphen in front of a cue whose voice is not the
+    one before it, which is how dialogue is marked in subtitles. It needs
+    segments that say who is speaking, so it is only worth asking for after
+    diarization.
 
     Timing, in the order the guidance sets out: a cue may appear slightly
     before the first word (never later), stays a moment after the last one,
@@ -497,11 +516,27 @@ def cues(segments, spec=None, language="it"):
             # The next cue starts on top of this one: the engine's timings
             # overlap. Give it something readable and let validate() say so.
             end = start + max(min_duration, 0.2)
-        built.append(Cue(len(built) + 1, start, end,
-                         wrap(words, spec, language)))
+        lines = wrap(words, spec, language)
+        if mark_speakers and _voice_changed(groups, position):
+            lines[0] = SPEAKER_MARK + lines[0]
+        built.append(Cue(len(built) + 1, start, end, lines))
 
     _chain(built, spec)
     return built
+
+
+def _voice_changed(groups, position):
+    """Whether this group is spoken by someone other than the last one.
+
+    The first group counts as a change only when there is more than one voice
+    in the recording: a hyphen in front of every cue of a monologue would say
+    nothing at all."""
+    speaker = groups[position][0].speaker
+    if speaker is None:
+        return False
+    if position == 0:
+        return len({word.speaker for group in groups for word in group}) > 1
+    return speaker != groups[position - 1][0].speaker
 
 
 def _chain(built, spec):

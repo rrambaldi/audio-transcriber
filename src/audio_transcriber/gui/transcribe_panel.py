@@ -12,6 +12,7 @@ import os
 from PySide6.QtCore import Qt, QTimer, Signal
 from PySide6.QtWidgets import (
     QAbstractItemView,
+    QButtonGroup,
     QCheckBox,
     QComboBox,
     QFileDialog,
@@ -27,6 +28,7 @@ from PySide6.QtWidgets import (
     QPlainTextEdit,
     QProgressBar,
     QPushButton,
+    QRadioButton,
     QSpinBox,
     QSplitter,
     QTableWidget,
@@ -79,6 +81,7 @@ class TranscribePanel(QWidget):
         self._build_queue_table()
         self._assemble()
         self._load_state()
+        self._output_chosen()
         self.refresh()
 
         self.timer = QTimer(self)
@@ -89,6 +92,20 @@ class TranscribePanel(QWidget):
 
     def _build_options(self):
         defaults = options.defaults_from(self.settings)
+
+        # The first thing to decide, and until now the one thing the window
+        # never asked: what is wanted out of the run. Everything below is a
+        # detail of one of these three, and is greyed out when it belongs to
+        # another.
+        self.outputs = QButtonGroup(self)
+        self.output_buttons = {}
+        for label, note, value in options.output_choices():
+            button = QRadioButton(label)
+            button.setToolTip(note)
+            button.setChecked(value == defaults["output"])
+            self.outputs.addButton(button)
+            self.output_buttons[value] = button
+            button.toggled.connect(self._output_chosen)
 
         self.model = QComboBox()
         for label, value in options.model_choices():
@@ -110,6 +127,7 @@ class TranscribePanel(QWidget):
         self.speakers.setSpecialValueText(t("gui.speakers_unknown"))
         self.speakers.setValue(defaults["speakers"])
         state, detail = diarization_availability(self.settings.get("diar_model"))
+        self._diarization_ready = state == "ready"
         if state != "ready":
             # Offering a checkbox this machine cannot honour only produces a
             # job that fails after the wait, which is a worse way to find out.
@@ -117,6 +135,14 @@ class TranscribePanel(QWidget):
             self.diarize.setEnabled(False)
             self.speakers.setEnabled(False)
             self.diarize.setToolTip(t("gui.diarize_unavailable", detail=detail))
+            # And "who said what" is then not an output this machine can
+            # produce at all: the answer is refused here, with the reason on
+            # the button, rather than by a job that fails after the wait.
+            unavailable = self.output_buttons["speakers"]
+            unavailable.setEnabled(False)
+            unavailable.setToolTip(t("gui.diarize_unavailable", detail=detail))
+            if unavailable.isChecked():
+                self.output_buttons["text"].setChecked(True)
 
         self.vocabularies = QListWidget()
         self.vocabularies.setToolTip(t("gui.vocab_hint"))
@@ -190,7 +216,9 @@ class TranscribePanel(QWidget):
         source_layout = QVBoxLayout(sources)
         source_layout.addLayout(buttons)
         source_layout.addWidget(self.drop_hint, 1)
-        source_layout.addWidget(QLabel(t("gui.queue_hint")))
+        queue_hint = QLabel(t("gui.queue_hint"))
+        queue_hint.setWordWrap(True)        # a narrow window must not cut it
+        source_layout.addWidget(queue_hint)
 
         # Its own box: recording is one of the two ways in, not a line under
         # the file list, and the microphone menu needs the width to be read.
@@ -203,30 +231,46 @@ class TranscribePanel(QWidget):
         left_layout.addWidget(sources, 1)
         left_layout.addWidget(record)
 
+        output_box = QGroupBox(t("gui.group_output"))
+        output_layout = QVBoxLayout(output_box)
+        for _label, _note, value in options.output_choices():
+            output_layout.addWidget(self.output_buttons[value])
+        # One note, for the answer that is chosen. Three notes at once is a
+        # paragraph to read before the first click, and it left the box no
+        # room for the controls underneath.
+        self.output_note = QLabel("")
+        self.output_note.setWordWrap(True)
+        self.output_note.setEnabled(False)          # a note, not a control
+        self.output_note.setAlignment(Qt.AlignmentFlag.AlignTop)
+        output_layout.addWidget(self.output_note)
+        self._reserve_note_lines(3)
+
         settings_box = QGroupBox(t("gui.group_options"))
-        form = QFormLayout(settings_box)
-        form.addRow(t("gui.label_model"), self.model)
-        form.addRow(t("gui.label_language"), self.language)
-        form.addRow(t("gui.label_backend"), self.backend)
+        self.form = QFormLayout(settings_box)
+        self.form.addRow(t("gui.label_model"), self.model)
+        self.form.addRow(t("gui.label_language"), self.language)
+        self.form.addRow(t("gui.label_backend"), self.backend)
         speakers_row = QHBoxLayout()
         speakers_row.addWidget(self.diarize)
         speakers_row.addWidget(QLabel(t("gui.label_speakers")))
         speakers_row.addWidget(self.speakers)
         speakers_row.addStretch(1)
-        form.addRow("", _wrap(speakers_row))
+        self.form.addRow("", _wrap(speakers_row))
+        self._speakers_row = self.form.rowCount() - 1
 
-        # Subtitles are the other shape a transcript can take, so they belong
-        # in the same box as the model and the language rather than in a tab
-        # of their own: the cues are always there, and these say how they are
-        # cut and whether a file is kept.
-        form.addRow(t("gui.label_subtitles"), self.subtitle_preset)
-        form.addRow(t("gui.label_sub_chars"), self.subtitle_chars)
-        form.addRow(t("gui.label_sub_words"), self.subtitle_words)
+        # How the cues are cut is a detail of one of the three answers, so it
+        # is a box of its own that appears when that answer is chosen: kept in
+        # the options form it was four rows of nothing for the other two.
+        self.subtitle_box = QGroupBox(t("gui.group_subtitles"))
+        subtitle_form = QFormLayout(self.subtitle_box)
+        subtitle_form.addRow(t("gui.label_sub_preset"), self.subtitle_preset)
+        subtitle_form.addRow(t("gui.label_sub_chars"), self.subtitle_chars)
+        subtitle_form.addRow(t("gui.label_sub_words"), self.subtitle_words)
         save_row = QHBoxLayout()
         save_row.addWidget(self.save_srt)
         save_row.addWidget(self.save_vtt)
         save_row.addStretch(1)
-        form.addRow(t("gui.label_sub_save"), _wrap(save_row))
+        subtitle_form.addRow(t("gui.label_sub_save"), _wrap(save_row))
 
         vocab_box = QGroupBox(t("gui.group_vocabulary"))
         vocab_layout = QVBoxLayout(vocab_box)
@@ -262,8 +306,16 @@ class TranscribePanel(QWidget):
         top = QWidget()
         top_layout = QHBoxLayout(top)
         top_layout.setContentsMargins(0, 0, 0, 0)
+        middle = QWidget()
+        middle_layout = QVBoxLayout(middle)
+        middle_layout.setContentsMargins(0, 0, 0, 0)
+        middle_layout.addWidget(output_box)
+        middle_layout.addWidget(settings_box)
+        middle_layout.addWidget(self.subtitle_box)
+        middle_layout.addStretch(1)
+
         top_layout.addWidget(left, 3)
-        top_layout.addWidget(settings_box, 2)
+        top_layout.addWidget(middle, 3)
         top_layout.addWidget(vocab_box, 3)
 
         # The queue is a box with a name on it: it is the one place work
@@ -283,6 +335,47 @@ class TranscribePanel(QWidget):
         layout = QVBoxLayout(self)
         layout.addWidget(splitter)
 
+    def chosen_output(self):
+        """Which of the three the radio buttons say."""
+        for value, button in self.output_buttons.items():
+            if button.isChecked():
+                return value
+        return "text"
+
+    def _output_chosen(self):
+        """Show only the controls the chosen output uses, greyed if it cannot.
+
+        A subtitle preset next to "just the text" is a control that does
+        nothing, and a control that does nothing is a question the window
+        cannot answer. What belongs to another answer goes away entirely; what
+        belongs to this one but this machine cannot do stays, greyed, so the
+        reason can be read in its tooltip."""
+        chosen = self.chosen_output()
+        self.output_note.setText(options.output_note(chosen))
+        enables = options.output_enables(chosen)
+        self.diarize.setEnabled(enables["diarize"] and self._diarization_ready)
+        self.speakers.setEnabled(enables["speakers"] and self._diarization_ready)
+        self.form.setRowVisible(self._speakers_row, enables["speakers"])
+        for widget in (self.subtitle_preset, self.subtitle_chars,
+                       self.subtitle_words, self.save_srt, self.save_vtt):
+            widget.setEnabled(enables["subtitles"])
+        self.subtitle_box.setVisible(enables["subtitles"])
+        if enables["subtitles"] and not (self.save_srt.isChecked()
+                                         or self.save_vtt.isChecked()):
+            # The chosen output is the files, so one is written either way:
+            # showing it ticked is more honest than saving an .srt behind an
+            # empty box.
+            self.save_srt.setChecked(True)
+
+    def _reserve_note_lines(self, lines):
+        """Keep room for the longest note so the boxes below do not move.
+
+        The note is wrapped text that changes with the answer: sized to
+        whatever it happens to say, choosing an answer would shift the options
+        box up or down under the pointer."""
+        metrics = self.output_note.fontMetrics()
+        self.output_note.setMinimumHeight(metrics.lineSpacing() * lines)
+
     # --- choices ----------------------------------------------------------
 
     def chosen_vocabularies(self):
@@ -300,6 +393,7 @@ class TranscribePanel(QWidget):
             "model": self.model.currentData(),
             "language": self.language.currentData(),
             "backend": self.backend.currentData(),
+            "output": self.chosen_output(),
             "diarize": self.diarize.isChecked(),
             "speakers": self.speakers.value(),
             "subtitle_preset": self.subtitle_preset.currentData(),
@@ -381,6 +475,7 @@ class TranscribePanel(QWidget):
         chosen = self.choices()
         overrides = options.overrides_from(chosen)
         overrides.update(options.subtitle_settings(chosen))
+        overrides.update(options.output_settings(chosen))
         names = self.chosen_vocabularies()
         self._save_state()
         queued = 0
@@ -563,6 +658,10 @@ class TranscribePanel(QWidget):
             remembered = self.store.value(name, "", str)
             if remembered:
                 _select(widget, remembered)
+        remembered_output = self.store.value("output", "", str)
+        button = self.output_buttons.get(remembered_output)
+        if button is not None and button.isEnabled():
+            button.setChecked(True)
         _select(self.subtitle_preset, self.store.value("subtitle_preset", "", str))
         self.subtitle_chars.setValue(int(self.store.value("subtitle_chars", 0, int) or 0))
         self.subtitle_words.setValue(int(self.store.value("subtitle_words", 0, int) or 0))
@@ -588,6 +687,7 @@ class TranscribePanel(QWidget):
         self.store.setValue("language", self.language.currentData())
         self.store.setValue("backend", self.backend.currentData())
         self.store.setValue("vocabulary", self.chosen_vocabularies())
+        self.store.setValue("output", self.chosen_output())
         self.store.setValue("subtitle_preset", self.subtitle_preset.currentData())
         self.store.setValue("subtitle_chars", self.subtitle_chars.value())
         self.store.setValue("subtitle_words", self.subtitle_words.value())

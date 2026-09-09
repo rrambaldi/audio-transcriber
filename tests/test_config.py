@@ -119,3 +119,42 @@ def test_the_default_model_is_worked_out_from_the_machine():
     not fit; the machine decides instead."""
     from audio_transcriber.transcription import AUTO
     assert config.DEFAULTS["model"] == AUTO
+
+
+# --- what the run is for --------------------------------------------------
+
+def test_the_chosen_output_settles_the_flags_that_produce_it():
+    """The three interfaces have to agree on what "subtitles" means, so the
+    choice is turned into flags in one place."""
+    text = config.resolve_output({"output": "text", "diarize": True,
+                                  "subtitles": "srt"})
+    assert text["diarize"] is False and text["subtitles"] is None
+
+    speakers = config.resolve_output({"output": "speakers", "diarize": False,
+                                      "subtitles": "srt"})
+    assert speakers["diarize"] is True and speakers["subtitles"] is None
+
+    subs = config.resolve_output({"output": "subtitles"})
+    assert subs["subtitles"] == "srt"        # an unsaved subtitle is not an output
+
+
+def test_marking_the_speakers_stays_optional_in_subtitles():
+    """It is a second decision, not part of choosing subtitles."""
+    plain = config.resolve_output({"output": "subtitles", "diarize": False})
+    marked = config.resolve_output({"output": "subtitles", "diarize": True,
+                                    "subtitles": "srt,vtt"})
+    assert plain["diarize"] is False
+    assert marked["diarize"] is True and marked["subtitles"] == "srt,vtt"
+
+
+def test_no_output_chosen_leaves_every_flag_alone():
+    """A config.toml written before this existed has to keep working."""
+    before = {"diarize": True, "subtitles": "vtt"}
+    assert config.resolve_output(dict(before)) == before
+    assert config.resolve_output({"output": "nonsense", **before}) == \
+        {"output": "nonsense", **before}
+
+
+def test_resolve_settles_the_output_as_well():
+    settings = config.resolve({"output": "speakers"}, {"diarize": False})
+    assert settings["diarize"] is True

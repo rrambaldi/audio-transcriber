@@ -174,6 +174,32 @@ def test_cli_settings_collect_the_inverted_vad_flag():
     assert cli.collect_cli_settings(args)["vad"] is None
 
 
+def test_the_output_option_settles_the_flags_under_it():
+    """One option that says what the run is for, as in the two graphical
+    front ends, instead of a command line that lists the flags adding up to
+    it."""
+    from audio_transcriber.config import resolve
+
+    parser = cli.build_parser(dict(DEFAULTS))
+    args = parser.parse_args(["transcribe", "a.wav", "--output", "speakers"])
+    settings = resolve(cli.collect_cli_settings(args), {})
+    assert settings["diarize"] is True
+    assert settings["subtitles"] is None
+
+    args = parser.parse_args(["transcribe", "a.wav", "--output", "text",
+                              "--diarize", "--srt"])
+    settings = resolve(cli.collect_cli_settings(args), {})
+    assert settings["diarize"] is False
+    assert settings["subtitles"] is None
+
+
+def test_an_unknown_output_is_refused_by_the_parser(capsys):
+    parser = cli.build_parser(dict(DEFAULTS))
+    with pytest.raises(SystemExit):
+        parser.parse_args(["transcribe", "a.wav", "--output", "karaoke"])
+    assert "karaoke" in capsys.readouterr().err
+
+
 # --- transcribing, with the engine stubbed out ----------------------------
 
 @pytest.fixture

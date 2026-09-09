@@ -21,6 +21,7 @@ from fastapi.staticfiles import StaticFiles
 
 from .. import __version__, i18n, pipeline, subtitles, vocabularies
 from ..backends import BACKENDS
+from ..config import OUTPUTS, output_of
 from ..diarization import availability as diarization_availability
 from ..jobs import MAX_UPLOAD_BYTES, JobQueue, safe_filename
 from ..library import MAX_NOTES, LibraryError
@@ -87,6 +88,7 @@ def register_routes(app):
                 "model": settings.get("model") or AUTO,
                 "language": settings.get("language") or "",
                 "backend": settings.get("backend") or "auto",
+                "output": output_of(settings),
                 "diarize": bool(settings.get("diarize")),
                 "vocabulary": vocabularies.split_names(settings.get("vocabulary")),
             },
@@ -132,6 +134,7 @@ def register_routes(app):
         model: str = Form(""),
         language: str | None = Form(None),
         backend: str = Form(""),
+        output: str = Form(""),
         diarize: bool = Form(False),
         speakers: int | None = Form(None),
         vocabulary: list[str] = Form(default=[]),
@@ -156,6 +159,8 @@ def register_routes(app):
             raise HTTPException(status_code=400, detail=f"unknown model '{model}'")
         if backend and backend not in BACKENDS:
             raise HTTPException(status_code=400, detail=f"unknown backend '{backend}'")
+        if output and output not in OUTPUTS:
+            raise HTTPException(status_code=400, detail=f"unknown output '{output}'")
 
         try:
             # Both are refused before the upload rather than after it: an hour
@@ -172,7 +177,8 @@ def register_routes(app):
             target, title=title.strip() or None,
             filename=safe_filename(file.filename),
             overrides={"model": model or None, "language": language,
-                       "backend": backend or None, "diarize": diarize or None,
+                       "backend": backend or None, "output": output or None,
+                       "diarize": diarize or None,
                        "speakers": speakers or None,
                        "subtitles": ",".join(wanted) or None,
                        "subtitle_preset": subtitle_preset or None,

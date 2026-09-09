@@ -20,7 +20,7 @@ import uuid
 from datetime import datetime
 
 from . import paths, pipeline
-from .config import read_prompt
+from .config import read_prompt, resolve_output
 from .library import STORE_MODES, STORE_MOVE, Library
 
 #: In the list, but deliberately not started: the desktop window fills the
@@ -163,6 +163,10 @@ class JobQueue:
             raise ValueError(f"unknown store mode: {store}")
         settings = dict(self.settings)
         settings.update({k: v for k, v in (overrides or {}).items() if v is not None})
+        # An interface sends the output it was asked for; this is where that
+        # choice becomes the flags the pipeline reads, exactly as it does for
+        # the command line.
+        settings = resolve_output(settings)
         names = list(vocabularies or [])
         settings["vocabulary"] = names
 

@@ -211,7 +211,8 @@ input:autofill, select:autofill, textarea:autofill {
 
 input:hover, select:hover, textarea:hover { border-color: var(--ink); }
 input:focus-visible, select:focus-visible, textarea:focus-visible,
-button:focus-visible, a:focus-visible, .tab:focus-visible, [type="checkbox"]:focus-visible {
+button:focus-visible, a:focus-visible, .tab:focus-visible,
+[type="checkbox"]:focus-visible, [type="radio"]:focus-visible {
   outline: 2px solid var(--forest);
   outline-offset: 3px;
 }
@@ -225,7 +226,26 @@ input:focus, select:focus, textarea:focus { border-color: var(--forest); }
 }
 .field.checkbox .note { grid-column: 1 / -1; margin: 0; font-size: 0.8rem; }
 .field.unavailable label { color: var(--muted); cursor: not-allowed; }
-[type="checkbox"] { accent-color: var(--forest); width: 1rem; height: 1rem; margin: 0; }
+[type="checkbox"], [type="radio"] {
+  accent-color: var(--forest);
+  width: 1rem;
+  height: 1rem;
+  margin: 0;
+}
+
+/* --- what the run is for ----------------------------------------------- */
+
+/* One question with three answers, so it reads as a list rather than as
+   three more boxes in the grid, and the answer's note sits under it. */
+fieldset.outputs, fieldset.subs {
+  border: none;
+  border-top: 1px solid var(--rule);
+  padding: 1.4rem 0 0;
+  margin: 1.8rem 0 0;
+}
+fieldset.outputs .field.checkbox { margin-top: 0.5rem; }
+fieldset.outputs .note { margin: 0.8rem 0 0; max-width: 46rem; }
+fieldset.subs .grid { margin-top: 0.6rem; }
 
 .grid {
   display: grid;

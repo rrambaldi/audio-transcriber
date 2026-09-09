@@ -230,6 +230,59 @@ def test_the_karaoke_preset_cuts_by_words_not_by_sentences():
         assert len(cue.text.split()) <= spec["segment_by_words"]["max"]
 
 
+# --- who is speaking ------------------------------------------------------
+
+def spoken(text, start, speaker, per_word=0.4):
+    body = timed(text, start, per_word)
+    body["speaker"] = speaker
+    for word in body["words"]:
+        word["speaker"] = speaker
+    return body
+
+
+def test_a_cue_never_holds_two_voices(netflix):
+    """Two people sharing a cue would have to share its two lines; splitting
+    at the change is cleaner and always possible."""
+    built = subtitles.cues([spoken("Approvato, direi.", 0.0, "SPEAKER_00"),
+                            spoken("Non sono d'accordo.", 2.0, "SPEAKER_01")],
+                           netflix, mark_speakers=True)
+    assert len(built) == 2
+    assert "Approvato" in built[0].text and "d'accordo" in built[1].text
+
+
+def test_a_change_of_voice_is_marked_with_a_hyphen(netflix):
+    built = subtitles.cues([spoken("Approvato, direi.", 0.0, "SPEAKER_00"),
+                            spoken("Non sono d'accordo.", 2.0, "SPEAKER_01")],
+                           netflix, mark_speakers=True)
+    assert built[0].lines[0].startswith(subtitles.SPEAKER_MARK)
+    assert built[1].lines[0].startswith(subtitles.SPEAKER_MARK)
+
+
+def test_a_monologue_is_not_marked_at_all(netflix):
+    """A hyphen in front of every cue of one voice says nothing."""
+    built = subtitles.cues([spoken("Il primo punto. Il secondo punto.", 0.0,
+                                   "SPEAKER_00")],
+                           netflix, mark_speakers=True)
+    assert built
+    assert not any(cue.lines[0].startswith(subtitles.SPEAKER_MARK) for cue in built)
+
+
+def test_consecutive_cues_of_the_same_voice_are_marked_once(netflix):
+    built = subtitles.cues([spoken("Primo punto. Secondo punto.", 0.0, "SPEAKER_00"),
+                            spoken("Terzo punto.", 4.0, "SPEAKER_01")],
+                           netflix, mark_speakers=True)
+    marked = [cue.lines[0].startswith(subtitles.SPEAKER_MARK) for cue in built]
+    assert marked[0] is True            # there is more than one voice here
+    assert marked[1] is False           # still the first speaker
+    assert marked[-1] is True           # and now it changed
+
+
+def test_nothing_is_marked_when_it_was_not_asked_for(netflix):
+    built = subtitles.cues([spoken("Approvato.", 0.0, "SPEAKER_00"),
+                            spoken("No.", 2.0, "SPEAKER_01")], netflix)
+    assert not any(cue.text.startswith(subtitles.SPEAKER_MARK) for cue in built)
+
+
 # --- timing ---------------------------------------------------------------
 
 def test_a_cue_may_appear_early_but_never_late(netflix):

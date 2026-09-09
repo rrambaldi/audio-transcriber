@@ -15,6 +15,7 @@ from datetime import datetime
 
 from .. import recording, subtitles, vocabularies
 from ..backends import BACKENDS
+from ..config import output_of
 from ..formatting import format_bytes, format_clock, format_duration
 from ..i18n import t
 from ..jobs import (
@@ -45,6 +46,41 @@ LANGUAGE_NAMES = {"it": "Italiano", "en": "English", "fr": "Français",
 # --------------------------------------------------------------------------
 # the menus
 # --------------------------------------------------------------------------
+
+def output_choices():
+    """``(label, note, value)`` for the three things a run can be for.
+
+    The choice people arrive with — "I want the text", "I want to know who
+    said what", "I want subtitles" — said in those words. Everything else in
+    the options box is a detail of one of these three."""
+    return [
+        (t("gui.output_text"), t("gui.output_text_note"), "text"),
+        (t("gui.output_speakers"), t("gui.output_speakers_note"), "speakers"),
+        (t("gui.output_subtitles"), t("gui.output_subtitles_note"), "subtitles"),
+    ]
+
+
+def output_note(output):
+    """The one-line explanation of what a choice produces."""
+    for _label, note, value in output_choices():
+        if value == output:
+            return note
+    return ""
+
+
+def output_enables(output):
+    """Which of the dependent controls this choice makes meaningful.
+
+    Returned as data so the window can grey out the rest instead of leaving
+    boxes that do nothing: a subtitle preset means nothing when the answer is
+    plain text, and "how many speakers" means nothing when nobody asked who
+    they were."""
+    return {
+        "speakers": output in ("speakers", "subtitles"),
+        "diarize": output == "subtitles",       # implied by "speakers", optional here
+        "subtitles": output == "subtitles",
+    }
+
 
 def model_choices(recommended=None):
     """``(label, value)`` for the model menu.
@@ -99,6 +135,17 @@ def vocabulary_items(vocab_dir=None):
     return items
 
 
+def output_settings(choices):
+    """The output part of what the window is asking for."""
+    output = choices.get("output") or "text"
+    settled = {"output": output}
+    if output == "subtitles":
+        # "Who said what" is the optional extra here, and it is what marks the
+        # speakers in the cues.
+        settled["diarize"] = bool(choices.get("diarize")) or None
+    return settled
+
+
 def defaults_from(settings):
     """The state the option widgets start in, taken from the resolved settings.
 
@@ -114,6 +161,7 @@ def defaults_from(settings):
         "vocabulary": vocabularies.split_names(settings.get("vocabulary")),
         "subtitle_preset": settings.get("subtitle_preset") or subtitles.DEFAULT_PRESET,
         "subtitles": str(settings.get("subtitles") or ""),
+        "output": output_of(settings),
     }
 
 

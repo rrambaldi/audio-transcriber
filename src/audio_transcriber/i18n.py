@@ -217,11 +217,25 @@ MESSAGES = {
         "gui.filter_vtt": "WebVTT subtitles",
 
         "gui.group_options": "Options",
+        "gui.group_output": "What do you want out of it?",
+        "gui.output_text": "Just the text",
+        "gui.output_text_note":
+            "Paragraphs, broken where the speech pauses. No timestamps, nobody named: "
+            "the transcript to read or to paste somewhere.",
+        "gui.output_speakers": "The text, with who said what",
+        "gui.output_speakers_note":
+            "The same text arranged as a dialogue, one block per turn. Needs "
+            "diarization, which runs on the CPU and takes a while.",
+        "gui.output_subtitles": "Subtitles",
+        "gui.output_subtitles_note":
+            "Cues with times, cut to be readable, saved as .srt or .vtt. Tick "
+            "\"who said what\" as well and a change of voice is marked in them.",
         "gui.label_model": "Model",
         "gui.label_language": "Spoken language",
         "gui.label_backend": "Engine",
         "gui.label_speakers": "Speakers",
-        "gui.label_subtitles": "Subtitles",
+        "gui.group_subtitles": "Subtitles",
+        "gui.label_sub_preset": "Preset",
         "gui.label_sub_chars": "Characters per line",
         "gui.label_sub_words": "Words per subtitle",
         "gui.label_sub_save": "Save as",
@@ -666,11 +680,26 @@ MESSAGES = {
         "gui.filter_vtt": "Sottotitoli WebVTT",
 
         "gui.group_options": "Opzioni",
+        "gui.group_output": "Cosa vuoi ottenere?",
+        "gui.output_text": "Solo il testo",
+        "gui.output_text_note":
+            "Paragrafi, spezzati dove il parlato si interrompe. Nessun timestamp, "
+            "nessun nome: la trascrizione da leggere o da incollare altrove.",
+        "gui.output_speakers": "Il testo, con chi dice cosa",
+        "gui.output_speakers_note":
+            "Lo stesso testo disposto come un dialogo, un blocco per battuta. Richiede "
+            "la diarizzazione, che gira su CPU e ci mette un po'.",
+        "gui.output_subtitles": "Sottotitoli",
+        "gui.output_subtitles_note":
+            "Battute con i tempi, tagliate per essere leggibili, salvate in .srt o "
+            ".vtt. Spunta anche \"chi ha detto cosa\" e il cambio di voce viene "
+            "segnato dentro.",
         "gui.label_model": "Modello",
         "gui.label_language": "Lingua parlata",
         "gui.label_backend": "Motore",
         "gui.label_speakers": "Interlocutori",
-        "gui.label_subtitles": "Sottotitoli",
+        "gui.group_subtitles": "Sottotitoli",
+        "gui.label_sub_preset": "Preset",
         "gui.label_sub_chars": "Caratteri per riga",
         "gui.label_sub_words": "Parole per sottotitolo",
         "gui.label_sub_save": "Salva come",
@@ -975,6 +1004,10 @@ HELP = {
         "help.para_gap": "pause in seconds that starts a new paragraph (without --diarize)",
         "help.para_max_chars": "maximum paragraph length (without --diarize)",
         "help.keep_fillers": "do NOT drop the phrases Whisper hallucinates over silence",
+        "help.output":
+            "what the run is for: text (just the words), speakers (who said "
+            "what) or subtitles (cues, saved as .srt unless --vtt says "
+            "otherwise). It settles the flags below it.",
         "help.diarize": "work out who said what (pyannote, on CPU)",
         "help.speakers": "number of speakers, if known (improves the result a lot)",
         "help.hf_token": "Hugging Face token for pyannote (or the HUGGINGFACE_TOKEN variable)",
@@ -1074,6 +1107,10 @@ HELP = {
         "help.para_gap": "pausa in secondi oltre la quale iniziare un nuovo paragrafo (senza --diarize)",
         "help.para_max_chars": "lunghezza massima di un paragrafo (senza --diarize)",
         "help.keep_fillers": "NON rimuovere le frasi che Whisper alluccina sul silenzio",
+        "help.output":
+            "a cosa serve la trascrizione: text (solo le parole), speakers "
+            "(chi dice cosa) o subtitles (battute, salvate in .srt se non si "
+            "dice --vtt). Decide le opzioni qui sotto.",
         "help.diarize": "ricostruisci chi dice cosa (pyannote, su CPU)",
         "help.speakers": "numero di speaker, se noto (migliora molto la resa)",
         "help.hf_token": "token Hugging Face per pyannote (o la variabile HUGGINGFACE_TOKEN)",

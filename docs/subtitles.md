@@ -6,11 +6,18 @@ three lines that appear for half a minute. So the segments are cut again,
 against the numbers the subtitling trade actually uses.
 
 ```bash
-audio-transcriber meeting.mp4 --srt                    # meeting.srt beside it
+audio-transcriber meeting.mp4 --output subtitles       # meeting.srt beside it
+audio-transcriber meeting.mp4 --srt                    # the same, said in flags
 audio-transcriber meeting.mp4 --library --srt --vtt    # both, inside the entry
 audio-transcriber meeting.mp4 --srt --subtitle-preset ebu_broadcast
 audio-transcriber meeting.mp4 --srt --subtitle-chars 32 --subtitle-words 10
 ```
+
+`--output subtitles` is the same choice the window and the page ask first, and
+it assumes `.srt` when no format is named: subtitles that are saved nowhere are
+not an output. `--output text` refuses them the other way round, so a
+configuration file that saves subtitles by default does not sneak them into a
+run that was asked for plain text.
 
 The cues are always available — they are computed from the segments whenever
 something asks — so saving a file is the option, not the mechanism. An entry in
@@ -19,10 +26,18 @@ segments.
 
 ## From the window and the browser
 
-Both offer the same four things next to the model and the language: which
-preset cuts the subtitles, characters per line, words per subtitle, and whether
-to keep an `.srt` or a `.vtt` with the entry. A zero in either number means
-"whatever the preset says" — the box says so.
+Both ask what the run is for before anything else, and subtitles are one of the
+three answers; the numbers appear when it is chosen. They are the same four in
+each: which preset cuts the subtitles, characters per line, words per subtitle,
+and whether to keep an `.srt` or a `.vtt` with the entry. A zero in either
+number means "whatever the preset says" — the box says so. One file is written
+either way, so choosing the answer ticks `.srt` rather than leaving an empty box
+over a file on disk.
+
+"Who said what" is optional there rather than implied, because marking the
+speakers in the cues is a separate decision: with it on, two voices never share
+a cue and a change of voice is marked with a leading hyphen, as the trade does
+it.
 
 In the library, *Export the subtitles* (the window) and the `.srt` / `.vtt`
 links (the page) cut the entry again **from its segments**, so a recording

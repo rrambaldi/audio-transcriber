@@ -192,6 +192,25 @@ def test_the_form_offers_the_subtitle_numbers(page, script):
     assert 'Number($("subtitle-chars").value) > 0' in script
 
 
+def test_the_form_asks_what_the_run_is_for(page, script):
+    """The same three-way choice the window makes, in the same words: it is
+    the first thing to decide and everything else is a detail of it."""
+    for name in ("text", "speakers", "subtitles"):
+        assert f'id="output-{name}"' in page
+        assert f"output_{name}_note:" in script
+    assert 'body.append("output", output)' in script
+    # The other two answers' controls are put away, not left doing nothing.
+    assert 'function applyOutput(' in script
+    assert '$("subtitle-fields").hidden = output !== "subtitles"' in script
+
+
+def test_an_output_the_machine_cannot_produce_is_not_offered(page, script):
+    """Without diarization "who said what" is a job that fails after the
+    wait, which is a worse way to find out than a disabled button."""
+    assert '$("output-speakers").disabled = true' in script
+    assert 'if ($("output-speakers").checked) $("output-text").checked = true' in script
+
+
 def test_an_entry_can_be_downloaded_as_subtitles(page, script):
     """Cut on request from the segments, so an old entry can be cut again with
     today's numbers."""

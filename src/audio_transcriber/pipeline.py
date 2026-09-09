@@ -97,9 +97,13 @@ def subtitle_spec(settings):
 
 
 def subtitles_of(result, settings):
-    """The cues for a finished run, cut by the preset in effect."""
+    """The cues for a finished run, cut by the preset in effect.
+
+    A run that worked out who said what gets its cues marked, since that is
+    the only reason to have asked."""
     return build_cues(result.segments, subtitle_spec(settings),
-                      language=settings.get("language") or "it")
+                      language=settings.get("language") or "it",
+                      mark_speakers=bool(getattr(result, "diarized", False)))
 
 
 def write_subtitles(entry, result, settings, kinds=None):
@@ -113,8 +117,7 @@ def write_subtitles(entry, result, settings, kinds=None):
     if not kinds:
         return [], [], []
     spec = subtitle_spec(settings)
-    cue_list = build_cues(result.segments, spec,
-                          language=settings.get("language") or "it")
+    cue_list = subtitles_of(result, settings)
     written = []
     for kind in kinds:
         text = to_srt(cue_list, spec.get("line_ending", "\n")) if kind == "srt" \

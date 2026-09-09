@@ -641,6 +641,7 @@ def test_forgetting_one_job_keeps_the_right_row_selected(window, tmp_path, queue
 def test_the_subtitle_numbers_reach_the_job(window, tmp_path, queue):
     """The window's job is to collect them; the cutting is the core's."""
     panel = window.transcribe
+    panel.output_buttons["subtitles"].setChecked(True)
     panel.subtitle_preset.setCurrentIndex(panel.subtitle_preset.findData("ebu_broadcast"))
     panel.subtitle_chars.setValue(32)
     panel.subtitle_words.setValue(9)
@@ -657,6 +658,7 @@ def test_the_subtitle_numbers_reach_the_job(window, tmp_path, queue):
 def test_zero_means_whatever_the_preset_says(window, tmp_path, queue):
     """A spin box at zero is "not chosen", not "no characters allowed"."""
     panel = window.transcribe
+    panel.output_buttons["subtitles"].setChecked(True)
     panel.subtitle_chars.setValue(0)
     panel.subtitle_words.setValue(0)
     panel.save_srt.setChecked(False)
@@ -668,7 +670,9 @@ def test_zero_means_whatever_the_preset_says(window, tmp_path, queue):
     settings = queue.jobs()[0].settings
     assert settings.get("subtitle_chars") is None
     assert settings.get("subtitle_words") is None
-    assert settings.get("subtitles") is None      # nothing saved unless asked
+    # Subtitles were the chosen output, so a format is assumed rather than
+    # producing cues nobody keeps.
+    assert settings.get("subtitles") == "srt"
 
 
 def test_an_entry_can_be_cut_into_subtitles_from_the_library(window, tmp_path,
@@ -718,6 +722,123 @@ def test_the_chosen_options_are_remembered_for_next_time(window, tmp_path, queue
     try:
         assert later.transcribe.model.currentData() == "base"
         assert later.transcribe.custom.toPlainText() == "alpha, beta"
+    finally:
+        later.transcribe.shutdown()
+        later.deleteLater()
+
+
+# --- what the run is for --------------------------------------------------
+
+def test_the_window_asks_what_you_want_out_of_it(window):
+    """The choice people arrive with, in three words rather than in five
+    scattered controls."""
+    from PySide6.QtWidgets import QGroupBox
+
+    titles = [box.title() for box in window.transcribe.findChildren(QGroupBox)]
+    assert "What do you want out of it?" in titles
+    assert set(window.transcribe.output_buttons) == {"text", "speakers", "subtitles"}
+    assert window.transcribe.chosen_output() == "text"      # the plain default
+
+
+def test_choosing_plain_text_ignores_the_subtitle_numbers(window, tmp_path, queue):
+    """Which is the point of choosing: the knobs of the other two answers stop
+    applying, instead of quietly doing something."""
+    panel = window.transcribe
+    panel.output_buttons["subtitles"].setChecked(True)
+    panel.save_srt.setChecked(True)
+    panel.output_buttons["text"].setChecked(True)
+    panel.add_files([sample(tmp_path)])
+
+    settings = queue.jobs()[0].settings
+    assert settings["output"] == "text"
+    assert settings["subtitles"] is None
+    assert settings["diarize"] is False
+
+
+def test_choosing_who_said_what_turns_diarization_on(window, tmp_path, queue):
+    panel = window.transcribe
+    panel.output_buttons["speakers"].setChecked(True)
+    panel.add_files([sample(tmp_path)])
+
+    settings = queue.jobs()[0].settings
+    assert settings["output"] == "speakers"
+    assert settings["diarize"] is True
+    assert settings["subtitles"] is None
+
+
+def test_the_controls_of_the_other_answers_are_greyed_out(window):
+    """A subtitle preset next to "just the text" is a control that does
+    nothing, and a control that does nothing is a question the window cannot
+    answer."""
+    panel = window.transcribe
+    panel.output_buttons["text"].setChecked(True)
+    assert panel.subtitle_preset.isEnabled() is False
+    assert panel.save_srt.isEnabled() is False
+    assert panel.speakers.isEnabled() is False
+
+    panel.output_buttons["subtitles"].setChecked(True)
+    assert panel.subtitle_preset.isEnabled() is True
+    assert panel.save_srt.isEnabled() is True
+
+
+def test_the_boxes_of_the_other_answers_are_out_of_the_way(window):
+    """Greying is not enough: four subtitle rows under "just the text" are
+    four rows of nothing, and they crowded the box that does apply."""
+    panel = window.transcribe
+    panel.output_buttons["text"].setChecked(True)
+    assert panel.subtitle_box.isVisibleTo(panel) is False
+    assert panel.form.isRowVisible(panel._speakers_row) is False
+
+    panel.output_buttons["subtitles"].setChecked(True)
+    assert panel.subtitle_box.isVisibleTo(panel) is True
+    assert panel.form.isRowVisible(panel._speakers_row) is True
+
+
+def test_the_note_says_what_the_chosen_answer_produces(window):
+    """One note, for the answer that is chosen: three at once is a paragraph
+    to read before the first click."""
+    panel = window.transcribe
+    panel.output_buttons["text"].setChecked(True)
+    plain = panel.output_note.text()
+    panel.output_buttons["subtitles"].setChecked(True)
+
+    assert plain and plain != panel.output_note.text()
+    assert ".srt" in panel.output_note.text()
+    # And it keeps its height, so choosing does not shift the boxes below it.
+    assert panel.output_note.minimumHeight() > 0
+
+
+def test_who_said_what_is_refused_when_the_machine_cannot_diarize(window):
+    """An output this machine cannot produce is not offered: a job that fails
+    after the wait is a worse way to find that out."""
+    from audio_transcriber.diarization import availability
+
+    ready = availability(None)[0] == "ready"
+    assert window.transcribe.output_buttons["speakers"].isEnabled() is ready
+    if not ready:
+        assert window.transcribe.chosen_output() != "speakers"
+        assert window.transcribe.output_buttons["speakers"].toolTip()
+
+
+def test_choosing_subtitles_ticks_the_file_it_will_write(window):
+    """The answer is the files, and one is written either way: an empty box
+    over an .srt on disk is the form lying about what it does."""
+    panel = window.transcribe
+    panel.save_srt.setChecked(False)
+    panel.save_vtt.setChecked(False)
+    panel.output_buttons["subtitles"].setChecked(True)
+
+    assert panel.save_srt.isChecked() is True
+
+
+def test_the_chosen_output_is_remembered(window, queue):
+    """It is the first thing you choose; asking again every morning is rude."""
+    window.transcribe.output_buttons["subtitles"].setChecked(True)
+    window.transcribe._save_state()
+
+    later = MainWindow(SETTINGS, queue=queue)
+    try:
+        assert later.transcribe.chosen_output() == "subtitles"
     finally:
         later.transcribe.shutdown()
         later.deleteLater()

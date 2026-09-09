@@ -8,6 +8,25 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- **One choice up front: what the run is for.** *Just the text*, *the text with
+  who said what*, or *subtitles* — three radio buttons in the window, the same
+  three in the browser, `--output text|speakers|subtitles` on the command line,
+  `[general] output` in `config.toml`. Until now the window asked it in five
+  scattered controls and never in so many words: a diarization checkbox next to
+  a subtitle preset next to a "save as .srt", with no way to say "I only want
+  the text". The answer settles what it implies (`config.resolve_output`, in
+  one place because the three front ends must agree): plain text refuses
+  diarization and subtitles even if the configuration file asks for them, "who
+  said what" turns diarization on, and subtitles assume `.srt` when no format
+  is named, since subtitles saved nowhere are not an output. The controls
+  belonging to the other two answers are put away rather than left doing
+  nothing, one note says what the chosen answer produces, and the answer is
+  remembered. "Who said what" is refused outright — with the reason on it —
+  when the machine cannot diarize, instead of by a job that fails after forty
+  minutes. With subtitles it stays optional: marking the speakers in the cues
+  is a separate decision, and then two voices never share a cue and a change of
+  voice is marked with a leading hyphen.
+
 - **`install.cmd`**, for Windows: it puts itself in the right conda environment
   (`srt-ov2`, or whatever `AT_ENV` says) and leaves the window in it, pulls,
   installs, and prints what to run. It refuses conda's own `base` — where

@@ -11,7 +11,7 @@ import shutil
 import sys
 
 from . import paths, pipeline
-from .config import ConfigError, load_config, load_dotenv, resolve
+from .config import OUTPUTS, ConfigError, load_config, load_dotenv, resolve
 from .formatting import format_duration
 from .i18n import AVAILABLE_LANGUAGES, set_language, t
 from .library import STORE_COPY, STORE_MODES, Library, LibraryError
@@ -31,6 +31,10 @@ CONFIG_TEMPLATE = '''\
 # interface_language = "en"
 # Spoken language of the recordings; "" auto-detects it.
 language = "it"
+# What a run is for, and what settles the options below: "text" (just the
+# words), "speakers" (who said what) or "subtitles" (cues, saved as .srt).
+# Omit it and the individual flags are the whole story.
+# output = "text"
 
 [transcription]
 # auto | faster-whisper | openvino
@@ -205,6 +209,11 @@ def build_parser(defaults):
                     help=t("help.para_max_chars"))
     tr.add_argument("--keep-fillers", dest="keep_fillers", action="store_true",
                     default=None, help=t("help.keep_fillers"))
+    # The choice the two graphical front ends ask first; here it is one
+    # option that settles the others, so a command line can say what it is
+    # for instead of listing the flags that add up to it.
+    tr.add_argument("--output", default=None, choices=list(OUTPUTS),
+                    help=t("help.output"))
     tr.add_argument("--diarize", action="store_true", default=None,
                     help=t("help.diarize"))
     tr.add_argument("--speakers", type=int, default=None, help=t("help.speakers"))
@@ -722,7 +731,7 @@ def collect_cli_settings(args):
              "prompt", "prompt_file", "vocabulary", "para_gap", "para_max_chars",
              "keep_fillers", "diarize", "speakers", "diar_model", "models_dir",
              "library_dir", "vocab_dir", "subtitle_preset", "subtitle_chars",
-             "subtitle_lines", "subtitle_words")
+             "subtitle_lines", "subtitle_words", "output")
     values = {name: getattr(args, name, None) for name in names}
     # --srt and --vtt are flags; together they are the "save these formats"
     # setting, and neither given means the configured value stands.

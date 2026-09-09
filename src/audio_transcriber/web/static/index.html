@@ -54,6 +54,28 @@
         </div>
       </div>
 
+      <!-- The first thing to decide, and the one thing the form never asked:
+           what the run is for. Everything below is a detail of one of these
+           three, and the details of the other two are put away. -->
+      <fieldset class="outputs" id="outputs">
+        <legend data-t="output_legend"></legend>
+        <div class="field checkbox">
+          <input type="radio" id="output-text" name="output" value="text" checked>
+          <label for="output-text" data-t="output_text"></label>
+        </div>
+        <div class="field checkbox">
+          <input type="radio" id="output-speakers" name="output" value="speakers"
+                 aria-describedby="diarize-note">
+          <label for="output-speakers" data-t="output_speakers"></label>
+        </div>
+        <div class="field checkbox">
+          <input type="radio" id="output-subtitles" name="output" value="subtitles">
+          <label for="output-subtitles" data-t="output_subtitles"></label>
+        </div>
+        <p class="note" id="output-note" aria-live="polite"></p>
+        <p class="note" id="diarize-note" hidden></p>
+      </fieldset>
+
       <div class="grid">
         <div class="field">
           <label for="title" data-t="title"></label>
@@ -67,41 +89,47 @@
           <label for="language" data-t="language"></label>
           <select id="language" name="language" autocomplete="off"></select>
         </div>
-        <div class="field checkbox">
-          <input type="checkbox" id="diarize" name="diarize"
-                 aria-describedby="diarize-note">
-          <label for="diarize" data-t="diarize"></label>
-          <p class="note" id="diarize-note" hidden></p>
-        </div>
         <div class="field" id="speakers-field" hidden>
           <label for="speakers" data-t="speakers"></label>
           <input type="number" id="speakers" name="speakers" min="1" max="20">
         </div>
-        <div class="field">
-          <label for="subtitle-preset" data-t="sub_preset"></label>
-          <select id="subtitle-preset" name="subtitle_preset" autocomplete="off"
-                  aria-describedby="sub-note"></select>
-          <p class="note" id="sub-note" data-t="sub_note"></p>
-        </div>
-        <div class="field">
-          <label for="subtitle-chars" data-t="sub_chars"></label>
-          <input type="number" id="subtitle-chars" name="subtitle_chars" min="0"
-                 max="120" placeholder="0">
-        </div>
-        <div class="field">
-          <label for="subtitle-words" data-t="sub_words"></label>
-          <input type="number" id="subtitle-words" name="subtitle_words" min="0"
-                 max="60" placeholder="0">
-        </div>
-        <div class="field checkbox">
-          <input type="checkbox" id="save-srt" name="save_srt">
-          <label for="save-srt" data-t="sub_save_srt"></label>
-        </div>
-        <div class="field checkbox">
-          <input type="checkbox" id="save-vtt" name="save_vtt">
-          <label for="save-vtt" data-t="sub_save_vtt"></label>
-        </div>
       </div>
+
+      <!-- How the cues are cut: a detail of the third answer, so it appears
+           with it instead of sitting there for the other two. -->
+      <fieldset class="subs" id="subtitle-fields" hidden>
+        <legend data-t="sub_legend"></legend>
+        <div class="grid">
+          <div class="field checkbox">
+            <input type="checkbox" id="diarize" name="diarize">
+            <label for="diarize" data-t="diarize"></label>
+          </div>
+          <div class="field">
+            <label for="subtitle-preset" data-t="sub_preset"></label>
+            <select id="subtitle-preset" name="subtitle_preset" autocomplete="off"
+                    aria-describedby="sub-note"></select>
+            <p class="note" id="sub-note" data-t="sub_note"></p>
+          </div>
+          <div class="field">
+            <label for="subtitle-chars" data-t="sub_chars"></label>
+            <input type="number" id="subtitle-chars" name="subtitle_chars" min="0"
+                   max="120" placeholder="0">
+          </div>
+          <div class="field">
+            <label for="subtitle-words" data-t="sub_words"></label>
+            <input type="number" id="subtitle-words" name="subtitle_words" min="0"
+                   max="60" placeholder="0">
+          </div>
+          <div class="field checkbox">
+            <input type="checkbox" id="save-srt" name="save_srt">
+            <label for="save-srt" data-t="sub_save_srt"></label>
+          </div>
+          <div class="field checkbox">
+            <input type="checkbox" id="save-vtt" name="save_vtt">
+            <label for="save-vtt" data-t="sub_save_vtt"></label>
+          </div>
+        </div>
+      </fieldset>
 
       <fieldset class="vocab">
         <legend data-t="keywords"></legend>

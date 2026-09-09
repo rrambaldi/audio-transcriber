@@ -15,7 +15,14 @@ from .paths import config_file, dotenv_candidates
 
 # Built-in defaults. The CLI reads them from here so that "no option given"
 # means the same thing whether or not a config file exists.
+#: What the person at the interface actually wants out of a run. It is the
+#: choice they arrive with - text, who said what, or subtitles - and it settles
+#: the individual flags below, which are the mechanism rather than the
+#: decision. ``None`` means nobody chose, and the flags stand on their own.
+OUTPUTS = ("text", "speakers", "subtitles")
+
 DEFAULTS = {
+    "output": None,               # text | speakers | subtitles
     "interface_language": None,   # None: environment, then system locale
     "language": "it",
     "backend": "auto",
@@ -46,6 +53,7 @@ DEFAULTS = {
 
 # (section, key) in config.toml -> internal name and expected Python type.
 SCHEMA = {
+    ("general", "output"): ("output", str),
     ("general", "interface_language"): ("interface_language", str),
     ("general", "language"): ("language", str),
     ("transcription", "backend"): ("backend", str),
@@ -174,6 +182,54 @@ def read_prompt(prompt, prompt_file, vocabulary=None, vocab_dir=None):
     return " ".join(part for part in parts if part)
 
 
+def output_of(settings):
+    """Which of the three outputs a set of settings amounts to.
+
+    The reverse of :func:`resolve_output`, and the reader every front end
+    uses: older settings say it in flags rather than by name — a
+    ``config.toml`` written before the choice existed, or a command line with
+    ``--diarize`` — so the flags are read back into the choice they
+    describe."""
+    settings = settings or {}
+    output = str(settings.get("output") or "").strip().lower()
+    if output in OUTPUTS:
+        return output
+    if settings.get("subtitles"):
+        return "subtitles"
+    if settings.get("diarize"):
+        return "speakers"
+    return "text"
+
+
+def resolve_output(settings):
+    """Turn the chosen output into the flags that produce it.
+
+    One place, called by everything that assembles settings, because the three
+    interfaces must agree on what "subtitles" means. An unset or unknown value
+    changes nothing: the individual flags are then the whole story, which is
+    how a ``config.toml`` written before this existed keeps working.
+
+    Diarization is implied by "who said what" and forbidden by "text"; with
+    subtitles it stays optional, because marking the speakers in them is a
+    separate decision."""
+    output = str(settings.get("output") or "").strip().lower()
+    if output not in OUTPUTS:
+        return settings
+    settled = dict(settings)
+    settled["output"] = output
+    if output == "text":
+        settled["diarize"] = False
+        settled["subtitles"] = None
+    elif output == "speakers":
+        settled["diarize"] = True
+        settled["subtitles"] = None
+    else:
+        # Subtitles that are not saved anywhere are not an output, so a format
+        # is assumed rather than silently producing nothing.
+        settled["subtitles"] = settings.get("subtitles") or "srt"
+    return settled
+
+
 def resolve(cli_values, file_settings):
     """Merge command-line values over file settings over built-in defaults.
 
@@ -182,4 +238,4 @@ def resolve(cli_values, file_settings):
     merged = dict(DEFAULTS)
     merged.update({k: v for k, v in file_settings.items() if v is not None})
     merged.update({k: v for k, v in cli_values.items() if v is not None})
-    return merged
+    return resolve_output(merged)

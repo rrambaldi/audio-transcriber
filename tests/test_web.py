@@ -176,6 +176,52 @@ def test_a_job_reports_the_stage_it_is_in(client, queue):
     blocked.set()
 
 
+# --- what the run is for --------------------------------------------------
+
+def test_the_status_says_which_output_is_the_default(client):
+    """The page preselects the same answer the CLI would take."""
+    assert client.get("/api/status").json()["defaults"]["output"] == "text"
+
+
+def test_asking_for_plain_text_ignores_the_subtitle_numbers(client, queue):
+    """The choice is the point: the knobs of the other two answers stop
+    applying instead of quietly doing something."""
+    response = client.post("/api/jobs", files={"file": ("a.wav", b"x")},
+                           data={"output": "text", "subtitles_save": "srt",
+                                 "diarize": "true"})
+    assert response.status_code == 202
+    job = queue.get(response.json()["id"])
+    assert job.settings["output"] == "text"
+    assert job.settings["subtitles"] is None
+    assert job.settings["diarize"] is False
+
+
+def test_asking_who_said_what_turns_diarization_on(client, queue):
+    response = client.post("/api/jobs", files={"file": ("a.wav", b"x")},
+                           data={"output": "speakers"})
+    assert response.status_code == 202
+    job = queue.get(response.json()["id"])
+    assert job.settings["diarize"] is True
+    assert job.settings["subtitles"] is None
+
+
+def test_asking_for_subtitles_writes_a_file_even_with_no_format_ticked(client, queue):
+    """Subtitles that are saved nowhere are not an output, so a format is
+    assumed rather than silently producing nothing."""
+    response = client.post("/api/jobs", files={"file": ("a.wav", b"x")},
+                           data={"output": "subtitles"})
+    assert response.status_code == 202
+    assert queue.get(response.json()["id"]).settings["subtitles"] == "srt"
+
+
+def test_an_unknown_output_is_refused_before_the_upload(client, queue):
+    response = client.post("/api/jobs", files={"file": ("a.wav", b"x")},
+                           data={"output": "karaoke"})
+    assert response.status_code == 400
+    assert queue.jobs() == []
+    assert os.listdir(queue.upload_dir()) == []
+
+
 # --- subtitles ------------------------------------------------------------
 
 def test_the_status_offers_the_subtitle_presets(client):
