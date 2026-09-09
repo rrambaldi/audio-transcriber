@@ -6,6 +6,24 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- **The web page offers one action while it is working: stop.** Uploading,
+  recording, transcribing, summarising, renaming, deleting, saving notes and
+  clearing finished rows all go off for as long as a job is queued or running,
+  dimmed and with the reason on them. On two cores anything asked for during a
+  transcription either waits for nothing or competes for the same cores and
+  makes it slower, so a page that lets you ask is a page that lets you make
+  things worse by accident. Reading stays: opening an entry, reading it,
+  playing the recording and downloading the text cost the machine nothing and
+  are the obvious thing to do while waiting. A control that is off because
+  this machine cannot do the thing at all — "who said what" without pyannote —
+  is marked separately so the end of a job cannot hand it back, and the ways
+  round a disabled button are closed too: a file dropped on the zone is
+  refused, and so is a form submitted with the keyboard. The block is the
+  page's own; the endpoints still accept what they always did, because the
+  queue is what actually serialises the work.
+
 ### Fixed
 
 - **Half the Italian stopwords never matched anything.** They were typed

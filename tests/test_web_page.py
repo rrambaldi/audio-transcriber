@@ -207,8 +207,17 @@ def test_the_form_asks_what_the_run_is_for(page, script):
 def test_an_output_the_machine_cannot_produce_is_not_offered(page, script):
     """Without diarization "who said what" is a job that fails after the
     wait, which is a worse way to find out than a disabled button."""
-    assert '$("output-speakers").disabled = true' in script
+    assert 'for (const id of ["diarize", "output-speakers"]) {' in script
+    assert '$(id).disabled = true;' in script
     assert 'if ($("output-speakers").checked) $("output-text").checked = true' in script
+
+
+def test_it_stays_off_when_a_transcription_ends(script):
+    """The busy state re-enables the form wholesale; a control that is off
+    because this machine cannot do the thing at all must not come back with
+    it."""
+    assert '$(id).dataset.locked = "1"' in script
+    assert 'if (control.dataset.locked) continue;' in script
 
 
 def test_an_entry_can_be_downloaded_as_subtitles(page, script):
@@ -293,3 +302,58 @@ def test_the_page_is_prefix_agnostic(page, script):
 
 def test_the_stylesheet_is_balanced(stylesheet):
     assert stylesheet.count("{") == stylesheet.count("}")
+
+
+# --- one thing at a time --------------------------------------------------
+
+def test_the_page_offers_one_action_while_something_is_running(script):
+    """On two cores, anything asked for during a transcription either waits
+    for nothing or competes with it. The page therefore offers exactly one
+    thing: stop."""
+    assert "let pageBusy = false;" in script
+    assert "function applyBusy(" in script
+    # The whole form goes off in one sweep...
+    assert '$("job-form").querySelectorAll("input, select, textarea, button")' in script
+    # ...and so do the actions that change an entry.
+    for name in ("summary-run", "summary-delete", "notes-save",
+                 "viewer-rename", "viewer-delete"):
+        assert name in script
+    assert 'for (const id of ["summary-run", "summary-delete", "notes-save",' in script
+
+
+def test_stopping_is_the_one_thing_that_stays_available(script):
+    """Everything else in a job row is disabled while busy; the stop button is
+    deliberately not, or a run could never be called off."""
+    stop_block = script.split('if (job.status === "queued" || job.status === "running")')[1]
+    stop_block = stop_block.split("actions.append(stop)")[0]
+    assert "disabled" not in stop_block
+
+
+def test_the_rows_that_change_the_list_are_off_while_busy(script):
+    """Clearing the finished rows and removing one are actions like any
+    other."""
+    for button in ('textContent: t("clear_finished"),',
+                   'textContent: t("remove_from_list"),'):
+        after = script.split(button)[1][:200]
+        assert "disabled: pageBusy" in after
+
+
+def test_the_ways_round_a_disabled_button_are_closed_too(script):
+    """A drop zone is a div, and a form can be submitted with the keyboard."""
+    assert "if (pageBusy) return;      // the zone is a div" in script
+    assert "if (pageBusy) return event.preventDefault();" in script
+
+
+def test_reading_is_not_an_action(script, page):
+    """Opening an entry and downloading its transcript cost nothing and are
+    the obvious thing to do while waiting, so they stay."""
+    assert 'id="viewer-download"' in page
+    for name in ("viewer-download", "viewer-download-json", "tab-summary"):
+        assert f'"{name}"' not in script.split("function applyBusy(")[1].split("}\n")[0]
+
+
+def test_the_page_says_why_everything_is_off(page, script):
+    """A control that is disabled with no reason given reads as a bug."""
+    assert 'id="busy-note"' in page
+    assert 'data-t="busy_note"' in page
+    assert 'title = why' in script

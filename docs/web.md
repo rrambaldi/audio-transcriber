@@ -169,6 +169,30 @@ like a gateway error.
 > upgraded to `https://` and fails. Use the proxy, the bare IP address, or a
 > tunnel.
 
+## One thing at a time
+
+While a job is running the page offers exactly one action: stop it. Uploading,
+recording, transcribing, summarising, renaming, deleting, saving notes,
+clearing finished rows — all off, dimmed, with the reason on them.
+
+That is the machine talking, not tidiness. This runs on two cores. The queue
+already refuses to transcribe two things at once, so a second job asked for
+meanwhile only waits; a summary asked for meanwhile is worse, because it
+competes for the same cores and makes the transcription slower. A page that
+lets you ask anyway is a page that lets you make things worse by accident.
+
+**Reading stays available.** Opening an entry, reading its transcript, jumping
+around the recording, downloading the text or the subtitles — none of that
+costs the machine anything, and it is the obvious thing to do while waiting.
+
+Two details worth knowing. A control that is off because this machine *cannot*
+do the thing at all — "who said what" with no diarization installed — stays off
+when the job ends; it is marked separately, so the busy state cannot hand it
+back. And the block is the page's, not the API's: the endpoints still accept
+what they always did, because the queue is what actually serialises the work,
+and another client (or a tab left open from before) must not be able to wedge
+itself.
+
 ## The API
 
 The page is one static file talking to a small JSON API; nothing stops you

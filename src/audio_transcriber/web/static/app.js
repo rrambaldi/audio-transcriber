@@ -102,6 +102,9 @@ const I18N = {
     prompt_too_long: "Too long: {chars} characters, {limit} at most. Whisper ignores the rest.",
     start: "Start transcribing",
     jobs: "Jobs",
+    busy_note: "A transcription is running: everything else is off until it finishes, or you stop it.",
+    busy_note_summary: "A summary is being written: everything else is off until it finishes, or you stop it.",
+    busy_why: "Not while a transcription is running.",
     no_jobs: "Nothing running.",
     library: "Library",
     library_empty: "No recording has been transcribed yet.",
@@ -271,6 +274,9 @@ const I18N = {
     prompt_too_long: "Troppo lungo: {chars} caratteri, il massimo e' {limit}. Whisper ignora il resto.",
     start: "Avvia la trascrizione",
     jobs: "Lavori",
+    busy_note: "C'\u00e8 una trascrizione in corso: tutto il resto \u00e8 sospeso finch\u00e9 non finisce, o finch\u00e9 non la interrompi.",
+    busy_note_summary: "Si sta scrivendo un riassunto: tutto il resto \u00e8 sospeso finch\u00e9 non finisce, o finch\u00e9 non lo interrompi.",
+    busy_why: "Non mentre una trascrizione \u00e8 in corso.",
     no_jobs: "Niente in corso.",
     library: "Libreria",
     library_empty: "Nessuna registrazione trascritta finora.",
@@ -731,6 +737,7 @@ for (const name of ["dragleave", "drop"]) {
 }
 drop.addEventListener("drop", (event) => {
   event.preventDefault();
+  if (pageBusy) return;      // the zone is a div: it cannot be disabled
   showPane("file");
   chooseFile(event.dataTransfer.files[0]);
 });
@@ -910,6 +917,46 @@ async function cancelJob(job) {
   refreshJobs();
 }
 
+/* While a transcription is under way the page offers exactly one action: stop
+   it. Everything else -- starting another, recording, summarising, renaming,
+   deleting, even clearing the finished rows -- is off until it ends.
+
+   The reason is the machine, not tidiness. This runs on two cores; the queue
+   already refuses to transcribe two things at once, and anything else asked
+   for meanwhile either waits pointlessly or competes for the same cores and
+   makes the transcription slower. Reading stays available: opening an entry
+   and downloading its transcript cost nothing and are the obvious thing to do
+   while waiting. */
+let pageBusy = false;
+
+function applyBusy() {
+  const why = pageBusy ? t("busy_why") : "";
+  for (const control of $("job-form").querySelectorAll("input, select, textarea, button")) {
+    // Something this machine cannot do at all -- "who said what" without
+    // pyannote -- is off for good; the end of a transcription must not hand
+    // it back.
+    if (control.dataset.locked) continue;
+    control.disabled = pageBusy;
+    control.title = why;
+  }
+  // The drop zone is a div: it cannot be disabled, so it is dimmed and its
+  // handler refuses.
+  $("drop").classList.toggle("blocked", pageBusy);
+  $("busy-note").hidden = !pageBusy;
+  for (const id of ["summary-run", "summary-delete", "notes-save",
+                    "viewer-rename", "viewer-delete"]) {
+    $(id).disabled = pageBusy;
+    $(id).title = why;
+  }
+}
+
+function setBusy(busy, kind) {
+  $("busy-note").textContent = t(kind === "summary" ? "busy_note_summary" : "busy_note");
+  if (busy === pageBusy) return;
+  pageBusy = busy;
+  applyBusy();
+}
+
 function renderJobs(jobs) {
   const box = $("jobs");
   box.textContent = "";
@@ -920,7 +967,8 @@ function renderJobs(jobs) {
   const finished = jobs.filter((job) => ["done", "failed", "cancelled"].includes(job.status));
   if (finished.length > 1) {
     const clear = el("button", { type: "button", className: "link",
-                                 textContent: t("clear_finished") });
+                                 textContent: t("clear_finished"),
+                                 disabled: pageBusy, title: pageBusy ? t("busy_why") : "" });
     clear.addEventListener("click", async () => {
       const sure = await ask({
         title: t("confirm_clear_finished"),
@@ -967,7 +1015,9 @@ function renderJobs(jobs) {
     }
     if (["done", "failed", "cancelled"].includes(job.status)) {
       const remove = el("button", { type: "button", className: "link",
-                                    textContent: t("remove_from_list") });
+                                    textContent: t("remove_from_list"),
+                                    disabled: pageBusy,
+                                    title: pageBusy ? t("busy_why") : "" });
       remove.addEventListener("click", async () => {
         const sure = await ask({
           title: t("confirm_remove_job"),
@@ -994,8 +1044,12 @@ function renderJobs(jobs) {
 
 async function refreshJobs() {
   const data = await fetch(api("jobs")).then((r) => r.json());
+  const working = data.jobs.filter((job) => job.status === "queued"
+                                            || job.status === "running");
+  const busy = working.length > 0;
+  // Before the rows are drawn, so they are drawn in the right state.
+  setBusy(busy, working.length ? working[working.length - 1].kind : null);
   renderJobs(data.jobs);
-  const busy = data.jobs.some((job) => job.status === "queued" || job.status === "running");
   if (busy && !polling) polling = setInterval(refreshJobs, POLL_MS);
   if (!busy && polling) {
     clearInterval(polling);
@@ -1167,6 +1221,7 @@ async function openEntry(id) {
     link.hidden = !timed;
   }
   showViewerTab("transcript");
+  applyBusy();
   $("viewer").showModal();
 }
 
@@ -1176,7 +1231,7 @@ function closeViewer() {
   player.removeAttribute("src");
   clearInterval(summaryWatch);
   summaryWatch = null;
-  $("summary-run").disabled = false;
+  $("summary-run").disabled = pageBusy;
   $("viewer").close();
 }
 
@@ -1207,7 +1262,7 @@ function watchSummaryJob(jobId) {
     } else {
       clearInterval(summaryWatch);
       summaryWatch = null;
-      $("summary-run").disabled = false;
+      $("summary-run").disabled = pageBusy;
       if (job.status === "done") reloadOpenEntry();
       else $("summary-status").textContent = t("summary_failed",
                                                 { error: job.error || job.status });
@@ -1228,7 +1283,7 @@ $("summary-run").addEventListener("click", async () => {
     const problem = await response.json().catch(() => ({}));
     $("summary-status").textContent = t("summary_failed",
                                         { error: problem.detail || response.status });
-    $("summary-run").disabled = false;
+    $("summary-run").disabled = pageBusy;
     return;
   }
   const job = await response.json();
@@ -1309,6 +1364,7 @@ $("viewer-delete").addEventListener("click", async () => {
 /* --- the upload form --------------------------------------------------- */
 
 $("job-form").addEventListener("submit", async (event) => {
+  if (pageBusy) return event.preventDefault();   // Enter, with the button off
   event.preventDefault();
   const error = $("form-error");
   error.hidden = true;
@@ -1367,7 +1423,9 @@ $("job-form").addEventListener("submit", async (event) => {
     error.textContent = t("upload_failed", { error: failure.message });
     error.hidden = false;
   } finally {
-    button.disabled = false;
+    // Not simply "false": the upload has just made the page busy, and the
+    // button it was clicked on is one of the things that goes off.
+    button.disabled = pageBusy;
     button.textContent = t("start");
   }
 });
@@ -1414,8 +1472,10 @@ async function start() {
     // An output this machine cannot produce is not offered: a job that fails
     // after the wait is a worse way to find that out.
     $("diarize").checked = false;
-    $("diarize").disabled = true;
-    $("output-speakers").disabled = true;
+    for (const id of ["diarize", "output-speakers"]) {
+      $(id).disabled = true;
+      $(id).dataset.locked = "1";
+    }
     if ($("output-speakers").checked) $("output-text").checked = true;
     $("diarize-note").textContent = t(`diarize_${diarization.reason}`);
     $("diarize-note").hidden = false;
