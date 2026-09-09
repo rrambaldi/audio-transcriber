@@ -43,7 +43,12 @@ import sys
 from .. import paths
 from ..hardware import available_ram_gb, openvino_devices
 from ..i18n import t
-from ..summary import SummaryError, language_of
+from ..summary import (
+    STAGE_READING,
+    STAGE_WRITING,
+    SummaryError,
+    language_of,
+)
 from . import prompting
 
 NAME = "openvino"
@@ -71,6 +76,11 @@ BITS = 4
 
 #: Tokens the model may spend on one answer.
 MAX_NEW_TOKENS = 1400
+
+#: The band of a progress bar the reading passes are mapped into. Loading and
+#: compiling the model own the first slice, and writing the final summary the
+#: last: on a long transcript the passes really are most of the wait.
+READING_BAND = (10, 85)
 
 
 def resolve_device(device=None):
@@ -230,7 +240,7 @@ class Pipeline:
         return str(self.pipe.generate(conversation, self.config)).strip()
 
 
-def summarize(material, settings=None):
+def summarize(material, settings=None, progress=None):
     """Write the summary, in one pass or in two stages.
 
     Returns the sections and no caveat: unlike the extractive engine, this one
@@ -240,8 +250,13 @@ def summarize(material, settings=None):
     language = language_of(material.language)
     sentences = list(material.sentences)
 
+    def report(percent, stage):
+        if progress:
+            progress(percent, stage)
+
     hf_id = resolve_model(settings.get("summary_model"))
     device = resolve_device(settings.get("summary_device"))
+    report(4, "stage.loading_model")
     model_path = prepare(hf_id, settings.get("models_dir"))
     pipeline = Pipeline(model_path, device)
     system = prompting.prompts_for(language)["system"]
@@ -252,15 +267,19 @@ def summarize(material, settings=None):
         raise SummaryError(t("summary.empty"))
 
     if len(parts) == 1:
+        report(READING_BAND[0], STAGE_READING)
         prompt = prompting.single_prompt(parts[0], language)
         answer = pipeline.ask(system, prompt)
     else:
+        low, high = READING_BAND
         partials = []
         for index, part in enumerate(parts, start=1):
             print(t("summary.pass", part=index, total=len(parts)), file=sys.stderr)
+            report(low + (high - low) * (index - 1) // len(parts), STAGE_READING)
             partials.append(pipeline.ask(
                 system, prompting.map_prompt(part, language, index, len(parts))))
         print(t("summary.reducing", total=len(parts)), file=sys.stderr)
+        report(high, STAGE_WRITING)
         prompt = prompting.reduce_prompt(partials, language)
         answer = pipeline.ask(system, prompt)
 

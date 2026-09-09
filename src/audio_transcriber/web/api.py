@@ -25,6 +25,9 @@ from ..config import OUTPUTS, output_of
 from ..diarization import availability as diarization_availability
 from ..jobs import MAX_UPLOAD_BYTES, JobQueue, safe_filename
 from ..library import MAX_NOTES, LibraryError
+from ..summarizers import CHOICES as SUMMARY_ENGINES
+from ..summary import LENGTHS as SUMMARY_LENGTHS
+from ..summary import SummaryError
 from ..transcription import (
     AUTO,
     LANGUAGE_CHOICES,
@@ -109,6 +112,16 @@ def register_routes(app):
         }
 
     # --- keyword sets installed on this machine ---------------------------
+
+    @app.get("/api/summary/engines")
+    def summary_engines():
+        """Which engines this machine could actually use, and which is auto."""
+        from ..summarizers import available
+
+        installed = available()
+        return {"engines": installed,
+                "auto": installed[0] if installed else None,
+                "lengths": list(SUMMARY_LENGTHS)}
 
     @app.get("/api/vocabularies")
     def list_vocabularies(request: Request):
@@ -272,6 +285,7 @@ def register_routes(app):
         data["segments"] = entry.read_segments()
         data["has_audio"] = bool(entry.stored_audio())
         data["subtitle_files"] = entry.subtitles()
+        data["summary"] = entry.read_summary()
         return data
 
     @app.patch("/api/library/{entry_id}")
@@ -304,6 +318,55 @@ def register_routes(app):
         except OSError as exc:
             raise HTTPException(status_code=500, detail=str(exc)) from exc
         return {"id": entry.id, "notes": entry.read_notes()}
+
+    @app.post("/api/library/{entry_id}/summary", status_code=202)
+    def summarise_entry(entry_id: str, request: Request,
+                        engine: str = Body("", embed=True),
+                        length: str = Body("", embed=True)):
+        """Queue a summary of this entry.
+
+        It goes in the same queue as the transcriptions, and for the same
+        reason the transcriptions go in one: on a small server the summary is
+        minutes of the same cores. The page therefore gets a job back and
+        watches it exactly as it watches an upload — there is no second kind
+        of progress to explain."""
+        entry = entry_or_404(request, entry_id)
+        if engine and engine not in SUMMARY_ENGINES:
+            raise HTTPException(status_code=400,
+                                detail=f"unknown summary engine '{engine}'")
+        if length and length not in SUMMARY_LENGTHS:
+            raise HTTPException(status_code=400,
+                                detail=f"unknown summary length '{length}'")
+        try:
+            job = request.app.state.queue.summarize(
+                entry.id, overrides={"summarizer": engine or None,
+                                     "summary_length": length or None})
+        except (LibraryError, SummaryError) as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        return job.as_dict()
+
+    @app.delete("/api/library/{entry_id}/summary")
+    def remove_summary(entry_id: str, request: Request):
+        """Throw a summary away. The transcript it was made from is untouched,
+        so asking for another one is always possible."""
+        entry = entry_or_404(request, entry_id)
+        try:
+            os.unlink(entry.summary_path)
+        except FileNotFoundError:
+            pass
+        except OSError as exc:
+            raise HTTPException(status_code=500, detail=str(exc)) from exc
+        entry.update(summary=None)
+        return {"id": entry.id, "summary": ""}
+
+    @app.get("/api/library/{entry_id}/summary.md")
+    def download_summary(entry_id: str, request: Request):
+        entry = entry_or_404(request, entry_id)
+        if not entry.has_summary():
+            raise HTTPException(status_code=404, detail="no summary yet")
+        return PlainTextResponse(entry.read_summary(),
+                                 headers={"Content-Disposition":
+                                          f'attachment; filename="{entry.id}-summary.md"'})
 
     @app.get("/api/library/{entry_id}/transcript.txt")
     def download_transcript(entry_id: str, request: Request):

@@ -29,6 +29,9 @@ from ..jobs import (
     RUNNING,
 )
 from ..library import LibraryError
+from ..summarizers import CHOICES as SUMMARY_ENGINES
+from ..summarizers import available as summary_engines_available
+from ..summary import DEFAULT_LENGTH, LENGTHS
 from ..transcription import AUTO, LANGUAGE_CHOICES, MODEL_CHOICES, recommend_model
 from ..vocabularies import MAX_CUSTOM_VOCABULARY
 
@@ -345,6 +348,46 @@ def entry_row(entry):
 def entry_rows(entries):
     """Every readable row, in the order the library returned them."""
     return [row for row in (entry_row(entry) for entry in entries) if row]
+
+
+def summary_engine_choices():
+    """The summary engines this machine can actually run, best first.
+
+    A menu of one is furniture, so the window hides the row when that is all
+    there is — which on a server with no accelerator is the usual case. The
+    label says what the engine does rather than what it is called: "openvino"
+    means nothing to somebody deciding whether to wait for it."""
+    return [(name, t(f"gui.summary_engine_{name}")) for name in
+            summary_engines_available() if name in SUMMARY_ENGINES]
+
+
+def summary_length_choices():
+    """How much of the transcript to keep, by name."""
+    return [(name, t(f"gui.summary_{name}")) for name in LENGTHS]
+
+
+def summary_default_length():
+    return DEFAULT_LENGTH
+
+
+def summary_state(entry):
+    """What the summary tab should show for this entry: the text and a caption.
+
+    The caption is what makes a summary trustworthy or not: which engine wrote
+    it and when. A page that does not say is a page somebody will quote in a
+    meeting without knowing whether a model or a sentence-picker produced it.
+    """
+    try:
+        data = entry.metadata
+    except LibraryError:
+        return "", ""
+    text = entry.read_summary()
+    if not text.strip():
+        return "", t("gui.summary_none")
+    made = data.get("summary") or {}
+    when = (made.get("created_at") or "")[:16].replace("T", " ")
+    return text, t("gui.summary_made_by",
+                   engine=made.get("engine") or "-", when=when or "-")
 
 
 def entry_details(entry):

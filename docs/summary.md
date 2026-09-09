@@ -34,6 +34,27 @@ records in `metadata.json` which engine wrote it and when. `--print` writes
 nothing anywhere. A path instead of an entry id summarises a text file and
 leaves `verbale.summary.md` beside it.
 
+## From the window and the browser
+
+Both put the summary in the entry it belongs to: a **Summary** tab beside the
+transcript and the notes, with a button under it and, when this machine has
+more than one engine, a menu saying which will write it. What comes back says
+who wrote it and when, because a page that does not say is one somebody will
+quote in a meeting without knowing whether a model or a sentence-picker
+produced it.
+
+The summary goes into **the same queue the transcriptions use**, and that is
+deliberate rather than convenient: a model reading an hour of transcript is
+minutes of the same cores a transcription needs, and running both at once
+would make each slower without finishing either sooner. So a summary asked for
+while a recording is being transcribed waits its turn, visible in Jobs like
+everything else, and the panel says where it is instead of spinning. Closing
+the browser does not stop it; the window keeps drawing while it happens.
+
+In the browser the summary can also be downloaded as `.md` or thrown away —
+the transcript is untouched either way, so another one can always be asked
+for.
+
 ## What comes out
 
 Markdown, for the same reason the transcript is a `.txt`: an entry has to stay

@@ -1,4 +1,4 @@
-"""A queue of transcription jobs, run one at a time in a worker thread.
+"""A queue of long jobs — transcriptions and summaries — run one at a time.
 
 On the machines this tool targets a transcription is measured in hours, not
 seconds: the browser cannot wait for it inside a request. Uploading therefore
@@ -7,6 +7,12 @@ only creates a job, and the page polls it.
 Jobs run strictly one after another. A two-core server transcribing two files
 at once finishes neither any sooner and risks running out of memory, so the
 queue is deliberately a queue and not a pool.
+
+Summaries share the queue rather than having one of their own, and that is the
+point: a summary written by a local model is minutes of the same two cores a
+transcription needs, and running both at once would make each slower without
+finishing either sooner. One queue means the machine is never asked to do two
+heavy things at the same time.
 
 State lives in memory: restarting the server forgets the queue, while every
 finished transcription is already safe in the library.
@@ -22,6 +28,12 @@ from datetime import datetime
 from . import paths, pipeline
 from .config import read_prompt, resolve_output
 from .library import STORE_MODES, STORE_MOVE, Library
+
+#: What a job is. Both kinds go through the same queue, the same statuses and
+#: the same row on the page; what differs is what the worker calls and what
+#: the job leaves behind.
+TRANSCRIPTION = "transcription"
+SUMMARY = "summary"
 
 #: In the list, but deliberately not started: the desktop window fills the
 #: queue first and runs it when told to, so the options can still be changed
@@ -65,13 +77,15 @@ class Cancelled(Exception):
 
 
 class Job:
-    """One queued transcription and everything the page needs to show it."""
+    """One queued piece of work and everything the page needs to show it."""
 
-    def __init__(self, source, title=None, filename=None, settings=None,
-                 prompt="", vocabularies=None, store=STORE_MOVE):
+    def __init__(self, source=None, title=None, filename=None, settings=None,
+                 prompt="", vocabularies=None, store=STORE_MOVE,
+                 kind=TRANSCRIPTION, entry_id=None):
         self.id = uuid.uuid4().hex[:12]
+        self.kind = kind
         self.source = source
-        self.filename = filename or os.path.basename(source)
+        self.filename = filename or (os.path.basename(source) if source else "")
         self.title = title or os.path.splitext(self.filename)[0]
         self.settings = settings or {}
         self.prompt = prompt
@@ -86,7 +100,9 @@ class Job:
         #: Set by :meth:`JobQueue.cancel`; read by the progress callback.
         self.cancel_requested = False
         self.error = None
-        self.entry_id = None
+        #: The library entry this job produced — or, for a summary, the one it
+        #: was asked to summarise, which is known before it starts.
+        self.entry_id = entry_id
         self.words = None
         self.created_at = now()
         self.started_at = None
@@ -97,6 +113,7 @@ class Job:
     def as_dict(self):
         return {
             "id": self.id,
+            "kind": self.kind,
             "title": self.title,
             "filename": self.filename,
             "status": self.status,
@@ -121,10 +138,11 @@ class Job:
 class JobQueue:
     """Accepts jobs, runs them one at a time, remembers what happened."""
 
-    def __init__(self, settings, library=None, runner=None):
+    def __init__(self, settings, library=None, runner=None, summariser=None):
         self.settings = dict(settings or {})
         self.library = library or Library(self.settings.get("library_dir"))
         self._runner = runner or self._transcribe
+        self._summariser = summariser or self._summarize
         self._pending = queue.Queue()
         self._jobs = {}
         self._order = []
@@ -173,6 +191,35 @@ class JobQueue:
         prompt = build_prompt(settings, names, custom_vocabulary)
         job = Job(source, title=title, filename=filename, settings=settings,
                   prompt=prompt, vocabularies=names, store=store)
+        if not start:
+            job.status = HELD
+        with self._lock:
+            self._jobs[job.id] = job
+            self._order.append(job.id)
+            self._forget_old()
+        if start:
+            self._pending.put(job.id)
+            self._ensure_worker()
+        return job
+
+    def summarize(self, entry_id, overrides=None, start=True):
+        """Queue the summary of a library entry and return its :class:`Job`.
+
+        It joins the same queue the transcriptions are in, behind whatever is
+        already there. On the machine this was written for that is not a
+        limitation but the reason the queue exists: a model reading an hour of
+        transcript and a model transcribing an hour of audio are the same two
+        cores, and asking for both at once serves neither.
+
+        The entry has to exist now rather than when the job runs, so that a
+        typo comes back as an error to the person who made it instead of as a
+        failed job ten minutes later."""
+        entry = self.library.get(entry_id)
+        settings = dict(self.settings)
+        settings.update({k: v for k, v in (overrides or {}).items() if v is not None})
+        job = Job(kind=SUMMARY, entry_id=entry.id, settings=settings,
+                  title=entry.metadata.get("title") or entry.id,
+                  filename=entry.id)
         if not start:
             job.status = HELD
         with self._lock:
@@ -310,7 +357,7 @@ class JobQueue:
         job.started_at = now()
         outcome, error = DONE, None
         try:
-            self._runner(job)
+            (self._summariser if job.kind == SUMMARY else self._runner)(job)
             job.progress = 100
         except Cancelled:
             # Asked for, so not a failure. The source file is deliberately
@@ -334,6 +381,8 @@ class JobQueue:
         Only inside the upload directory: a job submitted with a path of its
         own owns that file, and a two-gigabyte upload nobody can use should not
         sit on the disk until the next reboot."""
+        if not job.source:
+            return
         source = os.path.abspath(job.source)
         if not source.startswith(os.path.abspath(self.upload_dir()) + os.sep):
             return
@@ -355,6 +404,31 @@ class JobQueue:
         job.elapsed = round(result.elapsed, 1)
         job.audio_duration = round(result.audio_duration, 1)
 
+
+    def _summarize(self, job):
+        """Summarise an entry that is already in the library, in place.
+
+        The summary is written into the entry rather than handed back: a job
+        finishes and the page it belongs to shows the result, exactly as a
+        transcription does. Losing the queue on a restart therefore loses
+        nothing that mattered."""
+        from . import summary as summarising
+
+        entry = self.library.get(job.entry_id)
+        material = summarising.material_from_entry(entry)
+        result = summarising.summarize(
+            material, job.settings,
+            progress=lambda percent, stage=None: self._advance(job, percent, stage))
+        entry.write_summary(result.text)
+        entry.update(summary={
+            "engine": result.engine,
+            "length": job.settings.get("summary_length") or summarising.DEFAULT_LENGTH,
+            "sentences_kept": result.kept,
+            "sentences_total": result.of,
+            "created_at": now(),
+        })
+        job.words = len(result.text.split())
+        job.elapsed = round(result.elapsed, 1)
 
     @staticmethod
     def _advance(job, percent, stage=None):

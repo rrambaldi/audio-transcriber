@@ -545,3 +545,75 @@ def test_uploads_follow_the_configured_cache_directory(tmp_path):
     queue = jobs_module.JobQueue(dict(SETTINGS, cache_dir=str(elsewhere)))
     assert queue.upload_dir() == str(elsewhere / "uploads")
     assert os.path.isdir(queue.upload_dir())
+
+
+# --- summaries ------------------------------------------------------------
+
+SUMMARY_SEGMENTS = [
+    {"start": 0.0, "end": 8.0, "text": "Parliamo del budget del progetto ISO."},
+    {"start": 8.0, "end": 16.0, "text": "Il budget del progetto ISO va deciso."},
+    {"start": 16.0, "end": 24.0, "text": "Ha piovuto tutta la notte."},
+    {"start": 24.0, "end": 32.0, "text": "La decisione sul budget spetta al comitato."},
+]
+
+
+@pytest.fixture
+def filed(queue):
+    entry = queue.library.create(title="Riunione ISO")
+    entry.write_transcript(" ".join(s["text"] for s in SUMMARY_SEGMENTS),
+                           SUMMARY_SEGMENTS)
+    entry.update(transcription={"language": "it"}, audio={"duration_seconds": 32})
+    return entry
+
+
+def test_the_page_is_told_which_engines_this_machine_has(client):
+    data = client.get("/api/summary/engines").json()
+    assert "extractive" in data["engines"]
+    assert data["auto"] in data["engines"]
+    assert "medium" in data["lengths"]
+
+
+def test_asking_for_a_summary_gives_back_a_job_to_watch(client, queue, filed):
+    response = client.post(f"/api/library/{filed.id}/summary",
+                           json={"engine": "extractive", "length": "short"})
+    assert response.status_code == 202
+    job = response.json()
+    assert job["kind"] == "summary"
+    assert job["entry_id"] == filed.id
+
+    wait_for(queue, job["id"])
+    assert queue.library.get(filed.id).has_summary()
+
+
+def test_the_entry_carries_its_summary(client, queue, filed):
+    assert client.get(f"/api/library/{filed.id}").json()["summary"] == ""
+    wait_for(queue, client.post(f"/api/library/{filed.id}/summary",
+                                json={}).json()["id"])
+    assert "budget" in client.get(f"/api/library/{filed.id}").json()["summary"].lower()
+
+
+def test_a_summary_can_be_downloaded_and_thrown_away(client, queue, filed):
+    assert client.get(f"/api/library/{filed.id}/summary.md").status_code == 404
+    wait_for(queue, client.post(f"/api/library/{filed.id}/summary",
+                                json={}).json()["id"])
+
+    downloaded = client.get(f"/api/library/{filed.id}/summary.md")
+    assert downloaded.status_code == 200
+    assert filed.id in downloaded.headers["content-disposition"]
+
+    assert client.delete(f"/api/library/{filed.id}/summary").status_code == 200
+    assert not queue.library.get(filed.id).has_summary()
+    # The transcript is untouched, so another one can always be asked for.
+    assert queue.library.get(filed.id).read_transcript()
+
+
+def test_an_engine_or_a_length_that_does_not_exist_is_refused(client, filed):
+    assert client.post(f"/api/library/{filed.id}/summary",
+                       json={"engine": "gpt-9"}).status_code == 400
+    assert client.post(f"/api/library/{filed.id}/summary",
+                       json={"length": "enormous"}).status_code == 400
+
+
+def test_summarising_an_entry_that_is_not_there_is_a_404(client):
+    assert client.post("/api/library/2026-01-01_0000_nothing/summary",
+                       json={}).status_code == 404

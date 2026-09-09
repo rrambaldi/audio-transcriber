@@ -17,6 +17,7 @@ from PySide6.QtCore import Qt, QTimer, QUrl, Signal
 from PySide6.QtGui import QDesktopServices
 from PySide6.QtWidgets import (
     QAbstractItemView,
+    QComboBox,
     QFileDialog,
     QFormLayout,
     QHBoxLayout,
@@ -39,12 +40,18 @@ from PySide6.QtWidgets import (
 
 from ..formatting import format_clock
 from ..i18n import t
+from ..jobs import DONE, FAILED, FINISHED
 from ..library import MAX_NOTES, LibraryError
+from ..summary import SummaryError
 from . import multimedia, options
 
 #: Typing in the search box is not a query per keystroke: searching reads every
 #: transcript in the library, so it waits until the typing stops.
 SEARCH_DELAY_MS = 350
+
+#: How often a queued summary is asked whether it is finished. It may be
+#: behind an hour of transcription, so this is a heartbeat, not a wait.
+SUMMARY_POLL_MS = 1000
 
 
 class LibraryPanel(QWidget):
@@ -52,14 +59,20 @@ class LibraryPanel(QWidget):
 
     message = Signal(str)
 
-    def __init__(self, library, settings=None, parent=None):
+    def __init__(self, library, settings=None, parent=None, queue=None):
         super().__init__(parent)
         self.library = library
         self.settings = dict(settings or {})
+        #: The window's queue, when there is one. A summary goes into it
+        #: rather than running here: it is minutes of the same cores a
+        #: transcription needs, and the window must not do both at once — nor
+        #: freeze while one of them happens.
+        self.queue = queue
         self.entry = None
         self._rows = []
         self._notes_dirty = False
         self._audio_path = None
+        self._summary_job = None
 
         self._build_table()
         self._build_reader()
@@ -69,6 +82,11 @@ class LibraryPanel(QWidget):
         self.search_timer = QTimer(self)
         self.search_timer.setSingleShot(True)
         self.search_timer.timeout.connect(self.reload)
+        #: A queued summary is watched rather than waited for: the queue runs
+        #: it on its own thread and this only asks, now and then, whether it
+        #: is done.
+        self.summary_timer = QTimer(self)
+        self.summary_timer.timeout.connect(self._check_summary)
         self.reload()
 
     # --- construction -----------------------------------------------------
@@ -120,8 +138,41 @@ class LibraryPanel(QWidget):
         self.details = QWidget()
         self.details_form = QFormLayout(self.details)
 
+        self.summary = QPlainTextEdit()
+        self.summary.setReadOnly(True)
+        self.summary_note = QLabel("")
+        self.summary_note.setWordWrap(True)
+        self.summary_engine = QComboBox()
+        self.summary_length = QComboBox()
+        self.summarise = QPushButton(t("gui.summary_run"))
+        self.summarise.clicked.connect(self.summarise_entry)
+        summary_page = QWidget()
+        summary_layout = QVBoxLayout(summary_page)
+        summary_layout.addWidget(self.summary, 1)
+        summary_layout.addWidget(self.summary_note)
+        summary_row = QHBoxLayout()
+        engines = options.summary_engine_choices()
+        for name, label in engines:
+            self.summary_engine.addItem(label, name)
+        for name, label in options.summary_length_choices():
+            self.summary_length.addItem(label, name)
+        self.summary_length.setCurrentIndex(
+            max(0, self.summary_length.findData(options.summary_default_length())))
+        # One engine is not a choice, so the menu is not shown; the label on
+        # the button is the whole story then.
+        self.summary_engine_label = QLabel(t("gui.summary_engine"))
+        for widget in (self.summary_engine_label, self.summary_engine):
+            widget.setVisible(len(engines) > 1)
+            summary_row.addWidget(widget)
+        summary_row.addWidget(QLabel(t("gui.summary_length")))
+        summary_row.addWidget(self.summary_length)
+        summary_row.addStretch(1)
+        summary_row.addWidget(self.summarise)
+        summary_layout.addLayout(summary_row)
+
         self.tabs = QTabWidget()
         self.tabs.addTab(self.transcript, t("gui.tab_transcript"))
+        self.tabs.addTab(summary_page, t("gui.tab_summary"))
         self.tabs.addTab(notes_page, t("gui.tab_notes"))
         self.tabs.addTab(self.details, t("gui.tab_details"))
 
@@ -307,12 +358,22 @@ class LibraryPanel(QWidget):
         self._notes_dirty = False
         self.save_notes.setEnabled(False)
         _fill_form(self.details_form, options.entry_details(entry))
+        self._show_summary()
         self._load_audio(entry.stored_audio())
         self._enable_actions(True)
+
+    def _show_summary(self):
+        """Fill the summary tab from the entry, caption included."""
+        text, note = options.summary_state(self.entry)
+        self.summary.setPlainText(text)
+        self.summary_note.setText(note)
+        self.summarise.setText(t("gui.summary_again" if text else "gui.summary_run"))
 
     def _clear_reader(self):
         self.title.setText("")
         self.transcript.clear()
+        self.summary.clear()
+        self.summary_note.setText("")
         self.notes.blockSignals(True)
         self.notes.clear()
         self.notes.blockSignals(False)
@@ -324,6 +385,8 @@ class LibraryPanel(QWidget):
         for button in (self.rename, self.export, self.export_subtitles_button,
                        self.open_folder, self.delete):
             button.setEnabled(enabled)
+        self.summarise.setEnabled(enabled and self.queue is not None
+                                  and self._summary_job is None)
 
     def _anchor_clicked(self, url):
         """A timestamp was clicked: jump there and start playing."""
@@ -521,6 +584,51 @@ class LibraryPanel(QWidget):
         problems = pipeline.validate(cue_list, spec)
         self.message.emit(t("gui.sub_exported", path=path, cues=len(cue_list),
                             problems=len(problems)))
+
+    def summarise_entry(self):
+        """Put a summary of the selected entry in the queue and watch for it.
+
+        Not run here: on the machine this was written for a model reading an
+        hour of transcript is minutes, and a window that does it on the thread
+        that draws it is a window that has stopped responding. It goes into
+        the same queue the transcriptions use, so the two never compete."""
+        if self.entry is None or self.queue is None or self._summary_job:
+            return
+        title = self.entry.metadata.get("title") or self.entry.id
+        overrides = {"summarizer": self.summary_engine.currentData(),
+                     "summary_length": self.summary_length.currentData()}
+        try:
+            self._summary_job = self.queue.summarize(self.entry.id, overrides)
+        except (LibraryError, SummaryError) as exc:
+            self.message.emit(t("gui.summary_failed", title=title, error=exc))
+            return
+        self.summarise.setEnabled(False)
+        self.message.emit(t("gui.summary_queued", title=title))
+        self.summary_timer.start(SUMMARY_POLL_MS)
+
+    def _check_summary(self):
+        """Has the queued summary finished? Say so, and show it."""
+        job = self._summary_job
+        if job is None:
+            self.summary_timer.stop()
+            return
+        if job.status not in FINISHED:
+            self.summary_note.setText(t(job.stage or "gui.summary_run"))
+            return
+        self.summary_timer.stop()
+        self._summary_job = None
+        self.summarise.setEnabled(self.entry is not None)
+        if job.status == DONE:
+            self.message.emit(t("gui.summary_done", title=job.title))
+            # Only if the entry on screen is still the one that was summarised:
+            # somebody who moved on should not have the pane change under them.
+            if self.entry is not None and self.entry.id == job.entry_id:
+                self.entry = self.library.get(job.entry_id)
+                self._show_summary()
+        elif job.status == FAILED:
+            self.message.emit(t("gui.summary_failed", title=job.title,
+                                error=job.error or "-"))
+            self._show_summary()
 
     def reveal_folder(self):
         """Open the entry's folder in the system's file manager."""

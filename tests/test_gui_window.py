@@ -968,3 +968,75 @@ def test_closing_offers_to_save_edited_notes(window, tmp_path, queue, monkeypatc
     assert window.close() is True
     with open(window.library.entry.notes_path, encoding="utf-8") as handle:
         assert "ship it" in handle.read()
+
+
+# --- summarising from the window ------------------------------------------
+
+def filed_entry(queue, title="Riunione ISO"):
+    """An entry with enough said in it to be worth summarising."""
+    segments = [
+        {"start": 0.0, "end": 8.0, "text": "Parliamo del budget del progetto ISO."},
+        {"start": 8.0, "end": 16.0, "text": "Il budget del progetto ISO va deciso."},
+        {"start": 16.0, "end": 24.0, "text": "Ha piovuto tutta la notte."},
+        {"start": 24.0, "end": 32.0, "text": "La decisione spetta al comitato."},
+    ]
+    entry = queue.library.create(title=title)
+    entry.write_transcript(" ".join(s["text"] for s in segments), segments)
+    entry.update(transcription={"language": "it"}, audio={"duration_seconds": 32})
+    return entry
+
+
+def test_the_library_pane_has_a_summary_tab(window, queue):
+    entry = filed_entry(queue)
+    window.library.reload()
+    assert window.library.show_entry(entry.id)
+
+    tabs = [window.library.tabs.tabText(i) for i in range(window.library.tabs.count())]
+    assert i18n.t("gui.tab_summary") in tabs
+    # Nothing written yet, and the pane says that rather than sitting empty.
+    assert window.library.summary.toPlainText() == ""
+    assert "No summary yet" in window.library.summary_note.text()
+
+
+def test_summarising_goes_through_the_queue_and_comes_back_in_the_pane(window, queue):
+    """Not run on the thread that draws the window: a model reading an hour of
+    transcript would stop the window responding for minutes."""
+    entry = filed_entry(queue)
+    window.library.reload()
+    window.library.show_entry(entry.id)
+    window.library.summarise.click()
+
+    assert wait_for(lambda: bool(window.library.summary.toPlainText()))
+    assert "budget" in window.library.summary.toPlainText().lower()
+    assert "extractive" in window.library.summary_note.text()
+    # The button offers the obvious next thing rather than the same word twice.
+    assert window.library.summarise.text() == i18n.t("gui.summary_again")
+    assert queue.library.get(entry.id).has_summary()
+
+
+def test_a_summary_that_fails_says_so_and_frees_the_button(window, queue):
+    entry = filed_entry(queue)
+    entry.write_transcript("", [])
+    window.library.reload()
+    window.library.show_entry(entry.id)
+    window.library.summarise.click()
+
+    assert wait_for(lambda: window.library.summarise.isEnabled()
+                    and window.library._summary_job is None)
+    assert not queue.library.get(entry.id).has_summary()
+
+
+def test_the_pane_does_not_change_under_somebody_who_moved_on(window, queue):
+    """A summary that finishes while another entry is being read belongs to
+    the entry it was asked for, not to the one on screen."""
+    first = filed_entry(queue, title="Prima riunione")
+    second = filed_entry(queue, title="Seconda riunione")
+    window.library.reload()
+    window.library.show_entry(first.id)
+    window.library.summarise.click()
+    window.library.show_entry(second.id)
+
+    assert wait_for(lambda: queue.library.get(first.id).has_summary())
+    QApplication.processEvents()
+    assert window.library.entry.id == second.id
+    assert window.library.summary.toPlainText() == ""

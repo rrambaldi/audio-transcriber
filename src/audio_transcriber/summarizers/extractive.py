@@ -14,6 +14,7 @@ reading it.
 """
 from ..summary import (
     HEADINGS,
+    STAGE_SELECTING,
     Point,
     Sections,
     how_many,
@@ -47,7 +48,7 @@ def label(settings=None):
     return LABEL
 
 
-def summarize(material, settings=None):
+def summarize(material, settings=None, progress=None):
     """Choose the sentences that carry the transcript.
 
     Returns the sections and the caveat to print under the title: an
@@ -73,6 +74,10 @@ def summarize(material, settings=None):
                     sentences[index].text)
               for index in chosen if index not in opening]
 
+    if progress:
+        # There is no honest intermediate figure to report: the ranking is one
+        # matrix multiplication and it is already over.
+        progress(90, STAGE_SELECTING)
     words = HEADINGS.get(language, HEADINGS["en"])
     return (Sections(abstract=abstract, points=points,
                      keywords=keywords(sentences, language, KEYWORDS)),

@@ -178,6 +178,14 @@ Point.__new__.__defaults__ = (None, None, "")
 #: One finished summary, ready to be written to ``summary.md``.
 Summary = namedtuple("Summary", "text sections engine language elapsed kept of")
 
+#: The stages a summary goes through, as message keys. Selection is instant,
+#: so it exists only to say the run has begun; the model reading a long
+#: transcript is minutes, and a bar that stands still for all of it looks
+#: broken.
+STAGE_SELECTING = "stage.summary_selecting"
+STAGE_READING = "stage.summary_reading"
+STAGE_WRITING = "stage.summary_writing"
+
 
 class SummaryError(Exception):
     """Any reason a summary could not be produced."""
@@ -456,12 +464,16 @@ def material_from_text(text, title="", language="", duration=None):
                     language=language, duration=duration)
 
 
-def summarize(material, settings=None):
+def summarize(material, settings=None, progress=None):
     """Summarise ``material`` with whichever engine the settings ask for.
 
     The engine does the writing; everything around it — choosing one, timing
     the run, laying out the page — happens here, so every engine produces the
-    same document."""
+    same document.
+
+    ``progress(percent, stage)`` is called as the run advances, and is how the
+    queue reports a summary that takes minutes. It is also where a cancelled
+    job stops: the callback the interfaces pass raises."""
     from .summarizers import load, resolve_summarizer
 
     settings = settings or {}
@@ -471,7 +483,9 @@ def summarize(material, settings=None):
     name = resolve_summarizer(settings.get("summarizer"))
     engine = load(name)
     started = time.time()
-    sections, note = engine.summarize(material, settings)
+    if progress:
+        progress(2, STAGE_SELECTING)
+    sections, note = engine.summarize(material, settings, progress=progress)
     text = render(material, sections, engine.label(settings), note=note)
     kept = len(sections.points) + len(sections.decisions) + len(sections.actions)
     return Summary(text=text, sections=sections, engine=name,

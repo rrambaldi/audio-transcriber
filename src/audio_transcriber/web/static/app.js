@@ -126,6 +126,26 @@ const I18N = {
     transcript: "Transcript",
     segments: "Timestamps",
     notes: "Notes",
+    summary: "Summary",
+    summary_none: "No summary yet. The transcript is summarised on this machine \u2014 nothing is sent anywhere.",
+    summary_engine: "Written by",
+    summary_length: "How much to keep",
+    summary_short: "short",
+    summary_medium: "medium",
+    summary_long: "long",
+    summary_run: "Summarise",
+    summary_again: "Summarise again",
+    summary_delete: "delete the summary",
+    download_summary: "summary (.md)",
+    summary_queued: "In the queue, behind whatever is already running.",
+    summary_running: "Being written\u2026 {stage}",
+    summary_failed: "Could not summarise: {error}",
+    summary_engine_extractive: "no model: the sentences that carry the transcript",
+    summary_engine_openvino: "a local model, on this machine's Intel device",
+    confirm_delete_summary: "Delete this summary?",
+    confirm_delete_summary_body: "The summary of \"{title}\" is deleted.",
+    confirm_delete_summary_detail: "The transcript is untouched, so you can ask for another one.",
+    confirm_delete_summary_ok: "Delete the summary",
     no_segments: "This entry has no timestamps.",
     notes_placeholder: "What was decided, what to do next, who owes what.",
     save_notes: "Save the notes",
@@ -136,6 +156,9 @@ const I18N = {
     has_notes: "notes",
     queued: "queued",
     running: "transcribing",
+    stage_summary_selecting: "choosing what matters",
+    stage_summary_reading: "reading the transcript",
+    stage_summary_writing: "writing the summary",
     done: "done",
     failed: "failed",
     cancelled: "cancelled",
@@ -272,6 +295,26 @@ const I18N = {
     transcript: "Trascrizione",
     segments: "Timestamp",
     notes: "Note",
+    summary: "Riassunto",
+    summary_none: "Nessun riassunto. La trascrizione viene riassunta su questa macchina: non esce niente da qui.",
+    summary_engine: "Scritto da",
+    summary_length: "Quanto tenere",
+    summary_short: "corto",
+    summary_medium: "medio",
+    summary_long: "lungo",
+    summary_run: "Riassumi",
+    summary_again: "Riassumi di nuovo",
+    summary_delete: "elimina il riassunto",
+    download_summary: "riassunto (.md)",
+    summary_queued: "In coda, dietro a quello che sta gia' girando.",
+    summary_running: "Lo sto scrivendo\u2026 {stage}",
+    summary_failed: "Non riassunto: {error}",
+    summary_engine_extractive: "nessun modello: le frasi che reggono la trascrizione",
+    summary_engine_openvino: "un modello locale, sul dispositivo Intel di questa macchina",
+    confirm_delete_summary: "Eliminare questo riassunto?",
+    confirm_delete_summary_body: "Il riassunto di \"{title}\" viene eliminato.",
+    confirm_delete_summary_detail: "La trascrizione resta intatta: puoi chiederne un altro quando vuoi.",
+    confirm_delete_summary_ok: "Elimina il riassunto",
     no_segments: "Questa voce non ha timestamp.",
     notes_placeholder: "Cosa e' stato deciso, cosa fare, chi deve cosa.",
     save_notes: "Salva le note",
@@ -282,6 +325,9 @@ const I18N = {
     has_notes: "note",
     queued: "in coda",
     running: "in corso",
+    stage_summary_selecting: "scelta di cosa conta",
+    stage_summary_reading: "lettura della trascrizione",
+    stage_summary_writing: "scrittura del riassunto",
     done: "completata",
     failed: "fallita",
     cancelled: "annullata",
@@ -997,21 +1043,71 @@ async function refreshLibrary() {
 
 /* --- one entry --------------------------------------------------------- */
 
+/* Whether the entry on screen already has a summary. The footer buttons are
+   shared between the tabs, so this is what tells "delete the summary" and the
+   download link whether they have anything to act on. */
+let summaryPresent = false;
+let summaryWatch = null;
+
+async function loadSummaryEngines() {
+  /* Which engines this machine can actually run. A server with no accelerator
+     has only the extractive one, and offering a menu of one would be
+     furniture -- so the row is hidden rather than shown half-empty. */
+  let engines = [];
+  let auto = null;
+  try {
+    ({ engines, auto } = await fetch(api("summary/engines")).then((r) => r.json()));
+  } catch {
+    engines = [];
+  }
+  const select = $("summary-engine");
+  select.textContent = "";
+  for (const name of engines) {
+    const described = I18N[lang][`summary_engine_${name}`];
+    select.append(el("option", {
+      value: name,
+      textContent: described ? `${name} \u2014 ${described}` : name,
+    }));
+  }
+  select.value = auto || (engines[0] || "");
+  $("summary-engine").closest(".field").hidden = engines.length < 2;
+}
+
+function showSummary(entry) {
+  summaryPresent = Boolean((entry.summary || "").trim());
+  /* The summary is markdown, and markdown is readable as it stands: rendering
+     it would mean shipping a parser to show four headings and a list. */
+  $("summary-text").textContent = entry.summary || "";
+  $("summary-text").hidden = !summaryPresent;
+  $("summary-empty").hidden = summaryPresent;
+  $("summary-status").textContent = "";
+  $("summary-run").textContent = t(summaryPresent ? "summary_again" : "summary_run");
+  $("viewer-download-summary").href =
+    api(`library/${encodeURIComponent(entry.id)}/summary.md`);
+}
+
 function showViewerTab(which) {
   for (const [name, tab, pane] of [
     ["transcript", "tab-transcript", "viewer-text"],
     ["segments", "tab-segments", "viewer-segments"],
+    ["summary", "tab-summary", "viewer-summary"],
     ["notes", "tab-notes", "viewer-notes"],
   ]) {
     $(tab).classList.toggle("on", name === which);
     $(tab).setAttribute("aria-selected", String(name === which));
     $(pane).hidden = name !== which;
   }
+  /* Each tab owns its own buttons in the shared footer, so the row never
+     offers an action that belongs to a panel nobody is looking at. */
   $("notes-save").hidden = which !== "notes";
+  $("summary-run").hidden = which !== "summary";
+  $("summary-delete").hidden = which !== "summary" || !summaryPresent;
+  $("viewer-download-summary").hidden = which !== "summary" || !summaryPresent;
 }
 
 $("tab-transcript").addEventListener("click", () => showViewerTab("transcript"));
 $("tab-segments").addEventListener("click", () => showViewerTab("segments"));
+$("tab-summary").addEventListener("click", () => showViewerTab("summary"));
 $("tab-notes").addEventListener("click", () => showViewerTab("notes"));
 
 function renderSegments(segments) {
@@ -1053,6 +1149,7 @@ async function openEntry(id) {
   renderSegments(entry.segments || []);
   $("notes-text").value = entry.notes || "";
   $("notes-status").textContent = "";
+  showSummary(entry);
   const player = $("viewer-audio");
   player.hidden = !entry.has_audio;
   player.src = entry.has_audio ? api(`library/${encodeURIComponent(entry.id)}/audio`) : "";
@@ -1077,8 +1174,80 @@ function closeViewer() {
   const player = $("viewer-audio");
   player.pause();
   player.removeAttribute("src");
+  clearInterval(summaryWatch);
+  summaryWatch = null;
+  $("summary-run").disabled = false;
   $("viewer").close();
 }
+
+async function reloadOpenEntry() {
+  const entry = await fetch(api(`library/${encodeURIComponent(openEntryId)}`))
+    .then((r) => r.json());
+  showSummary(entry);
+  showViewerTab("summary");
+}
+
+function watchSummaryJob(jobId) {
+  /* The summary shares the queue with the transcriptions, so it may sit behind
+     an hour of audio: the panel says where it is rather than spinning. The
+     watch is dropped when the viewer closes -- nobody is reading it then. */
+  clearInterval(summaryWatch);
+  summaryWatch = setInterval(async () => {
+    let job;
+    try {
+      job = await fetch(api(`jobs/${jobId}`)).then((r) => r.json());
+    } catch {
+      return;
+    }
+    if (job.status === "queued") {
+      $("summary-status").textContent = t("summary_queued");
+    } else if (job.status === "running") {
+      $("summary-status").textContent = t("summary_running",
+                                          { stage: stageLabel(job.stage) });
+    } else {
+      clearInterval(summaryWatch);
+      summaryWatch = null;
+      $("summary-run").disabled = false;
+      if (job.status === "done") reloadOpenEntry();
+      else $("summary-status").textContent = t("summary_failed",
+                                                { error: job.error || job.status });
+    }
+  }, POLL_MS);
+}
+
+$("summary-run").addEventListener("click", async () => {
+  $("summary-run").disabled = true;
+  $("summary-status").textContent = t("summary_queued");
+  const response = await fetch(api(`library/${encodeURIComponent(openEntryId)}/summary`), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ engine: $("summary-engine").value || "",
+                           length: $("summary-length").value || "" }),
+  });
+  if (!response.ok) {
+    const problem = await response.json().catch(() => ({}));
+    $("summary-status").textContent = t("summary_failed",
+                                        { error: problem.detail || response.status });
+    $("summary-run").disabled = false;
+    return;
+  }
+  const job = await response.json();
+  refreshJobs();
+  watchSummaryJob(job.id);
+});
+
+$("summary-delete").addEventListener("click", async () => {
+  const sure = await ask({
+    title: t("confirm_delete_summary"),
+    body: t("confirm_delete_summary_body", { title: $("viewer-title").textContent }),
+    detail: t("confirm_delete_summary_detail"),
+    confirmLabel: t("confirm_delete_summary_ok"),
+  });
+  if (!sure) return;
+  await fetch(api(`library/${encodeURIComponent(openEntryId)}/summary`),
+              { method: "DELETE" });
+  reloadOpenEntry();
+});
 
 $("viewer-close").addEventListener("click", closeViewer);
 $("viewer").addEventListener("close", () => $("viewer-audio").pause());
@@ -1261,6 +1430,7 @@ async function start() {
   renderInstalled();
   renderMine();
   updatePromptSize();
+  await loadSummaryEngines();
   refreshJobs();
   refreshLibrary();
 }

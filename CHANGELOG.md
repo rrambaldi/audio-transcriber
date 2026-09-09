@@ -8,6 +8,28 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- **Summaries from the browser and the window**, not just the command line. A
+  *Summary* tab sits beside the transcript and the notes in both, with the
+  button that writes one under it and — where this machine has more than one
+  engine — a menu saying which will. What comes back says who wrote it and
+  when, because a page that does not say is one somebody will quote in a
+  meeting without knowing whether a model or a sentence-picker produced it.
+
+  A summary goes into **the same queue as the transcriptions**, which is the
+  decision worth recording: a model reading an hour of transcript is minutes
+  of the same two cores a transcription needs, so running both at once would
+  make each slower without finishing either sooner. `JobQueue` therefore
+  carries two kinds of job rather than gaining a second queue — one worker,
+  one thing at a time — and a summary asked for mid-transcription waits its
+  turn where everything else is visible. The window watches its job instead of
+  doing the work on the thread that draws it, and a summary that lands while
+  somebody has moved on to another entry does not change the pane under them.
+
+  New endpoints: `POST`/`DELETE /api/library/{id}/summary`,
+  `GET /api/library/{id}/summary.md`, `GET /api/summary/engines`, and the
+  entry payload now carries its summary. `summary.summarize()` takes a
+  `progress` callback, so a long map/reduce reports which pass it is on rather
+  than standing still.
 - **Summaries written by a local model**, behind the new `[summarize-ov]`
   extra: the `openvino` engine runs a language model on an Intel device
   through OpenVINO GenAI, and the page stops being a list of quoted sentences

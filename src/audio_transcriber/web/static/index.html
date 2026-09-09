@@ -237,12 +237,33 @@
             aria-selected="true" aria-controls="viewer-text" data-t="transcript"></button>
     <button type="button" class="tab" id="tab-segments" role="tab"
             aria-selected="false" aria-controls="viewer-segments" data-t="segments"></button>
+    <button type="button" class="tab" id="tab-summary" role="tab"
+            aria-selected="false" aria-controls="viewer-summary" data-t="summary"></button>
     <button type="button" class="tab" id="tab-notes" role="tab"
             aria-selected="false" aria-controls="viewer-notes" data-t="notes"></button>
   </div>
 
   <div id="viewer-text" role="tabpanel" aria-labelledby="tab-transcript" class="prose"></div>
   <div id="viewer-segments" role="tabpanel" aria-labelledby="tab-segments" class="segments" hidden></div>
+  <div id="viewer-summary" role="tabpanel" aria-labelledby="tab-summary" hidden>
+    <div id="summary-text" class="prose"></div>
+    <p class="note" id="summary-empty" data-t="summary_none" hidden></p>
+    <div class="row" id="summary-controls">
+      <div class="field">
+        <label for="summary-engine" data-t="summary_engine"></label>
+        <select id="summary-engine"></select>
+      </div>
+      <div class="field">
+        <label for="summary-length" data-t="summary_length"></label>
+        <select id="summary-length">
+          <option value="short" data-t="summary_short"></option>
+          <option value="medium" selected data-t="summary_medium"></option>
+          <option value="long" data-t="summary_long"></option>
+        </select>
+      </div>
+    </div>
+    <p class="note" id="summary-status" aria-live="polite"></p>
+  </div>
   <div id="viewer-notes" role="tabpanel" aria-labelledby="tab-notes" hidden>
     <div class="field">
       <label for="notes-text" data-t="notes_label"></label>
@@ -259,6 +280,11 @@
     <a id="viewer-download-json" class="button" download data-t="download_json"></a>
     <a id="viewer-download-srt" class="button" download data-t="download_srt"></a>
     <a id="viewer-download-vtt" class="button" download data-t="download_vtt"></a>
+    <a id="viewer-download-summary" class="button" download data-t="download_summary"></a>
+    <button type="button" class="button danger" id="summary-delete" hidden
+            data-t="summary_delete"></button>
+    <button type="button" class="button send" id="summary-run" hidden
+            data-t="summary_run"></button>
     <button type="button" class="button send" id="notes-save" hidden data-t="save_notes"></button>
     <button type="button" class="button" id="viewer-close" data-t="close"></button>
   </menu>
