@@ -17,7 +17,16 @@ from .. import recording, vocabularies
 from ..backends import BACKENDS
 from ..formatting import format_bytes, format_clock, format_duration
 from ..i18n import t
-from ..jobs import CANCELLED, DONE, FAILED, FINISHED, QUEUED, RUNNING
+from ..jobs import (
+    CANCELLED,
+    DONE,
+    FAILED,
+    FINISHED,
+    HELD,
+    NOT_STARTED,
+    QUEUED,
+    RUNNING,
+)
 from ..library import LibraryError
 from ..transcription import AUTO, LANGUAGE_CHOICES, MODEL_CHOICES, recommend_model
 from ..vocabularies import MAX_CUSTOM_VOCABULARY
@@ -145,9 +154,9 @@ def job_headers():
 
 
 #: Human wording for each job state.
-_STATUS_KEYS = {QUEUED: "gui.status_queued", RUNNING: "gui.status_running",
-                DONE: "gui.status_done", FAILED: "gui.status_failed",
-                CANCELLED: "gui.status_cancelled"}
+_STATUS_KEYS = {HELD: "gui.status_held", QUEUED: "gui.status_queued",
+                RUNNING: "gui.status_running", DONE: "gui.status_done",
+                FAILED: "gui.status_failed", CANCELLED: "gui.status_cancelled"}
 
 
 def status_text(job):
@@ -171,7 +180,8 @@ def job_row(job):
         "entry_id": job.entry_id,
         "finished": job.status in FINISHED,
         "failed": job.status == FAILED,
-        "queued": job.status == QUEUED,
+        "held": job.status == HELD,
+        "cancellable": job.status in NOT_STARTED,
         "running": job.status == RUNNING,
         "tooltip": job.error or job.filename,
     }
@@ -181,8 +191,14 @@ def queue_summary(jobs):
     """One line under the table: what the queue is doing right now."""
     if not jobs:
         return t("gui.queue_empty")
+    held = sum(1 for job in jobs if job.status == HELD)
     running = sum(1 for job in jobs if job.status == RUNNING)
     waiting = sum(1 for job in jobs if job.status == QUEUED)
+    if held:
+        # What needs doing wins over what is happening: the table already
+        # shows the running job and its bar, and this line is the only place
+        # that can say the queue is waiting for a button.
+        return t("gui.queue_held", count=held)
     if running or waiting:
         return t("gui.queue_busy", running=running, waiting=waiting)
     failed = sum(1 for job in jobs if job.status == FAILED)

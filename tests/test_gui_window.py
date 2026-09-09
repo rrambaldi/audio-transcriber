@@ -450,16 +450,27 @@ def test_without_the_audio_libraries_the_window_still_records_through_qt(tmp_pat
 
 # --- transcribing ---------------------------------------------------------
 
-def test_a_file_added_is_queued_straight_away(window, tmp_path, queue):
-    """The complaint that led here: adding a file put it in a list of its own
-    and nothing said how to begin. Adding is beginning."""
+def test_a_file_added_waits_in_the_queue_until_transcribe_is_pressed(
+        window, tmp_path, queue):
+    """Two complaints, one flow. A file used to sit in a list of its own with
+    no way to begin; then adding it started it immediately, which left no room
+    to change the model afterwards. It goes into the queue, and the queue runs
+    when told."""
     window.transcribe.add_files([sample(tmp_path)])
     assert len(queue.jobs()) == 1
+    assert queue.jobs()[0].status == "held"
+    window.transcribe.refresh()
+    assert window.transcribe.table.item(0, 1).text() == "not started"
+    assert window.transcribe.start.isEnabled() is True
+    assert "Transcribe" in window.transcribe.summary.text()
+
+    window.transcribe.start_queue()
     assert wait_for(lambda: queue.jobs()[0].status == "done")
     window.transcribe.refresh()
     assert window.transcribe.table.item(0, 0).text() == "meeting"
     assert window.transcribe.table.item(0, 1).text() == "done"
     assert window.transcribe.table.cellWidget(0, 2).value() == 100
+    assert window.transcribe.start.isEnabled() is False    # nothing left to start
 
 
 def test_a_drop_on_the_tab_queues_the_files(window, tmp_path, queue):
@@ -484,23 +495,25 @@ def test_the_queue_is_a_box_with_a_name_on_it(window):
     assert "Transcription queue" in titles
 
 
-def test_a_waiting_job_can_be_taken_out_of_the_queue(window, tmp_path, queue):
-    """Only the waiting one: the buttons offer what applies to the selection
-    and nothing else."""
+def test_a_job_that_has_not_started_can_be_taken_back_out(window, tmp_path, queue):
+    """It leaves no row behind: nothing happened to it. And the buttons offer
+    what applies to the selected job and nothing else."""
     blocked = threading.Event()
     queue._runner = lambda job: blocked.wait(5)
     window.transcribe.add_files([sample(tmp_path, "first.wav")])
+    window.transcribe.start_queue()
+    assert wait_for(lambda: queue.jobs()[0].status == "running")
     window.transcribe.add_files([sample(tmp_path, "second.wav")])
-    assert wait_for(lambda: queue.jobs()[-1].status == "running")
     window.transcribe.refresh()
 
-    window.transcribe.table.selectRow(0)          # newest first: the waiting one
+    window.transcribe.table.selectRow(0)          # newest first: the held one
     assert window.transcribe.cancel_job.isEnabled() is True
     assert window.transcribe.stop_job.isEnabled() is False
     window.transcribe.cancel_selected()
-    assert queue.jobs()[0].status == "cancelled"
+    assert len(queue.jobs()) == 1                 # the row is gone entirely
 
-    window.transcribe.table.selectRow(1)          # the one that is running
+    window.transcribe.refresh()
+    window.transcribe.table.selectRow(0)          # the one that is running
     assert window.transcribe.cancel_job.isEnabled() is False
     assert window.transcribe.stop_job.isEnabled() is True
     blocked.set()
@@ -511,6 +524,7 @@ def test_stopping_a_running_transcription_asks_first(window, tmp_path, queue, mo
     blocked = threading.Event()
     queue._runner = lambda job: blocked.wait(5)
     window.transcribe.add_files([sample(tmp_path)])
+    window.transcribe.start_queue()
     assert wait_for(lambda: queue.jobs()[0].status == "running")
     window.transcribe.refresh()
     window.transcribe.table.selectRow(0)
@@ -529,7 +543,9 @@ def test_stopping_a_running_transcription_asks_first(window, tmp_path, queue, mo
 
 def test_the_finished_jobs_can_be_cleared_in_one_go(window, tmp_path, queue):
     window.transcribe.add_files([sample(tmp_path, "a.wav")])
+    window.transcribe.start_queue()
     window.transcribe.add_files([sample(tmp_path, "b.wav")])
+    window.transcribe.start_queue()
     assert wait_for(lambda: all(job.status == "done" for job in queue.jobs())
                     and len(queue.jobs()) == 2)
     window.transcribe.refresh()
@@ -544,6 +560,7 @@ def test_a_local_file_is_copied_into_the_library_not_moved(window, tmp_path, que
     decision to make."""
     source = sample(tmp_path)
     window.transcribe.add_files([source])
+    window.transcribe.start_queue()
     assert wait_for(lambda: queue.jobs()[0].status == "done")
     assert os.path.exists(source)
 
@@ -569,6 +586,7 @@ def test_an_oversized_vocabulary_keeps_the_file_out_of_the_queue(window, tmp_pat
 
 def test_a_failed_job_is_shown_with_its_reason(window, tmp_path, queue):
     window.transcribe.add_files([sample(tmp_path, "boom.wav")])
+    window.transcribe.start_queue()
     assert wait_for(lambda: queue.jobs()[0].status == "failed")
     window.transcribe.refresh()
     assert window.transcribe.table.item(0, 1).text().startswith("failed: the model exploded")
@@ -579,6 +597,7 @@ def test_forgetting_one_job_keeps_the_right_row_selected(window, tmp_path, queue
     with it: the selection has to follow the job, not its old position."""
     window.transcribe.add_files([sample(tmp_path, "first.wav"),
                                  sample(tmp_path, "second.wav")])
+    window.transcribe.start_queue()
     assert wait_for(lambda: len(queue.jobs()) == 2
                     and all(job.status == "done" for job in queue.jobs()))
     window.transcribe.refresh()
@@ -595,6 +614,7 @@ def test_the_chosen_options_are_remembered_for_next_time(window, tmp_path, queue
     window.transcribe.model.setCurrentIndex(window.transcribe.model.findData("base"))
     window.transcribe.custom.setPlainText("alpha, beta")
     window.transcribe.add_files([sample(tmp_path)])
+    window.transcribe.start_queue()
     assert queue.jobs()[0].settings["model"] == "base"
     assert queue.jobs()[0].prompt == "alpha, beta"
 
@@ -611,6 +631,7 @@ def test_the_chosen_options_are_remembered_for_next_time(window, tmp_path, queue
 
 def test_a_finished_job_opens_in_the_library(window, tmp_path, queue):
     window.transcribe.add_files([sample(tmp_path)])
+    window.transcribe.start_queue()
     assert wait_for(lambda: queue.jobs()[0].status == "done")
     window.transcribe.refresh()          # emits job_finished; the list reloads
 
@@ -623,6 +644,7 @@ def test_a_finished_job_opens_in_the_library(window, tmp_path, queue):
 
 def test_the_transcript_offers_a_timestamp_to_click(window, tmp_path, queue):
     window.transcribe.add_files([sample(tmp_path)])
+    window.transcribe.start_queue()
     assert wait_for(lambda: queue.jobs()[0].status == "done")
     window.library.reload()
     window.library.show_entry(queue.jobs()[0].entry_id)
@@ -632,6 +654,7 @@ def test_the_transcript_offers_a_timestamp_to_click(window, tmp_path, queue):
 
 def test_notes_are_written_into_the_entry(window, tmp_path, queue):
     window.transcribe.add_files([sample(tmp_path)])
+    window.transcribe.start_queue()
     assert wait_for(lambda: queue.jobs()[0].status == "done")
     window.library.reload()
 
@@ -649,6 +672,7 @@ def test_cancelling_the_notes_prompt_keeps_the_entry_being_written_on(
     "cancel" has to put the selection back where the note is."""
     window.transcribe.add_files([sample(tmp_path, "first.wav"),
                                  sample(tmp_path, "second.wav")])
+    window.transcribe.start_queue()
     assert wait_for(lambda: len(queue.jobs()) == 2
                     and all(job.status == "done" for job in queue.jobs()))
     window.library.reload()
@@ -666,6 +690,7 @@ def test_cancelling_the_notes_prompt_keeps_the_entry_being_written_on(
 
 def test_searching_looks_inside_the_transcripts(window, tmp_path, queue):
     window.transcribe.add_files([sample(tmp_path)])
+    window.transcribe.start_queue()
     assert wait_for(lambda: queue.jobs()[0].status == "done")
     window.library.reload()
 
@@ -680,6 +705,7 @@ def test_searching_looks_inside_the_transcripts(window, tmp_path, queue):
 
 def test_an_entry_can_be_deleted_from_the_window(window, tmp_path, queue, monkeypatch):
     window.transcribe.add_files([sample(tmp_path)])
+    window.transcribe.start_queue()
     assert wait_for(lambda: queue.jobs()[0].status == "done")
     window.library.reload()
     path = window.library.entry.path
@@ -715,6 +741,7 @@ def test_closing_offers_to_save_edited_notes(window, tmp_path, queue, monkeypatc
     """Notes are typed by hand and never regenerated, so neither discarding
     them silently nor writing them silently is acceptable."""
     window.transcribe.add_files([sample(tmp_path)])
+    window.transcribe.start_queue()
     assert wait_for(lambda: queue.jobs()[0].status == "done")
     window.library.reload()
     window.library.notes.setPlainText("Decisions: ship it.\n")

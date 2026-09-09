@@ -23,6 +23,10 @@ from . import paths, pipeline
 from .config import read_prompt
 from .library import STORE_MODES, STORE_MOVE, Library
 
+#: In the list, but deliberately not started: the desktop window fills the
+#: queue first and runs it when told to, so the options can still be changed
+#: after the files have been chosen.
+HELD = "held"
 QUEUED = "queued"
 RUNNING = "running"
 DONE = "done"
@@ -31,6 +35,9 @@ CANCELLED = "cancelled"
 
 #: Statuses that will not change again.
 FINISHED = (DONE, FAILED, CANCELLED)
+
+#: Statuses of a job that has not begun, and can therefore simply be dropped.
+NOT_STARTED = (HELD, QUEUED)
 
 #: Refuse an upload larger than this (2 GiB); a long meeting is far smaller.
 MAX_UPLOAD_BYTES = 2 * 1024 * 1024 * 1024
@@ -131,8 +138,15 @@ class JobQueue:
         return paths.ensure(os.path.join(os.path.expanduser(root), "uploads"))
 
     def submit(self, source, title=None, filename=None, overrides=None,
-               vocabularies=None, custom_vocabulary="", store=STORE_MOVE):
+               vocabularies=None, custom_vocabulary="", store=STORE_MOVE,
+               start=True):
         """Queue one file and return its :class:`Job`.
+
+        ``start=False`` puts it in the list without running it: the desktop
+        window collects the files first and starts the queue when the person
+        at it says so, which is what lets the options still be changed once
+        the files are in. The web interface uploads and starts in one motion,
+        so it takes the default.
 
         ``store`` says what becomes of the file once it is transcribed. An
         upload or a recording this program made is *moved* into the library
@@ -150,13 +164,37 @@ class JobQueue:
         prompt = build_prompt(settings, names, custom_vocabulary)
         job = Job(source, title=title, filename=filename, settings=settings,
                   prompt=prompt, vocabularies=names, store=store)
+        if not start:
+            job.status = HELD
         with self._lock:
             self._jobs[job.id] = job
             self._order.append(job.id)
             self._forget_old()
-        self._pending.put(job.id)
-        self._ensure_worker()
+        if start:
+            self._pending.put(job.id)
+            self._ensure_worker()
         return job
+
+    def start(self):
+        """Run everything that has been held back, and say how many.
+
+        The order they were added in: a queue that reshuffled itself would be
+        one more thing to explain."""
+        with self._lock:
+            held = [job_id for job_id in self._order
+                    if self._jobs[job_id].status == HELD]
+            for job_id in held:
+                self._jobs[job_id].status = QUEUED
+        for job_id in held:
+            self._pending.put(job_id)
+        if held:
+            self._ensure_worker()
+        return len(held)
+
+    def held_count(self):
+        """How many jobs are waiting to be started."""
+        with self._lock:
+            return sum(1 for job in self._jobs.values() if job.status == HELD)
 
     def get(self, job_id):
         with self._lock:
@@ -170,7 +208,7 @@ class JobQueue:
     def cancel(self, job_id):
         """Take a job out of the queue, or ask a running one to stop.
 
-        A queued job is dropped there and then. A running one can only be
+        A job that has not started is dropped there and then. A running one can only be
         asked: the engines are a blocking call, and the one place they hand
         control back is the progress callback, so the transcription stops at
         its next segment. With an engine that reports no progress at all — the
@@ -182,11 +220,14 @@ class JobQueue:
             if job is None or job.status in FINISHED:
                 return False
             job.cancel_requested = True
-            if job.status == QUEUED:
-                # It has not started: it never will, and the worker skips it
-                # when it reaches the front.
-                job.status = CANCELLED
-                job.finished_at = now()
+            if job.status in NOT_STARTED:
+                # Nothing has happened to it, so it leaves no trace: the row
+                # goes. "Cancelled" is for a transcription that really was
+                # under way, where the time spent is worth seeing. If it had
+                # already been handed to the worker, the worker skips an id it
+                # can no longer find.
+                del self._jobs[job_id]
+                self._order.remove(job_id)
             return True
 
     def pending_count(self):
@@ -196,7 +237,7 @@ class JobQueue:
         lives in the window's own process."""
         with self._lock:
             return sum(1 for job in self._jobs.values()
-                       if job.status in (QUEUED, RUNNING))
+                       if job.status in (HELD, QUEUED, RUNNING))
 
     def remove(self, job_id):
         """Forget a finished job. A queued or running one is left alone -
@@ -241,7 +282,7 @@ class JobQueue:
                 # said so already; this keeps the promise even when the flag
                 # arrived another way, instead of leaving a job that will
                 # never run sitting there as "queued".
-                if job.status == QUEUED:
+                if job.status in NOT_STARTED:
                     job.status = CANCELLED
                     job.finished_at = now()
                 continue

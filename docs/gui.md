@@ -16,28 +16,30 @@ the moment it came from — without a browser, a server or a port.
 Three tabs.
 
 **Transcribe.** Drop recordings anywhere on the tab (or *Add files…*), or press
-*Record* and speak. Choose the model — `auto` is labelled with what it resolves
+*Record* and speak; both land in the queue below. Choose the model — `auto` is labelled with what it resolves
 to on this machine — the spoken language, the engine, "who said what" (greyed
 out, with the reason, when this machine cannot do it), and the keyword sets:
 the installed ones, your own, or both. See
 [vocabularies.md](vocabularies.md).
 
-**A file you add is queued straight away**, with the options as they stand, and
-the queue runs on its own: there is nothing to press to begin. The first
-version of this tab kept the chosen files in a list of their own waiting for a
-*Transcribe* button, and the verdict from the first person to use it was that
-they could not tell how to start — a list that looks like a queue and is not
-one is worse than no list at all. So the options are chosen first and the queue
-below is the only list there is.
+**A file you add goes into the queue and waits there**, marked *not started*.
+*Transcribe* runs the lot. That is deliberately two steps rather than one: the
+first version of this tab kept the chosen files in a separate list waiting for
+a button and nobody could tell how to begin, and the version after it started
+each file the moment it was added, which left no room to change the model or
+tick a keyword set once the files were in. One list, and one button that runs
+it.
 
 **The queue** — its own box, titled, because it is where the work actually is —
-holds every job newest first: waiting, transcribing with a progress bar, done
-with its word count, failed with the reason, or cancelled. Under it:
+holds every job newest first: not started, waiting its turn, transcribing with
+a progress bar, done with its word count, failed with the reason, or cancelled.
+Under it:
 
 | button | when |
 |---|---|
+| *Transcribe* | anything is waiting to be started |
 | *Open in the library* | the job produced an entry |
-| *Take out of the queue* | it is still waiting; nothing is lost, the file stays where it is |
+| *Take out of the queue* | it has not started; the row goes, nothing happened to it, and the file is untouched |
 | *Stop* | it is the one running (see below) |
 | *Remove from the list* | it has finished, and the transcription stays in the library |
 | *Clear the finished* | all of them at once |

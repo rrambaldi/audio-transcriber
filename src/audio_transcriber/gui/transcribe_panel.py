@@ -197,6 +197,9 @@ class TranscribePanel(QWidget):
         vocab_layout.addWidget(self.custom, 1)
         vocab_layout.addWidget(self.prompt_size)
 
+        self.start = QPushButton(t("gui.start"))
+        self.start.setToolTip(t("gui.start_tip"))
+        self.start.clicked.connect(self.start_queue)
         self.open_entry = QPushButton(t("gui.open_entry"))
         self.open_entry.clicked.connect(self._open_selected_entry)
         self.cancel_job = QPushButton(t("gui.cancel_job"))
@@ -210,6 +213,7 @@ class TranscribePanel(QWidget):
         self.clear_finished = QPushButton(t("gui.clear_finished"))
         self.clear_finished.clicked.connect(self.forget_finished)
         actions = QHBoxLayout()
+        actions.addWidget(self.start)
         actions.addWidget(self.open_entry)
         actions.addWidget(self.cancel_job)
         actions.addWidget(self.stop_job)
@@ -283,11 +287,11 @@ class TranscribePanel(QWidget):
         self.add_files(paths)
 
     def add_files(self, paths):
-        """Queue every file given, with the options as they stand now.
+        """Put every file given into the queue, without starting it.
 
-        There is no waiting room: a file that has been chosen is a file
-        somebody wants transcribed, and the queue runs one job at a time
-        anyway. What is queued can still be taken back out."""
+        One list, and one button that starts it. Adding a file used to start
+        it there and then, which read as magic and left no room to change the
+        model or tick a keyword set after choosing the files."""
         kept = options.playable_files(paths)
         if not kept:
             return False
@@ -339,12 +343,22 @@ class TranscribePanel(QWidget):
             self.queue.submit(
                 path, title=title or options.title_from_path(path),
                 filename=os.path.basename(path), overrides=overrides,
-                vocabularies=names, custom_vocabulary=text, store=store)
+                vocabularies=names, custom_vocabulary=text, store=store,
+                start=False)
             queued += 1
         if queued:
             self.message.emit(t("gui.queued", count=queued))
             self.refresh()
         return bool(queued)
+
+    def start_queue(self):
+        """Run everything that is waiting to be started."""
+        started = self.queue.start()
+        if not started:
+            return False
+        self.message.emit(t("gui.started", count=started))
+        self.refresh()
+        return True
 
     def refresh(self):
         """Re-read the queue and update the table in place."""
@@ -422,8 +436,9 @@ class TranscribePanel(QWidget):
         Four buttons that are always clickable would each need a dialog to
         explain why they did nothing."""
         row = self._selected_row()
+        self.start.setEnabled(any(r["held"] for r in self._rows))
         self.open_entry.setEnabled(bool(row and row["entry_id"]))
-        self.cancel_job.setEnabled(bool(row and row["queued"]))
+        self.cancel_job.setEnabled(bool(row and row["cancellable"]))
         self.stop_job.setEnabled(bool(row and row["running"]))
         self.forget.setEnabled(bool(row and row["finished"]))
         self.clear_finished.setEnabled(any(r["finished"] for r in self._rows))
@@ -434,9 +449,12 @@ class TranscribePanel(QWidget):
             self.entry_requested.emit(row["entry_id"])
 
     def cancel_selected(self):
-        """Take a queued job back out. It has not started, so nothing is lost."""
+        """Take a job that has not started back out of the list.
+
+        It leaves no row behind: nothing happened to it, and the file is
+        untouched."""
         row = self._selected_row()
-        if not (row and row["queued"]):
+        if not (row and row["cancellable"]):
             return
         if self.queue.cancel(row["id"]):
             self.message.emit(t("gui.job_cancelled", title=row["title"]))

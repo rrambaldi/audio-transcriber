@@ -29,20 +29,26 @@ All notable changes to this project are documented here. The format follows
   the two libraries handed to it as objects and no Qt in it at all. Without the
   extra the window records through QtMultimedia as before and says what the
   other engine would add.
-- **A file added to the desktop window is queued straight away**, and the
-  waiting room it used to sit in is gone. The first version kept the chosen
-  files in a list of their own until a *Transcribe* button was pressed, and the
-  first person to use it could not tell how to begin: a list that looks like a
-  queue and is not one is worse than no list. Drops now land anywhere on the
-  tab, and the queue below is the only list there is.
+- **One list in the desktop window, and one button that runs it.** A file
+  added — dropped anywhere on the tab, chosen with *Add files…*, or just
+  recorded — lands in the queue itself, marked *not started*, and *Transcribe*
+  runs everything waiting. The separate list of chosen files is gone: nobody
+  could tell how to begin from it. Starting each file the moment it was added
+  was tried in between and was worse in the other direction — it left no room
+  to change the model or tick a keyword set once the files were in.
 - **The queue is a box with a title on it, and things can be taken out of it.**
   *Take out of the queue* drops a job that has not started; *Stop* interrupts
   the one running, after asking, since it may be forty minutes in; *Clear the
   finished* empties the rest. The buttons offer only what applies to the
   selected job, and the selection updates them immediately rather than on the
   next refresh.
-- `JobQueue.cancel()`, and a `cancelled` state that is not a failure. A waiting
-  job is dropped there and then; a running one is asked, and stops at the
+- `JobQueue.submit(start=False)`, a `held` state and `JobQueue.start()`: the
+  window fills the queue and runs it on request, while the web interface
+  uploads and starts in one motion as it always did.
+- `JobQueue.cancel()`, and a `cancelled` state that is not a failure. A job
+  that never started is dropped without leaving a row — nothing happened to
+  it, and "cancelled" is for a transcription that really was under way; a
+  running one is asked, and stops at the
   engine's next progress report — which is why faster-whisper now calls that
   callback on every segment instead of every five per cent. The OpenVINO
   backend reports no progress until it has finished the file, so there a stop

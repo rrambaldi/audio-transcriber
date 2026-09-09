@@ -229,9 +229,17 @@ MESSAGES = {
         "gui.vocab_too_long": "The terms typed here are limited to {limit} characters.",
 
         "gui.group_queue": "Transcription queue",
+        "gui.start": "Transcribe",
+        "gui.start_tip":
+            "Start what is in the queue. Files wait here until you press this, so the "
+            "model, the language and the keyword sets can still be changed after "
+            "choosing them.",
+        "gui.started": "Started: {count}.",
+        "gui.status_held": "not started",
+        "gui.queue_held": "{count} in the queue, waiting for you to press Transcribe.",
         "gui.queue_hint":
-            "A file you add starts straight away, with the options as they stand. "
-            "What is waiting can be taken back out below.",
+            "A file you add lands in the queue below; it runs when you press "
+            "Transcribe. What is waiting can be taken back out.",
         "gui.cancel_job": "Take out of the queue",
         "gui.cancel_job_tip":
             "Remove a job that has not started yet. Nothing is lost: the file stays "
@@ -271,7 +279,7 @@ MESSAGES = {
             "{running} running, {waiting} waiting: one at a time, because two "
             "transcriptions at once finish no sooner.",
         "gui.queue_idle": "Finished: {done} transcribed, {failed} failed, {cancelled} cancelled.",
-        "gui.queued": "Queued: {count}.",
+        "gui.queued": "In the queue: {count}. Press Transcribe to start.",
         "gui.job_finished": "Filed in the library: {entry}",
 
         "gui.rec_host_api": "Audio system",
@@ -329,7 +337,7 @@ MESSAGES = {
         "gui.rec_stop": "Stop",
         "gui.rec_pause": "Pause",
         "gui.rec_resume": "Resume",
-        "gui.rec_queued": "Recording queued for transcription.",
+        "gui.rec_queued": "The recording is in the queue; press Transcribe to start.",
         "gui.rec_empty": "Nothing was recorded: the microphone produced no sound.",
         "gui.rec_failed": "Recording failed.",
         "gui.rec_no_device": "No microphone found. Connect one — the menu notices by itself.",
@@ -630,9 +638,17 @@ MESSAGES = {
         "gui.vocab_too_long": "I termini scritti qui sono limitati a {limit} caratteri.",
 
         "gui.group_queue": "Coda di trascrizione",
+        "gui.start": "Trascrivi",
+        "gui.start_tip":
+            "Avvia quello che c'e' in coda. I file restano in attesa fino a quando premi "
+            "questo, cosi' il modello, la lingua e i set di parole chiave si possono "
+            "ancora cambiare dopo averli scelti.",
+        "gui.started": "Avviate: {count}.",
+        "gui.status_held": "da avviare",
+        "gui.queue_held": "{count} in coda, in attesa che premi Trascrivi.",
         "gui.queue_hint":
-            "Un file che aggiungi parte subito, con le opzioni come stanno adesso. "
-            "Quello che e' in attesa si puo' togliere qui sotto.",
+            "Un file che aggiungi finisce nella coda qui sotto; parte quando premi "
+            "Trascrivi. Quello che e' in attesa si puo' togliere.",
         "gui.cancel_job": "Togli dalla coda",
         "gui.cancel_job_tip":
             "Togli un lavoro che non e' ancora partito. Non si perde niente: il file "
@@ -673,7 +689,7 @@ MESSAGES = {
             "{running} in corso, {waiting} in attesa: una alla volta, perche' due "
             "trascrizioni insieme non finiscono prima.",
         "gui.queue_idle": "Finito: {done} trascritte, {failed} fallite, {cancelled} annullate.",
-        "gui.queued": "In coda: {count}.",
+        "gui.queued": "In coda: {count}. Premi Trascrivi per partire.",
         "gui.job_finished": "Archiviata in libreria: {entry}",
 
         "gui.rec_host_api": "Sistema audio",
@@ -733,7 +749,7 @@ MESSAGES = {
         "gui.rec_stop": "Ferma",
         "gui.rec_pause": "Pausa",
         "gui.rec_resume": "Riprendi",
-        "gui.rec_queued": "Registrazione messa in coda per la trascrizione.",
+        "gui.rec_queued": "La registrazione e' in coda; premi Trascrivi per partire.",
         "gui.rec_empty": "Non e' stato registrato nulla: dal microfono non arrivava suono.",
         "gui.rec_failed": "Registrazione fallita.",
         "gui.rec_no_device": "Nessun microfono trovato. Collegane uno: l'elenco se ne accorge da solo.",

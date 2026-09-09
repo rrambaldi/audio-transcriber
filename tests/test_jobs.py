@@ -125,9 +125,11 @@ def test_an_uploaded_name_is_reduced_to_a_file_name(name, expected):
 
 # --- taking work back out -------------------------------------------------
 
-def test_a_queued_job_can_be_taken_out_before_it_starts(tmp_path):
+def test_a_job_that_has_not_started_is_dropped_without_a_trace(tmp_path):
     """The queue runs one at a time, so anything behind the first job is
-    waiting - and waiting is exactly when someone changes their mind."""
+    waiting - and waiting is exactly when someone changes their mind. Nothing
+    happened to it, so it leaves no row: "cancelled" is for a transcription
+    that really was under way."""
     blocked = threading.Event()
 
     def runner(job):
@@ -141,11 +143,54 @@ def test_a_queued_job_can_be_taken_out_before_it_starts(tmp_path):
     wait_for(queue, first.id, statuses=("running",))
 
     assert queue.cancel(waiting.id) is True
-    assert waiting.status == "cancelled"
+    assert queue.get(waiting.id) is None
+    assert [job.id for job in queue.jobs()] == [first.id]
     assert queue.pending_count() == 1          # only the one still running
     blocked.set()
     wait_for(queue, first.id)
     assert first.status == "done"
+
+
+# --- held back until told to run ------------------------------------------
+
+def test_a_held_job_does_not_run_until_the_queue_is_started(tmp_path):
+    """What the desktop window needs: the files go in, the options can still
+    be changed, and one button runs the lot."""
+    done = []
+    queue = jobs_module.JobQueue(SETTINGS, runner=done.append)
+    source = tmp_path / "a.wav"
+    source.write_bytes(b"x")
+    first = queue.submit(str(source), title="one", start=False)
+    second = queue.submit(str(source), title="two", start=False)
+    assert first.status == "held" and second.status == "held"
+    assert queue.held_count() == 2
+    time.sleep(0.1)
+    assert done == []                          # nothing ran on its own
+
+    assert queue.start() == 2
+    wait_for(queue, second.id)
+    assert [job.title for job in done] == ["one", "two"]   # in the order added
+    assert queue.held_count() == 0
+    assert queue.start() == 0                  # nothing left to release
+
+
+def test_a_held_job_still_counts_as_pending(tmp_path):
+    """Closing the window would lose it, which is what pending_count is for."""
+    queue = jobs_module.JobQueue(SETTINGS, runner=lambda job: None)
+    source = tmp_path / "a.wav"
+    source.write_bytes(b"x")
+    queue.submit(str(source), start=False)
+    assert queue.pending_count() == 1
+
+
+def test_a_held_job_can_be_dropped_before_it_ever_runs(tmp_path):
+    queue = jobs_module.JobQueue(SETTINGS, runner=lambda job: None)
+    source = tmp_path / "a.wav"
+    source.write_bytes(b"x")
+    job = queue.submit(str(source), start=False)
+    assert queue.cancel(job.id) is True
+    assert queue.jobs() == []
+    assert queue.start() == 0
 
 
 def test_a_cancelled_job_is_never_run(tmp_path):
