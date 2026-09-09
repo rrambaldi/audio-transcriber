@@ -211,11 +211,20 @@ def test_the_page_says_which_engine_made_it_and_how_long_the_recording_was():
 
 # --- choosing an engine ---------------------------------------------------
 
-def test_auto_picks_the_only_engine_there_is_for_now():
+def test_auto_falls_back_to_the_engine_that_needs_nothing(monkeypatch):
+    """No model installed is the normal case on a server, and in CI."""
+    monkeypatch.setattr("audio_transcriber.summarizers.is_installed",
+                        lambda name: name == EXTRACTIVE)
     assert resolve_summarizer("auto") == EXTRACTIVE
     assert resolve_summarizer(None) == EXTRACTIVE
     assert available() == [EXTRACTIVE]
     assert "auto" in CHOICES and EXTRACTIVE in CHOICES
+
+
+def test_auto_prefers_the_engine_that_actually_writes(monkeypatch):
+    monkeypatch.setattr("audio_transcriber.summarizers.is_installed",
+                        lambda name: True)
+    assert resolve_summarizer("auto") == "openvino"
 
 
 def test_an_engine_can_be_asked_for_by_a_tolerated_spelling():

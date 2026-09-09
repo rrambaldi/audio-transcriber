@@ -472,7 +472,7 @@ def summarize(material, settings=None):
     engine = load(name)
     started = time.time()
     sections, note = engine.summarize(material, settings)
-    text = render(material, sections, engine.LABEL, note=note)
+    text = render(material, sections, engine.label(settings), note=note)
     kept = len(sections.points) + len(sections.decisions) + len(sections.actions)
     return Summary(text=text, sections=sections, engine=name,
                    language=language_of(material.language),

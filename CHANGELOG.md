@@ -8,6 +8,41 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- **Summaries written by a local model**, behind the new `[summarize-ov]`
+  extra: the `openvino` engine runs a language model on an Intel device
+  through OpenVINO GenAI, and the page stops being a list of quoted sentences
+  and becomes an abstract, the decisions, and who agreed to do what — each
+  carrying the minute it was said at. `--model auto` picks the largest
+  recommended model that fits in this machine's free memory (an 8B at int4 is
+  about 5 GB, and on an integrated GPU the model lives in system memory
+  whichever device runs it); any Hugging Face id or an already-converted
+  directory works instead. The first run converts to int4 and keeps the
+  result, which is also where the one non-obvious step lives:
+  `save_pretrained` writes the Hugging Face tokenizer, which the GenAI runtime
+  cannot read, so `openvino_tokenizer.xml` and its detokenizer are converted
+  explicitly — without that the model loads and then fails at the first
+  prompt.
+
+  **`auto` does not choose the NPU**, deliberately. Its LLM pipeline runs on
+  static shapes with the prompt capped at 1024 tokens by default and 8K at
+  best, an hour of transcript is nearer fifteen thousand, on Qwen3 it does not
+  compile above 8K, and an 8B generates slower there than on the same
+  machine's iGPU. `--device NPU` is still honoured, with a warning.
+
+  A transcript that fits goes to the model in one prompt; a longer one is read
+  in chunks and the chunk summaries summarised together, against one loaded
+  model. The prompts, the chunking and the parsing live in
+  `summarizers/prompting.py` rather than in the engine, so the next runtime
+  inherits all of it: an engine is now the one call that turns a string into a
+  string. Two habits of language models are handled rather than hoped away —
+  a reasoning model's `<think>` block never reaches the page, and a model too
+  small for the job answers by repeating the question, which is caught by
+  fencing the transcript inside the prompt and recognising the echo. That
+  earns "returned nothing usable, try another model or `--engine extractive`"
+  instead of a page that looks like a summary and is the transcript again.
+
+  Still no network, and no endpoint to configure: the model runs on the
+  machine that made the transcript.
 - **Summaries of a transcript**, in a `summary.py` of their own with the
   engines in `summarizers/`, chosen by name the way the transcription backends
   are. A summary is two jobs and only the second needs a model: *selection* —

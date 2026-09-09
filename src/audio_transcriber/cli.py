@@ -88,12 +88,27 @@ keep_fillers = false
 
 [summary]
 # Who writes the summary of a transcript. "auto" picks the best engine this
-# machine has: see "audio-transcriber hardware". Only "extractive" exists so
-# far — TextRank picks the sentences that carry the transcript and prints them
-# as they were said, with no model and no download.
+# machine has — see "audio-transcriber hardware":
+#   openvino    a local model on an Intel iGPU, which writes real prose;
+#               needs the [summarize-ov] extra
+#   extractive  no model at all: the sentences that carry the transcript,
+#               printed as they were said. Works everywhere, downloads nothing.
 engine = "auto"
-# How much of the transcript to keep: short | medium | long.
+# How much of the transcript to keep, with the extractive engine:
+# short | medium | long.
 # length = "medium"
+# Which model writes it: "auto" picks the largest recommended one that fits in
+# this machine's free memory. Any Hugging Face id works, as does the path of a
+# directory already converted to OpenVINO IR.
+# model = "Qwen/Qwen3-8B"
+# Intel device for the model: auto | CPU | GPU | NPU. "auto" means the iGPU,
+# then the CPU. The NPU is skipped on purpose: its LLM pipeline tops out at 8K
+# tokens of prompt, and an hour of transcript is nearer fifteen.
+# device = "auto"
+# Tokens of transcript per pass. Below this the whole thing goes in at once;
+# above it, the transcript is read in chunks and the chunks summarised
+# together. Lower it for a model with a small context window.
+# chunk_tokens = 6000
 
 [diarization]
 # Work out who said what. Needs the [diarize] extra and pyannote models.
@@ -259,6 +274,10 @@ def build_parser(defaults):
                     choices=list(SUMMARY_ENGINES), help=t("help.sum_engine"))
     sm.add_argument("--length", dest="summary_length", default=None,
                     choices=list(SUMMARY_LENGTHS), help=t("help.sum_length"))
+    sm.add_argument("--model", dest="summary_model", default=None,
+                    help=t("help.sum_model"))
+    sm.add_argument("--device", dest="summary_device", default=None,
+                    help=t("help.sum_device"))
     sm.add_argument("--out", dest="out", default=None, help=t("help.sum_out"))
     sm.add_argument("--print", dest="show", action="store_true",
                     help=t("help.sum_print"))
@@ -825,7 +844,7 @@ def collect_cli_settings(args):
              "keep_fillers", "diarize", "speakers", "diar_model", "models_dir",
              "library_dir", "vocab_dir", "subtitle_preset", "subtitle_chars",
              "subtitle_lines", "subtitle_words", "output", "summarizer",
-             "summary_length")
+             "summary_length", "summary_model", "summary_device")
     values = {name: getattr(args, name, None) for name in names}
     # --srt and --vtt are flags; together they are the "save these formats"
     # setting, and neither given means the configured value stands.

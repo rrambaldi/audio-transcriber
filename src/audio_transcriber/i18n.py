@@ -483,6 +483,29 @@ MESSAGES = {
         "summary.stats":
             "   kept {kept} of {of} sentences | engine: {engine} | {elapsed:.1f}s",
         "summary.auto_engine": "engine that '--engine auto' would pick: {engine}",
+        "summary.npu_warning":
+            "  WARNING: the NPU runs LLMs on static shapes, with the prompt capped at\n"
+            "  1024 tokens by default and 8K at best. An hour of transcript is about\n"
+            "  15000: expect a failure or a truncated summary. '--device GPU' is the\n"
+            "  right accelerator for this.",
+        "summary.openvino_missing":
+            "Summary engine 'openvino': openvino-genai is not installed.\n"
+            "  pip install \"audio-transcriber-ov[summarize-ov]\"",
+        "summary.openvino_convert_missing":
+            "Converting a model needs optimum-intel and transformers.\n"
+            "  pip install \"audio-transcriber-ov[summarize-ov]\"",
+        "summary.converting":
+            "  Converting {model} to OpenVINO at int{bits}. This happens once, and it\n"
+            "  downloads several gigabytes.",
+        "summary.conversion_failed": "Could not convert {model}: {error}",
+        "summary.loading_model": "  Loading {path} on {device}...",
+        "summary.load_failed":
+            "The model could not be loaded on {device}: {error}",
+        "summary.pass": "  Reading part {part} of {total}...",
+        "summary.reducing": "  Writing the summary from {total} parts...",
+        "summary.model_said_nothing":
+            "{model} returned nothing usable. Try another model, or "
+            "'--engine extractive'.",
         "cli.paths_configured": "(from config.toml)",
         "cli.unknown_language": "Unknown interface language '{lang}'; using {fallback}.",
     },
@@ -960,6 +983,29 @@ MESSAGES = {
         "summary.stats":
             "   tenute {kept} frasi su {of} | motore: {engine} | {elapsed:.1f}s",
         "summary.auto_engine": "motore che '--engine auto' sceglierebbe: {engine}",
+        "summary.npu_warning":
+            "  ATTENZIONE: l'NPU esegue gli LLM a forme statiche, con il prompt limitato\n"
+            "  a 1024 token di default e 8K al massimo. Un'ora di trascrizione sono circa\n"
+            "  15000 token: aspettati un errore o un riassunto troncato. Per questo\n"
+            "  lavoro l'acceleratore giusto e' '--device GPU'.",
+        "summary.openvino_missing":
+            "Motore di riassunto 'openvino': openvino-genai non e' installato.\n"
+            "  pip install \"audio-transcriber-ov[summarize-ov]\"",
+        "summary.openvino_convert_missing":
+            "Per convertire un modello servono optimum-intel e transformers.\n"
+            "  pip install \"audio-transcriber-ov[summarize-ov]\"",
+        "summary.converting":
+            "  Converto {model} in OpenVINO a int{bits}. Succede una volta sola, e\n"
+            "  scarica diversi gigabyte.",
+        "summary.conversion_failed": "Non sono riuscito a convertire {model}: {error}",
+        "summary.loading_model": "  Carico {path} su {device}...",
+        "summary.load_failed":
+            "Il modello non si e' potuto caricare su {device}: {error}",
+        "summary.pass": "  Leggo la parte {part} di {total}...",
+        "summary.reducing": "  Scrivo il riassunto dalle {total} parti...",
+        "summary.model_said_nothing":
+            "{model} non ha restituito niente di utilizzabile. Prova un altro modello, "
+            "oppure '--engine extractive'.",
         "cli.paths_configured": "(da config.toml)",
         "cli.unknown_language": "Lingua dell'interfaccia '{lang}' sconosciuta; uso {fallback}.",
     },
@@ -1008,6 +1054,8 @@ HELP = {
         "help.sum_query": "library entry (id, or part of the title), or the path of a text file",
         "help.sum_engine": "which engine writes the summary (default: auto)",
         "help.sum_length": "how much of the transcript to keep: short | medium | long",
+        "help.sum_model": "which model writes it: auto, a Hugging Face id, or a converted directory",
+        "help.sum_device": "Intel device to run the model on: auto | CPU | GPU | NPU",
         "help.sum_out": "write the summary to this file instead of into the entry",
         "help.sum_print": "print the summary instead of saving it anywhere",
         "help.cmd_hardware": "show the detected hardware and the backend that would be used",
@@ -1117,6 +1165,8 @@ HELP = {
         "help.sum_query": "voce di libreria (id, o parte del titolo), oppure il percorso di un file di testo",
         "help.sum_engine": "quale motore scrive il riassunto (default: auto)",
         "help.sum_length": "quanto tenere della trascrizione: short | medium | long",
+        "help.sum_model": "quale modello lo scrive: auto, un id Hugging Face, o una cartella gia' convertita",
+        "help.sum_device": "dispositivo Intel su cui eseguire il modello: auto | CPU | GPU | NPU",
         "help.sum_out": "scrivi il riassunto in questo file invece che nella voce",
         "help.sum_print": "stampa il riassunto invece di salvarlo",
         "help.cmd_hardware": "mostra l'hardware rilevato e il backend che verrebbe usato",

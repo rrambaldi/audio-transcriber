@@ -42,6 +42,11 @@ ABSTRACT_SHARE = 3
 KEYWORDS = 10
 
 
+def label(settings=None):
+    """How the page should name this engine. It has no model to name."""
+    return LABEL
+
+
 def summarize(material, settings=None):
     """Choose the sentences that carry the transcript.
 
