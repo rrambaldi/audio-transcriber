@@ -31,6 +31,7 @@ METADATA_FILENAME = "metadata.json"
 TRANSCRIPT_FILENAME = "transcript.txt"
 SEGMENTS_FILENAME = "transcript.json"
 NOTES_FILENAME = "notes.md"
+SUBTITLE_FILENAMES = {"srt": "subtitles.srt", "vtt": "subtitles.vtt"}
 SOURCE_STEM = "source"
 
 #: Notes are a page of thoughts about a meeting, not a document store: the
@@ -189,6 +190,27 @@ class Entry:
                 return handle.read()
         except OSError:
             return ""
+
+    def subtitle_path(self, kind="srt"):
+        """Where the subtitles of this entry live, whether or not they exist."""
+        name = SUBTITLE_FILENAMES.get(kind)
+        if name is None:
+            raise LibraryError(f"unknown subtitle format: {kind}")
+        return os.path.join(self.path, name)
+
+    def write_subtitles(self, text, kind="srt"):
+        """Store a subtitle file beside the transcript.
+
+        Kept as a file rather than as data in ``metadata.json`` for the same
+        reason the transcript is: an .srt is what a player, an editor and a
+        person all already know how to read."""
+        write_atomic(self.subtitle_path(kind), text)
+        return self
+
+    def subtitles(self):
+        """Which subtitle formats this entry actually holds."""
+        return [kind for kind, name in SUBTITLE_FILENAMES.items()
+                if os.path.exists(os.path.join(self.path, name))]
 
     def read_segments(self):
         """The timestamped segments, or an empty list: they are optional."""

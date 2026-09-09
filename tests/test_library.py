@@ -217,3 +217,26 @@ def test_unreadable_metadata_is_reported_clearly(library, recording):
         handle.write("{ not json")
     with pytest.raises(LibraryError):
         entry.read_metadata()
+
+
+# --- subtitles ------------------------------------------------------------
+
+def test_an_entry_can_hold_its_subtitles(tmp_path):
+    """A file rather than data in metadata.json, for the reason the transcript
+    is a file: an .srt is something a player, an editor and a person all
+    already know how to read."""
+    library = Library(str(tmp_path / "library"))
+    entry = library.create(title="Comitato")
+    assert entry.subtitles() == []
+    entry.write_subtitles("1\n00:00:00,000 --> 00:00:02,000\nCiao\n", "srt")
+    assert entry.subtitles() == ["srt"]
+    assert entry.subtitle_path("srt").endswith("subtitles.srt")
+    with open(entry.subtitle_path("srt"), encoding="utf-8") as handle:
+        assert "-->" in handle.read()
+
+
+def test_an_unknown_subtitle_format_is_refused(tmp_path):
+    library = Library(str(tmp_path / "library"))
+    entry = library.create(title="Comitato")
+    with pytest.raises(LibraryError):
+        entry.subtitle_path("ass")

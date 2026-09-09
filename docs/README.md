@@ -8,6 +8,8 @@
   does not protect
 - [gui.md](gui.md) — the desktop window: the three tabs, recording from a
   microphone, and what it remembers
+- [subtitles.md](subtitles.md) — cutting a transcript into subtitles: the
+  presets, the numbers, how a cue is cut, and what it deliberately will not do
 - [backends.md](backends.md) — the two transcription engines, how `auto`
   chooses, and what to expect on a small server
 - [architecture.md](architecture.md) — how the modules fit together and the

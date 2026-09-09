@@ -31,6 +31,11 @@ DEFAULTS = {
     "para_max_chars": 600,
     "keep_fillers": False,
     "diarize": False,
+    "subtitles": None,            # formats to save: "srt", "vtt", "srt,vtt"
+    "subtitle_preset": None,      # None: the module's default (netflix)
+    "subtitle_chars": None,       # characters per line
+    "subtitle_lines": None,       # lines per cue
+    "subtitle_words": None,       # words per cue, if you would rather cap that
     "speakers": None,
     "diar_model": None,
     "models_dir": None,
@@ -55,6 +60,11 @@ SCHEMA = {
     ("output", "paragraph_gap"): ("para_gap", float),
     ("output", "paragraph_max_chars"): ("para_max_chars", int),
     ("output", "keep_fillers"): ("keep_fillers", bool),
+    ("subtitles", "save"): ("subtitles", str),
+    ("subtitles", "preset"): ("subtitle_preset", str),
+    ("subtitles", "max_chars_per_line"): ("subtitle_chars", int),
+    ("subtitles", "max_lines"): ("subtitle_lines", int),
+    ("subtitles", "max_words_per_cue"): ("subtitle_words", int),
     ("diarization", "enabled"): ("diarize", bool),
     ("diarization", "speakers"): ("speakers", int),
     ("diarization", "model"): ("diar_model", str),

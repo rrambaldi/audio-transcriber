@@ -64,6 +64,21 @@ paragraph_max_chars = 600
 # Keep the phrases Whisper hallucinates over silence.
 keep_fillers = false
 
+[subtitles]
+# Subtitles are always available from the library; this is about saving them
+# next to the transcript. "srt", "vtt", or "srt,vtt"; omit to save neither.
+# save = "srt"
+# The numbers to cut them by, as a named set: netflix, bbc, ebu_broadcast,
+# fcc_verbatim, social_vertical, social_karaoke, kids_accessible. Your own
+# sets go in <config>/srt-presets.json and win over these.
+# preset = "netflix"
+# Any of the preset's numbers can be overridden on their own:
+# max_chars_per_line = 42
+# max_lines = 2
+# A new subtitle every so many words, if that is how you would rather think
+# about it. Not one of the trade's numbers, but honoured when given.
+# max_words_per_cue = 12
+
 [diarization]
 # Work out who said what. Needs the [diarize] extra and pyannote models.
 enabled = false
@@ -203,6 +218,16 @@ def build_parser(defaults):
                     help=t("help.lib_root"))
     tr.add_argument("--title", default=None, help=t("help.title"))
     tr.add_argument("--json", dest="json_out", default=None, help=t("help.json"))
+    tr.add_argument("--srt", action="store_true", default=None, help=t("help.srt"))
+    tr.add_argument("--vtt", action="store_true", default=None, help=t("help.vtt"))
+    tr.add_argument("--subtitle-preset", dest="subtitle_preset", default=None,
+                    metavar="NAME", help=t("help.subtitle_preset"))
+    tr.add_argument("--subtitle-chars", dest="subtitle_chars", type=int,
+                    default=None, metavar="N", help=t("help.subtitle_chars"))
+    tr.add_argument("--subtitle-lines", dest="subtitle_lines", type=int,
+                    default=None, metavar="N", help=t("help.subtitle_lines"))
+    tr.add_argument("--subtitle-words", dest="subtitle_words", type=int,
+                    default=None, metavar="N", help=t("help.subtitle_words"))
 
     # --- library ----------------------------------------------------------
     lib = subparsers.add_parser("library", help=t("help.cmd_library"),
@@ -324,6 +349,43 @@ def command_transcribe(args, settings):
     print(t("cli.elapsed", elapsed=format_duration(result.elapsed), speed=speed))
 
 
+def write_subtitle_files(settings, target_stem, result):
+    """Write the subtitle files beside the transcript, and say what happened.
+
+    Only for a run that is not going into the library: an entry gets them from
+    :func:`pipeline.file_in_library`, next to everything else it holds."""
+    kinds = pipeline.subtitle_formats(settings)
+    if not kinds:
+        return
+    spec = pipeline.subtitle_spec(settings)
+    cue_list = pipeline.subtitles_of(result, settings)
+    for kind in kinds:
+        text = (pipeline.to_srt(cue_list, spec.get("line_ending", "\n"))
+                if kind == "srt" else pipeline.to_vtt(cue_list))
+        path = f"{target_stem}.{kind}"
+        with open(path, "w", encoding="utf-8", newline="") as handle:
+            handle.write(text)
+        print(t("cli.subtitles_written", path=path, cues=len(cue_list)))
+    report_subtitle_problems(pipeline.validate(cue_list, spec), spec)
+
+
+def report_subtitle_problems(problems, spec):
+    """Say what a subtitler would object to, once per kind.
+
+    Not fixed silently: the guidance's own remedy for speech too fast to read
+    is to shorten the text, and shortening someone's words is not a decision
+    this program makes."""
+    if not problems:
+        return
+    counts = {}
+    for key, _where, _value in problems:
+        counts[key] = counts.get(key, 0) + 1
+    print(t("cli.subtitles_problems", preset=spec.get("name", "-"),
+            total=len(problems)), file=sys.stderr)
+    for key, count in sorted(counts.items()):
+        print(f"    {t(key, cue='', value='')} x{count}", file=sys.stderr)
+
+
 def write_result(args, settings, source, result):
     """Store the transcript, in the library or beside the input, and return
     the path a human should look at."""
@@ -340,6 +402,7 @@ def write_result(args, settings, source, result):
                else os.path.splitext(source)[0] + ".txt")
         with open(out, "w", encoding="utf-8", newline="\n") as handle:
             handle.write(result.text)
+        write_subtitle_files(settings, os.path.splitext(out)[0], result)
         return out
 
     library = Library(settings["library_dir"])
@@ -350,6 +413,9 @@ def write_result(args, settings, source, result):
         sys.exit(str(exc))
 
     print(t("library.created", path=entry.path))
+    for kind in entry.subtitles():
+        print(t("cli.subtitles_written", path=entry.subtitle_path(kind),
+                cues=(entry.metadata.get("subtitles") or {}).get("cues", 0)))
     if args.out:
         out = os.path.abspath(os.path.expanduser(args.out))
         with open(out, "w", encoding="utf-8", newline="\n") as handle:
@@ -655,8 +721,13 @@ def collect_cli_settings(args):
     names = ("language", "backend", "device", "model", "compute_type", "threads",
              "prompt", "prompt_file", "vocabulary", "para_gap", "para_max_chars",
              "keep_fillers", "diarize", "speakers", "diar_model", "models_dir",
-             "library_dir", "vocab_dir")
+             "library_dir", "vocab_dir", "subtitle_preset", "subtitle_chars",
+             "subtitle_lines", "subtitle_words")
     values = {name: getattr(args, name, None) for name in names}
+    # --srt and --vtt are flags; together they are the "save these formats"
+    # setting, and neither given means the configured value stands.
+    asked = [kind for kind in ("srt", "vtt") if getattr(args, kind, None)]
+    values["subtitles"] = ",".join(asked) if asked else None
     values["vad"] = False if getattr(args, "no_vad", None) else None
     values["hf_token"] = getattr(args, "hf_token", None)
     return values

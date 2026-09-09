@@ -101,6 +101,69 @@ def test_diarization_gets_a_band_of_its_own(engine, monkeypatch):
     assert max(percent for percent, _stage in reported) == pipeline.DIARIZATION_BAND[1]
 
 
+# --- subtitles ------------------------------------------------------------
+
+def test_which_subtitle_formats_were_asked_for():
+    assert pipeline.subtitle_formats({}) == []
+    assert pipeline.subtitle_formats({"subtitles": "srt"}) == ["srt"]
+    assert pipeline.subtitle_formats({"subtitles": "srt,vtt"}) == ["srt", "vtt"]
+    assert pipeline.subtitle_formats({"subtitles": " .SRT  vtt "}) == ["srt", "vtt"]
+    assert pipeline.subtitle_formats({"subtitles": ["vtt"]}) == ["vtt"]
+
+
+def test_an_unknown_subtitle_format_is_refused():
+    from audio_transcriber.subtitles import SubtitleError
+
+    with pytest.raises(SubtitleError):
+        pipeline.subtitle_formats({"subtitles": "ass"})
+
+
+def test_the_settings_numbers_are_applied_over_the_preset():
+    spec = pipeline.subtitle_spec({"subtitle_preset": "bbc",
+                                   "subtitle_chars": 30,
+                                   "subtitle_words": 8})
+    assert spec["name"] == "bbc"
+    assert spec["max_chars_per_line"] == 30          # overridden
+    assert spec["max_chars_per_second"] == 14        # the preset's own
+    assert spec["max_words_per_cue"] == 8
+
+
+def test_the_engine_is_asked_for_word_timings_only_when_subtitles_are_wanted(engine):
+    """They make a cut fall where the speaker paused instead of being
+    interpolated, and they cost time, so they are not asked for otherwise."""
+    pipeline.run("meeting.wav", dict(SETTINGS))
+    assert engine["kwargs"]["word_timestamps"] is False
+    pipeline.run("meeting.wav", dict(SETTINGS, subtitles="srt"))
+    assert engine["kwargs"]["word_timestamps"] is True
+
+
+def test_subtitles_are_written_into_the_entry_when_asked(engine, tmp_path):
+    from audio_transcriber.library import Library
+
+    library = Library(str(tmp_path / "library"))
+    result = pipeline.run("meeting.wav", dict(SETTINGS, subtitles="srt,vtt"))
+    entry = library.create(title="Comitato")
+    written, cues, problems = pipeline.write_subtitles(
+        entry, result, dict(SETTINGS, subtitles="srt,vtt"))
+    assert written == ["srt", "vtt"]
+    assert cues and entry.subtitles() == ["srt", "vtt"]
+    with open(entry.subtitle_path("srt"), encoding="utf-8") as handle:
+        assert " --> " in handle.read()
+    assert isinstance(problems, list)
+
+
+def test_nothing_is_written_when_no_format_was_asked_for(engine, tmp_path):
+    """The cues are always available; saving them is the option."""
+    from audio_transcriber.library import Library
+
+    library = Library(str(tmp_path / "library"))
+    result = pipeline.run("meeting.wav", dict(SETTINGS))
+    entry = library.create(title="Comitato")
+    assert pipeline.write_subtitles(entry, result, dict(SETTINGS)) == ([], [], [])
+    assert entry.subtitles() == []
+    assert pipeline.subtitles_of(result, dict(SETTINGS))       # still computable
+
+
 # --- the callback contract ------------------------------------------------
 
 def test_a_callback_that_only_wants_the_number_still_works(engine):

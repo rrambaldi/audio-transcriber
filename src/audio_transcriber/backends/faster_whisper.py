@@ -61,8 +61,13 @@ def resolve_compute_type(compute_type, device):
 
 def transcribe(audio, model_name, language, device, model_dir, prompt,
                compute_type=None, threads=None, vad=True, beam_size=5,
-               progress=None, **_unused):
-    """Transcribe and return ``(segments, raw_text, device_description)``."""
+               progress=None, word_timestamps=False, **_unused):
+    """Transcribe and return ``(segments, raw_text, device_description)``.
+
+    ``word_timestamps`` asks the engine to time every word, which is what
+    makes a subtitle cut fall exactly where the speaker paused instead of
+    being interpolated across a segment. It costs a little time, so it is
+    asked for only when something needs it."""
     try:
         from faster_whisper import WhisperModel
     except ImportError:
@@ -111,6 +116,7 @@ def transcribe(audio, model_name, language, device, model_dir, prompt,
         initial_prompt=prompt or None,
         beam_size=beam_size,
         vad_filter=bool(vad),
+        word_timestamps=bool(word_timestamps),
         condition_on_previous_text=False,  # avoids runaway repetition loops
     )
 
@@ -124,7 +130,14 @@ def transcribe(audio, model_name, language, device, model_dir, prompt,
     for segment in segment_iterator:
         text = (segment.text or "").strip()
         if text:
-            segments.append({"text": text, "start": segment.start, "end": segment.end})
+            entry = {"text": text, "start": segment.start, "end": segment.end}
+            timed = [{"word": (word.word or "").strip(), "start": word.start,
+                      "end": word.end}
+                     for word in (getattr(segment, "words", None) or [])
+                     if (word.word or "").strip()]
+            if timed:
+                entry["words"] = timed
+            segments.append(entry)
             texts.append(text)
         # The console line is throttled to every five per cent; the callback
         # is not. An interface uses it to move a bar *and* as the one moment

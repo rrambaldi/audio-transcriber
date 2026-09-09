@@ -179,7 +179,7 @@ def warn_if_tight(backend, model_name, compute_type):
 
 def transcribe(audio, model_name, language, device, model_dir=None, prompt="",
                backend="auto", compute_type=None, threads=None, vad=True,
-               progress=None):
+               progress=None, word_timestamps=False):
     """Transcribe ``audio`` and return ``(segments, raw_text, info)``.
 
     ``segments`` is a list of ``{"text", "start", "end"}``; ``info`` records
@@ -198,6 +198,7 @@ def transcribe(audio, model_name, language, device, model_dir=None, prompt="",
     segments, raw_text, used_device = load(name).transcribe(
         audio, model_name, language, device, directory, prompt,
         compute_type=compute_type, threads=threads, vad=vad, progress=progress,
+        word_timestamps=word_timestamps,
     )
     return segments, raw_text, {
         "backend": name,

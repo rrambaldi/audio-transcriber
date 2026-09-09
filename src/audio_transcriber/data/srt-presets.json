@@ -1,0 +1,100 @@
+{
+  "$schema_note": "Preset per generazione automatica SRT. Tutti i tempi in millisecondi. cps = caratteri/secondo spazi inclusi.",
+  "defaults": {
+    "encoding": "utf-8",
+    "line_ending": "\n",
+    "allow_markup": false,
+    "sync_lead_in_ms": 100,
+    "tail_ms": { "min": 200, "max": 500 },
+    "cps_overshoot_tolerance": 0.15,
+    "line_balance": "pyramid",
+    "forbidden_line_breaks": [
+      "article+noun", "adjective+noun", "preposition+phrase",
+      "name+surname", "auxiliary+participle", "negation+verb", "verb+clitic"
+    ]
+  },
+  "presets": {
+    "netflix": {
+      "max_chars_per_line": 42,
+      "max_lines": 2,
+      "max_chars_per_second": 17,
+      "min_duration_ms": 833,
+      "max_duration_ms": 7000,
+      "min_gap_ms": 83,
+      "gap_chaining": { "snap_below_ms": 458, "snap_to_ms": 83 },
+      "verbatim": false,
+      "sdh_labels": false,
+      "notes": "TTSG lingue latine. EN adulti: cps 20. Kids: cps 13. Frame-based a 24fps: 2 frame gap."
+    },
+    "bbc": {
+      "max_chars_per_line": 37,
+      "max_lines": 2,
+      "max_words_per_minute": 180,
+      "max_chars_per_second": 14,
+      "min_duration_ms": 1000,
+      "max_duration_ms": 6000,
+      "min_gap_ms": 80,
+      "verbatim": false,
+      "sdh_labels": true,
+      "notes": "Accessibilita' broadcast. Su player moderni CPL estendibile a 42."
+    },
+    "ebu_broadcast": {
+      "max_chars_per_line": 37,
+      "max_lines": 2,
+      "max_chars_per_second": 15,
+      "min_duration_ms": 1000,
+      "max_duration_ms": 6000,
+      "min_gap_ms": 80,
+      "verbatim": false,
+      "sdh_labels": false,
+      "notes": "Base teletext/EBU-STL, regola dei 6 secondi. 25fps."
+    },
+    "fcc_verbatim": {
+      "max_chars_per_line": 32,
+      "max_lines": 2,
+      "max_chars_per_second": 20,
+      "min_duration_ms": 800,
+      "max_duration_ms": 7000,
+      "min_gap_ms": 66,
+      "verbatim": true,
+      "sdh_labels": true,
+      "keep_fillers": true,
+      "notes": "Derivato CEA-608. Trascrizione integrale, niente condensazione."
+    },
+    "social_vertical": {
+      "max_chars_per_line": 34,
+      "max_lines": 2,
+      "max_chars_per_second": 15,
+      "min_duration_ms": 700,
+      "max_duration_ms": 5000,
+      "min_gap_ms": 60,
+      "verbatim": false,
+      "sdh_labels": false,
+      "burn_in_safe_zone": { "vertical_range_pct": [0.60, 0.85] },
+      "notes": "Reels/Shorts/TikTok. Per stile karaoke: max_lines 1, segmentazione per gruppi di 2-4 parole."
+    },
+    "social_karaoke": {
+      "max_chars_per_line": 20,
+      "max_lines": 1,
+      "max_chars_per_second": 15,
+      "min_duration_ms": 300,
+      "max_duration_ms": 2000,
+      "min_gap_ms": 0,
+      "segment_by_words": { "min": 1, "max": 4 },
+      "verbatim": true,
+      "notes": "Word-level da timestamp ASR (whisper word_timestamps). Gap 0 ammesso: i blocchi si concatenano."
+    },
+    "kids_accessible": {
+      "max_chars_per_line": 34,
+      "max_lines": 2,
+      "max_chars_per_second": 13,
+      "min_duration_ms": 1200,
+      "max_duration_ms": 6000,
+      "min_gap_ms": 80,
+      "verbatim": false,
+      "allow_simplification": true,
+      "sdh_labels": true,
+      "notes": "Didattica/bambini. Semplificare invece di troncare."
+    }
+  }
+}

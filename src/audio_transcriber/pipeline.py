@@ -18,6 +18,9 @@ from .cleaning import clean_segments, paragraphs_from_blob, to_paragraphs
 from .config import read_prompt
 from .diarization import assign_speakers, check_diar_assets, diarize, format_dialogue
 from .i18n import t
+from .subtitles import OVERRIDABLE, SubtitleError, to_srt, to_vtt, validate
+from .subtitles import cues as build_cues
+from .subtitles import preset as subtitle_preset
 from .transcription import transcribe
 from .vocabularies import split_names
 
@@ -57,6 +60,68 @@ class EmptyTranscription(Exception):
 
     def __init__(self, message=None):
         super().__init__(message or t("transcribe.empty"))
+
+
+def subtitle_formats(settings):
+    """Which subtitle files were asked for: ``["srt"]``, both, or none.
+
+    Cues are always available - they are computed from the segments whenever
+    something wants them - so this is only about writing files."""
+    wanted = settings.get("subtitles")
+    if not wanted:
+        return []
+    if isinstance(wanted, (list, tuple)):
+        parts = list(wanted)
+    else:
+        parts = str(wanted).replace(",", " ").split()
+    kinds = []
+    for part in parts:
+        kind = part.strip().lower().lstrip(".")
+        if kind in ("srt", "vtt") and kind not in kinds:
+            kinds.append(kind)
+        elif kind and kind not in ("srt", "vtt"):
+            raise SubtitleError(f"unknown subtitle format '{part}' (srt, vtt)")
+    return kinds
+
+
+def subtitle_spec(settings):
+    """The preset in effect, with the settings' own numbers applied over it."""
+    overrides = {
+        "max_chars_per_line": settings.get("subtitle_chars"),
+        "max_lines": settings.get("subtitle_lines"),
+        "max_words_per_cue": settings.get("subtitle_words"),
+    }
+    return subtitle_preset(settings.get("subtitle_preset"),
+                           {key: value for key, value in overrides.items()
+                            if key in OVERRIDABLE})
+
+
+def subtitles_of(result, settings):
+    """The cues for a finished run, cut by the preset in effect."""
+    return build_cues(result.segments, subtitle_spec(settings),
+                      language=settings.get("language") or "it")
+
+
+def write_subtitles(entry, result, settings, kinds=None):
+    """Write the subtitle files an entry was asked for, and report the cues.
+
+    Returns ``(kinds written, cues, problems)``. The problems are what a
+    subtitler would object to — a line too wide, speech too fast to read —
+    reported rather than silently fixed, because fixing them means rewriting
+    what was said."""
+    kinds = kinds if kinds is not None else subtitle_formats(settings)
+    if not kinds:
+        return [], [], []
+    spec = subtitle_spec(settings)
+    cue_list = build_cues(result.segments, spec,
+                          language=settings.get("language") or "it")
+    written = []
+    for kind in kinds:
+        text = to_srt(cue_list, spec.get("line_ending", "\n")) if kind == "srt" \
+            else to_vtt(cue_list)
+        entry.write_subtitles(text, kind)
+        written.append(kind)
+    return written, cue_list, validate(cue_list, spec)
 
 
 def resolve_prompt(settings):
@@ -143,6 +208,10 @@ def run(source, settings, prompt=None, progress=None):
         backend=settings["backend"], compute_type=settings.get("compute_type"),
         threads=settings.get("threads"), vad=settings.get("vad", True),
         progress=scale(band, report, STAGE_READY[1]),
+        # Word timings make a subtitle cut fall where the speaker paused
+        # instead of being interpolated: worth the time when subtitles are
+        # wanted, not worth it otherwise.
+        word_timestamps=bool(settings.get("subtitles")),
     )
     report(band[1], STAGE_LAYING_OUT)
     if not segments and not blob.strip():
@@ -191,4 +260,8 @@ def file_in_library(library, source, result, settings, title=None, store="copy")
         },
         stats={"words": len(result.text.split()), "segments": len(result.segments)},
     )
+    kinds, cue_list, _problems = write_subtitles(entry, result, settings)
+    if kinds:
+        entry.update(subtitles={"formats": kinds, "cues": len(cue_list),
+                                "preset": subtitle_spec(settings).get("name")})
     return entry
