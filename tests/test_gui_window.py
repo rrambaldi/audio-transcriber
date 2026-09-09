@@ -1181,3 +1181,30 @@ def test_closing_offers_to_save_edited_notes(window, tmp_path, queue, monkeypatc
     assert window.close() is True
     with open(window.library.entry.notes_path, encoding="utf-8") as handle:
         assert "ship it" in handle.read()
+
+
+def test_the_row_buttons_survive_a_second_file(window, tmp_path, queue):
+    """Qt owns a cell widget and deletes the one it is replacing: reusing the
+    same objects across a rebuild had the first row's buttons destroyed the
+    moment a second recording was added."""
+    window.transcribe.add_files([sample(tmp_path, "first.wav")])
+    window.transcribe.refresh()
+    window.transcribe.add_files([sample(tmp_path, "second.wav")])
+    window.transcribe.refresh()
+
+    assert window.transcribe.table.rowCount() == 2
+    for index in range(2):
+        buttons = window.transcribe.table.cellWidget(index, 3)
+        assert buttons is not None, f"riga {index} senza pulsanti"
+        assert buttons.run.text() == "Transcribe"
+        assert buttons.isVisibleTo(window.transcribe.table)
+
+
+def test_the_actions_column_is_wide_enough_for_its_buttons(window, tmp_path):
+    """A column sized from its (empty) cells clipped the buttons to nothing on
+    a machine whose font is wider than this one's."""
+    window.transcribe.add_files([sample(tmp_path)])
+    window.transcribe.refresh()
+    buttons = window.transcribe.table.cellWidget(0, 3)
+
+    assert window.transcribe.table.columnWidth(3) >= buttons.sizeHint().width()

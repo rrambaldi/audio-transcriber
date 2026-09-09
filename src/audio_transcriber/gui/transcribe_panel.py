@@ -146,10 +146,14 @@ class TranscribePanel(QWidget):
         # empty for the whole of a job and filled a moment before the row
         # stopped being interesting.
         self.table.setItemDelegateForColumn(0, widgets.JobDelegate(self.table))
-        self.table.setColumnWidth(3, 240)
         header = self.table.horizontalHeader()
         header.setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
         header.setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
+        # The buttons are a widget in the cell, and a column sized to fit its
+        # *cells* measures the empty item behind them: 80 pixels for 180
+        # pixels of buttons, which on a machine with a wider font than this
+        # one's is a column of nothing. It is sized from the widgets instead.
+        header.setSectionResizeMode(3, QHeaderView.ResizeMode.Fixed)
         self.table.itemDoubleClicked.connect(self._open_selected_entry)
         # Not only on the refresh tick: clicking a row and finding the buttons
         # still describing the previous one is half a second of lying.
@@ -360,14 +364,14 @@ class TranscribePanel(QWidget):
             self._update_table(rows)
         finished = self._newly_finished(rows)
         self._rows = rows
-        alive = {row["id"] for row in rows}
-        for job_id in [known for known in self._actions if known not in alive]:
-            self._actions.pop(job_id)
         self.summary.setText(options.queue_summary(jobs))
         held = sum(1 for row in rows if row["held"])
         self.start.setText(options.start_label(held))
         self._sources_summary(held)
         self._update_actions()
+        # After the labels are on the buttons, not before: an empty button
+        # asks for a third of the width a labelled one does.
+        self._size_actions_column()
         for row in finished:
             self.job_finished.emit(row["entry_id"] or "")
 
@@ -386,6 +390,8 @@ class TranscribePanel(QWidget):
         are updated in place, so the selection and the scroll position survive
         a progress update."""
         selected = self.selected_job_id()
+        self._actions = {}
+        self.table.setRowCount(0)       # Qt deletes the widgets it owned
         self.table.setRowCount(len(rows))
         for index, row in enumerate(rows):
             title = _cell(row["title"], row["id"])
@@ -406,19 +412,25 @@ class TranscribePanel(QWidget):
                     break
 
     def _actions_for(self, row):
-        """The three buttons for one recording, made once and kept.
+        """The three buttons for one recording, made fresh for this rebuild.
 
-        Kept because the table is rebuilt whenever a job appears or
-        disappears, and a widget that is recreated under the pointer swallows
-        the click that is landing on it."""
-        widget = self._actions.get(row["id"])
-        if widget is None:
-            widget = widgets.JobActions(row["id"])
-            widget.transcribe.connect(self.act_on_row)
-            widget.remove.connect(self.remove_row)
-            widget.play.connect(self.play_row)
-            self._actions[row["id"]] = widget
+        Not kept between rebuilds: the table owns a cell widget and deletes
+        the one it replaces, so a cached widget that has moved to another row
+        is a pointer to something Qt has already freed. The table is only
+        rebuilt when a job appears or disappears, so this costs nothing."""
+        widget = widgets.JobActions(row["id"])
+        widget.transcribe.connect(self.act_on_row)
+        widget.remove.connect(self.remove_row)
+        widget.play.connect(self.play_row)
+        self._actions[row["id"]] = widget
         return widget
+
+    def _size_actions_column(self):
+        """Give the buttons the width they ask for, once they exist."""
+        needed = max([widget.sizeHint().width()
+                      for widget in self._actions.values()] or [0])
+        if needed and self.table.columnWidth(3) < needed + 12:
+            self.table.setColumnWidth(3, needed + 12)
 
     def _set_progress(self, index, row):
         """A bar for the job that is running, and nothing for the others.
