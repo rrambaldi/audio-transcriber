@@ -294,9 +294,11 @@ MESSAGES = {
 
         "gui.rec_host_api": "Audio system",
         "gui.rec_host_api_tip":
-            "How Windows is asked for the sound: WASAPI is the native path and the only "
-            "one that can record what the speakers are playing. MME and DirectSound are "
-            "older wrappers over the same devices, kept for drivers that need them.",
+            "How the sound is asked for. On Windows: WASAPI is the native path and the "
+            "only one that can record what the speakers are playing, while MME and "
+            "DirectSound are older wrappers over the same devices. On Linux: ALSA, JACK "
+            "or OSS, with the PulseAudio group holding what the speakers play. On macOS: "
+            "Core Audio, which cannot record its own output without a virtual device.",
         "gui.rec_host_api_summary": "{count} sources, {loopbacks} of them loopback",
         "gui.rec_source": "Source",
         "gui.rec_reload_tip":
@@ -714,10 +716,12 @@ MESSAGES = {
 
         "gui.rec_host_api": "Sistema audio",
         "gui.rec_host_api_tip":
-            "Come si chiede il suono a Windows: WASAPI e' la via nativa ed e' la sola che "
-            "puo' registrare quello che gli altoparlanti stanno riproducendo. MME e "
-            "DirectSound sono involucri piu' vecchi sugli stessi dispositivi, utili per i "
-            "driver che li richiedono.",
+            "Come si chiede il suono. Su Windows: WASAPI e' la via nativa ed e' la sola "
+            "che puo' registrare quello che riproducono gli altoparlanti, mentre MME e "
+            "DirectSound sono involucri piu' vecchi sugli stessi dispositivi. Su Linux: "
+            "ALSA, JACK o OSS, e il gruppo PulseAudio contiene quello che suona. Su "
+            "macOS: Core Audio, che non sa registrare la propria uscita senza un "
+            "dispositivo virtuale.",
         "gui.rec_host_api_summary": "{count} sorgenti, di cui {loopbacks} in loopback",
         "gui.rec_source": "Sorgente",
         "gui.rec_reload_tip":

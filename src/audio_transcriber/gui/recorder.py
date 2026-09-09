@@ -1,9 +1,11 @@
 """Choosing what to record from, the way Audacity lets you.
 
-Two menus: the audio system (MME, DirectSound, WASAPI, WDM-KS) and, inside it,
-the source. The loopback of an output device appears among the WASAPI sources,
-which is what makes it possible to record a call — what the machine plays is
-the other participants' half of it.
+Two menus: the audio system — MME, DirectSound, WASAPI and WDM-KS on Windows,
+ALSA, JACK or OSS on Linux, Core Audio on macOS — and, inside it, the source.
+The loopback of an output device appears among the sources of the platform's
+own API, which is what makes it possible to record a call: what the machine
+plays is the other participants' half of it. macOS is the exception, where
+there is no loopback without a virtual device.
 
 And a second source, optional, mixed into the same file: a microphone plus the
 loopback of the speakers are the two halves of a meeting held over Teams. The

@@ -34,7 +34,8 @@ audio-transcriber meeting.mp4        # -> meeting.txt
   and selectable from the command line or the web page.
 - **A local web interface**, optional: drop a file in the browser or record
   from it, watch the job, then read, search and annotate the library.
-- **A desktop window**, optional: the same thing in Qt, with a player that
+- **A desktop window**, optional, on Windows, Linux and macOS: the same thing
+  in Qt, with a player that
   reads along with the transcript and a recorder that can capture the
   microphone, what the speakers are playing, or both mixed together — which is
   how you record a call.
@@ -59,8 +60,12 @@ pip install -e ".[gui]"        # the desktop window (Qt), on top of either
 pip install -e ".[record]"     # host-API choice, loopback and mixing for the window
 ```
 
-On Windows there is a script for all of this: **`install.cmd`** from the
-checkout. It activates the conda environment it wants — `srt-ov2` by default,
+There is a script for all of this: **`./install.sh`** on Linux and macOS,
+**`install.cmd`** on Windows, both run from the checkout. The Unix one uses the
+environment already active or a `.venv` it creates, and points at the system
+libraries Qt and PortAudio need when they are missing.
+
+On Windows, `install.cmd` It activates the conda environment it wants — `srt-ov2` by default,
 `AT_ENV` to name another — and leaves the window in it, pulls, installs, checks
 the two things that go wrong on Windows (a Qt from conda shadowing the one pip
 installs, and a missing QtMultimedia) and prints what to run. Pass the extras

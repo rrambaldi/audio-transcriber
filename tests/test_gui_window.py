@@ -194,7 +194,7 @@ def make_device_recorder(tmp_path, application, store=None):
     """The Audacity-style recorder, driven by devices that do not exist."""
     from audio_fakes import audio_source, two_engines
     from audio_transcriber.gui.recorder import DeviceRecorder, make_recorder
-    from audio_transcriber.recording import LOOPBACK, WASAPI
+    from audio_transcriber.recording import LOOPBACK, SYSTEM
 
     inputs = [audio_source(key="portaudio:0:Mic", host_api="MME", label="Mic"),
               audio_source(key="portaudio:2:Mic", host_api="Windows WASAPI",
@@ -203,7 +203,7 @@ def make_device_recorder(tmp_path, application, store=None):
                            label="Line in")]
     loopbacks = [audio_source(key="wasapi:loopback:Speakers",
                               host_api="Windows WASAPI", kind=LOOPBACK,
-                              engine=WASAPI, channels=2, label="Altoparlanti")]
+                              engine=SYSTEM, channels=2, label="Altoparlanti")]
     backends = two_engines(inputs, loopbacks)
     recorder = make_recorder(str(tmp_path / "uploads"), store=store,
                              backends=backends)

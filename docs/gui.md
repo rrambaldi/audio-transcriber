@@ -6,6 +6,10 @@ pip install -e ".[gui,record]"    # and the audio-system, loopback and mix menus
 audio-transcriber gui
 ```
 
+Or the script for it: `./install.sh` on Linux and macOS, `install.cmd` on
+Windows. Both pull, install into the right environment and check what usually
+goes wrong on that platform.
+
 The same transcriptions as the command line and the web page, in a window. It
 exists for the machine you actually sit at: dropping files in, recording a
 meeting as it happens, and reading last month's transcript while listening to
@@ -189,6 +193,33 @@ so on the page:
 ```bash
 python -m pip install "PySide6-Addons>=6.6"
 ```
+
+### Linux and macOS
+
+Everything above works the same; the words in the *audio system* menu are the
+ones the platform uses.
+
+| | Windows | Linux | macOS |
+|---|---|---|---|
+| audio systems | MME, DirectSound, WASAPI, WDM-KS | ALSA, JACK, OSS | Core Audio |
+| recording the speakers | WASAPI loopback | PulseAudio monitor sources | **not possible** without a virtual device |
+
+**Linux.** The PySide6 wheel does not carry the system libraries Qt links
+against, and a window that will not open says which one is missing. Usually
+`libgl1 libegl1 libxkbcommon-x11-0 libxcb-cursor0 libxcb-icccm4
+libxcb-keysyms1 libdbus-1-3` on Debian and Ubuntu, and `mesa-libGL
+libxkbcommon-x11 xcb-util-cursor xcb-util-wm xcb-util-keysyms dbus-libs` on
+Fedora. `sounddevice` needs PortAudio (`libportaudio2`, or `portaudio` on
+Fedora); without it the window records through Qt, from a microphone only.
+The loopbacks are PulseAudio's monitor sources, which PipeWire also provides,
+so recording a call works the way it does on Windows.
+
+**macOS.** The wheels carry everything, including PortAudio: `./install.sh` and
+nothing else. The one thing missing is loopback — Core Audio cannot record what
+it is playing, and no flag changes that. The menu therefore offers no loopback
+at all rather than an entry that fails when used; a virtual device such as
+BlackHole, installed separately, appears as an ordinary input and can be
+recorded and mixed like any other.
 
 ### If Qt came from conda
 

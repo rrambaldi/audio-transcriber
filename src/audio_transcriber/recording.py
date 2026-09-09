@@ -13,11 +13,14 @@ Windows no single one does both:
     the host APIs — MME, DirectSound, WASAPI, WDM-KS — and their input
     devices: the same enumeration Audacity shows, because it is the same
     PortAudio.
-``soundcard`` (WASAPI directly)
+``soundcard`` (the platform's own audio API)
     the *loopback* of an output device, which the PortAudio build shipped in
     the wheel does not expose — it refuses to open a render endpoint as an
-    input. This one opens it with ``AUDCLNT_STREAMFLAGS_LOOPBACK``, the way
-    Windows means it to be done, and resamples on the way out.
+    input. This one goes to the platform directly: on Windows it opens the
+    endpoint with ``AUDCLNT_STREAMFLAGS_LOOPBACK``, on Linux it records a
+    PulseAudio monitor source, and on macOS it does not, because Core Audio
+    has no loopback without a virtual device — so there it offers nothing
+    rather than a menu entry that cannot record.
 
 Nothing here imports either library at module level, and the two engines are
 objects rather than function calls, so enumeration, mixing and what ends up in
@@ -31,6 +34,7 @@ keeping at the rate it was captured.
 """
 import math
 import os
+import sys
 import threading
 import wave
 from dataclasses import dataclass, field
@@ -44,11 +48,18 @@ LOOPBACK = "loopback"
 
 #: Engine names, which are also the two optional libraries.
 PORTAUDIO = "portaudio"
-WASAPI = "wasapi"
+SYSTEM = "system"
 
-#: Rate asked of WASAPI, which resamples for us. PortAudio devices are opened
-#: at their own default instead, because it does not.
-WASAPI_RATE = 48000
+#: What the platform's own audio API is called in the menu, since that is what
+#: ``soundcard`` talks to. On Windows the name deliberately matches the one
+#: PortAudio uses for the same thing, so the loopbacks appear among that host
+#: API's devices instead of in a group of their own.
+SYSTEM_HOST_API = {"win32": "Windows WASAPI",
+                   "darwin": "Core Audio"}.get(sys.platform, "PulseAudio")
+
+#: Rate asked of the platform API, which resamples for us. PortAudio devices
+#: are opened at their own default instead, because it does not.
+SYSTEM_RATE = 48000
 
 #: How much audio is read at a time. A tenth of a second keeps the elapsed
 #: counter lively without waking the thread pointlessly.
@@ -79,7 +90,7 @@ class Source:
     host_api: str             #: "Windows WASAPI", "MME", ...
     kind: str = INPUT         #: INPUT or LOOPBACK
     channels: int = 1
-    samplerate: int = WASAPI_RATE
+    samplerate: int = SYSTEM_RATE
     engine: str = PORTAUDIO
     handle: object = field(default=None, compare=False)  #: engine's own id
 
@@ -131,7 +142,7 @@ class PortAudioEngine:
                     host_api=api["name"],
                     kind=INPUT,
                     channels=int(device["max_input_channels"]),
-                    samplerate=int(device["default_samplerate"] or WASAPI_RATE),
+                    samplerate=int(device["default_samplerate"] or SYSTEM_RATE),
                     engine=PORTAUDIO,
                     handle=device_index,
                 ))
@@ -184,14 +195,14 @@ class _PortAudioStream:
             self._stream.close()
 
 
-class WasapiEngine:
-    """Loopback (and microphones) through ``soundcard``, i.e. WASAPI itself."""
+class SystemEngine:
+    """Loopback through ``soundcard``, i.e. the platform's own audio API."""
 
-    name = WASAPI
+    name = SYSTEM
 
     #: Loopback sources are shown inside this host API, which is where they
     #: belong and where Audacity shows them too.
-    HOST_API = "Windows WASAPI"
+    HOST_API = SYSTEM_HOST_API
 
     def __init__(self, module=None):
         self._module = module
@@ -211,23 +222,32 @@ class WasapiEngine:
             return False
 
     def sources(self):
-        """One loopback per output device.
+        """Every loopback this platform can record, and nothing else.
 
-        Microphones are left to PortAudio: it already lists them under every
-        host API, and offering the same microphone twice under the same name
-        would be a menu that lies about having two of them."""
+        Real microphones are left to PortAudio: it already lists them under
+        every host API, and offering the same microphone twice would be a menu
+        that lies about having two of them.
+
+        On macOS there are none. Core Audio cannot record what is being played
+        without a virtual device in the way (BlackHole and its like), and
+        ``soundcard`` says so with a warning and an empty list — better to
+        offer nothing than an entry that fails when it is used."""
+        if sys.platform == "darwin":
+            return []
         found = []
-        for speaker in self.module.all_speakers():
-            name = str(speaker.name)
+        for microphone in self.module.all_microphones(include_loopback=True):
+            if not getattr(microphone, "isloopback", False):
+                continue
+            name = str(microphone.name)
             found.append(Source(
-                key=f"{WASAPI}:loopback:{name}",
+                key=f"{SYSTEM}:loopback:{name}",
                 label=name,
                 host_api=self.HOST_API,
                 kind=LOOPBACK,
-                channels=max(1, int(getattr(speaker, "channels", 2) or 2)),
-                samplerate=WASAPI_RATE,
-                engine=WASAPI,
-                handle=speaker.id,
+                channels=max(1, int(getattr(microphone, "channels", 2) or 2)),
+                samplerate=SYSTEM_RATE,
+                engine=SYSTEM,
+                handle=microphone.id,
             ))
         return found
 
@@ -235,10 +255,10 @@ class WasapiEngine:
         microphone = self.module.get_microphone(source.handle, include_loopback=True)
         recorder = microphone.recorder(samplerate=samplerate, channels=channels)
         recorder.__enter__()
-        return _WasapiStream(recorder)
+        return _SystemStream(recorder)
 
 
-class _WasapiStream:
+class _SystemStream:
     """A soundcard recorder, which already hands back numpy blocks."""
 
     def __init__(self, recorder):
@@ -255,9 +275,9 @@ class _WasapiStream:
         self._recorder.__exit__(None, None, None)
 
 
-def engines(portaudio=None, wasapi=None):
+def engines(portaudio=None, system=None):
     """The engines to ask, in the order their sources are listed."""
-    return (portaudio or PortAudioEngine(), wasapi or WasapiEngine())
+    return (portaudio or PortAudioEngine(), system or SystemEngine())
 
 
 # --------------------------------------------------------------------------
@@ -292,7 +312,8 @@ def host_apis(backends=None):
     """``[(host api, [Source, ...]), ...]`` — the two menus, in that order.
 
     Host APIs keep the order PortAudio reports them in, which is the order
-    Audacity shows; the loopbacks join the WASAPI group they belong to."""
+    Audacity shows; the loopbacks join the group of the platform's own API,
+    which on Windows is the same WASAPI group PortAudio already lists."""
     grouped = {}
     for source in sources(backends):
         grouped.setdefault(source.host_api, []).append(source)
@@ -302,7 +323,8 @@ def host_apis(backends=None):
 def rescan(backends=None):
     """Ask the engines to notice devices that have appeared or gone.
 
-    WASAPI enumerates live and needs nothing; PortAudio has to be restarted.
+    The platform API enumerates live and needs nothing; PortAudio has to be
+    restarted.
     Never called while a recording is running, for the obvious reason."""
     for engine in engines(*(backends or (None, None))):
         if not engine.available():
@@ -461,7 +483,7 @@ class SpeechProbe:
 
     def __init__(self, samplerate, window_seconds=WINDOW_SECONDS,
                  block_seconds=BLOCK_SECONDS):
-        self.samplerate = int(samplerate or WASAPI_RATE)
+        self.samplerate = int(samplerate or SYSTEM_RATE)
         self._keep = max(4, int(window_seconds / max(block_seconds, 0.01)))
         self._min_blocks = max(2, int(MIN_SECONDS / max(block_seconds, 0.01)))
         self._levels = []
@@ -533,7 +555,7 @@ class _Capture:
                  block_seconds=BLOCK_SECONDS):
         self.source = source
         self.mix_with = mix_with
-        self.samplerate = int(source.samplerate or WASAPI_RATE)
+        self.samplerate = int(source.samplerate or SYSTEM_RATE)
         self.error = None
         #: Peak of the last block read, one per source, primary first. Read by
         #: the interface on a timer to draw a level meter.

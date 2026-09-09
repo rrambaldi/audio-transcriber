@@ -35,9 +35,9 @@ def test_the_two_menus_keep_the_host_api_order_portaudio_reports():
     mme = source(key="portaudio:0:Mic", host_api="MME")
     wasapi = source(key="portaudio:2:Mic", host_api="Windows WASAPI")
     loopback = source(key="wasapi:loopback:Speakers", host_api="Windows WASAPI",
-                      kind=recording.LOOPBACK, engine=recording.WASAPI)
+                      kind=recording.LOOPBACK, engine=recording.SYSTEM)
     backends = (FakeEngine(recording.PORTAUDIO, [mme, wasapi]),
-                FakeEngine(recording.WASAPI, [loopback]))
+                FakeEngine(recording.SYSTEM, [loopback]))
     assert recording.host_apis(backends) == [
         ("MME", [mme]),
         ("Windows WASAPI", [wasapi, loopback]),
@@ -48,7 +48,7 @@ def test_a_missing_library_costs_its_own_sources_and_nothing_else():
     """No soundcard means no loopbacks; the microphones are still there."""
     mic = source()
     backends = (FakeEngine(recording.PORTAUDIO, [mic]),
-                FakeEngine(recording.WASAPI, [source(kind=recording.LOOPBACK)],
+                FakeEngine(recording.SYSTEM, [source(kind=recording.LOOPBACK)],
                            available=False))
     assert recording.sources(backends) == [mic]
     assert recording.available(backends) is True
@@ -61,13 +61,13 @@ def test_an_engine_that_fails_to_enumerate_does_not_empty_the_menu():
 
     mic = source()
     backends = (FakeEngine(recording.PORTAUDIO, [mic]),
-                Broken(recording.WASAPI))
+                Broken(recording.SYSTEM))
     assert recording.sources(backends) == [mic]
 
 
 def test_neither_library_means_nothing_can_be_recorded():
     backends = (FakeEngine(recording.PORTAUDIO, available=False),
-                FakeEngine(recording.WASAPI, available=False))
+                FakeEngine(recording.SYSTEM, available=False))
     assert recording.available(backends) is False
     assert recording.sources(backends) == []
 
@@ -75,7 +75,7 @@ def test_neither_library_means_nothing_can_be_recorded():
 def test_a_remembered_device_that_is_gone_resolves_to_nothing():
     """The choice is stored between sessions, and a USB microphone travels."""
     backends = (FakeEngine(recording.PORTAUDIO, [source()]),
-                FakeEngine(recording.WASAPI))
+                FakeEngine(recording.SYSTEM))
     assert recording.find("portaudio:0:Mic", backends) is not None
     assert recording.find("portaudio:9:Gone", backends) is None
 
@@ -83,6 +83,57 @@ def test_a_remembered_device_that_is_gone_resolves_to_nothing():
 def test_loopback_sources_say_that_is_what_they_are():
     assert source(kind=recording.LOOPBACK).is_loopback is True
     assert source().is_loopback is False
+
+
+# --- the platform's own audio API -----------------------------------------
+
+class FakeMicrophone:
+    def __init__(self, name, isloopback, channels=2):
+        self.name = name
+        self.isloopback = isloopback
+        self.channels = channels
+        self.id = f"id:{name}"
+
+
+class FakeSoundcard:
+    """What ``soundcard`` looks like from the engine's side of the fence."""
+
+    def __init__(self, microphones):
+        self.microphones = microphones
+        self.asked = []
+
+    def all_microphones(self, include_loopback=False):
+        self.asked.append(include_loopback)
+        return [m for m in self.microphones if include_loopback or not m.isloopback]
+
+
+def test_only_the_loopbacks_come_from_the_platform_api(monkeypatch):
+    """The real microphones are PortAudio's to list, under every host API it
+    knows. Offering them twice would be a menu that claims two of them."""
+    monkeypatch.setattr(recording.sys, "platform", "linux")
+    module = FakeSoundcard([FakeMicrophone("Monitor of Speakers", True),
+                            FakeMicrophone("Webcam mic", False)])
+    found = recording.SystemEngine(module=module).sources()
+    assert [source.label for source in found] == ["Monitor of Speakers"]
+    assert all(source.is_loopback for source in found)
+    assert found[0].host_api == recording.SYSTEM_HOST_API
+    assert module.asked == [True]
+
+
+def test_macos_is_offered_no_loopback_at_all(monkeypatch):
+    """Core Audio cannot record its own output without a virtual device in the
+    way, and an entry that fails when it is used is worse than no entry."""
+    monkeypatch.setattr(recording.sys, "platform", "darwin")
+    module = FakeSoundcard([FakeMicrophone("Speakers", True)])
+    assert recording.SystemEngine(module=module).sources() == []
+    assert module.asked == []          # not even asked, so no warning is raised
+
+
+def test_the_loopback_group_is_named_after_the_platform():
+    """"Windows WASAPI" on a Linux box would be a group that does not exist -
+    and on Windows the name matches PortAudio's, so the loopbacks join that
+    host API's devices instead of forming a group of their own."""
+    assert recording.SYSTEM_HOST_API in ("Windows WASAPI", "Core Audio", "PulseAudio")
 
 
 # --- turning what a device gives into what a WAV holds --------------------
@@ -286,7 +337,7 @@ def test_monitoring_holds_the_devices_and_writes_nothing(tmp_path):
     stream = FakeStream(fill=0.3)
     monitor = recording.Monitor(
         mic, backends=(FakeEngine(recording.PORTAUDIO, [mic], stream=stream),
-                       FakeEngine(recording.WASAPI)),
+                       FakeEngine(recording.SYSTEM)),
         block_seconds=0.05)
     monitor.start()
     wait_until(lambda: monitor.levels[0] > 0)
@@ -309,7 +360,7 @@ def test_monitoring_reaches_a_verdict_about_what_it_hears(tmp_path):
     monitor = recording.Monitor(
         mic, backends=(FakeEngine(recording.PORTAUDIO, [mic],
                                   stream=FakeStream(blocks=blocks, pace=0.001)),
-                       FakeEngine(recording.WASAPI)))
+                       FakeEngine(recording.SYSTEM)))
     monitor.start()
     wait_until(lambda: monitor.measure()[0] == recording.SPEECH)
     monitor.stop()
@@ -330,7 +381,7 @@ def test_a_recording_writes_a_mono_wav_at_the_devices_rate(tmp_path):
     block = np.full((4410, 1), 0.5, dtype=np.float32)
     engine = FakeEngine(recording.PORTAUDIO, [mic], stream=FakeStream([block]))
     session = recording.Recording(str(tmp_path / "a.wav"), mic,
-                                  backends=(engine, FakeEngine(recording.WASAPI)))
+                                  backends=(engine, FakeEngine(recording.SYSTEM)))
     session.start()
     wait_until(lambda: session.frames >= 4410)
     path = session.stop()
@@ -353,7 +404,7 @@ def test_a_recording_that_captured_nothing_leaves_no_file_behind(tmp_path):
     engine = FakeEngine(recording.PORTAUDIO, [mic], stream=Silent())
     target = tmp_path / "empty.wav"
     session = recording.Recording(str(target), mic,
-                                  backends=(engine, FakeEngine(recording.WASAPI)))
+                                  backends=(engine, FakeEngine(recording.SYSTEM)))
     session.start()
     assert session.stop() is None
     assert not target.exists()
@@ -368,7 +419,7 @@ def test_a_device_that_will_not_open_says_so_before_the_meeting(tmp_path):
     mic = source()
     session = recording.Recording(str(tmp_path / "a.wav"), mic,
                                   backends=(Refusing(recording.PORTAUDIO, [mic]),
-                                            FakeEngine(recording.WASAPI)))
+                                            FakeEngine(recording.SYSTEM)))
     with pytest.raises(recording.RecordingError) as raised:
         session.start()
     assert "Invalid number of channels" in str(raised.value)
@@ -380,10 +431,10 @@ def test_the_two_sources_of_a_mix_are_both_opened_at_the_primarys_rate(tmp_path)
     make the two impossible to add together."""
     mic = source(samplerate=44100)
     speakers = source(key="wasapi:loopback:Speakers", kind=recording.LOOPBACK,
-                      engine=recording.WASAPI, channels=2, samplerate=48000)
+                      engine=recording.SYSTEM, channels=2, samplerate=48000)
     portaudio = FakeEngine(recording.PORTAUDIO, [mic],
                            stream=FakeStream([np.full((10, 1), 0.25, dtype=np.float32)]))
-    wasapi = FakeEngine(recording.WASAPI, [speakers],
+    wasapi = FakeEngine(recording.SYSTEM, [speakers],
                         stream=FakeStream(ready=[np.full((10, 2), 0.25, dtype=np.float32)]))
     session = recording.Recording(str(tmp_path / "mix.wav"), mic, mix_with=speakers,
                                   backends=(portaudio, wasapi), block_seconds=10 / 44100)
@@ -401,13 +452,13 @@ def test_the_levels_are_measured_per_source(tmp_path):
     nothing has to be visible next to a microphone that works."""
     mic = source(samplerate=1000)
     speakers = source(key="wasapi:loopback:S", kind=recording.LOOPBACK,
-                      engine=recording.WASAPI, channels=2, samplerate=1000)
+                      engine=recording.SYSTEM, channels=2, samplerate=1000)
     loud = FakeStream(fill=0.5)
     quiet = FakeStream(ready=[np.zeros((100, 2), dtype=np.float32)] * 50)
     session = recording.Recording(
         str(tmp_path / "a.wav"), mic, mix_with=speakers,
         backends=(FakeEngine(recording.PORTAUDIO, [mic], stream=loud),
-                  FakeEngine(recording.WASAPI, [speakers], stream=quiet)),
+                  FakeEngine(recording.SYSTEM, [speakers], stream=quiet)),
         block_seconds=0.1)
     session.start()
     wait_until(lambda: session.frames >= 100)
@@ -424,7 +475,7 @@ def test_a_recording_that_never_rose_above_silence_says_so(tmp_path):
         str(tmp_path / "a.wav"), mic,
         backends=(FakeEngine(recording.PORTAUDIO, [mic],
                              stream=FakeStream(fill=0.0)),
-                  FakeEngine(recording.WASAPI)),
+                  FakeEngine(recording.SYSTEM)),
         block_seconds=0.05)
     session.start()
     wait_until(lambda: session.frames >= 50)
@@ -438,7 +489,7 @@ def test_a_recording_with_something_in_it_is_not_called_silent(tmp_path):
         str(tmp_path / "a.wav"), mic,
         backends=(FakeEngine(recording.PORTAUDIO, [mic],
                              stream=FakeStream(fill=0.2)),
-                  FakeEngine(recording.WASAPI)),
+                  FakeEngine(recording.SYSTEM)),
         block_seconds=0.05)
     session.start()
     wait_until(lambda: session.frames >= 50)
@@ -453,7 +504,7 @@ def test_nothing_recorded_at_all_is_not_reported_as_silence(tmp_path):
     session = recording.Recording(
         str(tmp_path / "a.wav"), mic,
         backends=(FakeEngine(recording.PORTAUDIO, [mic]),
-                  FakeEngine(recording.WASAPI)))
+                  FakeEngine(recording.SYSTEM)))
     assert session.silent is False
 
 
@@ -463,7 +514,7 @@ def test_a_stopped_recording_closes_every_device(tmp_path):
     session = recording.Recording(str(tmp_path / "a.wav"), mic,
                                   backends=(FakeEngine(recording.PORTAUDIO, [mic],
                                                        stream=stream),
-                                            FakeEngine(recording.WASAPI)))
+                                            FakeEngine(recording.SYSTEM)))
     session.start()
     wait_until(lambda: session.frames >= 1)
     session.stop()
@@ -475,7 +526,7 @@ def test_a_paused_recording_keeps_the_devices_but_writes_nothing(tmp_path):
     mic = source()
     session = recording.Recording(str(tmp_path / "a.wav"), mic,
                                   backends=(FakeEngine(recording.PORTAUDIO, [mic]),
-                                            FakeEngine(recording.WASAPI)))
+                                            FakeEngine(recording.SYSTEM)))
     session.start()
     wait_until(lambda: session.frames >= 1)
     session.pause()
@@ -495,7 +546,7 @@ def test_the_elapsed_time_counts_what_was_written_not_wall_clock(tmp_path):
     engine = FakeEngine(recording.PORTAUDIO, [mic],
                         stream=FakeStream([np.zeros((500, 1), dtype=np.float32)]))
     session = recording.Recording(str(tmp_path / "a.wav"), mic,
-                                  backends=(engine, FakeEngine(recording.WASAPI)),
+                                  backends=(engine, FakeEngine(recording.SYSTEM)),
                                   block_seconds=0.5)
     session.start()
     wait_until(lambda: session.frames >= 500)
@@ -507,7 +558,7 @@ def test_starting_twice_is_refused(tmp_path):
     mic = source()
     session = recording.Recording(str(tmp_path / "a.wav"), mic,
                                   backends=(FakeEngine(recording.PORTAUDIO, [mic]),
-                                            FakeEngine(recording.WASAPI)))
+                                            FakeEngine(recording.SYSTEM)))
     session.start()
     with pytest.raises(recording.RecordingError):
         session.start()

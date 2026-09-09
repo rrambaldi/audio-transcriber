@@ -29,6 +29,26 @@ All notable changes to this project are documented here. The format follows
   the two libraries handed to it as objects and no Qt in it at all. Without the
   extra the window records through QtMultimedia as before and says what the
   other engine would add.
+- **The desktop window is not a Windows program.** Qt was always portable, but
+  the recording engine was not: the loopback engine was called `WasapiEngine`
+  and filed its sources under a host API named "Windows WASAPI", which on a
+  Linux box is a group that does not exist. It is now `SystemEngine` — the
+  platform's own audio API — and the group is named after the platform:
+  WASAPI on Windows (where the name matches PortAudio's, so the loopbacks join
+  that group instead of forming one of their own), PulseAudio on Linux, Core
+  Audio on macOS. It also enumerates loopbacks by asking `soundcard` for them
+  rather than by turning every speaker into one, which is what makes the
+  Linux monitor sources appear.
+  On macOS no loopback is offered at all: Core Audio cannot record what it is
+  playing, and an entry that fails when it is used is worse than no entry. A
+  virtual device such as BlackHole appears as an ordinary input and can be
+  recorded and mixed like any other.
+- **`install.sh`**, the Unix twin of `install.cmd`: it uses the environment
+  already active or a `.venv` it creates, pulls, installs, and checks what
+  actually goes wrong on these platforms — the system libraries the PySide6
+  wheel does not carry, and PortAudio for the recorder — naming the packages
+  for Debian, Ubuntu and Fedora. It refuses conda's `base` for the same reason
+  the Windows one does.
 - **The web interface gained what the window gained, where a browser can have
   it.** A job's status shows the stage it is in, not only its percentage;
   *stop* interrupts the transcription that is running, after asking, and *take

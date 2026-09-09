@@ -71,5 +71,5 @@ def two_engines(inputs=(), loopbacks=(), stream=None, available=True):
     """The pair of engines :mod:`audio_transcriber.recording` expects."""
     return (FakeEngine(recording.PORTAUDIO, inputs, stream=stream,
                        available=available),
-            FakeEngine(recording.WASAPI, loopbacks, stream=stream,
+            FakeEngine(recording.SYSTEM, loopbacks, stream=stream,
                        available=available))
