@@ -60,6 +60,30 @@ def output_choices():
     ]
 
 
+def output_label(output):
+    """The name of a choice, for a section that reports itself when closed."""
+    for label, _note, value in output_choices():
+        if value == output:
+            return label
+    return ""
+
+
+def subtitle_summary_line(preset, chars, words, srt, vtt):
+    """What the subtitle section says with its panel shut.
+
+    The numbers people actually changed, and the files that will be written:
+    a row that says only "Subtitles" has hidden the choice it was holding."""
+    parts = [preset or subtitles.DEFAULT_PRESET]
+    if chars:
+        parts.append(t("gui.sub_chars_short", count=chars))
+    if words:
+        parts.append(t("gui.sub_words_short", count=words))
+    kept = [kind for kind, on in (("srt", srt), ("vtt", vtt)) if on]
+    parts.append(", ".join(f".{kind}" for kind in kept) if kept
+                 else t("gui.sub_saved_none"))
+    return "  ·  ".join(str(part) for part in parts)
+
+
 def output_note(output):
     """The one-line explanation of what a choice produces."""
     for _label, note, value in output_choices():

@@ -14,6 +14,7 @@ from PySide6.QtGui import QPalette
 from PySide6.QtWidgets import (
     QApplication,
     QFrame,
+    QSizePolicy,
     QStyle,
     QStyledItemDelegate,
     QStyleOptionViewItem,
@@ -28,51 +29,130 @@ from . import style
 DETAILS_ROLE = Qt.ItemDataRole.UserRole + 1
 
 
+def separator():
+    """A hairline: what makes a column of sections read as one list."""
+    line = QFrame()
+    line.setFrameShape(QFrame.Shape.HLine)
+    line.setFrameShadow(QFrame.Shadow.Plain)
+    return line
+
+
 class Disclosure(QWidget):
-    """A titled row that opens onto its content, and says what is inside.
+    """A row in a list of sections: a title that opens onto its content.
 
-    Closed is the point: the keyword sets are nineteen rows that matter on
-    the third transcription, not the first, and they were taking a third of
-    the window before anything had been chosen. What a collapsed panel must
-    never do is hide that a choice was made, so the title carries the summary
-    — "Keyword sets — 3 chosen" — and the panel opens itself when there is
-    something to see."""
+    The whole left half of the Transcribe tab is built out of these, so what
+    the closed row says is the whole design. Three rules come out of that:
 
-    def __init__(self, title, content, parent=None):
+    * closed still reports. "Keyword sets" tells you nothing; "Keyword sets —
+      3 chosen" is the same row doing the job the open panel was doing.
+    * a section that does not apply *stays* in the list, disabled, saying why.
+      Removing it would mean the list changes shape under the pointer, and
+      the reason a thing is unavailable is worth more than the space it costs.
+    * it opens itself the moment it becomes applicable, because a section that
+      has just started to matter should not need a second click.
+    """
+
+    #: How far the content is indented under its title.
+    INDENT = 16
+
+    def __init__(self, title, content, open_now=False, key=None, parent=None):
         super().__init__(parent)
+        #: Name this section is remembered under between sessions.
+        self.key = key
         self._title = title
+        self._summary = ""
+        self._reason = ""
+
         self.button = QToolButton()
         self.button.setCheckable(True)
-        self.button.setChecked(False)
         self.button.setAutoRaise(True)
         self.button.setArrowType(Qt.ArrowType.RightArrow)
         self.button.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
+        self.button.setSizePolicy(QSizePolicy.Policy.MinimumExpanding,
+                                  QSizePolicy.Policy.Fixed)
         self.button.toggled.connect(self._toggled)
 
         self.content = content
         self.content.setVisible(False)
+        holder = QWidget()
+        inside = QVBoxLayout(holder)
+        inside.setContentsMargins(self.INDENT, 0, 0, 8)
+        inside.addWidget(self.content)
+        self._holder = holder
+        holder.setVisible(False)
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(4)
+        layout.setSpacing(2)
         layout.addWidget(self.button)
-        layout.addWidget(self.content)
-        self.set_summary("")
+        layout.addWidget(separator())
+        layout.addWidget(holder)
+        self._retitle()
+        self.set_open(open_now)
+
+    # --- what the row says -------------------------------------------------
 
     def set_summary(self, summary):
-        """What the closed row says after the title."""
-        self.button.setText(f"{self._title} — {summary}" if summary else self._title)
+        """What the row says after its title when it is closed."""
+        self._summary = summary or ""
+        self._retitle()
+
+    def _retitle(self):
+        """Compose the row's text, and cut it to the width there is.
+
+        A QToolButton does not elide, so a long summary — "3 · How to
+        transcribe them — auto (small on this machine) · Italian (it) · auto"
+        — used to widen the whole column past the window and put a horizontal
+        scrollbar under a list of five rows. The full text stays in the
+        tooltip."""
+        note = self._reason or self._summary
+        self._full = f"{self._title} — {note}" if note else self._title
+        self.button.setToolTip(self._full if note else "")
+        room = self.button.width() - self.INDENT * 2
+        if room <= 0:
+            self.button.setText(self._full)
+            return
+        self.button.setText(
+            self.button.fontMetrics().elidedText(self._full,
+                                                 Qt.TextElideMode.ElideRight,
+                                                 room))
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        self._retitle()
+
+    # --- whether it applies at all ----------------------------------------
+
+    def set_available(self, available, reason=""):
+        """Enable the section, or disable it and say why in its own row.
+
+        Opens it when it becomes available: a section that has just started
+        to matter should not need a second click to be read."""
+        was = self.button.isEnabled()
+        self._reason = "" if available else reason
+        self.button.setEnabled(bool(available))
+        if not available:
+            self.set_open(False)
+        elif not was:
+            self.set_open(True)
+        self._retitle()
+
+    def is_available(self):
+        return self.button.isEnabled()
+
+    # --- open and closed ---------------------------------------------------
 
     def _toggled(self, open_now):
         self.button.setArrowType(Qt.ArrowType.DownArrow if open_now
                                  else Qt.ArrowType.RightArrow)
+        self._holder.setVisible(open_now)
         self.content.setVisible(open_now)
 
     def is_open(self):
         return self.button.isChecked()
 
     def set_open(self, open_now):
-        self.button.setChecked(bool(open_now))
+        self.button.setChecked(bool(open_now) and self.button.isEnabled())
 
 
 class JobDelegate(QStyledItemDelegate):
@@ -137,9 +217,3 @@ class JobDelegate(QStyledItemDelegate):
         return QSize(size.width(), line * 2 + self.PADDING * 2)
 
 
-def separator():
-    """A hairline, for the places a box would be too much."""
-    line = QFrame()
-    line.setFrameShape(QFrame.Shape.HLine)
-    line.setFrameShadow(QFrame.Shadow.Plain)
-    return line

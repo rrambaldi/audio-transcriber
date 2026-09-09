@@ -155,6 +155,8 @@ class TranscribePanel(QWidget):
         _select(self.model, defaults["model"])
         _select(self.language, defaults["language"])
         _select(self.backend, defaults["backend"])
+        for box in (self.model, self.language, self.backend):
+            box.currentIndexChanged.connect(lambda _index: self._update_summary())
 
         self.diarize = QCheckBox(t("gui.diarize"))
         self.diarize.setChecked(defaults["diarize"])
@@ -218,6 +220,12 @@ class TranscribePanel(QWidget):
             box.setToolTip(t("gui.sub_save_tip"))
         self.save_srt.setChecked("srt" in defaults["subtitles"])
         self.save_vtt.setChecked("vtt" in defaults["subtitles"])
+        self.subtitle_preset.currentIndexChanged.connect(
+            lambda _index: self._update_summary())
+        for spin in (self.subtitle_chars, self.subtitle_words):
+            spin.valueChanged.connect(lambda _value: self._update_summary())
+        for box in (self.save_srt, self.save_vtt):
+            box.toggled.connect(lambda _on: self._update_summary())
 
         self.custom = QPlainTextEdit()
         self.custom.setPlaceholderText(t("gui.vocab_custom_hint"))
@@ -252,14 +260,15 @@ class TranscribePanel(QWidget):
         # it on, how to run it. It used to be three columns side by side with
         # the button that starts everything in the bottom-left corner, so the
         # eye crossed the window three times for a task that is a straight
-        # line.
-        output_box = QGroupBox(t("gui.step_output"))
-        output_layout = QVBoxLayout(output_box)
+        # line. Each step is a row in a list that opens: closed, it reports
+        # what it holds, so the column stays short without hiding a choice.
+        output_page = QWidget()
+        output_layout = QVBoxLayout(output_page)
+        output_layout.setContentsMargins(0, 0, 0, 0)
         for _label, _note, value in options.output_choices():
             output_layout.addWidget(self.output_buttons[value])
         # One note, for the answer that is chosen. Three notes at once is a
-        # paragraph to read before the first click, and it left the box no
-        # room for the controls underneath.
+        # paragraph to read before the first click.
         self.output_note = QLabel("")
         self.output_note.setWordWrap(True)
         # A note, not a disabled control: greying it out is the cheap way to
@@ -269,16 +278,16 @@ class TranscribePanel(QWidget):
         self.output_note.setAlignment(Qt.AlignmentFlag.AlignTop)
         output_layout.addWidget(self.output_note)
         self._reserve_note_lines(3)
-
         # And the reason an answer is missing belongs on the screen, not only
         # in a tooltip nobody hovers.
         output_layout.addWidget(self.output_unavailable)
+        self.step_output = widgets.Disclosure(t("gui.step_output"), output_page,
+                                              open_now=True, key="output")
 
         # --- step 2: the two ways in, as two tabs rather than one under the
         # other. A microphone is not an option of the file list, it is the
         # other half of the question, and the browser page has said so with
         # two tabs since it was written.
-        sources_box = QGroupBox(t("gui.step_sources"))
         add = QPushButton(t("gui.add_files"))
         add.clicked.connect(self.choose_files)
         buttons = QHBoxLayout()
@@ -291,10 +300,12 @@ class TranscribePanel(QWidget):
         self.drop_hint.setMinimumHeight(72)
         files_page = QWidget()
         files_layout = QVBoxLayout(files_page)
+        files_layout.setContentsMargins(0, 0, 0, 0)
         files_layout.addLayout(buttons)
         files_layout.addWidget(self.drop_hint, 1)
         record_page = QWidget()
         record_layout = QVBoxLayout(record_page)
+        record_layout.setContentsMargins(0, 0, 0, 0)
         record_layout.addWidget(self.recorder)
         record_layout.addStretch(1)
         self.sources = QTabWidget()
@@ -303,14 +314,20 @@ class TranscribePanel(QWidget):
         queue_hint = QLabel(t("gui.queue_hint"))
         queue_hint.setWordWrap(True)        # a narrow window must not cut it
         style.note(queue_hint)
-        sources_layout = QVBoxLayout(sources_box)
+        sources_page = QWidget()
+        sources_layout = QVBoxLayout(sources_page)
+        sources_layout.setContentsMargins(0, 0, 0, 0)
         sources_layout.addWidget(self.sources)
         sources_layout.addWidget(queue_hint)
+        self.step_sources = widgets.Disclosure(t("gui.step_sources"),
+                                               sources_page, open_now=True, key="sources")
 
-        # --- step 3: the details, and the ones that are rarely touched put
-        # away behind a row that says what is inside them.
-        settings_box = QGroupBox(t("gui.step_options"))
-        self.form = QFormLayout(settings_box)
+        # --- step 3: the details. Closed by default, because its summary —
+        # "auto · Italiano (it) · auto" — is the whole of what it says, and
+        # the machine's own defaults are right most of the time.
+        options_page = QWidget()
+        self.form = QFormLayout(options_page)
+        self.form.setContentsMargins(0, 0, 0, 0)
         self.form.addRow(t("gui.label_model"), self.model)
         self.form.addRow(t("gui.label_language"), self.language)
         self.form.addRow(t("gui.label_backend"), self.backend)
@@ -321,12 +338,16 @@ class TranscribePanel(QWidget):
         speakers_row.addStretch(1)
         self.form.addRow("", _wrap(speakers_row))
         self._speakers_row = self.form.rowCount() - 1
+        self.step_options = widgets.Disclosure(t("gui.step_options"),
+                                               options_page, key="options")
 
-        # How the cues are cut is a detail of one of the three answers, so it
-        # is a box of its own that appears when that answer is chosen: kept in
-        # the options form it was four rows of nothing for the other two.
-        self.subtitle_box = QGroupBox(t("gui.group_subtitles"))
-        subtitle_form = QFormLayout(self.subtitle_box)
+        # How the cues are cut belongs to one of the three answers, so the
+        # row stays in the list and is only *live* when that answer is
+        # chosen: taking it out would change the shape of the list under the
+        # pointer, and "only with Subtitles" is worth the line it costs.
+        subtitle_page = QWidget()
+        subtitle_form = QFormLayout(subtitle_page)
+        subtitle_form.setContentsMargins(0, 0, 0, 0)
         subtitle_form.addRow(t("gui.label_sub_preset"), self.subtitle_preset)
         subtitle_form.addRow(t("gui.label_sub_chars"), self.subtitle_chars)
         subtitle_form.addRow(t("gui.label_sub_words"), self.subtitle_words)
@@ -335,33 +356,38 @@ class TranscribePanel(QWidget):
         save_row.addWidget(self.save_vtt)
         save_row.addStretch(1)
         subtitle_form.addRow(t("gui.label_sub_save"), _wrap(save_row))
+        self.step_subtitles = widgets.Disclosure(t("gui.group_subtitles"),
+                                                 subtitle_page, key="subtitles")
 
-        vocab_content = QWidget()
-        vocab_layout = QVBoxLayout(vocab_content)
+        vocab_page = QWidget()
+        vocab_layout = QVBoxLayout(vocab_page)
         vocab_layout.setContentsMargins(0, 0, 0, 0)
         vocab_layout.addWidget(self.vocabularies, 2)
         vocab_layout.addWidget(QLabel(t("gui.vocab_custom")))
         vocab_layout.addWidget(self.custom, 1)
         vocab_layout.addWidget(self.prompt_size)
         self.vocab_panel = widgets.Disclosure(t("gui.group_vocabulary"),
-                                              vocab_content)
+                                              vocab_page, key="vocabulary")
 
+        self.steps = [self.step_output, self.step_sources, self.step_options,
+                      self.step_subtitles, self.vocab_panel]
         steps = QWidget()
         steps_layout = QVBoxLayout(steps)
         steps_layout.setContentsMargins(0, 0, 8, 0)
-        steps_layout.addWidget(output_box)
-        steps_layout.addWidget(sources_box)
-        steps_layout.addWidget(settings_box)
-        steps_layout.addWidget(self.subtitle_box)
-        steps_layout.addWidget(self.vocab_panel)
+        steps_layout.setSpacing(10)
+        for step in self.steps:
+            steps_layout.addWidget(step)
         steps_layout.addStretch(1)
-        # Three steps are taller than a laptop screen once the keyword panel
-        # is open, and a window that cannot show its own third step is worse
-        # than one that scrolls.
+        # Open, the list is taller than a laptop screen, and a window that
+        # cannot show its own last section is worse than one that scrolls.
         left = QScrollArea()
         left.setWidget(steps)
         left.setWidgetResizable(True)
         left.setFrameShape(QFrame.Shape.NoFrame)
+        # Wide enough for the widest section with its panel open (the keyword
+        # sets, at 355px): below that the column scrolls sideways, which is
+        # the one thing a list of five rows must never do.
+        left.setMinimumWidth(400)
 
         self.start = QPushButton(t("gui.start"))
         # The one filled button on the tab: see gui/style.py. It is also the
@@ -403,13 +429,28 @@ class TranscribePanel(QWidget):
 
         # Side by side, not one over the other: pressing Transcribe has to
         # produce something visible, and the list is what it produces.
-        splitter = QSplitter(Qt.Orientation.Horizontal)
-        splitter.addWidget(left)
-        splitter.addWidget(right)
-        splitter.setStretchFactor(0, 4)
-        splitter.setStretchFactor(1, 5)
+        # A combo box asks to be as wide as its longest item, and "auto
+        # (small on this machine)" is a long item: left alone they set the
+        # minimum width of the whole column and put a horizontal scrollbar
+        # under a list of five rows. They may shrink; the menu still opens at
+        # full width.
+        for box in self.findChildren(QComboBox):
+            box.setSizeAdjustPolicy(
+                QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
+            box.setMinimumContentsLength(12)
+
+        self.splitter = QSplitter(Qt.Orientation.Horizontal)
+        self.splitter.addWidget(left)
+        self.splitter.addWidget(right)
+        self.splitter.setStretchFactor(0, 0)
+        self.splitter.setStretchFactor(1, 1)
+        self.splitter.setChildrenCollapsible(False)
+        # Stretch factors only share out what is left over, and the table asks
+        # for everything it can get: without a starting size the steps column
+        # was squeezed to less than its own content and scrolled sideways.
+        self.splitter.setSizes([440, 740])
         layout = QVBoxLayout(self)
-        layout.addWidget(splitter)
+        layout.addWidget(self.splitter)
 
     def chosen_output(self):
         """Which of the three the radio buttons say."""
@@ -419,13 +460,14 @@ class TranscribePanel(QWidget):
         return "text"
 
     def _output_chosen(self):
-        """Show only the controls the chosen output uses, greyed if it cannot.
+        """Follow the chosen answer through the rest of the list.
 
         A subtitle preset next to "just the text" is a control that does
         nothing, and a control that does nothing is a question the window
-        cannot answer. What belongs to another answer goes away entirely; what
-        belongs to this one but this machine cannot do stays, greyed, so the
-        reason can be read in its tooltip."""
+        cannot answer. Inside a step, what belongs to another answer goes
+        away; the subtitle *step* stays in the list and goes quiet instead,
+        saying which answer would bring it to life — a list that changes
+        shape under the pointer is harder to learn than one row that waits."""
         chosen = self.chosen_output()
         self.output_note.setText(options.output_note(chosen))
         enables = options.output_enables(chosen)
@@ -435,13 +477,16 @@ class TranscribePanel(QWidget):
         for widget in (self.subtitle_preset, self.subtitle_chars,
                        self.subtitle_words, self.save_srt, self.save_vtt):
             widget.setEnabled(enables["subtitles"])
-        self.subtitle_box.setVisible(enables["subtitles"])
+        self.step_subtitles.set_available(
+            enables["subtitles"],
+            t("gui.only_with_subtitles", answer=t("gui.output_subtitles")))
         if enables["subtitles"] and not (self.save_srt.isChecked()
                                          or self.save_vtt.isChecked()):
             # The chosen output is the files, so one is written either way:
             # showing it ticked is more honest than saving an .srt behind an
             # empty box.
             self.save_srt.setChecked(True)
+        self._update_summary()
 
     def _reserve_note_lines(self, lines):
         """Keep room for the longest note so the boxes below do not move.
@@ -588,8 +633,9 @@ class TranscribePanel(QWidget):
         finished = self._newly_finished(rows)
         self._rows = rows
         self.summary.setText(options.queue_summary(jobs))
-        self.start.setText(options.start_label(
-            sum(1 for row in rows if row["held"])))
+        held = sum(1 for row in rows if row["held"])
+        self.start.setText(options.start_label(held))
+        self._sources_summary(held)
         self._update_buttons()
         for row in finished:
             self.job_finished.emit(row["entry_id"] or "")
@@ -662,7 +708,21 @@ class TranscribePanel(QWidget):
         return next((row for row in self._rows if row["id"] == job_id), None)
 
     def _update_summary(self):
-        """The keyword panel, closed, still has to say what was chosen."""
+        """What each closed section says about itself.
+
+        This is the whole bet of the list: a row that is shut has to report
+        as much as the panel it hides, or closing it is hiding a choice."""
+        self.step_output.set_summary(
+            options.output_label(self.chosen_output()))
+        # The value, not the label: "auto (small on this machine)" is the
+        # right thing in a menu and too long for a row that has to fit.
+        self.step_options.set_summary("  ·  ".join(str(value) for value in (
+            self.model.currentData(), self.language.currentText(),
+            self.backend.currentData()) if value))
+        self.step_subtitles.set_summary(options.subtitle_summary_line(
+            self.subtitle_preset.currentData(),
+            self.subtitle_chars.value(), self.subtitle_words.value(),
+            self.save_srt.isChecked(), self.save_vtt.isChecked()))
         chosen = len(self.chosen_vocabularies())
         typed = bool(self.custom.toPlainText().strip())
         if chosen and typed:
@@ -674,6 +734,12 @@ class TranscribePanel(QWidget):
         else:
             summary = t("gui.vocab_none")
         self.vocab_panel.set_summary(summary)
+
+    def _sources_summary(self, held):
+        """Step 2, closed: how much is waiting to be started."""
+        self.step_sources.set_summary(
+            t("gui.step_sources_waiting", count=held) if held
+            else t("gui.step_sources_empty"))
 
     def _update_buttons(self):
         """Only what applies to the selected job is offered.
@@ -772,6 +838,15 @@ class TranscribePanel(QWidget):
         self.subtitle_words.setValue(int(self.store.value("subtitle_words", 0, int) or 0))
         self.save_srt.setChecked(bool(self.store.value("save_srt", False, bool)))
         self.save_vtt.setChecked(bool(self.store.value("save_vtt", False, bool)))
+        where = self.store.value("splitter")
+        if where is not None:
+            self.splitter.restoreState(where)
+        for step in self.steps:
+            # A section the machine cannot offer stays shut whatever the file
+            # says; set_open() refuses it anyway, this is just honest.
+            remembered_open = self.store.value(f"open_{step.key}", None)
+            if remembered_open is not None:
+                step.set_open(remembered_open in (True, "true"))
         remembered = self.store.value("vocabulary", None)
         if remembered is not None:
             wanted = set(remembered if isinstance(remembered, list)
@@ -798,6 +873,9 @@ class TranscribePanel(QWidget):
         self.store.setValue("subtitle_words", self.subtitle_words.value())
         self.store.setValue("save_srt", self.save_srt.isChecked())
         self.store.setValue("save_vtt", self.save_vtt.isChecked())
+        for step in self.steps:
+            self.store.setValue(f"open_{step.key}", step.is_open())
+        self.store.setValue("splitter", self.splitter.saveState())
 
     def shutdown(self):
         """Stop polling, stop recording, remember the choices."""

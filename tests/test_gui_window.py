@@ -739,10 +739,9 @@ def test_the_chosen_options_are_remembered_for_next_time(window, tmp_path, queue
 def test_the_window_asks_what_you_want_out_of_it(window):
     """The choice people arrive with, in three words rather than in five
     scattered controls."""
-    from PySide6.QtWidgets import QGroupBox
-
-    titles = [box.title() for box in window.transcribe.findChildren(QGroupBox)]
-    assert "1 · What do you want out of it?" in titles
+    titles = [step.button.text() for step in window.transcribe.steps]
+    assert any(title.startswith("1 · What do you want out of it?")
+               for title in titles)
     assert set(window.transcribe.output_buttons) == {"text", "speakers", "subtitles"}
     assert window.transcribe.chosen_output() == "text"      # the plain default
 
@@ -788,16 +787,20 @@ def test_the_controls_of_the_other_answers_are_greyed_out(window):
     assert panel.save_srt.isEnabled() is True
 
 
-def test_the_boxes_of_the_other_answers_are_out_of_the_way(window):
-    """Greying is not enough: four subtitle rows under "just the text" are
-    four rows of nothing, and they crowded the box that does apply."""
+def test_the_subtitle_section_waits_for_the_answer_that_needs_it(window):
+    """It stays in the list and goes quiet, saying which answer brings it to
+    life: a list that changes shape under the pointer is harder to learn than
+    one row that waits. And it opens itself when it becomes live."""
     panel = window.transcribe
     panel.output_buttons["text"].setChecked(True)
-    assert panel.subtitle_box.isVisibleTo(panel) is False
+    assert panel.step_subtitles.is_available() is False
+    assert panel.step_subtitles.is_open() is False
+    assert "Subtitles" in panel.step_subtitles.button.text()
     assert panel.form.isRowVisible(panel._speakers_row) is False
 
     panel.output_buttons["subtitles"].setChecked(True)
-    assert panel.subtitle_box.isVisibleTo(panel) is True
+    assert panel.step_subtitles.is_available() is True
+    assert panel.step_subtitles.is_open() is True
     assert panel.form.isRowVisible(panel._speakers_row) is True
 
 
@@ -842,12 +845,10 @@ def test_the_tab_reads_as_three_steps(window):
     """A sequence, not a dashboard: three columns side by side with the start
     button in the bottom-left corner made the eye cross the window three times
     for a task that is a straight line."""
-    from PySide6.QtWidgets import QGroupBox
-
-    titles = [box.title() for box in window.transcribe.findChildren(QGroupBox)]
-    assert titles[:3] != [] and "1 · What do you want out of it?" in titles
-    assert "2 · Which recordings" in titles
-    assert "3 · How to transcribe them" in titles
+    titles = [step.button.text() for step in window.transcribe.steps]
+    assert [title.split(" — ")[0] for title in titles] == [
+        "1 · What do you want out of it?", "2 · Which recordings",
+        "3 · How to transcribe them", "Subtitles", "Keyword sets"]
     # ...and the two ways in are two tabs, not one under the other
     assert window.transcribe.sources.count() == 2
     assert window.transcribe.sources.tabText(0) == "Add files"
@@ -896,6 +897,35 @@ def test_the_status_bar_says_what_is_in_the_library(window):
     """It used to hold the library path, permanently, in the one place a
     message can appear."""
     assert "recordings in the library" in window.statusBar().currentMessage()
+
+
+def test_every_closed_section_reports_what_it_holds(window, tmp_path, queue):
+    """Closing a section must not hide a choice: the row is the summary."""
+    panel = window.transcribe
+    panel.output_buttons["subtitles"].setChecked(True)
+    panel.add_files([sample(tmp_path)])
+
+    said = {step.key: step.button.text() for step in panel.steps}
+    assert said["output"].endswith("Subtitles")
+    assert said["sources"].endswith("1 waiting")
+    assert "auto" in said["options"] and "Italian" in said["options"]
+    assert "netflix" in said["subtitles"] and ".srt" in said["subtitles"]
+    assert said["vocabulary"].endswith("none")
+
+
+def test_which_sections_were_open_is_remembered(window, queue):
+    """The list is a habit, like the model and the language beside it."""
+    window.transcribe.step_options.set_open(True)
+    window.transcribe.step_output.set_open(False)
+    window.transcribe._save_state()
+
+    later = MainWindow(SETTINGS, queue=queue)
+    try:
+        assert later.transcribe.step_options.is_open() is True
+        assert later.transcribe.step_output.is_open() is False
+    finally:
+        later.transcribe.shutdown()
+        later.deleteLater()
 
 
 def test_the_chosen_output_is_remembered(window, queue):

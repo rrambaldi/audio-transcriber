@@ -19,11 +19,23 @@ the moment it came from — without a browser, a server or a port.
 
 Three tabs.
 
-**Transcribe** is read as three steps down the left of the tab, with the queue
-beside it: *1 what do you want out of it · 2 which recordings · 3 how to
-transcribe them*. It used to be three panels side by side with the button that
-starts everything in the bottom-left corner, which made the eye cross the
-window three times for a task that is a straight line.
+**Transcribe** is read as a list of sections down the left of the tab, with
+the queue beside it: *1 what do you want out of it · 2 which recordings · 3
+how to transcribe them*, then *Subtitles* and *Keyword sets*. It used to be
+three panels side by side with the button that starts everything in the
+bottom-left corner, which made the eye cross the window three times for a task
+that is a straight line.
+
+Every section opens and closes, and **a closed one still reports what it
+holds** — *3 · How to transcribe them — auto · Italiano (it) · auto*,
+*Keyword sets — 3 chosen* — because closing a section must not hide a choice.
+Which ones you leave open is remembered, like the model and the language.
+
+**A section that does not apply stays in the list and goes quiet**, saying
+which answer would bring it to life: *Subtitles — only with "Subtitles"*. It
+opens itself the moment you choose that answer. Taking the row out instead
+would change the shape of the list under the pointer, and the reason is worth
+more than the line it costs.
 
 Recordings arrive in step 2, by dropping them anywhere on the tab, through
 *Add files…*, or from the microphone: the two ways in are two tabs, the same
@@ -87,10 +99,6 @@ adds files, <kbd>Ctrl</kbd>+<kbd>Enter</kbd> transcribes, <kbd>Delete</kbd> take
 the selected row out of the queue or off the list, and the tabs answer
 <kbd>Ctrl</kbd>+<kbd>Tab</kbd> as Qt's own.
 
-**The keyword sets start put away**, behind a row that says what is inside —
-"Keyword sets — 3 chosen" — because nineteen sets took a third of the window
-before anything had been chosen, and they matter on the third transcription
-rather than the first.
 
 **The progress bar and the stage.** A run reports what it is doing as well as
 how far along it is: starting, audio decoded, loading the model, converting it

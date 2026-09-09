@@ -289,6 +289,19 @@ All notable changes to this project are documented here. The format follows
 
 ### Changed
 
+- **The left of the Transcribe tab is a list of sections that open.** Five
+  rows — the three steps, *Subtitles*, *Keyword sets* — each of which reports
+  what it holds while it is shut: "3 · How to transcribe them — auto ·
+  Italiano (it) · auto", "Keyword sets — 3 chosen". That is the whole bet of
+  the arrangement: a closed section must not hide a choice, or closing it is
+  worse than the crowding it fixed. Which rows are left open is remembered,
+  and so is where the divider between the list and the queue sits.
+
+  **A section that does not apply stays and goes quiet.** *Subtitles* reads
+  "only with «Subtitles»" until that is the answer, and opens itself the
+  moment it is: a row that waits is easier to learn than a list that changes
+  shape under the pointer.
+
 - **The Transcribe tab is read as three steps.** *1 what do you want out of it
   · 2 which recordings · 3 how to transcribe them*, down the left of the tab,
   with the queue beside them instead of underneath. It was three panels side
