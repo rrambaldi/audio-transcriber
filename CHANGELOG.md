@@ -6,6 +6,22 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- **Half the Italian stopwords never matched anything.** They were typed
+  without accents — `perche`, `cosi`, `pero`, `piu` — and Whisper writes
+  Italian as it is spelled, so `perché`, `così`, `però` and `più` sailed
+  through the filter and into the ranking. Found by summarising a real
+  nineteen-minute recording, whose "recurring terms" came back as *esatto,
+  framework, perché, roba, così, eccetera*. Comparison is now made on the
+  accent-folded form while the word itself is kept as it was said, and the
+  list has gained the glue of actual speech: the fillers two people talking
+  say more often than they say their subject, plus the modals and the three
+  light verbs in the present. The same nineteen minutes now come back as
+  *framework, configurazione, controlli, catalogo*. The list stops at the
+  modals on purpose — chasing every conjugation would be a lemmatiser, and
+  that is not a dependency this program will take for a keyword list.
+
 ### Added
 
 - **Summaries from the browser and the window**, not just the command line. A

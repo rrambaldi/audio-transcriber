@@ -27,6 +27,7 @@ is why the test suite can cover it on a machine with neither.
 """
 import re
 import time
+import unicodedata
 from collections import namedtuple
 from datetime import datetime
 
@@ -83,22 +84,40 @@ STOPWORDS = {
         "c", "che", "chi", "ci", "cio", "cioe", "come", "con", "cosa", "cosi",
         "cui", "da", "dai", "dal", "dalla", "dallo", "degli", "dei", "del",
         "della", "delle", "dello", "dentro", "detto", "deve", "devo", "di",
-        "dopo", "dove", "due", "durante", "e", "ecco", "ed", "entro", "era",
-        "erano", "essere",
+        "dopo", "dove", "due", "dunque", "durante", "e", "ecco", "eccetera",
+        "ed", "entro", "era", "erano", "esatto", "essere",
         "fa", "fare", "fatto", "fino", "forse", "fra", "gia", "gli", "grazie",
         "ha", "hai", "hanno", "ho", "i", "il", "in", "invece", "io", "l", "la",
         "le", "lei", "li", "lo", "loro", "lui", "ma", "magari", "mai", "me",
         "mentre", "mi", "mia", "mie", "miei", "mio", "molto", "ne", "negli",
         "nei", "nel", "nella", "nelle", "nello", "no", "noi", "non", "nostro",
         "o", "ogni", "oppure", "ora", "per", "percio", "perche", "pero", "piu",
-        "po", "poi", "porta", "prima", "puo", "qua", "quale", "quando",
+        "po", "poi", "praticamente", "prima", "puo", "qua", "quale", "quando",
         "quanto", "quasi", "quella", "quelle", "quelli", "quello", "questa",
         "queste", "questi", "questo", "qui", "quindi", "s", "sara", "se",
         "sei", "sempre", "senza", "si", "sia", "siamo", "solo", "sono",
-        "oltre", "sopra", "sotto", "sta", "stato", "su", "sua", "sue", "sui",
-        "sul",
+        "oltre", "roba", "sopra", "sotto", "sta", "stato", "su", "sua", "sue",
+        "sui", "sul",
         "sulla", "suo", "t", "tanto", "te", "tra", "tu", "tuo", "tutti",
-        "tutto", "un", "una", "uno", "va", "vedi", "vi", "voi", "vuole",
+        "tutto", "un", "una", "uno", "va", "vabbe", "vedi", "vi", "voi",
+        "vuole",
+        # The glue of spoken Italian. In a transcript of two people talking
+        # these outrank the subject on frequency alone, and a list of
+        # "recurring terms" that opens with "esatto" is a list of nothing.
+        "appunto", "beh", "boh", "certo", "chiaro", "comunque",
+        "diciamo", "giusto", "guarda", "insomma", "mah", "niente", "ok",
+        "okay", "perfetto", "senti", "tipo",
+        # Modals and the three light verbs, in the present. Same category as
+        # the auxiliaries above: "dobbiamo" says as little about a meeting as
+        # "abbiamo" does. The list stops here on purpose — chasing every
+        # conjugation would be a lemmatiser, and that is a dependency this
+        # program will not take for a keyword list.
+        "posso", "puoi", "possiamo", "potete", "possono",
+        "devi", "dobbiamo", "dovete", "devono",
+        "voglio", "vuoi", "vogliamo", "volete", "vogliono",
+        "faccio", "fai", "facciamo", "fate", "fanno",
+        "sto", "stai", "stiamo", "state", "stanno",
+        "dico", "dici", "dice", "dite", "dicono",
     },
     "en": {
         "a", "about", "actually", "after", "all", "also", "an", "and", "any",
@@ -119,6 +138,24 @@ STOPWORDS = {
         "with", "would", "yeah", "yes", "you", "your",
     },
 }
+
+def fold(word):
+    """A word with its accents removed, for comparing against the lists here.
+
+    Whisper writes Italian as it is spelled — ``perché``, ``così``, ``però``,
+    ``più`` — and a stopword list typed without accents silently matches none
+    of them. Rather than maintain both spellings of every word, the comparison
+    is made on the folded form and the original is what gets displayed."""
+    return "".join(character for character
+                   in unicodedata.normalize("NFKD", str(word or "").lower())
+                   if not unicodedata.combining(character))
+
+
+#: The same lists, folded once at import, which is what is actually compared
+#: against. Building them here rather than folding a set on every call keeps
+#: the ranking one matrix multiplication and no string work.
+FOLDED_STOPWORDS = {language: frozenset(fold(word) for word in words)
+                    for language, words in STOPWORDS.items()}
 
 #: The words the page is built from. These do *not* come from :mod:`i18n`:
 #: that catalogue is the language of the interface, and a summary is a
@@ -247,14 +284,14 @@ def sentences_from_text(text):
 
 def _terms(sentence_text, language):
     """The content words of one sentence, lowercased."""
-    stop = STOPWORDS.get(language, STOPWORDS["en"])
+    stop = FOLDED_STOPWORDS.get(language, FOLDED_STOPWORDS["en"])
     words = []
     for match in _WORD.findall(str(sentence_text or "").lower()):
         word = match.strip("'")
         head, sep, tail = word.partition("'")
-        if sep and tail and head in _ELIDED:
+        if sep and tail and fold(head) in _ELIDED:
             word = tail
-        if len(word) < 3 or word in stop:
+        if len(word) < 3 or fold(word) in stop:
             continue
         words.append(word)
     return words
