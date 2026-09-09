@@ -7,6 +7,7 @@ Layout of an entry::
         source.mp4        the original file (copied, moved, or only referenced)
         transcript.txt    the readable text, exactly what the CLI writes
         transcript.json   segments with timestamps and speakers, for tooling
+        summary.md        the short version, when one was asked for
         notes.md          yours to write
 
 Two rules make the format durable. Everything a human needs is plain text, so
@@ -31,6 +32,7 @@ METADATA_FILENAME = "metadata.json"
 TRANSCRIPT_FILENAME = "transcript.txt"
 SEGMENTS_FILENAME = "transcript.json"
 NOTES_FILENAME = "notes.md"
+SUMMARY_FILENAME = "summary.md"
 SUBTITLE_FILENAMES = {"srt": "subtitles.srt", "vtt": "subtitles.vtt"}
 SOURCE_STEM = "source"
 
@@ -114,6 +116,10 @@ class Entry:
     def notes_path(self):
         return os.path.join(self.path, NOTES_FILENAME)
 
+    @property
+    def summary_path(self):
+        return os.path.join(self.path, SUMMARY_FILENAME)
+
     def source_path(self):
         """Absolute path of the recording, wherever it actually lives."""
         source = self.metadata.get("source") or {}
@@ -190,6 +196,25 @@ class Entry:
                 return handle.read()
         except OSError:
             return ""
+
+    def write_summary(self, text):
+        """Replace ``summary.md``.
+
+        A file rather than a field in the metadata, like the transcript and
+        the subtitles: it is a page someone reads, and often the only part of
+        an hour-long recording anybody reads twice."""
+        write_atomic(self.summary_path, text if text.endswith("\n") else text + "\n")
+        return self
+
+    def read_summary(self):
+        try:
+            with open(self.summary_path, encoding="utf-8") as handle:
+                return handle.read()
+        except OSError:
+            return ""
+
+    def has_summary(self):
+        return os.path.exists(self.summary_path)
 
     def subtitle_path(self, kind="srt"):
         """Where the subtitles of this entry live, whether or not they exist."""

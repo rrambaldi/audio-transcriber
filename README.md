@@ -37,6 +37,10 @@ audio-transcriber meeting.mp4        # -> meeting.txt
   the trade uses — characters per line, reading speed, minimum and maximum
   duration — as `.srt` or `.vtt`, with named presets from Netflix's guide to
   vertical video. See [docs/subtitles.md](docs/subtitles.md).
+- **Summaries**, if you want them: the sentences that carry a transcript,
+  picked by weight and printed with the minute they were said at, as a
+  `summary.md` in the library entry. No model, no download, nothing sent
+  anywhere. See [docs/summary.md](docs/summary.md).
 - **Keyword sets** to stop it mangling your technical terms — named, listed,
   and selectable from the command line or the web page.
 - **A local web interface**, optional: drop a file in the browser or record
@@ -139,6 +143,7 @@ audio-transcriber riunione.wav --lang it
 audio-transcriber hardware      # what this machine can do
 audio-transcriber paths         # where models, config and recordings are kept
 audio-transcriber config init   # write a commented config.toml
+audio-transcriber summarize 2026-09-04    # the short version of one of them
 audio-transcriber library list  # browse what you have transcribed
 audio-transcriber vocab list    # the keyword sets you can select
 audio-transcriber web           # the same things, from a browser
@@ -158,8 +163,9 @@ ID                          DATE        LENGTH  WORDS  TITLE
 ```
 
 Each entry holds the original recording, `transcript.txt`, `transcript.json`
-(segments with timestamps and speakers), `notes.md` for you to write in, and
-`metadata.json` recording how it was transcribed and how long it took.
+(segments with timestamps and speakers), `notes.md` for you to write in,
+`summary.md` if you asked for one, and `metadata.json` recording how it was
+transcribed and how long it took.
 Everything is plain text or JSON, readable without this program.
 
 ```bash
@@ -317,7 +323,10 @@ small server you may prefer to leave it off.
 - [x] Recording what the speakers play (WASAPI loopback), and mixing it with
       the microphone
 - [x] Subtitles: cues by the trade's numbers, .srt and .vtt, named presets
-- [ ] Summaries of a transcript
+- [x] Summaries of a transcript: the module, the command, and the engine that
+      needs no model
+- [ ] Summaries written by a local model — Intel iGPU where there is one, a
+      small quantised model where there is not. Never a cloud API.
 
 ## Contributing
 

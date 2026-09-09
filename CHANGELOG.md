@@ -8,6 +8,26 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- **Summaries of a transcript**, in a `summary.py` of their own with the
+  engines in `summarizers/`, chosen by name the way the transcription backends
+  are. A summary is two jobs and only the second needs a model: *selection* —
+  which sentences carry the meeting, which is TextRank over a graph of sentence
+  similarity and runs in milliseconds on the numpy the core already has — and
+  *writing*, which is language work. Splitting them is what makes the feature
+  portable: where there is an accelerator a model will read everything, and on
+  a two-core server the same selection cuts fifteen thousand tokens to three
+  thousand first. One engine ships now, `extractive`, which does the selection
+  and stops there; the page says so under the title, because sentences quoted
+  from a transcript must not be mistaken for prose somebody wrote about it.
+  `audio-transcriber summarize ENTRY|FILE`, with `--engine`, `--length`
+  (`short`/`medium`/`long`), `--out` and `--print`; a `[summary]` section in
+  `config.toml`; `summary.md` in the library entry beside `transcript.txt`,
+  with the engine and the date recorded in `metadata.json`; and
+  `audio-transcriber hardware` now also says which engine `auto` would pick
+  here. The headings of the page are in the language that was *spoken*, not the
+  language of the interface — a summary is a document, not a message from the
+  program. Nothing in this feature reaches the network, now or later: see
+  [docs/summary.md](docs/summary.md).
 - **One choice up front: what the run is for.** *Just the text*, *the text with
   who said what*, or *subtitles* — three radio buttons in the window, the same
   three in the browser, `--output text|speakers|subtitles` on the command line,

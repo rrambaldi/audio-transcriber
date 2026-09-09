@@ -1,25 +1,28 @@
 """Command-line interface.
 
 ``audio-transcriber FILE`` still does the obvious thing; everything else lives
-behind a subcommand (``library``, ``vocab``, ``web``, ``gui``, ``hardware``,
-``paths``, ``config``). When the first argument is not a known command it is
+behind a subcommand (``summarize``, ``library``, ``vocab``, ``web``, ``gui``,
+``hardware``, ``paths``, ``config``). When the first argument is not a known command it is
 taken to be a file, so the original one-argument form keeps working.
 """
 import argparse
 import os
 import shutil
 import sys
+from datetime import datetime
 
 from . import paths, pipeline
 from .config import OUTPUTS, ConfigError, load_config, load_dotenv, resolve
 from .formatting import format_duration
 from .i18n import AVAILABLE_LANGUAGES, set_language, t
 from .library import STORE_COPY, STORE_MODES, Library, LibraryError
+from .summarizers import CHOICES as SUMMARY_ENGINES
+from .summary import LENGTHS as SUMMARY_LENGTHS
 from .transcription import BACKENDS
 from .vocabularies import MAX_PROMPT_CHARS, VocabularyError
 
-COMMANDS = ("transcribe", "library", "vocab", "web", "gui", "hardware", "paths",
-            "config")
+COMMANDS = ("transcribe", "summarize", "library", "vocab", "web", "gui",
+            "hardware", "paths", "config")
 
 CONFIG_TEMPLATE = '''\
 # audio-transcriber configuration.
@@ -82,6 +85,15 @@ keep_fillers = false
 # A new subtitle every so many words, if that is how you would rather think
 # about it. Not one of the trade's numbers, but honoured when given.
 # max_words_per_cue = 12
+
+[summary]
+# Who writes the summary of a transcript. "auto" picks the best engine this
+# machine has: see "audio-transcriber hardware". Only "extractive" exists so
+# far — TextRank picks the sentences that carry the transcript and prints them
+# as they were said, with no model and no download.
+engine = "auto"
+# How much of the transcript to keep: short | medium | long.
+# length = "medium"
 
 [diarization]
 # Work out who said what. Needs the [diarize] extra and pyannote models.
@@ -237,6 +249,21 @@ def build_parser(defaults):
                     default=None, metavar="N", help=t("help.subtitle_lines"))
     tr.add_argument("--subtitle-words", dest="subtitle_words", type=int,
                     default=None, metavar="N", help=t("help.subtitle_words"))
+
+    # --- summarize --------------------------------------------------------
+    sm = subparsers.add_parser("summarize", help=t("help.cmd_summarize"),
+                               description=t("help.cmd_summarize"))
+    add_language_option(sm)
+    sm.add_argument("query", help=t("help.sum_query"))
+    sm.add_argument("--engine", dest="summarizer", default=None,
+                    choices=list(SUMMARY_ENGINES), help=t("help.sum_engine"))
+    sm.add_argument("--length", dest="summary_length", default=None,
+                    choices=list(SUMMARY_LENGTHS), help=t("help.sum_length"))
+    sm.add_argument("--out", dest="out", default=None, help=t("help.sum_out"))
+    sm.add_argument("--print", dest="show", action="store_true",
+                    help=t("help.sum_print"))
+    sm.add_argument("--library-dir", dest="library_dir", default=None,
+                    help=t("help.lib_root"))
 
     # --- library ----------------------------------------------------------
     lib = subparsers.add_parser("library", help=t("help.cmd_library"),
@@ -433,6 +460,63 @@ def write_result(args, settings, source, result):
     return entry.transcript_path
 
 
+def command_summarize(args, settings):
+    """Summarise a transcript — one already in the library, or a bare file.
+
+    Both are worth supporting for the same reason ``transcribe`` takes a path:
+    the library is where recordings made with this program live, but a
+    transcript that arrived by other means is still a transcript."""
+    from . import summary as summarising
+    from .library import Library
+
+    source = os.path.abspath(os.path.expanduser(args.query))
+    entry = None
+    if os.path.isfile(source):
+        with open(source, encoding="utf-8") as handle:
+            text = handle.read()
+        material = summarising.material_from_text(
+            text, title=os.path.splitext(os.path.basename(source))[0],
+            language=settings.get("language") or "")
+    else:
+        try:
+            entry = Library(settings.get("library_dir")).get(args.query)
+        except LibraryError as exc:
+            sys.exit(str(exc))
+        material = summarising.material_from_entry(entry)
+
+    try:
+        result = summarising.summarize(material, settings)
+    except summarising.SummaryError as exc:
+        sys.exit(str(exc))
+
+    if args.show:
+        print(result.text, end="")
+    elif args.out:
+        target = os.path.abspath(os.path.expanduser(args.out))
+        paths.ensure(os.path.dirname(target))
+        with open(target, "w", encoding="utf-8", newline="\n") as handle:
+            handle.write(result.text)
+        print(t("summary.written", path=target))
+    elif entry is not None:
+        entry.write_summary(result.text)
+        entry.update(summary={
+            "engine": result.engine,
+            "length": settings.get("summary_length") or summarising.DEFAULT_LENGTH,
+            "sentences_kept": result.kept,
+            "sentences_total": result.of,
+            "created_at": datetime.now().astimezone().isoformat(timespec="seconds"),
+        })
+        print(t("summary.written", path=entry.summary_path))
+    else:
+        target = os.path.splitext(source)[0] + ".summary.md"
+        with open(target, "w", encoding="utf-8", newline="\n") as handle:
+            handle.write(result.text)
+        print(t("summary.written", path=target))
+
+    print(t("summary.stats", kept=result.kept, of=result.of,
+            engine=result.engine, elapsed=result.elapsed), file=sys.stderr)
+
+
 def command_library(args):
     """Browse the library."""
     library = Library(args.library_dir)
@@ -600,6 +684,7 @@ def command_hardware(args):
     from .backends import resolve_backend
     from .diarization import NO_MODEL, NOT_INSTALLED, availability
     from .hardware import summary
+    from .summary import SummaryError
     from .transcription import recommend_model
 
     print(summary())
@@ -616,6 +701,12 @@ def command_hardware(args):
     if backend:
         print(t("hardware.auto_backend", backend=backend))
         print(t("hardware.auto_model", model=recommend_model(backend, device)))
+
+    try:
+        from .summarizers import resolve_summarizer
+        print(t("summary.auto_engine", engine=resolve_summarizer("auto")))
+    except SummaryError as exc:
+        print(exc)
 
     state, detail = availability()
     print(t({NOT_INSTALLED: "hardware.diarize_missing",
@@ -719,6 +810,8 @@ def main(argv=None):
         return command_config(args, settings, config_path)
     if command == "library":
         return command_library(args)
+    if command == "summarize":
+        return command_summarize(args, settings)
     return command_transcribe(args, settings)
 
 
@@ -731,7 +824,8 @@ def collect_cli_settings(args):
              "prompt", "prompt_file", "vocabulary", "para_gap", "para_max_chars",
              "keep_fillers", "diarize", "speakers", "diar_model", "models_dir",
              "library_dir", "vocab_dir", "subtitle_preset", "subtitle_chars",
-             "subtitle_lines", "subtitle_words", "output")
+             "subtitle_lines", "subtitle_words", "output", "summarizer",
+             "summary_length")
     values = {name: getattr(args, name, None) for name in names}
     # --srt and --vtt are flags; together they are the "save these formats"
     # setting, and neither given means the configured value stands.

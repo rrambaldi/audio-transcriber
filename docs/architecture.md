@@ -22,6 +22,9 @@ input file      │                          \      /
     ├─ cleaning.py        drop hallucinations, collapse duplicates, paragraphs
     │
     └─ output             a .txt beside the input, or a library entry
+
+summary.py               a library entry or a text file, summarised
+    └─ summarizers/       extractive.py (TextRank, no model)  -> summary.md
 ```
 
 ## The modules
@@ -41,6 +44,8 @@ input file      │                          \      /
 | `backends/` | the engine-specific code, and the rules for choosing between engines |
 | `cleaning.py` | pure text functions; no I/O, no state, trivially testable |
 | `diarization.py` | pyannote, plus mapping speakers onto transcribed segments |
+| `summary.py` | sentences, ranking, selection and the page a summary is written on |
+| `summarizers/` | the summary engines, and the rules for choosing between them |
 | `library.py` | the on-disk format of a recording entry |
 | `paths.py` | every filesystem location the program uses |
 | `config.py` | `.env`, `config.toml`, and the precedence rules |

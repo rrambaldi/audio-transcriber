@@ -43,6 +43,8 @@ DEFAULTS = {
     "subtitle_chars": None,       # characters per line
     "subtitle_lines": None,       # lines per cue
     "subtitle_words": None,       # words per cue, if you would rather cap that
+    "summarizer": "auto",         # "auto": the best engine this machine has
+    "summary_length": None,       # None: the module's default (medium)
     "speakers": None,
     "diar_model": None,
     "models_dir": None,
@@ -73,6 +75,8 @@ SCHEMA = {
     ("subtitles", "max_chars_per_line"): ("subtitle_chars", int),
     ("subtitles", "max_lines"): ("subtitle_lines", int),
     ("subtitles", "max_words_per_cue"): ("subtitle_words", int),
+    ("summary", "engine"): ("summarizer", str),
+    ("summary", "length"): ("summary_length", str),
     ("diarization", "enabled"): ("diarize", bool),
     ("diarization", "speakers"): ("speakers", int),
     ("diarization", "model"): ("diar_model", str),
