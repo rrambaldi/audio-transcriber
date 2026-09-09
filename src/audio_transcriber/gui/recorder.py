@@ -27,6 +27,7 @@ from PySide6.QtWidgets import (
     QComboBox,
     QHBoxLayout,
     QLabel,
+    QProgressBar,
     QPushButton,
     QSizePolicy,
     QVBoxLayout,
@@ -60,6 +61,8 @@ class DeviceRecorder(QWidget):
     """Audio system, source, an optional second source, and a record button."""
 
     recorded = Signal(str)
+    #: Also carries a warning about a recording that was made and is silent:
+    #: the file is real, and the user still needs to know.
     failed = Signal(str)
 
     def __init__(self, target_dir, store=None, parent=None, backends=None):
@@ -91,6 +94,8 @@ class DeviceRecorder(QWidget):
         self.reload_button = QPushButton(t("gui.reload"))
         self.reload_button.setToolTip(t("gui.rec_reload_tip"))
         self.reload_button.clicked.connect(self.rescan)
+        self.level = _level_bar()
+        self.mix_level = _level_bar()
         self.button = QPushButton(t("gui.rec_start"))
         self.button.clicked.connect(self.toggle)
         self.pause_button = QPushButton(t("gui.rec_pause"))
@@ -116,12 +121,15 @@ class DeviceRecorder(QWidget):
             row = QHBoxLayout()
             row.addWidget(QLabel(label))
             row.addWidget(widget, 1)
-            if widget is self.host_apis:
-                row.addWidget(self.reload_button)
+            # The meter sits on the row of the source it measures, which is
+            # the only labelling it needs.
+            row.addWidget(self.reload_button if widget is self.host_apis
+                          else self.level)
             layout.addLayout(row)
         mix_row = QHBoxLayout()
         mix_row.addWidget(self.mix_enabled)
         mix_row.addWidget(self.mix_sources, 1)
+        mix_row.addWidget(self.mix_level)
         layout.addLayout(mix_row)
         buttons = QHBoxLayout()
         buttons.addWidget(self.button)
@@ -255,6 +263,12 @@ class DeviceRecorder(QWidget):
             return
         path = session.stop()
         self.elapsed.setText(format_clock(0))
+        self._show_levels([])
+        if session.silent:
+            # A muted microphone writes a perfectly valid file full of zeros,
+            # and Whisper turns that into nothing at all.
+            self.message.setText(t("gui.rec_silent"))
+            self.failed.emit(t("gui.rec_silent"))
         if session.error:
             self.message.setText(session.error)
             self.failed.emit(session.error)
@@ -286,12 +300,25 @@ class DeviceRecorder(QWidget):
             self._source_chosen()      # restores what may and may not be mixed
 
     def _tick(self):
-        """Follow the worker thread: the clock, and a device that gave up."""
+        """Follow the worker thread: the clock, the levels, and a device that
+        gave up."""
         if self._session is None:
             return
         self.elapsed.setText(format_clock(self._session.elapsed_seconds))
+        self._show_levels(self._session.levels)
         if self._session.error or not self._session.running:
             self.stop()
+
+    def _show_levels(self, levels):
+        """Draw the input levels: the answer to "is anything arriving at all".
+
+        One bar per source, so a loopback that gives nothing is visible even
+        when the microphone next to it is working — with a single mixed bar it
+        would not be."""
+        levels = list(levels or [])
+        self.level.setValue(options.level_percent(levels[0] if levels else 0))
+        self.mix_level.setValue(
+            options.level_percent(levels[1] if len(levels) > 1 else 0))
 
     # --- what is remembered -----------------------------------------------
 
@@ -316,6 +343,17 @@ class DeviceRecorder(QWidget):
         self._store.setValue("record_source", self.sources.currentData())
         self._store.setValue("record_mix", self.mix_sources.currentData())
         self._store.setValue("record_mix_enabled", self.mix_enabled.isChecked())
+
+
+def _level_bar():
+    """A narrow, wordless meter: it is read as a length, not as a number."""
+    bar = QProgressBar()
+    bar.setRange(0, 100)
+    bar.setValue(0)
+    bar.setTextVisible(False)
+    bar.setFixedWidth(64)
+    bar.setToolTip(t("gui.rec_level_tip"))
+    return bar
 
 
 def _select(combo, value):

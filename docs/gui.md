@@ -68,6 +68,25 @@ gap, and audio more than half a second ahead is dropped rather than allowed to
 slide further and further behind. For a transcript that is invisible; for
 music it would not be good enough.
 
+**The level meters** sit on the row of the source they measure, one per
+source, and move while recording. They exist for one question — is anything
+arriving at all — because the classic failure is a recording that turns out to
+be an hour of digital silence: the wrong device, a muted microphone, or Windows
+refusing this application the microphone (Settings, Privacy, Microphone). Two
+bars rather than one for the mix, because a loopback that delivers nothing has
+to be visible next to a microphone that works; with a single mixed bar it would
+not be.
+
+They are read in decibels, floored at -60 dBFS. A linear bar would be a useless
+meter: ordinary speech peaks at around a tenth of full scale and would barely
+leave the left edge, so a working microphone would look broken. On this scale
+speech fills about two thirds.
+
+And when a recording stops having never risen above silence, the window says
+so. The file is queued anyway — it is real, and the decision is not this
+program's — but a muted microphone otherwise produces a perfectly valid hour of
+zeros that Whisper transcribes into nothing at all, half an hour later.
+
 *Reload* asks for the device list again. PortAudio reads it once, when it
 initialises, so a headset connected after the window opened is genuinely
 invisible until something restarts it — which is what that button does.

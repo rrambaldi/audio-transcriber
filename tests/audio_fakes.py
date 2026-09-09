@@ -18,17 +18,18 @@ class FakeStream:
     loop into a busy wait that writes hundreds of megabytes of WAV before the
     test gets around to stopping it."""
 
-    def __init__(self, blocks=None, ready=None, pace=0.005):
+    def __init__(self, blocks=None, ready=None, pace=0.005, fill=0.25):
         self.blocks = list(blocks or [])
         self.ready = list(ready or [])
         self.closed = False
         self._pace = pace
+        self._fill = fill
 
     def read(self, frames):
         time.sleep(self._pace)
         if self.blocks:
             return self.blocks.pop(0)
-        return np.full((frames, 1), 0.25, dtype=np.float32)
+        return np.full((frames, 1), self._fill, dtype=np.float32)
 
     def read_ready(self):
         return self.ready.pop(0) if self.ready else None

@@ -29,6 +29,18 @@ All notable changes to this project are documented here. The format follows
   the two libraries handed to it as objects and no Qt in it at all. Without the
   extra the window records through QtMultimedia as before and says what the
   other engine would add.
+- **Level meters while recording**, one per source, on the row of the source
+  they measure. The question they answer is "is anything arriving at all",
+  which is the one worth asking before a meeting rather than after: a wrong
+  device, a muted microphone or a Windows privacy setting all produce a
+  recording that is an hour of digital silence. Two bars rather than one for a
+  mix, so a loopback that delivers nothing is visible next to a microphone that
+  works. The scale is in decibels, floored at -60 dBFS — a linear bar leaves
+  ordinary speech against the left edge and makes a working microphone look
+  broken.
+- A recording that never rose above silence says so when it stops. It is still
+  queued: the file is real, and Whisper turning it into nothing is a better
+  thing to learn now than in half an hour.
 - The mix states its limitation rather than hiding it: two sound cards keep
   independent clocks, so the first source sets the pace and the second is held
   alongside it — silence fills a gap, and audio more than half a second ahead

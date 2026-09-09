@@ -9,6 +9,7 @@ which is exactly the machine this project's test suite has to run on.
 The widgets are therefore only wiring: they read these lists, show them, and
 hand the answers back to :class:`audio_transcriber.jobs.JobQueue`.
 """
+import math
 import os
 from datetime import datetime
 
@@ -314,6 +315,27 @@ def mix_candidates(sources, primary_key):
     reason this menu exists — a call has the others in the speakers."""
     others = [source for source in sources if source.key != primary_key]
     return sorted(others, key=lambda source: not source.is_loopback)
+
+
+#: Quietest peak the level meter shows. Below it the bar is empty: -60 dBFS is
+#: a silent room, and stretching the scale further down only makes the noise
+#: floor look like signal.
+LEVEL_FLOOR_DB = -60.0
+
+
+def level_percent(peak):
+    """A peak amplitude (0..1) as a bar length (0..100), in decibels.
+
+    A linear bar makes a useless meter: ordinary speech peaks at around a tenth
+    of full scale and would barely leave the left edge, so a working microphone
+    would look like a broken one. Decibels are how every audio meter is read —
+    speech at -20 dBFS fills two thirds of this one."""
+    if not peak or peak <= 0:
+        return 0
+    decibels = 20.0 * math.log10(min(1.0, float(peak)))
+    if decibels <= LEVEL_FLOOR_DB:
+        return 0
+    return int(round((decibels - LEVEL_FLOOR_DB) / -LEVEL_FLOOR_DB * 100))
 
 
 def host_api_summary(sources):

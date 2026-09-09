@@ -278,6 +278,44 @@ def test_reloading_looks_for_devices_again(tmp_path, application):
     recorder.deleteLater()
 
 
+def test_the_level_meters_move_while_recording_and_rest_afterwards(tmp_path, application):
+    """The bar is the answer to "is anything arriving": it has to move when
+    something does, and it must not be left showing a level once stopped."""
+    recorder, _ = make_device_recorder(tmp_path, application)
+    recorder.host_apis.setCurrentIndex(1)
+    recorder.sources.setCurrentIndex(0)
+    recorder.mix_enabled.setChecked(True)
+    recorder.start()
+    assert wait_for(lambda: recorder._session.frames > 0)
+    recorder._tick()
+    assert recorder.level.value() > 0
+    assert recorder.mix_level.value() == 0     # the fake loopback delivers nothing
+    recorder.stop()
+    assert recorder.level.value() == 0
+    recorder.deleteLater()
+
+
+def test_a_silent_recording_is_flagged_even_though_it_was_filed(tmp_path, application):
+    """A muted microphone writes a file full of zeros: real, queued, and worth
+    nothing. The warning goes out alongside the file, not instead of it."""
+    from audio_fakes import FakeStream, audio_source, two_engines
+    from audio_transcriber.gui.recorder import DeviceRecorder
+
+    mic = audio_source(samplerate=1000)
+    backends = two_engines([mic], stream=FakeStream(fill=0.0))
+    recorder = DeviceRecorder(str(tmp_path / "uploads"), backends=backends)
+    handed, said = [], []
+    recorder.recorded.connect(handed.append)
+    recorder.failed.connect(said.append)
+
+    recorder.start()
+    assert wait_for(lambda: recorder._session.frames > 0)
+    recorder.stop()
+    assert len(handed) == 1 and os.path.exists(handed[0])
+    assert said and "silence" in said[0].lower()
+    recorder.deleteLater()
+
+
 def test_a_source_that_will_not_open_is_reported_not_swallowed(tmp_path, application):
     from audio_fakes import audio_source, two_engines
     from audio_transcriber.gui.recorder import DeviceRecorder

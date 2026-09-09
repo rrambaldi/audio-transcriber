@@ -53,6 +53,11 @@ WASAPI_RATE = 48000
 #: counter lively without waking the thread pointlessly.
 BLOCK_SECONDS = 0.1
 
+#: A peak below this never made it past the noise floor of a quiet room; a
+#: recording that stayed under it for its whole length is silence, and saying
+#: so is more use than filing it and finding out after the transcription.
+SILENCE_PEAK = 0.001
+
 #: How far the second source of a mix may run ahead before frames are dropped.
 #: Two devices have two clocks: over an hour they drift, and something has to
 #: give. Dropping keeps the mix aligned with the primary source — the one whose
@@ -337,6 +342,22 @@ def to_pcm16(block):
     return (clipped * 32767.0).astype("<i2")
 
 
+def peak(block):
+    """The loudest sample in a block, 0..1.
+
+    This is what answers "is anything arriving at all" — the question behind
+    every silent recording, which is usually a muted microphone, the wrong
+    device, or Windows refusing an application the microphone.
+
+    ``None`` counts as silence rather than as ``nan``: numpy would turn the
+    empty answer into one, and a single nan defeats the silence check for the
+    rest of the recording, since every comparison against it is false."""
+    if block is None:
+        return 0.0
+    data = np.asarray(block, dtype=np.float32)
+    return float(np.abs(data).max()) if data.size else 0.0
+
+
 def mix(primary, secondary):
     """Add two mono blocks, the primary's length winning.
 
@@ -370,6 +391,10 @@ class Recording:
         self.samplerate = int(source.samplerate or WASAPI_RATE)
         self.error = None
         self.frames = 0
+        #: Peak of the last block read, one per source, primary first. Read by
+        #: the interface on a timer to draw a level meter.
+        self.levels = [0.0]
+        self._loudest = 0.0
         self._backends = backends
         self._block = max(1, int(self.samplerate * block_seconds))
         self._streams = []
@@ -428,6 +453,16 @@ class Recording:
         return self._thread is not None and self._thread.is_alive()
 
     @property
+    def silent(self):
+        """Whether nothing louder than the noise floor ever arrived.
+
+        Checked when the recording stops: a muted microphone produces a
+        perfectly valid file full of zeros, which Whisper then transcribes into
+        nothing at all. Better to say it while the meeting is still fresh."""
+        with self._lock:
+            return self.frames > 0 and self._loudest < SILENCE_PEAK
+
+    @property
     def elapsed_seconds(self):
         """Seconds actually written, which is what a paused recording holds."""
         with self._lock:
@@ -482,8 +517,17 @@ class Recording:
         try:
             while not self._stop.is_set():
                 block = to_mono(primary.read(self._block))
+                levels = [peak(block)]
                 if secondary is not None:
-                    block = mix(block, self._from_secondary(secondary, len(block)))
+                    second = self._from_secondary(secondary, len(block))
+                    levels.append(peak(second))
+                    block = mix(block, second)
+                # Measured before the pause check on purpose: a paused
+                # recording is exactly when someone is looking at the meter to
+                # see whether the microphone works.
+                with self._lock:
+                    self.levels = levels
+                    self._loudest = max(self._loudest, *levels)
                 if self._paused.is_set():
                     continue
                 self._writer.writeframes(to_pcm16(block).tobytes())

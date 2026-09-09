@@ -132,6 +132,14 @@ def test_a_missing_second_source_leaves_the_primary_alone():
     assert np.allclose(recording.mix(primary, np.zeros(0, dtype=np.float32)), primary)
 
 
+# --- is anything arriving? ------------------------------------------------
+
+def test_the_peak_of_a_block_is_the_loudest_sample_in_it():
+    assert recording.peak(np.array([0.0, -0.4, 0.2], dtype=np.float32)) == pytest.approx(0.4)
+    assert recording.peak(np.zeros(0, dtype=np.float32)) == 0.0
+    assert recording.peak(None) == 0.0
+
+
 # --- recording ------------------------------------------------------------
 
 def read_wav(path):
@@ -211,6 +219,67 @@ def test_the_two_sources_of_a_mix_are_both_opened_at_the_primarys_rate(tmp_path)
     assert portaudio.opened == [(mic, 1, 44100)]
     assert wasapi.opened == [(speakers, 2, 44100)]
     assert read_wav(tmp_path / "mix.wav")["samples"][0] == int(0.5 * 32767)
+
+
+def test_the_levels_are_measured_per_source(tmp_path):
+    """One level per source, not one for the mix: a loopback that gives
+    nothing has to be visible next to a microphone that works."""
+    mic = source(samplerate=1000)
+    speakers = source(key="wasapi:loopback:S", kind=recording.LOOPBACK,
+                      engine=recording.WASAPI, channels=2, samplerate=1000)
+    loud = FakeStream(fill=0.5)
+    quiet = FakeStream(ready=[np.zeros((100, 2), dtype=np.float32)] * 50)
+    session = recording.Recording(
+        str(tmp_path / "a.wav"), mic, mix_with=speakers,
+        backends=(FakeEngine(recording.PORTAUDIO, [mic], stream=loud),
+                  FakeEngine(recording.WASAPI, [speakers], stream=quiet)),
+        block_seconds=0.1)
+    session.start()
+    wait_until(lambda: session.frames >= 100)
+    assert session.levels[0] == pytest.approx(0.5)
+    assert session.levels[1] == 0.0          # the loopback is not delivering
+    session.stop()
+
+
+def test_a_recording_that_never_rose_above_silence_says_so(tmp_path):
+    """A muted microphone writes a valid file full of zeros, which Whisper
+    then transcribes into nothing at all."""
+    mic = source(samplerate=1000)
+    session = recording.Recording(
+        str(tmp_path / "a.wav"), mic,
+        backends=(FakeEngine(recording.PORTAUDIO, [mic],
+                             stream=FakeStream(fill=0.0)),
+                  FakeEngine(recording.WASAPI)),
+        block_seconds=0.05)
+    session.start()
+    wait_until(lambda: session.frames >= 50)
+    session.stop()
+    assert session.silent is True
+
+
+def test_a_recording_with_something_in_it_is_not_called_silent(tmp_path):
+    mic = source(samplerate=1000)
+    session = recording.Recording(
+        str(tmp_path / "a.wav"), mic,
+        backends=(FakeEngine(recording.PORTAUDIO, [mic],
+                             stream=FakeStream(fill=0.2)),
+                  FakeEngine(recording.WASAPI)),
+        block_seconds=0.05)
+    session.start()
+    wait_until(lambda: session.frames >= 50)
+    session.stop()
+    assert session.silent is False
+
+
+def test_nothing_recorded_at_all_is_not_reported_as_silence(tmp_path):
+    """"Silent" is a judgement about audio that arrived; a device that never
+    delivered a frame is a different failure, and has its own message."""
+    mic = source()
+    session = recording.Recording(
+        str(tmp_path / "a.wav"), mic,
+        backends=(FakeEngine(recording.PORTAUDIO, [mic]),
+                  FakeEngine(recording.WASAPI)))
+    assert session.silent is False
 
 
 def test_a_stopped_recording_closes_every_device(tmp_path):

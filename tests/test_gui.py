@@ -269,6 +269,18 @@ def test_a_source_is_never_offered_to_be_mixed_with_itself():
     assert options.mix_candidates([mic], mic.key) == []
 
 
+def test_the_level_meter_is_read_in_decibels_not_in_amplitude():
+    """A linear bar would leave ordinary speech - a tenth of full scale -
+    against the left edge, making a working microphone look broken."""
+    assert options.level_percent(1.0) == 100
+    assert options.level_percent(0.1) == 67          # -20 dBFS, normal speech
+    assert options.level_percent(0.01) == 33         # -40 dBFS, a whisper
+    assert options.level_percent(0.0) == 0
+    assert options.level_percent(None) == 0
+    assert options.level_percent(0.0001) == 0        # under the -60 dB floor
+    assert options.level_percent(2.0) == 100         # never past the end
+
+
 def test_an_audio_system_says_how_many_sources_it_has():
     from audio_fakes import audio_source
     from audio_transcriber.recording import LOOPBACK

@@ -278,6 +278,14 @@ MESSAGES = {
             "recording what the speakers play, need: pip install \"audio-transcriber-ov[record]\"",
         "gui.rec_device": "Microphone",
         "gui.rec_device_tip": "Where the recording comes from; the list follows what the system offers.",
+        "gui.rec_level_tip":
+            "Input level. If this stays flat while somebody is talking, nothing is "
+            "arriving from that source: the wrong device, a muted microphone, or Windows "
+            "refusing this application the microphone (Settings, Privacy, Microphone). "
+            "The scale is in decibels, so ordinary speech fills about two thirds.",
+        "gui.rec_silent":
+            "That recording never rose above silence. Check the level meter and the "
+            "source before trusting the next one - the file is in the queue anyway.",
         "gui.rec_start": "Record",
         "gui.rec_stop": "Stop",
         "gui.rec_pause": "Pause",
@@ -633,6 +641,14 @@ MESSAGES = {
             "registrare quello che riproducono gli altoparlanti: pip install \"audio-transcriber-ov[record]\"",
         "gui.rec_device": "Microfono",
         "gui.rec_device_tip": "Da dove arriva la registrazione; l'elenco segue quello che offre il sistema.",
+        "gui.rec_level_tip":
+            "Livello in ingresso. Se resta piatto mentre qualcuno parla, da quella sorgente "
+            "non arriva nulla: dispositivo sbagliato, microfono disattivato, oppure Windows "
+            "che nega il microfono a questa applicazione (Impostazioni, Privacy, Microfono). "
+            "La scala e' in decibel, percio' il parlato normale ne riempie circa due terzi.",
+        "gui.rec_silent":
+            "Quella registrazione non e' mai salita sopra il silenzio. Controlla la barra del "
+            "livello e la sorgente prima di fidarti della prossima: il file e' comunque in coda.",
         "gui.rec_start": "Registra",
         "gui.rec_stop": "Ferma",
         "gui.rec_pause": "Pausa",
