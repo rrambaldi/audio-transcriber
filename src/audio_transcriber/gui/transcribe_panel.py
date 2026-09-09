@@ -10,11 +10,12 @@ twice a second is cheaper than making that thread talk to the GUI.
 import os
 
 from PySide6.QtCore import Qt, QTimer, QUrl, Signal
-from PySide6.QtGui import QKeySequence, QShortcut
+from PySide6.QtGui import QKeySequence, QPalette, QShortcut
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QDialog,
     QFileDialog,
+    QFrame,
     QGroupBox,
     QHBoxLayout,
     QHeaderView,
@@ -162,21 +163,28 @@ class TranscribePanel(QWidget):
         add = QPushButton(t("gui.add_files"))
         add.clicked.connect(self.choose_files)
         add_row = QHBoxLayout()
+        add_row.addStretch(1)
         add_row.addWidget(add)
         add_row.addStretch(1)
         self.drop_hint = QLabel(t("gui.drop_hint"))
         self.drop_hint.setWordWrap(True)
+        self.drop_hint.setAlignment(Qt.AlignmentFlag.AlignCenter)
         style.note(self.drop_hint)
-        files = QWidget()
-        files_layout = QVBoxLayout(files)
-        files_layout.setContentsMargins(0, 0, 0, 0)
-        files_layout.addLayout(add_row)
-        files_layout.addWidget(self.drop_hint)
-        files_layout.addStretch(1)
+        # A framed area rather than a button with a line of text under it: the
+        # whole tab takes a dropped file, but "you can drop things here" has
+        # to be somewhere you can point at, and with the recorder beside it
+        # the half of the header that was not the recorder was empty.
+        self.drop_zone = QFrame()
+        self.drop_zone.setFrameShape(QFrame.Shape.StyledPanel)
+        drop_layout = QVBoxLayout(self.drop_zone)
+        drop_layout.addStretch(1)
+        drop_layout.addLayout(add_row)
+        drop_layout.addWidget(self.drop_hint)
+        drop_layout.addStretch(1)
 
         header = QGroupBox(t("gui.group_sources"))
         header_layout = QHBoxLayout(header)
-        header_layout.addWidget(files, 2)
+        header_layout.addWidget(self.drop_zone, 2)
         header_layout.addWidget(widgets.separator_line(), 0)
         header_layout.addWidget(self.recorder, 3)
 
@@ -226,8 +234,28 @@ class TranscribePanel(QWidget):
 
     # --- files dropped anywhere on the tab --------------------------------
 
+    def _highlight_drop(self, over):
+        """Tint the drop area while something is being dragged over the tab.
+
+        Without it the only feedback is the cursor, which is the operating
+        system's and says nothing about whether this window will take the
+        file."""
+        self.drop_zone.setAutoFillBackground(over)
+        if not over:
+            return
+        palette = self.drop_zone.palette()
+        base = palette.color(QPalette.ColorRole.Base)
+        accent = palette.color(QPalette.ColorRole.Highlight)
+        palette.setColor(QPalette.ColorRole.Window, style.mix(accent, base, 0.88))
+        self.drop_zone.setPalette(palette)
+
+    def dragLeaveEvent(self, event):
+        self._highlight_drop(False)
+        super().dragLeaveEvent(event)
+
     def dragEnterEvent(self, event):
         if event.mimeData().hasUrls():
+            self._highlight_drop(True)
             event.acceptProposedAction()
 
     def dragMoveEvent(self, event):
@@ -237,8 +265,9 @@ class TranscribePanel(QWidget):
     def dropEvent(self, event):
         """A drop anywhere on this tab queues the files.
 
-        The whole tab rather than one list widget: the list is gone, and
-        aiming at a small target is not part of the job."""
+        The whole tab rather than the framed area alone: that frame is where
+        the invitation is written, but aiming at it is not part of the job."""
+        self._highlight_drop(False)
         paths = [url.toLocalFile() for url in event.mimeData().urls()]
         if self.add_files(paths):
             event.acceptProposedAction()

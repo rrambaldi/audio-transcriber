@@ -19,10 +19,12 @@ the moment it came from — without a browser, a server or a port.
 
 Three tabs.
 
-**Transcribe** is a header and a queue, and nothing else. Across the top:
-*Add files…* for people who would rather not drag anything, and the recorder
-— device, *Record*, *Pause*, the level meter. Dropping a recording anywhere
-on the tab puts it in the queue. Under that, the queue itself, taking the
+**Transcribe** is a header and a queue, and nothing else. Across the top, a
+framed area with *Add files…* in it for people who would rather not drag
+anything, and beside it the recorder — audio system, source, *Record*,
+*Pause*, the level meter. Dropping a recording anywhere on the tab puts it in
+the queue; the frame is where that is written down, and it lights up while
+something is being dragged over the window. Under that, the queue itself, taking the
 rest of the window.
 
 There is deliberately **no column of options**. What a recording is for —
@@ -250,8 +252,19 @@ python -m pip install "PySide6-Addons>=6.6"
 
 ### Linux and macOS
 
-Everything above works the same; the words in the *audio system* menu are the
-ones the platform uses.
+**The window is the same on the three platforms**, and not by coincidence:
+there is not one `sys.platform` in `gui/`. The tab is a header and a queue,
+the sections of the dialog are the same four, the buttons on a row are the
+same three, everywhere. Qt draws them with the desktop's own palette, which
+is why a Windows window looks like Windows and a Mac one like a Mac while the
+layout under it does not move.
+
+What does differ is what the machine can *do*, and the window says so in
+place rather than by rearranging itself: the words in the *audio system* menu,
+whether there is anything to record the speakers with, and whether "who said
+what" is offered at all. The one visible consequence is the height of the
+recorder in the header — with the `[record]` extra it has the audio system,
+the source and the second source to mix in; without it, a microphone menu.
 
 | | Windows | Linux | macOS |
 |---|---|---|---|

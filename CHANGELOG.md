@@ -289,6 +289,13 @@ All notable changes to this project are documented here. The format follows
 
 ### Changed
 
+- **The half of the header that is not the recorder is the drop area**: a
+  framed panel with *Add files…* in it, which lights up while something is
+  dragged over the window. The whole tab still takes a dropped file — aiming
+  is not part of the job — but with the recorder beside it that half was
+  simply empty, and "you can drop things here" has to be somewhere you can
+  point at.
+
 - **The Transcribe tab is a header and a queue.** Across the top, *Add
   files…* and the recorder; dropping a recording anywhere on the tab queues
   it. Everything else is the queue. The column of options beside it is gone —
