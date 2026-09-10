@@ -24,7 +24,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from .. import __version__, branding
+from .. import branding
 from ..i18n import t
 from . import style, theme
 
@@ -44,6 +44,11 @@ NAME_SCALE = theme.TITLE_SCALE
 #: And the promise under it, which the page sets at 1 to 1.15rem - a little
 #: over the interface font, in the serif's italic.
 TAGLINE_SCALE = 1.3
+
+#: The weight of that italic. Light rather than regular: the italic has to be
+#: synthesised - the bundled subset has no italic face, as on the page - and a
+#: slanted regular reads a step heavier than an upright one.
+TAGLINE_WEIGHT = QFont.Weight.Light
 
 #: Below this relative luminance the window's background counts as dark, and
 #: the mark is drawn without its plate. Halfway is where the plate - a very
@@ -90,12 +95,11 @@ def drawing_for(icon, widget):
 class Masthead(QWidget):
     """Mark, name and tagline on the left; the version on the right.
 
-    The version is here as well as in the title bar because this is the line
-    somebody reads out over the phone when a transcription went wrong, and a
-    maximised window on Windows has no title bar text to read from. It is also
-    the way into the About box, which is where the licence is: the window has
-    no menu bar to hide one behind, and a version is what somebody clicks when
-    they want to know what they are running."""
+    The way into the About box is here, on the right, because the window has
+    no menu bar to hide one behind. The version number used to sit next to it
+    and does not any more: it belongs with the licence and the rest of what
+    this program is, one click away, rather than on a band somebody reads all
+    day. The title bar still carries it, for reading out over the phone."""
 
     #: The version was clicked: the window should show the About box.
     about_requested = Signal()
@@ -121,7 +125,7 @@ class Masthead(QWidget):
         self.eyebrow.setFont(theme.label_font(self.font()))
         style.note(self.eyebrow)
 
-        self.name = QLabel(t("gui.app_name"))
+        self.name = QLabel(t("gui.wordmark"))
         # The page's own h1: the display cut of the serif, at display size,
         # tracked in a little. See theme.title_font.
         self.name.setFont(theme.title_font(self.font(), NAME_SCALE,
@@ -134,27 +138,24 @@ class Masthead(QWidget):
         # this size the serif's italic is meant to be read, not announced.
         self.tagline.setFont(theme.title_font(self.font(), TAGLINE_SCALE,
                                               italic=True,
-                                              weight=QFont.Weight.Normal))
+                                              weight=TAGLINE_WEIGHT))
         style.note(self.tagline)
 
         # A link rather than a button: in the masthead a bordered button would
-        # read as an action on the recordings, which this is not. The word is
-        # there because a bare version number is not something anybody thinks
-        # to click.
-        self.version = QLabel(
-            f'v{__version__} · <a href="#about">{t("about.open")}</a>')
-        self.version.setFont(theme.label_font(self.font()))
-        self.version.setAlignment(Qt.AlignmentFlag.AlignRight
-                                  | Qt.AlignmentFlag.AlignVCenter)
-        self.version.setToolTip(t("about.open_tip"))
-        self.version.setOpenExternalLinks(False)
-        self.version.setTextInteractionFlags(
+        # read as an action on the recordings, which this is not.
+        self.about = QLabel(f'<a href="#about">{t("about.open")}</a>')
+        self.about.setFont(theme.label_font(self.font()))
+        self.about.setAlignment(Qt.AlignmentFlag.AlignRight
+                                | Qt.AlignmentFlag.AlignVCenter)
+        self.about.setToolTip(t("about.open_tip"))
+        self.about.setOpenExternalLinks(False)
+        self.about.setTextInteractionFlags(
             Qt.TextInteractionFlag.LinksAccessibleByMouse
             | Qt.TextInteractionFlag.LinksAccessibleByKeyboard)
-        self.version.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.version.linkActivated.connect(
+        self.about.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.about.linkActivated.connect(
             lambda _href: self.about_requested.emit())
-        style.note(self.version)
+        style.note(self.about)
 
         titles = QVBoxLayout()
         titles.setContentsMargins(0, 0, 0, 0)
@@ -170,7 +171,7 @@ class Masthead(QWidget):
         band.setSpacing(16)
         band.addWidget(self.mark, 0, Qt.AlignmentFlag.AlignVCenter)
         band.addLayout(titles, 1)
-        band.addWidget(self.version, 0, Qt.AlignmentFlag.AlignTop)
+        band.addWidget(self.about, 0, Qt.AlignmentFlag.AlignTop)
 
         # The page draws this rule in the ink colour, not in the divider grey:
         # it is the edge of the masthead, and the tab bar below has a grey one
@@ -206,11 +207,11 @@ class Masthead(QWidget):
         super().changeEvent(event)
         # The band is built in this order, and Qt can deliver the event
         # before the last of it exists.
-        if event.type() != event.Type.PaletteChange or not hasattr(self, "version"):
+        if event.type() != event.Type.PaletteChange or not hasattr(self, "about"):
             return
         if self._icon is not None:
             self.mark.setPixmap(mark_pixmap(self._icon, self))
-        for label in (self.eyebrow, self.tagline, self.version):
+        for label in (self.eyebrow, self.tagline, self.about):
             style.note(label)
         self._paint_link()
         self._paint_rule()
@@ -246,7 +247,7 @@ class Masthead(QWidget):
         colour is put back here, explicitly, in the accent it should be."""
         which = "dark" if self.palette().color(
             QPalette.ColorRole.Window).lightnessF() < 0.5 else "light"
-        ink = style.note_colour(self.version).name()
+        ink = style.note_colour(self.about).name()
         signal = theme.colour("signal", which).name()
-        self.version.setStyleSheet(
+        self.about.setStyleSheet(
             f"color: {ink}; a {{ color: {signal}; text-decoration: none; }}")

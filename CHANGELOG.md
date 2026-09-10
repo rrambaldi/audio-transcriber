@@ -71,6 +71,26 @@ All notable changes to this project are documented here. The format follows
 
 ### Fixed
 
+- **And the wrong weight of it, for the same reason.** `QFont.setWeight`
+  chooses among the *named* instances a font declares and never touches the
+  `wght` axis, so a variable face answers it with whichever instance it
+  happens to have: the masthead came out fatter than the page's own heading,
+  and the promise under it came out bold on Windows after being asked for
+  regular. The axis is now set as well as the named weight, and the promise
+  asks for Light — its italic has to be synthesised, since the bundled subset
+  has no italic face, and a slanted regular reads a step heavier than an
+  upright one.
+
+- **The window calls itself `audio-transcriber`, in lower case**, as the web
+  page and the README do: it is a command's name, not a product's. The name
+  the desktop is told is a separate string — the task bar and the application
+  menu ask for a human-readable one, and title case is their convention.
+
+- **The version number moved into the About box.** It was in the masthead,
+  which is a band somebody reads all day and not where a build number
+  belongs; the About box is one click away and is where the rest of what this
+  program is already lives.
+
 - **The window was drawing the wrong cut of its own typeface.** Fraunces is a
   variable font, and the axis that matters is the optical size: at `opsz 9` it
   is a sturdy text face, at `opsz 144` the high-contrast display cut with

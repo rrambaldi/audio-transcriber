@@ -5,6 +5,10 @@ in is the version, in the masthead, where a version already was. Clicking it
 opens this, and so does F1, which is the only key anybody presses looking for
 help.
 
+This is also the only place the version number is written down, apart from the
+title bar: it used to sit in the masthead, where nobody needs it all day, and
+it belongs with the rest of what this program is.
+
 The whole licence is shown rather than its name. It is the MIT license with a
 wish in front of it, and a dialog that said "MIT" and stopped would show the
 half nobody needs to read: see :mod:`audio_transcriber.about`. The text is
@@ -49,11 +53,15 @@ class AboutDialog(QDialog):
             head.addWidget(mark, 0, Qt.AlignmentFlag.AlignTop)
         titles = QVBoxLayout()
         titles.setSpacing(2)
-        name = QLabel(t("gui.app_name"))
-        name.setFont(theme.title_font(self.font(), theme.TITLE_SCALE))
+        name = QLabel(t("gui.wordmark"))
+        name.setFont(theme.title_font(self.font(), theme.TITLE_SCALE,
+                                      opsz=theme.DISPLAY_OPSZ,
+                                      tracking=theme.TITLE_TRACKING))
         titles.addWidget(name)
         tagline = QLabel(t("gui.tagline"))
-        tagline.setFont(theme.title_font(self.font(), 1.05, italic=True))
+        tagline.setFont(theme.title_font(self.font(), masthead.TAGLINE_SCALE,
+                                         italic=True,
+                                         weight=masthead.TAGLINE_WEIGHT))
         titles.addWidget(style.note(tagline))
         version = QLabel(t("about.version", version=__version__,
                            licence=self.facts["licence_title"]))

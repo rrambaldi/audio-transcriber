@@ -481,6 +481,17 @@ default instance still renders, as in a browser without variable-font
 support), and small type asks for nothing on purpose, because the text cut is
 the one that holds up at fifteen pixels.
 
+The same trap catches the **weight**: `QFont.setWeight` picks among the
+*named* instances a font declares and never touches the `wght` axis, so a
+variable face answers it with whichever instance it happens to have. That is
+why the masthead came out fatter than the page's own `h1`, and why the promise
+under it came out bold on Windows after being asked for regular. `title_font`
+now sets the axis as well as the named weight — Qt's weight numbers are the
+CSS ones, so the enum *is* the axis value — and the promise asks for Light,
+because its italic has to be synthesised (the bundled subset has no italic
+face, as on the page) and a slanted regular reads a step heavier than an
+upright one.
+
 Two deliberate departures from the page, both because a window is not a sheet
 of paper:
 
@@ -531,11 +542,13 @@ start-up failure.
 ## About, and the licence
 
 The window has no menu bar — nothing in it is hidden behind one — so the way
-into the About box is **the version in the masthead**, which is where a version
-already was and what somebody clicks when they want to know what they are
-running. It says `v0.3.0 · About`, because a bare number is not something
-anybody thinks to click. **F1** opens the same box, being the key people press
-looking for help on a program that has none.
+into the About box is **a link in the masthead**, on the right, where the
+version number used to be. **F1** opens the same box, being the key people
+press looking for help on a program that has none.
+
+The version number is *not* in the masthead: apart from the title bar, the
+About box is the only place the window writes it down. A band somebody reads
+all day is not where a build number belongs, and it is one click from it.
 
 What it shows is the version, the licence *whole* — the mark, the name and the
 tagline above it, then the text in a read-only field that grows with the
@@ -585,8 +598,13 @@ thing whose icon gets drawn is not the window:
 - **macOS** needs nothing: Qt puts `QApplication.windowIcon()` in the Dock.
 
 Above the tabs there is a masthead, and it is the page's masthead: the mark,
-an eyebrow, "Audio Transcriber" in Fraunces and the promise under it in
-Fraunces italic, over a rule drawn in the ink colour. It is there because the
+an eyebrow, `audio-transcriber` in Fraunces — lower case, as on the page and in
+the README, because it is a command's name and not a product's — and the
+promise under it in Fraunces italic, over a rule drawn in the ink colour. The
+name shown and the name the desktop is told are two different strings on
+purpose: `gui.wordmark` is what the program writes about itself, `gui.app_name`
+is the human-readable one the task bar and the application menu ask for, where
+title case is that platform's convention. It is there because the
 title bar is not somewhere to put an identity — it is 16 px tall, and on a
 maximised Windows window or a tiling desktop it is not drawn at all. On a dark
 scheme the mark swaps the master drawing for `icon-mark.svg`, whose plate would

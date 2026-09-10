@@ -25,7 +25,7 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 try:
     from PySide6.QtCore import Qt
     from PySide6.QtGui import QColor, QFont, QKeySequence, QPalette, QShortcut
-    from PySide6.QtWidgets import QApplication, QMessageBox
+    from PySide6.QtWidgets import QApplication, QLabel, QMessageBox
 except ImportError as exc:      # pragma: no cover - depends on the machine
     # PySide6 is installed but will not load: a partial install, or a Linux box
     # without the system libraries Qt links against. That is worth skipping
@@ -158,9 +158,14 @@ def test_the_masthead_carries_the_mark_the_name_and_the_promise(window):
     desktop draws no title bar at all: everything the title bar was carrying
     had to be somewhere inside the window as well."""
     masthead = window.masthead
-    assert masthead.name.text() == i18n.t("gui.app_name")
+    assert masthead.name.text() == i18n.t("gui.wordmark")
+    # Lower case, like the page's own h1 and the README: it is a command's
+    # name, not a product's.
+    assert masthead.name.text() == masthead.name.text().lower()
     assert masthead.tagline.text() == i18n.t("gui.tagline")
-    assert __version__ in masthead.version.text()
+    # The version is not here any more: it belongs with the licence and the
+    # rest of what this program is, one click away.
+    assert __version__ not in masthead.about.text()
     assert masthead.mark.isVisibleTo(window)
     pixmap = masthead.mark.pixmap()
     assert not pixmap.isNull()
@@ -170,24 +175,33 @@ def test_the_masthead_carries_the_mark_the_name_and_the_promise(window):
     assert pixmap.width() == round(MARK_PX * ratio)
 
 
-def test_the_version_in_the_masthead_is_the_way_into_the_about_box(window):
+def test_the_masthead_is_the_way_into_the_about_box(window):
     """The window has no menu bar to hide an About box behind, so the way in
-    is the version, which is what somebody clicks when they want to know what
-    they are running. A bare number is not something anybody thinks to click,
-    so the word is there too."""
-    version = window.masthead.version
+    is a link in the masthead, where the version used to be."""
+    link = window.masthead.about
 
-    assert __version__ in version.text()
-    assert '<a href="#about">' in version.text()
-    assert i18n.t("about.open") in version.text()
-    assert version.toolTip()
+    assert '<a href="#about">' in link.text()
+    assert i18n.t("about.open") in link.text()
+    assert link.toolTip()
 
     # The window is listening, and what comes up is the About box itself.
-    version.linkActivated.emit("#about")
+    link.linkActivated.emit("#about")
     opened = window.findChildren(AboutDialog)
     assert len(opened) == 1
     assert "Permission is hereby granted" in opened[0].licence.toPlainText()
     opened[0].reject()
+
+
+def test_the_about_box_is_where_the_version_number_lives(window):
+    """It left the masthead, so this is the one place in the window that
+    writes it down apart from the title bar."""
+    dialog = AboutDialog(icon=window.windowIcon(), parent=window)
+    try:
+        written = [label.text() for label in dialog.findChildren(QLabel)]
+        assert any(__version__ in text for text in written)
+        assert i18n.t("gui.wordmark") in written
+    finally:
+        dialog.deleteLater()
 
 
 def test_f1_asks_for_the_about_box_too(window):
@@ -329,7 +343,7 @@ def test_a_build_with_no_icon_files_still_gets_a_masthead(application, monkeypat
     monkeypatch.setattr(branding, "icon_files", lambda: [])
     masthead = Masthead(app_icon())
     assert not masthead.mark.isVisibleTo(masthead)
-    assert masthead.name.text() == i18n.t("gui.app_name")
+    assert masthead.name.text() == i18n.t("gui.wordmark")
 
 
 def test_the_taskbar_identity_is_claimed_only_on_windows(monkeypatch):

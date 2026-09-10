@@ -212,6 +212,13 @@ MESSAGES = {
             "  installations in one environment - conda's Qt found on PATH before the\n"
             "  one pip bundles - or, on a headless machine, missing system libraries.\n"
             "  See docs/gui.md. The web interface needs none of this: try 'web'.",
+        # Two names, on purpose. The wordmark is what the program calls
+        # itself where it is being *shown* - the masthead, the About box -
+        # and it is lower case, as on the web page and in the README: it is
+        # a command's name, not a product's. "app_name" is for the places
+        # the desktop asks for a human-readable one - the task bar, the
+        # application menu - where title case is that platform's convention.
+        "gui.wordmark": "audio-transcriber",
         "gui.app_name": "Audio Transcriber",
         # The same line the web page opens with: one promise, said once, in
         # both front ends.
@@ -336,7 +343,7 @@ MESSAGES = {
         # have to rely on, and a translation of it would be a second licence.
         "about.open": "About",
         "about.open_tip": "What this program is, and the licence it is given under",
-        "about.title": "About Audio Transcriber",
+        "about.title": "About audio-transcriber",
         "about.version": "Version {version} — {licence}",
         "about.licence": "License",
         "about.licence_missing":
@@ -877,6 +884,7 @@ MESSAGES = {
             "  che pip si porta dietro - oppure, su una macchina senza ambiente grafico,\n"
             "  librerie di sistema mancanti. Vedi docs/gui.md. L'interfaccia web non ha\n"
             "  bisogno di niente di tutto questo: prova 'web'.",
+        "gui.wordmark": "audio-transcriber",
         "gui.app_name": "Audio Transcriber",
         "gui.tagline": "Trascrizione locale. Niente esce da questa macchina.",
         "gui.eyebrow": "Registrazioni e trascrizioni",
@@ -998,7 +1006,7 @@ MESSAGES = {
         # --- informazioni e licenza -------------------------------------------
         "about.open": "Informazioni",
         "about.open_tip": "Cos'e' questo programma e con quale licenza e' dato",
-        "about.title": "Informazioni su Audio Transcriber",
+        "about.title": "Informazioni su audio-transcriber",
         "about.version": "Versione {version} — {licence}",
         "about.licence": "Licenza",
         "about.licence_missing":

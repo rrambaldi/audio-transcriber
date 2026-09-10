@@ -284,9 +284,17 @@ def title_font(base, scale=TITLE_SCALE, italic=False, weight=QFont.Weight.Medium
     size and gets the text cut, because that is the one that holds up at
     fifteen pixels.
 
+    The weight is set twice, and the second time is the one that works:
+    ``QFont.setWeight`` picks among the *named* instances a font declares and
+    never touches the ``wght`` axis, so a variable face answers it with
+    whichever instance it happens to have - which is how the masthead came out
+    fatter than the page's own h1, and the promise under it came out bold when
+    it had been asked for regular.
+
     Setting an axis needs Qt 6.7, and a font engine that honours it. Where
-    either is missing the face still comes out - as its default instance, the
-    way a browser without variable-font support would draw it."""
+    either is missing the named weight is all there is, and the face still
+    comes out - as its default instance, the way a browser without
+    variable-font support would draw it."""
     font = QFont(base)
     font.setFamily(family(branding.SERIF))
     font.setWeight(weight)
@@ -294,8 +302,13 @@ def title_font(base, scale=TITLE_SCALE, italic=False, weight=QFont.Weight.Medium
     _scale(font, scale)
     if tracking:
         font.setLetterSpacing(QFont.SpacingType.PercentageSpacing, tracking)
-    if opsz is not None and hasattr(font, "setVariableAxis"):
-        font.setVariableAxis(QFont.Tag("opsz"), opsz)
+    if hasattr(font, "setVariableAxis"):
+        if opsz is not None:
+            font.setVariableAxis(QFont.Tag("opsz"), opsz)
+        # Qt's own weight numbers are the CSS ones, so the enum is the axis
+        # value. The sans is deliberately left to Qt's matching: its axis
+        # starts at 400 and it comes out right without help.
+        font.setVariableAxis(QFont.Tag("wght"), float(int(weight)))
     return font
 
 
