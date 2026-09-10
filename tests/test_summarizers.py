@@ -76,6 +76,114 @@ def test_nothing_to_cut_is_no_passes():
     assert prompting.plan([], 100) == []
 
 
+def test_the_seam_is_repeated_when_an_overlap_is_asked_for():
+    """A decision taken across a boundary is otherwise half in each pass."""
+    many = [Sentence(f"Frase numero {n} del verbale.", n * 10.0) for n in range(60)]
+    plain = prompting.chunks(many, 200)
+    lapped = prompting.chunks(many, 200, overlap=0.2)
+    assert len(lapped) >= len(plain)
+    repeated = set(s.text for s in plain[0]) & set(s.text for s in lapped[1])
+    assert repeated, "the second pass never saw the end of the first"
+
+
+def test_an_overlap_never_repeats_a_whole_pass():
+    """A chunk made only of repetitions would not advance the transcript."""
+    many = [Sentence(f"Frase numero {n} del verbale.", n * 10.0) for n in range(40)]
+    parts = prompting.chunks(many, 120, overlap=0.5)
+    assert sum(len(part) for part in parts) < 4 * len(many)
+    assert [s.text for s in parts[-1]][-1] == many[-1].text
+
+
+# --- the reduce tree ------------------------------------------------------
+
+def widest(levels):
+    return max(len(group) for level in levels for group in level)
+
+
+def test_what_fits_in_one_pass_is_still_one_pass():
+    assert len(prompting.reduce_tree(range(1))) == 1
+    assert len(prompting.reduce_tree(range(prompting.REDUCE_FANIN))) == 1
+
+
+def test_more_partials_than_one_prompt_holds_are_folded_in_two_levels():
+    for count in (7, 40):
+        levels = prompting.reduce_tree(range(count))
+        assert len(levels) == 2, count
+        assert levels[-1] == [list(range(len(levels[-2])))]
+
+
+def test_the_tree_widens_rather_than_growing_another_level():
+    """A meeting does not deserve four levels of summary."""
+    levels = prompting.reduce_tree(range(40))
+    assert len(levels) == 2
+    assert widest(levels) == 7          # wider than the default fan-in of six
+    assert all(len(group) <= 7 for level in levels for group in level)
+
+
+def test_nothing_to_reduce_is_no_passes():
+    assert prompting.reduce_tree([]) == []
+
+
+def test_a_context_too_small_to_widen_grows_a_level_instead():
+    """On a model that cannot hold a wider prompt, depth is the lesser harm."""
+    levels = prompting.reduce_tree(range(40), fanin=3, max_fanin=3)
+    assert len(levels) > 2
+    assert widest(levels) == 3
+
+
+# The plan for the smallest tier, as step 4 will compute it. Written out here
+# so this file keeps testing prompting on its own; test_plan.py owns the
+# question of where the numbers come from.
+XS_CONTEXT, XS_MAP, XS_REDUCE, XS_EVIDENCE, XS_OVERHEAD = 2048, 150, 500, 200, 300
+
+
+def test_no_prompt_of_the_tree_overflows_the_smallest_tier():
+    """The regression this whole tree exists for.
+
+    A star reduce hands one prompt every partial there is, so forty of them
+    is a prompt ten times the context of the model that was chosen precisely
+    because the machine is small. Every prompt of the tree has to fit, at
+    every level — including the ones that fold answers rather than chunks."""
+    words = "riga di riassunto del verbale "
+    partials = [(words * 68).strip() for _ in range(40)]        # ~500 tokens
+    assert 450 <= prompting.estimate_tokens(partials[0]) <= 550
+
+    fanin = prompting.fanin_for(len(partials), XS_CONTEXT,
+                                prompting.estimate_tokens(partials[0]),
+                                XS_REDUCE, XS_EVIDENCE, XS_OVERHEAD)
+    levels = prompting.reduce_tree(partials, fanin=fanin, max_fanin=fanin)
+    evidence = "[0:00] " + words * 20
+
+    # Above the first level the model is folding its own answers, and those
+    # are capped at the map budget rather than at the size of a chunk.
+    answer = (words * int(XS_MAP / prompting.estimate_tokens(words))).strip()
+    for depth, level in enumerate(levels):
+        for group in level:
+            texts = ([partials[index] for index in group] if depth == 0
+                     else [answer] * len(group))
+            root = depth == len(levels) - 1
+            prompt = (prompting.reduce_prompt(texts, "it", evidence=evidence)
+                      if root else
+                      prompting.reduce_partial_prompt(texts, "it",
+                                                      evidence=evidence))
+            assert prompting.estimate_tokens(prompt) <= XS_CONTEXT, (depth, root)
+
+
+def test_the_budget_leaves_room_for_the_answer_and_the_instructions():
+    for context in (2048, 4096, 8192, 16384):
+        room = prompting.budget_for(context)
+        assert room + prompting.REDUCE_ANSWER_TOKENS + 400 <= context
+    # A context smaller than the answer it has to hold is not negative room.
+    assert prompting.budget_for(256) == 0
+
+
+def test_the_fan_in_narrows_with_the_context():
+    wide = prompting.fanin_for(40, 16384, 500)
+    narrow = prompting.fanin_for(40, 2048, 500, 500, 200, 300)
+    assert wide == prompting.REDUCE_FANIN
+    assert 2 <= narrow < wide
+
+
 # --- the prompts ----------------------------------------------------------
 
 def test_the_prompt_asks_for_the_headings_the_page_uses():
@@ -102,6 +210,41 @@ def test_the_reduce_prompt_carries_every_partial_summary():
     prompt = prompting.reduce_prompt(["primo pezzo", "secondo pezzo"], "it")
     assert "primo pezzo" in prompt and "secondo pezzo" in prompt
     assert "--- 1 ---" in prompt and "--- 2 ---" in prompt
+
+
+def test_an_intermediate_reduce_does_not_write_the_final_document():
+    """Its answer is material for the level above, not a page."""
+    middle = prompting.reduce_partial_prompt(["primo", "secondo"], "it")
+    for heading in ("## In breve", "## Punti chiave", "## Decisioni"):
+        assert heading not in middle
+    assert "elenco puntato" in middle
+    assert "## In breve" in prompting.reduce_prompt(["primo"], "it")
+
+
+def test_a_reduce_pass_is_given_the_transcript_to_check_itself_against():
+    """From the second level on the model is reading its own writing."""
+    plain = prompting.reduce_prompt(["primo"], "it")
+    checked = prompting.reduce_prompt(["primo"], "it",
+                                      evidence="[0:08] Sono quarantaduemila euro.")
+    assert "quarantaduemila" not in plain
+    assert "quarantaduemila" in checked
+    assert prompting.FENCE_START in checked
+    assert "primo" in checked
+
+
+def test_the_evidence_is_the_transcript_selected_not_summarised():
+    many = [Sentence(f"Il budget del progetto vale {n} euro.", n * 10.0)
+            for n in range(40)]
+    extract = prompting.evidence_for(many, budget=120, language="it")
+    lines = extract.splitlines()
+    assert 0 < len(lines) < len(many)
+    assert all(line in prompting.transcript_for(many) for line in lines)
+    assert lines[0].startswith("[")
+
+
+def test_no_evidence_is_no_block_at_all():
+    assert prompting.evidence_for([], 100, "it") == ""
+    assert prompting.evidence_for(SENTENCES, 0, "it") == ""
 
 
 # --- reading the answer back ----------------------------------------------

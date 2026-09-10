@@ -24,7 +24,14 @@ whole of it is covered by the test suite on a machine that has none.
 import re
 
 from ..formatting import format_clock
-from ..summary import HEADINGS, Point, Sections, estimate_tokens, language_of
+from ..summary import (
+    HEADINGS,
+    Point,
+    Sections,
+    estimate_tokens,
+    language_of,
+    reduce as reduce_sentences,
+)
 
 #: Tokens of transcript handed to the model in one pass. Deliberately well
 #: under the context of any model worth using for this: the prompt, the
@@ -32,8 +39,38 @@ from ..summary import HEADINGS, Point, Sections, estimate_tokens, language_of
 #: exactly its context window spends the last of it forgetting the beginning.
 CHUNK_TOKENS = 6000
 
-#: Room to leave for the answer, as a share of the material.
-ANSWER_TOKENS = 1200
+#: How many partial summaries one reduce pass may fold together. Above this,
+#: the partials are reduced in groups and the groups reduced again: a star
+#: reduce grows its prompt with the length of the recording, which is the one
+#: thing a small model cannot absorb.
+REDUCE_FANIN = 6
+
+#: The deepest the whole tree may go, counting the map pass as the first
+#: level: three means map, then two reduce passes at most. Beyond that the
+#: fan-in is widened instead, because a meeting does not deserve four levels
+#: of summary and every level loses information.
+MAX_REDUCE_DEPTH = 3
+
+#: Tokens a map answer may spend. A chunk summary is a bulleted list, not a
+#: document, and every token here is a token the reduce prompt has to carry.
+#: Intermediate reduce passes answer under the same ceiling, for the same
+#: reason; only the root writes at length.
+MAP_ANSWER_TOKENS = 500
+
+#: Tokens the final answer may spend.
+REDUCE_ANSWER_TOKENS = 1400
+
+#: Tokens of original transcript handed to a reduce pass alongside the
+#: partials. Merging summaries recursively amplifies whatever the model
+#: invented at the level below, because from the second level on it is
+#: reading its own writing with no way back to the source; a small extract of
+#: what was actually said is the cheapest thing that gives it one.
+EVIDENCE_TOKENS = 400
+
+#: Bumped whenever a prompt here changes. It is part of the cache key of a
+#: partial answer, and a cache that survives a prompt change is a bug that
+#: accumulates rather than a saving.
+PROMPT_VERSION = 1
 
 #: What the transcript is wrapped in inside a prompt. The same two markers in
 #: every language, because they are delimiters rather than prose and because
@@ -87,9 +124,21 @@ PROMPTS = {
             "punti trattati, le decisioni prese e le cose che qualcuno si e' "
             "impegnato a fare. Un elenco puntato, ogni riga con il minuto.\n\n"
             "{fence_start}\n{transcript}\n{fence_end}",
+        "evidence":
+            "Questi sono passaggi della trascrizione originale, per "
+            "controllo.\n\n{fence_start}\n{evidence}\n{fence_end}\n\n"
+            "Verifica i riassunti qui sopra contro questi passaggi: togli "
+            "quello che non ci trovi, e copia i minuti come sono scritti "
+            "qui.\n\n",
+        "reduce_partial":
+            "Questi sono riassunti parziali consecutivi della stessa "
+            "registrazione, in ordine.\n\n{partials}\n\n{evidence}"
+            "Fondili in un solo elenco puntato in italiano, in ordine di "
+            "tempo: togli le ripetizioni, tieni ogni riga con il suo minuto, "
+            "e non scrivere ancora il documento finale con le intestazioni.",
         "reduce":
             "Questi sono i riassunti parziali di una registrazione, in "
-            "ordine.\n\n{partials}\n\n"
+            "ordine.\n\n{partials}\n\n{evidence}"
             "Scrivi ora il riassunto finale in italiano, con esattamente "
             "queste intestazioni e in quest'ordine, saltando quelle che non "
             "hanno contenuto:\n\n"
@@ -127,9 +176,21 @@ PROMPTS = {
             "discussed, the decisions taken, and what somebody committed to "
             "doing. A bulleted list, every line carrying its minute.\n\n"
             "{fence_start}\n{transcript}\n{fence_end}",
+        "evidence":
+            "These are passages of the original transcript, to check "
+            "against.\n\n{fence_start}\n{evidence}\n{fence_end}\n\n"
+            "Check the summaries above against these passages: drop whatever "
+            "you cannot find in them, and copy the minutes as written "
+            "here.\n\n",
+        "reduce_partial":
+            "These are consecutive partial summaries of one recording, in "
+            "order.\n\n{partials}\n\n{evidence}"
+            "Merge them into a single bulleted list in English, in time "
+            "order: drop the repetitions, keep every line's minute, and do "
+            "not write the final document with its headings yet.",
         "reduce":
             "These are the partial summaries of one recording, in order.\n\n"
-            "{partials}\n\n"
+            "{partials}\n\n{evidence}"
             "Now write the final summary in English, under exactly these "
             "headings and in this order, leaving out any that would be "
             "empty:\n\n"
@@ -175,25 +236,145 @@ def transcript_for(sentences):
     return "\n".join(lines)
 
 
-def chunks(sentences, budget=CHUNK_TOKENS):
+def _cost(sentence):
+    """What one sentence costs in a prompt: its words, its minute, its name."""
+    return estimate_tokens(sentence.text) + 8
+
+
+def _carried(chunk, tokens):
+    """The tail of a chunk to repeat at the head of the next one.
+
+    Never the whole chunk, however small the budget: a chunk made only of
+    repeated sentences would make no progress through the transcript."""
+    if tokens <= 0 or len(chunk) < 2:
+        return []
+    kept, size = [], 0
+    for sentence in reversed(chunk[1:]):
+        cost = _cost(sentence)
+        if size + cost > tokens:
+            break
+        kept.append(sentence)
+        size += cost
+    kept.reverse()
+    return kept
+
+
+def chunks(sentences, budget=CHUNK_TOKENS, overlap=0.0):
     """Cut the transcript into passes that each fit, on sentence boundaries.
 
     A sentence longer than the whole budget still gets its own chunk: cutting
     it would produce two halves of a thought, and a model handed a truncated
-    sentence summarises the truncation."""
+    sentence summarises the truncation.
+
+    ``overlap`` repeats a share of each chunk at the head of the next one.
+    What it buys is the seam: a decision taken across a chunk boundary is
+    otherwise half in one pass and half in another, and neither pass sees it
+    whole. It costs that share of the reading again, so it stays off unless a
+    caller asks — the plan does."""
     if not sentences:
         return []
+    carry = max(0.0, min(0.5, float(overlap or 0.0))) * budget
     made, current, size = [], [], 0
     for sentence in sentences:
-        cost = estimate_tokens(sentence.text) + 8      # the minute and the name
+        cost = _cost(sentence)
         if current and size + cost > budget:
             made.append(current)
-            current, size = [], 0
+            current = _carried(current, carry)
+            size = sum(_cost(item) for item in current)
         current.append(sentence)
         size += cost
     if current:
         made.append(current)
     return made
+
+
+def budget_for(context_tokens, answer_tokens=REDUCE_ANSWER_TOKENS, overhead=400):
+    """How much transcript fits in one pass, given the model's context.
+
+    The default :data:`CHUNK_TOKENS` is a guess made without knowing which
+    model would run; this is the same question answered by arithmetic once the
+    plan has chosen one. ``overhead`` is the instructions around the material —
+    measured generously, because the failure it prevents is an overflow."""
+    return max(0, int(context_tokens) - int(answer_tokens) - int(overhead))
+
+
+def fanin_for(count, context_tokens, partial_tokens,
+              answer_tokens=REDUCE_ANSWER_TOKENS,
+              evidence_tokens=EVIDENCE_TOKENS, overhead=400):
+    """The widest fan-in whose reduce prompt still fits this model's context.
+
+    Two below it and the tree is a chain; :data:`REDUCE_FANIN` above it and a
+    single prompt carries more of the recording than any model chosen for a
+    small machine can hold."""
+    room = (budget_for(context_tokens, answer_tokens, overhead)
+            - max(0, int(evidence_tokens)))
+    fits = room // max(1, int(partial_tokens))
+    widest = min(REDUCE_FANIN, max(2, int(count)))
+    return max(2, min(widest, int(fits)))
+
+
+def _depth(count, fanin):
+    """How many reduce passes folding ``count`` partials this fan-in needs."""
+    levels = 0
+    while count > 1:
+        count = -(-count // fanin)
+        levels += 1
+    return max(1, levels)
+
+
+def reduce_tree(partials, fanin=REDUCE_FANIN, max_depth=MAX_REDUCE_DEPTH,
+                max_fanin=None):
+    """Group the partials into the reduce passes to run, level by level.
+
+    Returns one list per level, each a list of groups, each group the indices
+    a single prompt folds together — indices into the partials at the first
+    level, and into the previous level's results after that. Indices rather
+    than texts because the levels above the first fold answers that do not
+    exist yet when the shape is decided.
+
+    Pure: no model and no I/O, so the shape of the tree is testable without
+    one, which is the whole reason it lives here.
+
+    Depth counts the map pass as the first level, so the default allows two
+    reduce passes. When more would be needed the fan-in is widened instead —
+    a meeting does not deserve four levels of summary, and every level loses
+    information. ``max_fanin`` stops that widening: on a model whose context
+    cannot hold a wider prompt, an extra level is the lesser harm, and that is
+    a judgement only the caller with the plan in hand can make."""
+    items = list(partials)
+    if not items:
+        return []
+
+    width = max(2, int(fanin))
+    ceiling = max(width, int(max_fanin)) if max_fanin else None
+    while _depth(len(items), width) > max(1, int(max_depth) - 1):
+        if ceiling is not None and width >= ceiling:
+            break
+        width += 1
+
+    levels, indices = [], list(range(len(items)))
+    while True:
+        if len(indices) <= width:
+            levels.append([list(indices)])
+            break
+        levels.append([indices[at:at + width]
+                       for at in range(0, len(indices), width)])
+        indices = list(range(len(levels[-1])))
+    return levels
+
+
+def evidence_for(sentences, budget=EVIDENCE_TOKENS, language="it"):
+    """A small extract of what was actually said, for a reduce pass to read.
+
+    From the second level of the tree on, the model is summarising its own
+    writing and has no way back to the recording; handing it the highest-
+    weighted sentences of the material underneath that group is the cheapest
+    way to give it one. It is the same selection the extractive engine makes,
+    at a much smaller budget."""
+    if not sentences or budget <= 0:
+        return ""
+    return transcript_for(reduce_sentences(list(sentences), int(budget),
+                                           language_of(language)))
 
 
 def _clock_seconds(text):
@@ -337,11 +518,39 @@ def map_prompt(sentences, language, part, total):
         fence_start=FENCE_START, fence_end=FENCE_END)
 
 
-def reduce_prompt(partials, language):
-    """The prompt that turns the chunk summaries into one summary."""
+def _numbered(partials):
+    """The partial summaries as one block, each under its own marker."""
+    return "\n\n".join(f"--- {index} ---\n{part.strip()}"
+                       for index, part in enumerate(partials, start=1))
+
+
+def _evidence_block(evidence, language):
+    """The extract of the transcript a reduce pass checks itself against."""
+    if not evidence:
+        return ""
+    return prompts_for(language)["evidence"].format(
+        evidence=evidence, fence_start=FENCE_START, fence_end=FENCE_END)
+
+
+def reduce_partial_prompt(partials, language, evidence=None):
+    """The prompt for a reduce pass that is not the last one.
+
+    An intermediate level merges and deduplicates; it must not write the
+    finished document, because a level above it still has to fold what comes
+    out with the answers of its siblings, and headings would arrive there as
+    material to summarise rather than as an answer."""
+    return prompts_for(language)["reduce_partial"].format(
+        partials=_numbered(partials),
+        evidence=_evidence_block(evidence, language))
+
+
+def reduce_prompt(partials, language, evidence=None):
+    """The prompt that turns the chunk summaries into one summary.
+
+    The root of the tree, and the only level that writes the page."""
     words = HEADINGS.get(language_of(language), HEADINGS["en"])
-    numbered = "\n\n".join(f"--- {index} ---\n{part.strip()}"
-                           for index, part in enumerate(partials, start=1))
     return prompts_for(language)["reduce"].format(
-        partials=numbered, abstract=words["abstract"], points=words["points"],
+        partials=_numbered(partials),
+        evidence=_evidence_block(evidence, language),
+        abstract=words["abstract"], points=words["points"],
         decisions=words["decisions"], actions=words["actions"])
