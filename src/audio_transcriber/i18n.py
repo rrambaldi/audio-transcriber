@@ -649,6 +649,9 @@ MESSAGES = {
             "llama-server stopped before answering (exit {code}).",
         "summary.server_silent": "llama-server did not answer within {seconds}s.",
         "summary.server_failed": "llama-server refused the request: {error}",
+        "summary.prefill_failed":
+            "  Could not start the answer for the model ({error}); asking the\n"
+            "  plain way instead.",
         "summary.thinking_stays_on":
             "  NOTE: this runtime offers no way to turn the model's reasoning off,\n"
             "  so every answer pays for it and some come back empty.",
@@ -1298,6 +1301,9 @@ MESSAGES = {
             "llama-server si e' fermato prima di rispondere (uscita {code}).",
         "summary.server_silent": "llama-server non ha risposto entro {seconds}s.",
         "summary.server_failed": "llama-server ha rifiutato la richiesta: {error}",
+        "summary.prefill_failed":
+            "  Non ho potuto avviare la risposta per il modello ({error}):\n"
+            "  chiedo nel modo semplice.",
         "summary.thinking_stays_on":
             "  NOTA: questo runtime non permette di spegnere il ragionamento del\n"
             "  modello, quindi ogni risposta lo paga e qualcuna torna vuota.",

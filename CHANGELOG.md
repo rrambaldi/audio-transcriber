@@ -64,6 +64,24 @@ All notable changes to this project are documented here. The format follows
   an Intel GPU sitting idle. What has to stay free does not grow with how much
   RAM somebody bought; the reserve is capped at two gigabytes.
 
+- **A reasoning model on OpenVINO answered nothing at all.** Its generation
+  config has no switch for reasoning — no released version of OpenVINO GenAI
+  has one — so the model narrated until its allowance ran out and was cut off
+  before the answer began. Every summary came back empty, which is
+  indistinguishable from a model too small for the job, and nothing anywhere
+  said so. The chat template is the authority: where it knows an
+  `enable_thinking` variable, the model was trained to read an empty
+  narration as the same instruction, so the template is applied here and the
+  answer started for it. Where the template knows no such thing, nothing is
+  invented — and that case now says so out loud, once, instead of silently
+  returning nothing.
+
+- **A conversion refused for a version pin said so as if it were a bug.** The
+  OpenVINO exporter caps the version of transformers each architecture can be
+  exported with, and an environment with a newer one simply cannot convert
+  that model. The message names the ceiling now, and the line that gets past
+  it.
+
 - **The Windows installer did not install the summary engine.** Its default
   extras were `openvino,gui,record`, so a machine with an Intel device
   transcribed and then reported that no summary engine was installed, having

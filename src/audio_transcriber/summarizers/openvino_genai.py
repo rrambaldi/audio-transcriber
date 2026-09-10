@@ -174,6 +174,13 @@ def prepare(hf_id, models_dir=None):
     return target
 
 
+#: What a model whose chat template understands ``enable_thinking`` writes
+#: when it is told not to think: a narration opened and closed on the spot.
+#: Handing it over already written is how reasoning is turned off on a runtime
+#: whose generation config has no switch for it — which is every OpenVINO
+#: GenAI released so far.
+NO_THINKING = "<think>\n\n</think>\n\n"
+
 #: What the OpenVINO exporter says when the installed transformers is newer
 #: than the architecture's converter was written for. It names the ceiling,
 #: which is the one thing needed to get past it.
@@ -218,11 +225,37 @@ class Pipeline:
         #: Set once, the first time reasoning cannot be turned off. Saying it
         #: every prompt would bury the transcript's own progress lines.
         self.warned_about_thinking = False
+        self.speaks_thinking = self._speaks_thinking()
         self.config = openvino_genai.GenerationConfig()
         self.config.max_new_tokens = MAX_NEW_TOKENS
         # Greedy: a summary is not a place for creativity, and two runs over
         # the same recording should not disagree with each other.
         self.config.do_sample = False
+
+    def _speaks_thinking(self):
+        """Whether this model's own chat template knows about reasoning.
+
+        The template is the authority: if it has an ``enable_thinking``
+        variable then the model was trained to see an empty narration where
+        that variable said no, and handing one over means the same thing as
+        setting it. If it does not, nothing here invents a convention for it."""
+        try:
+            template = self.pipe.get_tokenizer().get_original_chat_template()
+        except Exception:                       # pragma: no cover - runtime
+            return False
+        return "enable_thinking" in (template or "")
+
+    def _prefilled(self, system, user):
+        """The prompt with the template applied and the narration closed.
+
+        The runtime applies the chat template itself, but only with the
+        variables it knows, and reasoning is not one of them — so the template
+        is applied here instead and the answer is started for the model. The
+        generation config is told not to apply it a second time."""
+        history = [{"role": "system", "content": system},
+                   {"role": "user", "content": user}]
+        rendered = self.pipe.get_tokenizer().apply_chat_template(history, True)
+        return str(rendered) + NO_THINKING
 
     def ask(self, system, user, max_new_tokens=None, think=False):
         """One prompt, one answer.
@@ -245,6 +278,19 @@ class Pipeline:
         config = genai.GenerationConfig()
         config.max_new_tokens = int(max_new_tokens or MAX_NEW_TOKENS)
         config.do_sample = False
+
+        if not think and self.speaks_thinking:
+            try:
+                prompt = self._prefilled(system, user)
+                config.apply_chat_template = False
+                return str(self.pipe.generate(prompt, config)).strip()
+            except Exception as exc:           # pragma: no cover - runtime
+                # Not fatal, and not silent: fall back to the plain route and
+                # pay for the narration rather than lose the pass.
+                print(t("summary.prefill_failed", error=exc), file=sys.stderr)
+                self.speaks_thinking = False
+                config.apply_chat_template = True
+
         if not think and not self._no_thinking(config) and not self.warned_about_thinking:
             # Worth saying out loud, once. A reasoning model whose reasoning
             # stays on spends its allowance narrating and is cut off before

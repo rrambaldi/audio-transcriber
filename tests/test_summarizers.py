@@ -714,3 +714,115 @@ def test_a_heading_the_model_wrote_in_bold_is_still_a_heading():
 def test_bold_text_inside_a_section_is_not_mistaken_for_a_heading():
     answer = "## In breve\n**Il budget** resta quello di prima."
     assert "budget" in prompting.parse(answer, "it").abstract.lower()
+
+
+# --- turning reasoning off on a runtime with no switch for it -------------
+
+class FakeConfig:
+    """Everything openvino_genai's GenerationConfig has that we set."""
+
+    def __init__(self):
+        self.max_new_tokens = 0
+        self.do_sample = True
+        self.apply_chat_template = True
+
+
+class FakeTokenizer:
+    def __init__(self, template):
+        self.template = template
+
+    def get_original_chat_template(self):
+        return self.template
+
+    def apply_chat_template(self, history, add_generation_prompt):
+        assert add_generation_prompt is True
+        turns = "".join(f"<|im_start|>{turn['role']}\n{turn['content']}<|im_end|>\n"
+                        for turn in history)
+        return turns + "<|im_start|>assistant\n"
+
+
+class FakeLLM:
+    def __init__(self, template):
+        self.tokenizer = FakeTokenizer(template)
+        self.asked = []
+
+    def get_tokenizer(self):
+        return self.tokenizer
+
+    def generate(self, prompt, config):
+        self.asked.append((prompt, config))
+        return "## In breve\nUn riassunto vero."
+
+
+def fake_runtime(monkeypatch, template):
+    """A stand-in for the module, so the real Pipeline can be exercised."""
+    import sys
+    import types
+
+    module = types.ModuleType("openvino_genai")
+    module.GenerationConfig = FakeConfig
+    module.LLMPipeline = lambda path, device: FakeLLM(template)
+    monkeypatch.setitem(sys.modules, "openvino_genai", module)
+    return module
+
+
+REASONING_TEMPLATE = "{%- if enable_thinking is false %}<think>\n\n</think>{%- endif %}"
+
+
+def test_the_answer_is_started_for_a_model_that_would_otherwise_narrate(monkeypatch):
+    """The generation config has no switch for reasoning, so the prompt does.
+
+    Handing over a narration already opened and closed means, to a model
+    whose template knows that variable, exactly what setting it would."""
+    fake_runtime(monkeypatch, REASONING_TEMPLATE)
+    pipeline = engine.Pipeline("/models/mine", "GPU")
+    assert pipeline.speaks_thinking is True
+
+    answer = pipeline.ask("sistema", "domanda", max_new_tokens=200)
+    prompt, config = pipeline.pipe.asked[0]
+
+    assert answer == "## In breve\nUn riassunto vero."
+    assert prompt.endswith(engine.NO_THINKING)
+    assert "domanda" in prompt
+    # The template was applied here, so the runtime must not apply it again.
+    assert config.apply_chat_template is False
+    assert config.max_new_tokens == 200
+    assert config.do_sample is False
+
+
+def test_a_model_that_never_reasons_is_left_alone(monkeypatch, capsys):
+    """No convention is invented for a model whose template has none."""
+    fake_runtime(monkeypatch, "{{ messages[0].content }}")
+    pipeline = engine.Pipeline("/models/mine", "GPU")
+    assert pipeline.speaks_thinking is False
+
+    pipeline.ask("sistema", "domanda", max_new_tokens=200)
+    prompt, config = pipeline.pipe.asked[0]
+    assert engine.NO_THINKING not in prompt
+    assert config.apply_chat_template is True
+
+
+def test_a_runtime_with_no_way_to_stop_the_reasoning_says_so_once(monkeypatch, capsys):
+    """Silence here reads as an empty answer three passes later."""
+    monkeypatch.setenv("AUDIO_TRANSCRIBER_LANG", "en")
+    fake_runtime(monkeypatch, "{{ messages[0].content }}")
+    pipeline = engine.Pipeline("/models/mine", "GPU")
+    capsys.readouterr()
+
+    pipeline.ask("sistema", "domanda")
+    pipeline.ask("sistema", "un'altra")
+    said = capsys.readouterr().err
+    assert said.count("reasoning") == 1, said
+
+
+def test_a_template_that_cannot_be_read_is_not_a_failure(monkeypatch):
+    """A runtime that will not say is treated as one that cannot switch."""
+    module = fake_runtime(monkeypatch, REASONING_TEMPLATE)
+
+    class Awkward(FakeLLM):
+        def get_tokenizer(self):
+            raise RuntimeError("no tokenizer here")
+
+    module.LLMPipeline = lambda path, device: Awkward(REASONING_TEMPLATE)
+    pipeline = engine.Pipeline("/models/mine", "GPU")
+    assert pipeline.speaks_thinking is False
