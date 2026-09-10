@@ -88,8 +88,12 @@ MIN_ANSWER = 40
 #: summary, and it must not reach the page.
 _THINK = re.compile(r"<think>.*?</think>\s*", re.DOTALL | re.IGNORECASE)
 
-#: A markdown heading, at any level.
-_HEADING = re.compile(r"^\s{0,3}#{1,6}\s*(.+?)\s*#*\s*$")
+#: A markdown heading, at any level — or a line that is nothing but bold text,
+#: which is how a model asked for "## Punti chiave" very often answers. Left
+#: unrecognised, every section it wrote lands in the abstract and the page is
+#: one paragraph where it should be four.
+_HEADING = re.compile(r"^\s{0,3}(?:#{1,6}\s*(.+?)\s*#*"
+                      r"|\*\*(.+?)\*\*:?|__(.+?)__:?)\s*$")
 
 #: A bullet: a dash, a star, or a number.
 _BULLET = re.compile(r"^\s*(?:[-*•]|\d{1,2}[.)])\s+(.*)$")
@@ -464,7 +468,9 @@ def parse(answer, language="it", prompt=None):
     for line in text.splitlines():
         heading = _HEADING.match(line)
         if heading:
-            found = _field_of(heading.group(1), language)
+            written = next(group for group in heading.groups()
+                           if group is not None)
+            found = _field_of(written, language)
             field = found
             matched = matched or found is not None
             continue

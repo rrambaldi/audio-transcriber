@@ -695,3 +695,22 @@ def test_an_echo_reflowed_onto_one_line_is_still_an_echo():
                 "impegnato a fare. Un elenco puntato, ogni riga con il minuto.")
     assert reflowed not in prompt          # not as written, only reflowed
     assert prompting.usable_answer(reflowed, prompt) == ""
+
+
+def test_a_heading_the_model_wrote_in_bold_is_still_a_heading():
+    """Asked for "## Punti chiave", models very often answer "**Punti chiave**".
+
+    Unrecognised, every section they wrote lands in the abstract and the page
+    is one paragraph where it should be four."""
+    answer = ("**In breve**\nUn riassunto vero.\n\n"
+              "**Punti chiave**\n- [0:08] Budget.\n\n"
+              "__Decisioni__\n- Rinnovare il contratto.")
+    sections = prompting.parse(answer, "it")
+    assert sections.abstract == "Un riassunto vero."
+    assert [point.text for point in sections.points] == ["Budget."]
+    assert [point.text for point in sections.decisions] == ["Rinnovare il contratto."]
+
+
+def test_bold_text_inside_a_section_is_not_mistaken_for_a_heading():
+    answer = "## In breve\n**Il budget** resta quello di prima."
+    assert "budget" in prompting.parse(answer, "it").abstract.lower()
