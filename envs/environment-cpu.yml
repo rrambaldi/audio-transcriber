@@ -14,3 +14,10 @@ dependencies:
       - uvicorn          #   di un server, quindi qui non e' opzionale
       - python-multipart #   (upload dei file dalla pagina)
       # - pyannote.audio # opzionale (--diarize): scarica PyTorch, ~2 GB e RAM
+      # - llama-cpp-python  # opzionale: riassunti scritti da un modello su CPU.
+      #   Il pacchetto e' ~50 MB e va compilato; il modello GGUF che scarica al
+      #   primo uso e' 0.7-2 GB, scelto in base alla RAM della macchina. Senza
+      #   di questo il riassunto resta estrattivo: frasi prese dalla
+      #   trascrizione, che e' istantaneo e non scarica niente.
+      #   In alternativa, senza pacchetti Python: l'eseguibile 'llama-server'
+      #   nel PATH, oppure il suo percorso in config.toml.

@@ -13,6 +13,7 @@ from audio_transcriber.library import Library
 from audio_transcriber.summarizers import (
     CHOICES,
     EXTRACTIVE,
+    LLAMACPP,
     available,
     load,
     resolve_summarizer,
@@ -235,7 +236,7 @@ def test_the_page_says_which_engine_made_it_and_how_long_the_recording_was():
 def test_auto_falls_back_to_the_engine_that_needs_nothing(monkeypatch):
     """No model installed is the normal case on a server, and in CI."""
     monkeypatch.setattr("audio_transcriber.summarizers.is_installed",
-                        lambda name: name == EXTRACTIVE)
+                        lambda name, settings=None: name == EXTRACTIVE)
     assert resolve_summarizer("auto") == EXTRACTIVE
     assert resolve_summarizer(None) == EXTRACTIVE
     assert available() == [EXTRACTIVE]
@@ -244,8 +245,15 @@ def test_auto_falls_back_to_the_engine_that_needs_nothing(monkeypatch):
 
 def test_auto_prefers_the_engine_that_actually_writes(monkeypatch):
     monkeypatch.setattr("audio_transcriber.summarizers.is_installed",
-                        lambda name: True)
+                        lambda name, settings=None: True)
     assert resolve_summarizer("auto") == "openvino"
+
+
+def test_without_an_intel_device_auto_still_prefers_a_model(monkeypatch):
+    """A GGUF on the CPU writes; the extractive engine quotes."""
+    monkeypatch.setattr("audio_transcriber.summarizers.is_installed",
+                        lambda name, settings=None: name != "openvino")
+    assert resolve_summarizer("auto") == LLAMACPP
 
 
 def test_an_engine_can_be_asked_for_by_a_tolerated_spelling():

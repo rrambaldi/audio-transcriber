@@ -47,16 +47,8 @@ import sys
 from .. import paths
 from ..hardware import available_ram_gb, openvino_devices, total_ram_gb
 from ..i18n import t
-from ..summary import (
-    STAGE_READING,
-    STAGE_WRITING,
-    NotEnoughMemory,
-    SummaryError,
-    language_of,
-    reduce as reduce_sentences,
-    reduction_note,
-)
-from . import plan, prompting
+from ..summary import SummaryError
+from . import plan, prompting, reading
 
 NAME = "openvino"
 
@@ -75,12 +67,6 @@ BITS = 4
 #: plan says otherwise: a map answer is a list and the root answer is a page,
 #: and on a small model the difference between them is most of the window.
 MAX_NEW_TOKENS = prompting.REDUCE_ANSWER_TOKENS
-
-#: The band of a progress bar the reading passes are mapped into. Loading and
-#: compiling the model own the first slice, and writing the final summary the
-#: last: on a long transcript the passes really are most of the wait.
-READING_BAND = (10, 85)
-
 
 def resolve_device(device=None):
     """The Intel device to run on: the iGPU if there is one, else the CPU."""
@@ -270,170 +256,28 @@ class Pipeline:
         return False
 
 
-def _cut_to_fit(sentences, budget, chosen, language="it", tries=3):
-    """Select down until the transcript really does fit in the passes allowed.
-
-    Aiming at ``max_passes * budget`` tokens is close but not exact: a chunk
-    also carries a minute and a name per line, and the overlap repeats part of
-    each one. Rather than model those, the chunker is asked and the target
-    adjusted by what it answers, which converges in two rounds and cannot
-    disagree with the thing it is trying to satisfy."""
-    target = budget * chosen.max_passes
-    kept, parts = list(sentences), prompting.chunks(
-        sentences, budget, chosen.chunk_overlap, language)
-    for _ in range(tries):
-        if target <= 0:
-            break
-        kept = reduce_sentences(sentences, int(target), language)
-        parts = prompting.chunks(kept, budget, chosen.chunk_overlap, language)
-        if len(parts) <= chosen.max_passes:
-            break
-        target = int(target * chosen.max_passes / len(parts))
-    return kept, parts
-
-
-def _read(pipeline, system, parts, language, chosen, report, band):
-    """The map stage: one answer per chunk, and the sentences behind each.
-
-    Returns the answers with the chunk they came from, because a reduce pass
-    above needs the source to check itself against and only this level knows
-    which sentences went into which answer."""
-    low, high = band
-    partials = []
-    for index, part in enumerate(parts, start=1):
-        print(t("summary.pass", part=index, total=len(parts)), file=sys.stderr)
-        report(low + (high - low) * (index - 1) // len(parts), STAGE_READING)
-        answer = pipeline.ask(
-            system, prompting.map_prompt(part, language, index, len(parts)),
-            max_new_tokens=chosen.map_answer_tokens, think=False)
-        partials.append((answer, list(part)))
-    return partials
-
-
-def _fold(pipeline, system, partials, language, chosen, report, band):
-    """The reduce stage: fold the answers in a tree until one is left.
-
-    Every pass is handed a small extract of the transcript underneath it. The
-    partials it is merging are the model's own writing, and by the second
-    level it has no other way to tell what it made up one level down."""
-    low, high = band
-    fanin = prompting.fanin_for(
-        len(partials), chosen.context_tokens, chosen.map_answer_tokens,
-        chosen.reduce_answer_tokens, prompting.EVIDENCE_TOKENS)
-    levels = prompting.reduce_tree(partials, fanin=fanin, max_fanin=fanin)
-    prompt = ""
-    for depth, level in enumerate(levels):
-        report(low + (high - low) * depth // max(1, len(levels)), STAGE_WRITING)
-        root = depth == len(levels) - 1
-        folded = []
-        for group in level:
-            texts = [partials[index][0] for index in group]
-            sentences = [line for index in group for line in partials[index][1]]
-            evidence = prompting.evidence_for(sentences, language=language)
-            if root:
-                print(t("summary.reducing", total=len(partials)), file=sys.stderr)
-                prompt = prompting.reduce_prompt(texts, language, evidence)
-                answer = pipeline.ask(system, prompt,
-                                      max_new_tokens=chosen.reduce_answer_tokens)
-            else:
-                print(t("summary.folding", groups=len(level), level=depth + 1),
-                      file=sys.stderr)
-                prompt = prompting.reduce_partial_prompt(texts, language,
-                                                         evidence)
-                answer = pipeline.ask(system, prompt,
-                                      max_new_tokens=chosen.map_answer_tokens)
-            folded.append((answer, sentences))
-        partials = folded
-    return partials[0][0], prompt
-
-
 def summarize(material, settings=None, progress=None):
     """Write the summary, in one pass or as a tree of them.
 
-    Returns the sections and no caveat: unlike the extractive engine, this one
-    really did write prose about the recording, and the line under the title
-    already names the model that did it."""
+    Everything between having a model and having a page lives in
+    :mod:`~audio_transcriber.summarizers.reading`, shared with the other
+    engine that writes; what is left here is the model's life cycle, which is
+    the only part that is about OpenVINO.
+
+    Returns the sections and, when only part of the transcript reached the
+    model, the note that says so."""
     settings = settings or {}
-    language = language_of(material.language)
-    sentences = list(material.sentences)
-
-    def report(percent, stage):
-        if progress:
-            progress(percent, stage)
-
-    chosen = plan.resolve_plan(plan.OPENVINO, settings)
-    if chosen is None:
-        needed = plan.cheapest(plan.OPENVINO)
-        free = plan.usable_ram_gb(available_ram_gb(), total_ram_gb())
-        raise NotEnoughMemory(
-            t("summary.no_room",
-              needed="?" if needed is None else f"{needed:.1f}",
-              free="?" if free is None else f"{free:.1f}"),
-            needed=needed, free=free)
-    warn_if_over_budget(chosen)
-
-    hf_id = resolve_model(settings.get("summary_model"), settings) \
-        or chosen.model.hf_id or chosen.model.name
+    chosen = reading.choose(plan.OPENVINO, settings, available_ram_gb(),
+                            total_ram_gb())
+    hf_id = (resolve_model(settings.get("summary_model"), settings)
+             or chosen.model.hf_id or chosen.model.name)
     device = resolve_device(settings.get("summary_device"))
-    system = prompting.prompts_for(language)["system"]
 
-    budget = int(settings.get("summary_chunk_tokens") or chosen.chunk_tokens)
-    parts = prompting.chunks(sentences, budget, chosen.chunk_overlap, language)
-    if not parts:
-        raise SummaryError(t("summary.empty"))
+    def open_pipeline():
+        return Pipeline(prepare(hf_id, settings.get("models_dir")), device)
 
-    note = None
-    if chosen.prereduce and chosen.max_passes and len(parts) > chosen.max_passes:
-        # More passes than this machine should spend. Rather than read all of
-        # it badly, read the weightiest part of it properly: the selection is
-        # one matrix multiplication and costs nothing, and every pass saved is
-        # minutes on a machine with no accelerator. The page says what share
-        # arrived.
-        print(t("summary.prereducing", passes=len(parts),
-                allowed=chosen.max_passes), file=sys.stderr)
-        kept, parts = _cut_to_fit(sentences, budget, chosen, language)
-        note = reduction_note(sentences, kept, language)
-        sentences = kept
-
-    report(4, "stage.loading_model")
-    model_path = prepare(hf_id, settings.get("models_dir"))
-    pipeline = Pipeline(model_path, device)
-
-    if len(parts) == 1:
-        report(READING_BAND[0], STAGE_READING)
-        prompt = prompting.single_prompt(parts[0], language)
-        answer = pipeline.ask(system, prompt,
-                              max_new_tokens=chosen.reduce_answer_tokens)
-    else:
-        low, high = READING_BAND
-        seam = low + (high - low) * 2 // 3
-        partials = _read(pipeline, system, parts, language, chosen, report,
-                         (low, seam))
-        answer, prompt = _fold(pipeline, system, partials, language, chosen,
-                               report, (seam, high))
-
-    sections = prompting.parse(answer, language, prompt)
-    if not (sections.abstract or sections.points or sections.decisions
-            or sections.actions):
-        raise SummaryError(t("summary.model_said_nothing", model=hf_id))
-    return sections, note
-
-
-def warn_if_over_budget(chosen):
-    """Say so when a model named by hand does not fit the estimate.
-
-    It is still loaded: somebody who typed a model name has the right to be
-    wrong about their own machine. They do not have the right to be surprised
-    about it afterwards."""
-    if chosen is None or chosen.est_ram_gb is None:
-        return False
-    usable = plan.usable_ram_gb(available_ram_gb(), total_ram_gb())
-    if usable is None or chosen.est_ram_gb <= usable:
-        return False
-    print(t("summary.over_budget", model=chosen.model.name,
-            needed=f"{chosen.est_ram_gb:.1f}", free=f"{usable:.1f}"),
-          file=sys.stderr)
-    return True
+    return reading.summarize_with(open_pipeline, chosen, material, settings,
+                                  progress, model_name=hf_id)
 
 
 def label(settings=None):
