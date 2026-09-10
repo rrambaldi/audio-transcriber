@@ -30,6 +30,7 @@ the models are not, and it says what it is about to fetch before it starts.
     python tools/measure_summary.py --help
     python tools/measure_summary.py --sample 10 --out report.json
     python tools/measure_summary.py --engine openvino --convert
+    python tools/measure_summary.py --resume --out report.json   # finish a run
 """
 import argparse
 import io
@@ -282,6 +283,40 @@ def engines_here(asked):
     return [name for name in wanted if summarizers.is_installed(name)]
 
 
+def save(path, report):
+    """Write what is known so far.
+
+    Called after every model rather than once at the end: the runs this script
+    is for take hours, and the ways they end — a name lookup that fails
+    halfway, a model that swaps the machine to a halt, a laptop that sleeps —
+    all end with the process gone. Writing as it goes costs a few kilobytes and
+    turns every one of those into something ``--resume`` can finish."""
+    Path(path).write_text(json.dumps(report, indent=2, ensure_ascii=False),
+                          encoding="utf-8")
+
+
+def done_already(path):
+    """The previous report, when there is a readable one at ``path``.
+
+    A run interrupted halfway still wrote nothing — the file is written at the
+    end — so this is only useful together with a first pass that finished, or
+    with a ``--out`` from a run that was narrowed by ``--models``. Anything
+    unreadable is treated as absent: a resume must never be the reason the
+    measurement stops."""
+    try:
+        return json.loads(Path(path).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+
+
+def measured(entry):
+    """Whether an earlier entry holds a real score and not a failure.
+
+    A model whose conversion died on a dropped name lookup left an ``error``
+    behind, and that is precisely what a second pass is for."""
+    return bool(entry) and "rouge1" in entry and "error" not in entry
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(
         description="Measure the summary feature on this machine.")
@@ -298,13 +333,20 @@ def main(argv=None):
     parser.add_argument("--convert", action="store_true",
                         help="allow the OpenVINO engine to convert a model it has not "
                              "converted yet: gigabytes, and minutes, once each")
+    parser.add_argument("--resume", action="store_true",
+                        help="read --out first and measure only what is missing from "
+                             "it, so a run cut short by a dropped network or a "
+                             "timeout can be finished in a second pass")
     parser.add_argument("--skip-screening", action="store_true")
     parser.add_argument("--skip-end-to-end", action="store_true")
     parser.add_argument("--out", default="summary-measurements.json")
     args = parser.parse_args(argv)
 
+    earlier = done_already(args.out) if args.resume else {}
     report = {"machine": machine(), "when": time.strftime("%Y-%m-%d %H:%M:%S%z"),
               "engines": {}}
+    if earlier:
+        report["resumed"] = earlier.get("when")
     print(hardware.summary())
     usable = plan.usable_ram_gb(report["machine"]["ram_available_gb"],
                                 report["machine"]["ram_total_gb"])
@@ -321,11 +363,18 @@ def main(argv=None):
     rows = [] if args.skip_screening else dataset(args.dataset)
 
     for engine in found:
+        before = (earlier.get("engines") or {}).get(engine) or {}
         here = {"models": {}}
         report["engines"][engine] = here
         for model in candidates(engine, names, usable if names is None else None):
             chosen = plan_for(engine, model)
             label = f"{model.name} [{engine}]"
+            kept = (before.get("models") or {}).get(model.name)
+            if measured(kept):
+                here["models"][model.name] = kept
+                print(f"\n=== {label}: kept from the earlier run "
+                      f"(rouge1={kept['rouge1']})")
+                continue
             here["models"][model.name] = entry = {
                 "tier": chosen.tier, "quant": chosen.quant,
                 "context": chosen.context_tokens,
@@ -349,15 +398,19 @@ def main(argv=None):
                 close = getattr(pipeline, "close", None)
                 if close:
                     close()
+                save(args.out, report)
 
-        if not args.skip_end_to_end:
+        if (before.get("end_to_end") or {}).get("ok"):
+            here["end_to_end"] = before["end_to_end"]
+            print(f"\n=== {engine}: the real summary is kept from the earlier run")
+        elif not args.skip_end_to_end:
             print(f"\n=== {engine}: one real summary, end to end")
             here["end_to_end"] = end_to_end(engine, Path(args.transcript))
             print("    ok" if here["end_to_end"]["ok"]
                   else f"    failed: {here['end_to_end']['error']}")
+            save(args.out, report)
 
-    Path(args.out).write_text(json.dumps(report, indent=2, ensure_ascii=False),
-                              encoding="utf-8")
+    save(args.out, report)
     print(f"\nwritten to {args.out} — send that file back")
     return 0
 
