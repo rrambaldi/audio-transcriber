@@ -5,13 +5,22 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>audio-transcriber</title>
 <link rel="stylesheet" href="static/style.css">
-<link rel="icon" href="data:,">
+<!-- The icon set is served from the package, not from static/: the window
+     uses the same files. -->
+<link rel="icon" href="brand/icon.svg" type="image/svg+xml">
+<link rel="icon" href="brand/favicon.ico" sizes="any">
+<link rel="apple-touch-icon" href="brand/icon-256.png">
 </head>
 <body>
 <header class="masthead">
-  <p class="eyebrow" data-t="eyebrow">Recordings and transcripts</p>
-  <h1>audio&#8209;transcriber</h1>
-  <p class="standfirst" data-t="tagline">Local transcription. Nothing leaves this machine.</p>
+  <!-- The mark is decorative here: the title next to it says the same name,
+       and a screen reader that reads both says it twice. -->
+  <img class="mark" src="brand/icon.svg" width="64" height="64" alt="" aria-hidden="true">
+  <div class="titles">
+    <p class="eyebrow" data-t="eyebrow">Recordings and transcripts</p>
+    <h1>audio&#8209;transcriber</h1>
+    <p class="standfirst" data-t="tagline">Local transcription. Nothing leaves this machine.</p>
+  </div>
 </header>
 
 <main>

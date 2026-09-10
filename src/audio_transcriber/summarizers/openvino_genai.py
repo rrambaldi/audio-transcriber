@@ -53,6 +53,8 @@ from ..summary import (
     NotEnoughMemory,
     SummaryError,
     language_of,
+    reduce as reduce_sentences,
+    reduction_note,
 )
 from . import plan, prompting
 
@@ -268,6 +270,28 @@ class Pipeline:
         return False
 
 
+def _cut_to_fit(sentences, budget, chosen, language="it", tries=3):
+    """Select down until the transcript really does fit in the passes allowed.
+
+    Aiming at ``max_passes * budget`` tokens is close but not exact: a chunk
+    also carries a minute and a name per line, and the overlap repeats part of
+    each one. Rather than model those, the chunker is asked and the target
+    adjusted by what it answers, which converges in two rounds and cannot
+    disagree with the thing it is trying to satisfy."""
+    target = budget * chosen.max_passes
+    kept, parts = list(sentences), prompting.chunks(sentences, budget,
+                                                    chosen.chunk_overlap)
+    for _ in range(tries):
+        if target <= 0:
+            break
+        kept = reduce_sentences(sentences, int(target), language)
+        parts = prompting.chunks(kept, budget, chosen.chunk_overlap)
+        if len(parts) <= chosen.max_passes:
+            break
+        target = int(target * chosen.max_passes / len(parts))
+    return kept, parts
+
+
 def _read(pipeline, system, parts, language, chosen, report, band):
     """The map stage: one answer per chunk, and the sentences behind each.
 
@@ -358,6 +382,19 @@ def summarize(material, settings=None, progress=None):
     if not parts:
         raise SummaryError(t("summary.empty"))
 
+    note = None
+    if chosen.prereduce and chosen.max_passes and len(parts) > chosen.max_passes:
+        # More passes than this machine should spend. Rather than read all of
+        # it badly, read the weightiest part of it properly: the selection is
+        # one matrix multiplication and costs nothing, and every pass saved is
+        # minutes on a machine with no accelerator. The page says what share
+        # arrived.
+        print(t("summary.prereducing", passes=len(parts),
+                allowed=chosen.max_passes), file=sys.stderr)
+        kept, parts = _cut_to_fit(sentences, budget, chosen, language)
+        note = reduction_note(sentences, kept, language)
+        sentences = kept
+
     report(4, "stage.loading_model")
     model_path = prepare(hf_id, settings.get("models_dir"))
     pipeline = Pipeline(model_path, device)
@@ -379,7 +416,7 @@ def summarize(material, settings=None, progress=None):
     if not (sections.abstract or sections.points or sections.decisions
             or sections.actions):
         raise SummaryError(t("summary.model_said_nothing", model=hf_id))
-    return sections, None
+    return sections, note
 
 
 def warn_if_over_budget(chosen):

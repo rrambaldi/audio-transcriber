@@ -440,7 +440,13 @@ def reduce(sentences, target_tokens, language="it"):
     machine that could never read all of it: the selection is arithmetic, so
     it costs nothing, and what reaches the model is the same material in the
     same order — just less of it. An engine with room to spare skips this and
-    reads everything."""
+    reads everything.
+
+    Two callers, and they are different arguments for the same function. The
+    model engines call it before reading, when the transcript would take more
+    passes than the plan allows — and then :func:`reduction_note` says on the
+    page what share arrived. They call it again, at a much smaller budget, for
+    the extract each reduce pass checks its own partials against."""
     if not sentences or target_tokens <= 0:
         return list(sentences)
     total = sum(estimate_tokens(sentence.text) for sentence in sentences)
@@ -531,6 +537,21 @@ def material_from_text(text, title="", language="", duration=None):
     """The same, for a transcript that is only a file on disk."""
     return Material(title=title, sentences=sentences_from_text(text),
                     language=language, duration=duration)
+
+
+def reduction_note(before, after, language="it"):
+    """What to print when only part of the transcript reached the model.
+
+    A summary written from two fifths of what was said is still a summary, and
+    a good one — the selection is by weight, not by truncation — but the
+    reader has to be told, for the same reason the extractive page says it is
+    quoting. Silence here would be the one dishonest thing on the page."""
+    total = sum(estimate_tokens(sentence.text) for sentence in before)
+    kept = sum(estimate_tokens(sentence.text) for sentence in after)
+    if not total or kept >= total:
+        return None
+    words = HEADINGS.get(language_of(language), HEADINGS["en"])
+    return words["reduced_note"].format(kept=int(round(100.0 * kept / total)))
 
 
 def _refusal_note(material, refused):

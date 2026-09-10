@@ -14,9 +14,14 @@ never knows which one ran.
 ``extractive``
     No model at all: TextRank picks the sentences that carry the transcript
     and they are printed as they were said. Instant, needs nothing beyond
-    numpy, and runs anywhere — including in CI and on a two-core server. It is
-    also the reduction stage the model engines lean on, so it is never dead
-    weight.
+    numpy, and runs anywhere — including in CI and on a two-core server.
+
+    It is also the arithmetic the model engines lean on, twice over, so it is
+    never dead weight: it cuts a transcript down when reading all of it would
+    take more passes than the machine should spend, and it produces the small
+    extract of the original that every reduce pass checks its own partials
+    against. And it is what writes the page when the plan says no model fits
+    here at all.
 
 ``auto`` therefore means "the best this machine has", which is the honest
 answer on two machines that can do very different things: a workstation with

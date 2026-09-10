@@ -10,14 +10,23 @@ it adds is a microphone, a player and a folder-free way of reaching them.
 import os
 import sys
 
-from PySide6.QtCore import QSettings, Qt
-from PySide6.QtWidgets import QApplication, QMainWindow, QMessageBox, QTabWidget
+from PySide6.QtCore import QSettings, QSize, Qt
+from PySide6.QtGui import QIcon
+from PySide6.QtWidgets import (
+    QApplication,
+    QMainWindow,
+    QMessageBox,
+    QTabWidget,
+    QVBoxLayout,
+    QWidget,
+)
 
-from .. import __version__, paths
+from .. import __version__, branding, paths
 from ..i18n import t
 from ..jobs import JobQueue
 from . import style
 from .library_panel import LibraryPanel
+from .masthead import Masthead
 from .system_panel import SystemPanel
 from .transcribe_panel import TranscribePanel
 
@@ -28,6 +37,43 @@ SETTINGS_FILENAME = "gui.ini"
 
 #: A first-run size that fits a 1366x768 laptop screen.
 DEFAULT_SIZE = (1180, 760)
+
+
+def app_icon():
+    """The program's mark, at every size the desktop might want.
+
+    The renders are handed over individually rather than as one large PNG:
+    the title bar asks for 16 px and the alt-tab list for 256, and the small
+    sizes are a simplified drawing of the lock, not a scaled-down master.
+    A build with no icons at all yields an empty QIcon, which Qt treats as
+    "no icon set" - the window still opens."""
+    icon = QIcon()
+    for size, file in branding.icon_files():
+        icon.addFile(file, QSize(size, size))
+    return icon
+
+
+def claim_taskbar_identity():
+    """Tell Windows these windows are a program of their own.
+
+    A packaged .exe does not need this; a ``pip install`` does, and that is
+    how nearly everyone runs this. Explorer decides which icon a task bar
+    button gets from the process's Application User Model ID, which defaults
+    to the interpreter's - so the mark set below would be honoured everywhere
+    except the one place people click.
+
+    Everything here is best effort: on any other platform, on a Windows
+    without the call, or on a machine where it fails, the window still opens
+    with the icon it was given."""
+    if sys.platform != "win32":
+        return False
+    try:
+        import ctypes
+        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(
+            branding.WINDOWS_APP_ID)
+        return True
+    except Exception:               # pragma: no cover - Windows only
+        return False
 
 
 class MainWindow(QMainWindow):
@@ -42,6 +88,9 @@ class MainWindow(QMainWindow):
         self.queue = queue or JobQueue(self.settings)
 
         self.setWindowTitle(t("gui.window_title", version=__version__))
+        # Set on the window as well as on the application: a window opened
+        # inside somebody else's Qt process has no say over that one.
+        self.setWindowIcon(app_icon())
         self.transcribe = TranscribePanel(self.queue, self.settings, self.store)
         self.library = LibraryPanel(self.queue.library, self.settings,
                                     queue=self.queue)
@@ -51,7 +100,19 @@ class MainWindow(QMainWindow):
         self.tabs.addTab(self.transcribe, t("gui.tab_transcribe"))
         self.tabs.addTab(self.library, t("gui.tab_library"))
         self.tabs.addTab(self.system, t("gui.tab_system"))
-        self.setCentralWidget(self.tabs)
+
+        # The mark and the promise sit above the tabs rather than inside one
+        # of them: they are true of the whole window, and the title bar is
+        # not somewhere to put them - it is 16 px tall, and on a maximised
+        # window or a tiling desktop it is not drawn at all.
+        self.masthead = Masthead(self.windowIcon())
+        central = QWidget()
+        frame = QVBoxLayout(central)
+        frame.setContentsMargins(0, 0, 0, 0)
+        frame.setSpacing(0)
+        frame.addWidget(self.masthead)
+        frame.addWidget(self.tabs, 1)
+        self.setCentralWidget(central)
 
         self.transcribe.message.connect(self.announce)
         self.library.message.connect(self.announce)
@@ -137,9 +198,16 @@ def launch(settings=None, argv=None):
         # Qt parses argv itself (-style, -platform); the program's own options
         # have already been dealt with by argparse, so it is handed none.
         application = QApplication(list(argv or sys.argv[:1]))
+    # Before the first window exists: Windows reads the identity when the
+    # task bar button is created, and does not look again.
+    claim_taskbar_identity()
     application.setApplicationName("audio-transcriber")
     application.setApplicationDisplayName(t("gui.app_name"))
     application.setApplicationVersion(__version__)
+    application.setWindowIcon(app_icon())
+    # Which .desktop file describes this program: how a Wayland compositor -
+    # and GNOME's dock on X11 too - finds the icon to draw for these windows.
+    application.setDesktopFileName(branding.DESKTOP_ENTRY)
     application.setAttribute(Qt.ApplicationAttribute.AA_DontShowIconsInMenus, False)
     # The desktop's own palette, with one floor imposed on it: text this
     # window disables is still text somebody has to read. See gui/style.py.

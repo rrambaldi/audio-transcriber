@@ -19,7 +19,7 @@ from fastapi import Body, FastAPI, File, Form, HTTPException, Request, UploadFil
 from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 
-from .. import __version__, i18n, pipeline, subtitles, vocabularies
+from .. import __version__, branding, i18n, pipeline, subtitles, vocabularies
 from ..backends import BACKENDS
 from ..config import OUTPUTS, output_of
 from ..diarization import availability as diarization_availability
@@ -38,6 +38,10 @@ from ..transcription import (
 
 STATIC_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
 
+#: The icon set is the program's, not this page's: it is shared with the
+#: desktop window and lives in the package rather than under static/.
+BRAND_DIR = branding.DIR
+
 #: The menus this page offers, shared with the desktop window.
 MODELS = MODEL_CHOICES
 LANGUAGES = LANGUAGE_CHOICES
@@ -55,6 +59,7 @@ def create_app(settings=None, queue=None):
     app.state.settings = settings
     app.state.queue = queue or JobQueue(settings)
     app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+    app.mount("/brand", StaticFiles(directory=BRAND_DIR), name="brand")
     register_routes(app)
     return app
 
@@ -72,6 +77,15 @@ def register_routes(app):
     @app.get("/", include_in_schema=False)
     def index():
         return FileResponse(os.path.join(STATIC_DIR, "index.html"))
+
+    @app.get("/favicon.ico", include_in_schema=False)
+    def favicon():
+        """The page names the icon itself; this is for what asks anyway.
+
+        A browser that never reached the page — a bookmark, a tab restored
+        before the HTML arrives — asks the root for its favicon, and a 404
+        there is a line of noise in the log for every visit."""
+        return FileResponse(branding.path(branding.FAVICON))
 
     # --- what this installation can do ------------------------------------
 

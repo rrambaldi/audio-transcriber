@@ -1,5 +1,15 @@
-/* An editorial sheet, not an app chrome: ivory paper, forest ink, two columns
-   with the explanation in the narrow one and the controls in the wide one.
+/* An editorial sheet, not an app chrome: two columns, with the explanation in
+   the narrow one and the controls in the wide one.
+
+   The colours are the program's own — the padlock-and-waveform mark, see
+   docs/brand.md — rather than a second palette that happens to sit next to
+   it. That mark is drawn dark: #0C1526 with a #6FF0D8 -> #22D3EE -> #4F7BF7
+   gradient across the lock. So the dark scheme *is* the brand, near enough
+   unchanged, and the light one is the same identity inverted: the ground
+   colour becomes the ink, the paper a cool near-white rather than a warm
+   ivory, and the cyan — which is unreadable as text on white — steps back
+   along its own gradient to the blue end, darkened until it clears AA.
+   Neither scheme is the default: the reader's setting decides.
 
    Two typefaces, both self-hosted so the page keeps working with no network
    and calls nobody: Fraunces for the headings — an old-style serif with enough
@@ -27,22 +37,23 @@
 :root {
   color-scheme: light dark;
 
-  --paper: #F4F0E6;
-  --sheet: #FBF9F3;
-  --ink: #1E241C;
-  --muted: #565B4C;
-  --rule: #D8D2C0;
-  --line: #8A8471;
-  --forest: #2C4B39;
-  --forest-wash: #E8EDE4;
-  --clay: #8A3B22;
-  --ochre: #7A5A12;
+  /* The brand, inverted: its ground colour as the ink, a cool paper, and the
+     blue end of its gradient darkened to #1C4FD8 so it reads as text. */
+  --paper: #F1F4FA;
+  --sheet: #FAFBFE;
+  --ink: #0C1526;
+  --muted: #4A5A73;
+  --rule: #D3DBE8;
+  --line: #7C8AA3;
+  --signal: #1C4FD8;
+  --signal-wash: #E4EBFA;
+  --clay: #A6371B;
 
   /* What a field is painted on. A field is drawn as a bare underline, so this
      is normally the page itself — but the browser paints two things with it
      that must not be transparent: the list a <select> drops down, and an
      autofilled field, which Chrome otherwise floods with its own yellow. */
-  --field-bg: #F4F0E6;
+  --field-bg: #F1F4FA;
 
   --serif: "Fraunces", "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
   --sans: "Karla", "Avenir Next", Corbel, "Segoe UI", system-ui, sans-serif;
@@ -51,17 +62,18 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --paper: #171A14;
-    --sheet: #1F231B;
-    --ink: #EDE8DA;
-    --muted: #ADAB93;
-    --rule: #363C31;
-    --line: #6E7563;
-    --forest: #A9C7A4;
-    --forest-wash: #262D23;
-    --clay: #E7A183;
-    --ochre: #D6B871;
-    --field-bg: #171A14;
+    /* The mark's own colours: #0C1526 is the plate, #122036 the light end of
+       its background gradient, #22D3EE the middle of the lock. */
+    --paper: #0C1526;
+    --sheet: #122036;
+    --ink: #EAF3FF;
+    --muted: #9FB3CE;
+    --rule: #26364F;
+    --line: #6E88AE;
+    --signal: #22D3EE;
+    --signal-wash: #132A42;
+    --clay: #F2957A;
+    --field-bg: #0C1526;
   }
 }
 
@@ -87,7 +99,24 @@ body {
   margin: 0 auto;
   padding: clamp(2.5rem, 7vw, 5rem) 0 1.6rem;
   border-bottom: 1px solid var(--ink);
+  display: flex;
+  align-items: flex-start;
+  gap: clamp(0.9rem, 2.5vw, 1.6rem);
 }
+/* The mark's plate is the dark scheme's own ground colour - the page and the
+   icon are painted from the same #0C1526 - so without a hairline the tile
+   dissolves into the page and only the lock is left floating. On the light
+   paper the ring is barely there and does no harm. Sized off the title, so
+   the two stay in proportion when the page is narrow. */
+.masthead .mark {
+  flex: none;
+  width: clamp(2.9rem, 8vw, 4.6rem);
+  height: auto;
+  border-radius: 22%;
+  box-shadow: 0 0 0 1px var(--rule);
+  margin-top: 0.15rem;
+}
+.masthead .titles { min-width: 0; }
 .eyebrow, .tab, .button, label, legend, .meta, th {
   font-family: var(--sans);
   text-transform: uppercase;
@@ -153,7 +182,7 @@ h3 {
 
 .note { color: var(--muted); font-size: 0.9rem; line-height: 1.5; }
 .error { color: var(--clay); font-size: 0.9rem; }
-.ok { color: var(--forest); font-size: 0.9rem; }
+.ok { color: var(--signal); font-size: 0.9rem; }
 
 /* --- fields: one rule under the text ----------------------------------- */
 
@@ -223,15 +252,15 @@ input:hover, select:hover, textarea:hover { border-color: var(--ink); }
 input:focus-visible, select:focus-visible, textarea:focus-visible,
 button:focus-visible, a:focus-visible, .tab:focus-visible,
 [type="checkbox"]:focus-visible, [type="radio"]:focus-visible {
-  outline: 2px solid var(--forest);
+  outline: 2px solid var(--signal);
   outline-offset: 3px;
 }
-input:focus, select:focus, textarea:focus { border-color: var(--forest); }
+input:focus, select:focus, textarea:focus { border-color: var(--signal); }
 /* The file input is clipped away but still takes focus, so the ring has to be
    drawn on the label that stands in for it: otherwise Tab lands on the first
    control of the page and disappears. */
 #file:focus-visible + p .button {
-  outline: 2px solid var(--forest);
+  outline: 2px solid var(--signal);
   outline-offset: 3px;
 }
 
@@ -244,7 +273,7 @@ input:focus, select:focus, textarea:focus { border-color: var(--forest); }
 .field.checkbox .note { grid-column: 1 / -1; margin: 0; font-size: 0.8rem; }
 .field.unavailable label { color: var(--muted); cursor: not-allowed; }
 [type="checkbox"], [type="radio"] {
-  accent-color: var(--forest);
+  accent-color: var(--signal);
   width: 1rem;
   height: 1rem;
   margin: 0;
@@ -300,11 +329,11 @@ fieldset.subs .grid { margin-top: 0.6rem; }
   display: inline-block;
   transition: border-color 0.15s, color 0.15s;
 }
-.button:hover, button:hover { border-color: var(--forest); color: var(--forest); }
+.button:hover, button:hover { border-color: var(--signal); color: var(--signal); }
 .button.send {
   border-bottom-width: 2px;
-  border-color: var(--forest);
-  color: var(--forest);
+  border-color: var(--signal);
+  color: var(--signal);
   padding-right: 1.4rem;
   position: relative;
 }
@@ -323,7 +352,7 @@ button:disabled { opacity: 0.45; cursor: default; }
   letter-spacing: 0;
   font-size: 0.85rem;
   font-weight: 400;
-  color: var(--forest);
+  color: var(--signal);
   border-bottom: 1px solid var(--rule);
   /* "delete", "stop" and "remove from the list" are all of this kind, and at
      22px they were the smallest targets on the page. The area grows, the
@@ -331,7 +360,7 @@ button:disabled { opacity: 0.45; cursor: default; }
   padding: 0.25rem 0;
   min-height: 24px;
 }
-.link:hover { border-color: var(--forest); }
+.link:hover { border-color: var(--signal); }
 .submit-line { display: flex; align-items: center; gap: 1.2rem; margin-top: 2rem; flex-wrap: wrap; }
 menu .spacer { flex: 1; }
 
@@ -339,7 +368,7 @@ menu .spacer { flex: 1; }
 
 .banner {
   border-left: 3px solid var(--clay);
-  background: var(--forest-wash);
+  background: var(--signal-wash);
   color: var(--ink);
   padding: 0.7rem 0.9rem;
   margin: 0 0 1.6rem;
@@ -357,7 +386,7 @@ menu .spacer { flex: 1; }
   margin-bottom: -1px;
 }
 .tab.on { color: var(--ink); border-bottom-color: var(--ink); }
-.tab:hover { color: var(--forest); }
+.tab:hover { color: var(--signal); }
 
 /* --- the drop area ----------------------------------------------------- */
 
@@ -367,7 +396,7 @@ menu .spacer { flex: 1; }
   transition: border-color 0.15s, background 0.15s;
 }
 .drop p { margin: 0.3rem 0; }
-.drop.over { border-color: var(--forest); background: var(--forest-wash); }
+.drop.over { border-color: var(--signal); background: var(--signal-wash); }
 
 /* While something is transcribing every other action is off, and the page has
    to look it: a control that is disabled but looks clickable reads as a bug.
@@ -383,10 +412,13 @@ menu .spacer { flex: 1; }
    field's underline rather than a divider, because a meter you cannot see at
    rest cannot answer "is anything arriving?". */
 .level { flex: 1 1 6rem; max-width: 12rem; height: 8px; background: var(--line); align-self: center; }
-.level > span { display: block; height: 100%; width: 0; background: var(--forest); }
+.level > span { display: block; height: 100%; width: 0; background: var(--signal); }
 .timer { font-variant-numeric: tabular-nums; font-size: 1.4rem; font-family: var(--serif); color: var(--muted); }
 button.recording { color: var(--clay); border-color: var(--clay); border-bottom-width: 2px; }
 audio { width: 100%; margin-top: 1rem; }
+/* Inside the viewer the player sits right on top of the tabs: hold it off
+   them with a band of empty border. */
+audio#viewer-audio { border-bottom: 2rem solid transparent; }
 
 /* --- keyword sets ------------------------------------------------------ */
 
@@ -429,7 +461,7 @@ legend { color: var(--muted); padding: 0; }
   font-size: 0.82rem;
   line-height: 1.45;
   color: var(--muted);
-  background: var(--forest-wash);
+  background: var(--signal-wash);
   padding: 0.6rem 0.8rem;
   margin: 0.5rem 0 0.3rem 1.55rem;
   white-space: pre-wrap;
@@ -457,10 +489,10 @@ legend { color: var(--muted); padding: 0; }
   color: var(--muted);
 }
 .row .actions { display: flex; gap: 1rem; }
-.row .state { color: var(--forest); }
+.row .state { color: var(--signal); }
 .row .state.failed { color: var(--clay); }
 .bar { grid-column: 1 / -1; height: 4px; background: var(--line); margin-top: 0.5rem; }
-.bar > span { display: block; height: 100%; background: var(--forest); transition: width 0.5s; }
+.bar > span { display: block; height: 100%; background: var(--signal); transition: width 0.5s; }
 
 /* --- dialogs ----------------------------------------------------------- */
 
@@ -474,7 +506,7 @@ dialog {
   padding: clamp(1.4rem, 4vw, 2.4rem);
   font-family: var(--sans);
 }
-dialog::backdrop { background: rgba(23, 26, 20, 0.55); }
+dialog::backdrop { background: rgba(6, 10, 19, 0.62); }
 dialog h2 {
   font-family: var(--serif);
   font-weight: 500;
@@ -501,12 +533,12 @@ menu { display: flex; gap: 1.2rem; align-items: center; padding: 0; margin: 1.8r
   padding: 0.3rem 0;
   white-space: normal;
 }
-.segment:hover { background: var(--forest-wash); }
+.segment:hover { background: var(--signal-wash); }
 .stamp {
   font-variant-numeric: tabular-nums;
   font-size: 0.8rem;
   letter-spacing: 0.04em;
-  color: var(--forest);
+  color: var(--signal);
   border: none;
   padding: 0;
   text-align: left;

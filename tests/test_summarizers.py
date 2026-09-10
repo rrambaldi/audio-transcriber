@@ -52,7 +52,6 @@ def test_a_transcript_without_timestamps_still_renders():
 
 def test_a_transcript_that_fits_is_one_pass():
     assert len(prompting.chunks(SENTENCES, 6000)) == 1
-    assert len(prompting.plan(SENTENCES, 6000)) == 1
 
 
 def test_a_long_transcript_is_cut_on_sentence_boundaries():
@@ -73,7 +72,6 @@ def test_a_sentence_longer_than_the_whole_budget_gets_its_own_pass():
 
 def test_nothing_to_cut_is_no_passes():
     assert prompting.chunks([], 100) == []
-    assert prompting.plan([], 100) == []
 
 
 def test_the_seam_is_repeated_when_an_overlap_is_asked_for():
@@ -469,6 +467,12 @@ def prompts(stub):
     return [call["prompt"] for call in stub.asked]
 
 
+def map_calls(stub):
+    """The calls that read a chunk, as opposed to the ones that fold."""
+    return [call for call in stub.asked
+            if call["prompt"].startswith("Questa e' la parte")]
+
+
 def material(sentences, language="it"):
     from audio_transcriber.summary import Material
     return Material(title="Riunione", sentences=sentences, language=language)
@@ -504,15 +508,14 @@ def test_the_passes_are_exactly_the_ones_the_tree_calls_for(stubbed):
                                    max_fanin=fanin)
     expected = len(chunks) + sum(len(level) for level in levels)
     assert len(stubbed.asked) == expected
-    assert sum(1 for call in stubbed.asked
-               if "parte 1 di" in call["prompt"]) == 1
+    assert len(map_calls(stubbed)) == len(chunks)
 
 
 def test_the_map_answers_under_a_tighter_budget_than_the_page(stubbed, roomy):
     many = [Sentence(f"Frase numero {n} del verbale.", n * 10.0) for n in range(60)]
     engine.summarize(material(many), {"summary_chunk_tokens": 120})
 
-    mapping = [call for call in stubbed.asked if "parte 1 di" in call["prompt"]]
+    mapping = map_calls(stubbed)
     root = stubbed.asked[-1]
     assert mapping[0]["tokens"] == roomy.map_answer_tokens
     assert root["tokens"] == roomy.reduce_answer_tokens
@@ -523,7 +526,7 @@ def test_the_model_is_told_not_to_think_while_reading_a_chunk(stubbed):
     """Its whole budget spent narrating is a truncated answer and no page."""
     many = [Sentence(f"Frase numero {n} del verbale.", n * 10.0) for n in range(60)]
     engine.summarize(material(many), {"summary_chunk_tokens": 120})
-    mapping = [call for call in stubbed.asked if "parte 1 di" in call["prompt"]]
+    mapping = map_calls(stubbed)
     assert mapping and all(call["think"] is False for call in mapping)
 
 
@@ -531,9 +534,62 @@ def test_every_fold_is_given_the_transcript_to_check_itself_against(stubbed):
     many = [Sentence(f"Il budget vale {n} mila euro.", n * 10.0) for n in range(60)]
     engine.summarize(material(many), {"summary_chunk_tokens": 120})
     folds = [call["prompt"] for call in stubbed.asked
-             if "parte 1 di" not in call["prompt"]]
+             if call not in map_calls(stubbed)]
     assert folds
     assert all(prompting.FENCE_START in prompt for prompt in folds)
+
+
+@pytest.fixture
+def tight(monkeypatch, tmp_path):
+    """A machine at the smallest tier, where the plan pre-reduces."""
+    plan.forget()
+    for module in (plan, engine):
+        monkeypatch.setattr(module, "available_ram_gb", lambda: 2.4,
+                            raising=False)
+        monkeypatch.setattr(module, "total_ram_gb", lambda: 4.0, raising=False)
+    monkeypatch.setattr(plan, "physical_cores", lambda: 2)
+    monkeypatch.setattr(engine, "prepare", lambda hf_id, models_dir=None: str(tmp_path))
+    monkeypatch.setattr(engine, "Pipeline", FakePipeline)
+    monkeypatch.setattr(engine, "openvino_devices", lambda: ["CPU"])
+    yield plan.resolve_plan(plan.OPENVINO, {})
+    plan.forget()
+
+
+def test_a_transcript_too_long_for_the_machine_is_cut_before_it_is_read(tight):
+    """The regression against a reduction stage documented but never called.
+
+    Reading all of it badly is worse than reading the weightiest part of it
+    properly, and every pass saved is minutes on a machine with no
+    accelerator."""
+    assert tight.tier == "xs" and tight.prereduce
+
+    many = [Sentence(f"Il budget del progetto vale {n} mila euro nel {n}.",
+                     n * 10.0) for n in range(400)]
+    sections, note = engine.summarize(material(many), {})
+
+    mapped = map_calls(FakePipeline)
+    assert 0 < len(mapped) <= tight.max_passes
+    assert sections.abstract
+    assert note and "%" in note
+
+
+def test_the_page_says_what_share_of_the_transcript_reached_the_model(tight):
+    from audio_transcriber import summary as summarising
+
+    many = [Sentence(f"Il budget del progetto vale {n} mila euro nel {n}.",
+                     n * 10.0) for n in range(400)]
+    _, note = engine.summarize(material(many), {})
+    page = summarising.render(
+        summarising.Material(title="Riunione", sentences=many, language="it"),
+        summarising.Sections(abstract="Testo."), "OpenVINO GenAI", note=note)
+    assert note in page
+    assert "selezione" in page
+
+
+def test_a_transcript_that_fits_the_passes_is_never_cut(stubbed):
+    """Nothing is thrown away for its own sake."""
+    sections, note = engine.summarize(material(SENTENCES), {})
+    assert note is None
 
 
 def test_a_machine_with_no_room_loads_nothing_at_all(monkeypatch, tmp_path):

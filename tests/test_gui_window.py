@@ -24,6 +24,7 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 try:
     from PySide6.QtCore import Qt
+    from PySide6.QtGui import QColor, QPalette
     from PySide6.QtWidgets import QApplication, QMessageBox
 except ImportError as exc:      # pragma: no cover - depends on the machine
     # PySide6 is installed but will not load: a partial install, or a Linux box
@@ -32,9 +33,16 @@ except ImportError as exc:      # pragma: no cover - depends on the machine
     # "audio-transcriber gui" says so too.
     pytest.skip(f"PySide6 cannot be loaded here: {exc}", allow_module_level=True)
 
-from audio_transcriber import i18n, paths  # noqa: E402
-from audio_transcriber.gui import widgets  # noqa: E402
-from audio_transcriber.gui.window import MainWindow  # noqa: E402
+from audio_transcriber import __version__, branding, i18n, paths  # noqa: E402
+from audio_transcriber.gui import style, widgets  # noqa: E402
+from audio_transcriber.gui import window as window_module  # noqa: E402
+from audio_transcriber.gui import masthead as masthead_module  # noqa: E402
+from audio_transcriber.gui.masthead import MARK_PX, Masthead  # noqa: E402
+from audio_transcriber.gui.window import (  # noqa: E402
+    MainWindow,
+    app_icon,
+    claim_taskbar_identity,
+)
 from audio_transcriber.jobs import JobQueue  # noqa: E402
 from audio_transcriber.library import STORE_COPY  # noqa: E402
 
@@ -124,6 +132,115 @@ def test_the_window_has_the_three_tabs(window):
 
 def test_this_machine_tab_reports_hardware_and_paths(window):
     assert window.system.hardware_form.rowCount() >= 2
+
+
+def test_the_window_wears_the_icon(window):
+    """Every rendered size is handed over, so the desktop picks one instead
+    of scaling the only one it was given."""
+    icon = window.windowIcon()
+    assert not icon.isNull()
+    widths = sorted(size.width() for size in icon.availableSizes())
+    assert widths == sorted(branding.ICON_SIZES)
+
+
+def test_the_masthead_carries_the_mark_the_name_and_the_promise(window):
+    """The window says whose it is and what it does without its title bar.
+
+    A maximised window on Windows shows the icon 16 px wide, and a tiling
+    desktop draws no title bar at all: everything the title bar was carrying
+    had to be somewhere inside the window as well."""
+    masthead = window.masthead
+    assert masthead.name.text() == i18n.t("gui.app_name")
+    assert masthead.tagline.text() == i18n.t("gui.tagline")
+    assert __version__ in masthead.version.text()
+    assert masthead.mark.isVisibleTo(window)
+    pixmap = masthead.mark.pixmap()
+    assert not pixmap.isNull()
+    # Asked for in device pixels and told what the ratio was, so a retina
+    # screen gets the 128 px render rather than the 48 px one stretched.
+    ratio = masthead.devicePixelRatioF() or 1.0
+    assert pixmap.width() == round(MARK_PX * ratio)
+
+
+def test_the_masthead_is_above_the_tabs_not_inside_one(window):
+    """It is true of the whole window, so it must not scroll away with a tab."""
+    central = window.centralWidget()
+    assert window.masthead.parent() is central
+    assert window.tabs.parent() is central
+
+
+def test_the_masthead_leaves_the_desktop_its_own_colours(window):
+    """No brand palette painted over the theme: the mark carries the colour.
+
+    The reason is the one in gui/style.py — a window that repaints itself
+    looks foreign on every machine it runs on — and the tagline is the one
+    thing muted here, only as far as it can be and still be read."""
+    assert not window.masthead.styleSheet()
+    assert not window.masthead.autoFillBackground()
+    ground = window.masthead.palette().color(QPalette.ColorRole.Window)
+    muted = QColor(window.masthead.tagline.styleSheet()
+                   .split("color:")[1].strip(" ;"))
+    assert style.contrast(muted, ground) >= style.MIN_CONTRAST
+
+
+def test_on_a_dark_theme_the_mark_loses_its_plate(window):
+    """The plate is a dark navy: on a dark desktop it stops being a shape and
+    becomes a rounded smudge of nearly the window colour. The brand has a
+    plateless drawing for that background, and this is where it is used."""
+    light, dark = QPalette(), QPalette()
+    light.setColor(QPalette.ColorRole.Window, QColor("#f6f6f6"))
+    dark.setColor(QPalette.ColorRole.Window, QColor("#1c1c1c"))
+    icon = window.windowIcon()
+
+    window.masthead.setPalette(light)
+    assert masthead_module.drawing_for(window.masthead, icon) is icon
+
+    window.masthead.setPalette(dark)
+    plateless = masthead_module.drawing_for(window.masthead, icon)
+    assert plateless is not icon
+    # It is an SVG, and Qt's SVG plugin is not on every machine: if it cannot
+    # be drawn, mark_pixmap has to fall back to the renders rather than
+    # leaving an empty label.
+    assert not masthead_module.mark_pixmap(icon, window.masthead).isNull()
+
+
+def test_the_mark_is_redrawn_when_the_desktop_changes_theme(window):
+    """GNOME and Windows both switch light to dark without restarting
+    anything. Qt hands that over as a palette change."""
+    before = window.masthead.mark.pixmap().toImage()
+    dark = QPalette()
+    dark.setColor(QPalette.ColorRole.Window, QColor("#1c1c1c"))
+    dark.setColor(QPalette.ColorRole.WindowText, QColor("#f0f0f0"))
+    window.masthead.setPalette(dark)          # delivers a PaletteChange
+    after = window.masthead.mark.pixmap().toImage()
+    assert not after.isNull()
+    if masthead_module.drawing_for(window.masthead, window.windowIcon()) \
+            is not window.windowIcon():
+        assert after != before
+
+
+def test_a_build_with_no_icon_files_still_gets_a_masthead(application, monkeypatch):
+    """The icon set is data: a wheel that lost it must not stop the window.
+
+    ``branding.icon_files()`` comes back short rather than failing, so the
+    band has to survive having no picture to put in it."""
+    monkeypatch.setattr(branding, "icon_files", lambda: [])
+    masthead = Masthead(app_icon())
+    assert not masthead.mark.isVisibleTo(masthead)
+    assert masthead.name.text() == i18n.t("gui.app_name")
+
+
+def test_the_taskbar_identity_is_claimed_only_on_windows(monkeypatch):
+    """Explorer takes a task bar button's icon from the Application User Model
+    ID, whose default is python.exe's. Everywhere else there is nothing to
+    claim, and the call must not be attempted."""
+    monkeypatch.setattr(window_module.sys, "platform", "linux")
+    assert claim_taskbar_identity() is False
+    monkeypatch.setattr(window_module.sys, "platform", "win32")
+    # Off Windows there is no ctypes.windll to call, and this is best effort:
+    # it answers rather than raising in the middle of starting up. On Windows
+    # itself the call is real and succeeds.
+    assert claim_taskbar_identity() in (True, False)
 
 
 # --- recording ------------------------------------------------------------

@@ -495,12 +495,6 @@ def _not_an_echo(text, prompt=None):
     return "" if echoed and len(text) < MIN_ANSWER else text
 
 
-def plan(sentences, budget=CHUNK_TOKENS):
-    """The passes to run: one prompt when it all fits, map/reduce when not."""
-    parts = chunks(sentences, budget)
-    return parts if len(parts) > 1 else [sentences] if sentences else []
-
-
 def single_prompt(sentences, language):
     """The one-pass prompt: the whole transcript, and what to write about it."""
     words = HEADINGS.get(language_of(language), HEADINGS["en"])

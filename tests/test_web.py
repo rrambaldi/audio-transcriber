@@ -75,6 +75,19 @@ def test_the_page_is_served(client):
     assert "audio-transcriber" in response.text
 
 
+def test_the_icon_is_served_under_the_page(client):
+    """Relative to the page, so a --root-path prefix needs no rewriting."""
+    for name in ("brand/icon.svg", "brand/favicon.ico", "brand/icon-256.png"):
+        assert client.get("/" + name).status_code == 200, name
+
+
+def test_the_root_favicon_answers(client):
+    """A restored tab asks for it before it has the HTML that names it."""
+    response = client.get("/favicon.ico")
+    assert response.status_code == 200
+    assert response.content[:4] == b"\x00\x00\x01\x00"
+
+
 def test_status_describes_the_installation(client):
     data = client.get("/api/status").json()
     assert data["defaults"]["model"] == "small"

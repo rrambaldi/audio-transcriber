@@ -35,6 +35,34 @@ def stylesheet():
     return read("style.css")
 
 
+# --- the files the page points at -----------------------------------------
+
+def test_every_local_reference_resolves_to_a_file(page):
+    """The page names its stylesheet, its script and its icons by relative
+    URL — which is what makes it work under a --root-path prefix, and also
+    what makes a moved file a silent 404 instead of an error."""
+    from audio_transcriber import branding
+
+    roots = {"static": STATIC, "brand": branding.DIR}
+    references = re.findall(r'(?:href|src)="((?:static|brand)/[^"]+)"', page)
+    assert references, "no local references found: has the markup changed shape?"
+    for reference in references:
+        where, _, name = reference.partition("/")
+        assert os.path.exists(os.path.join(roots[where], name)), reference
+
+
+def test_the_page_wears_the_icon(page):
+    """An SVG for what can use one, an .ico for what cannot, and a PNG for
+    the phone that puts the page on its home screen."""
+    assert '<link rel="icon" href="brand/icon.svg" type="image/svg+xml">' in page
+    assert '<link rel="icon" href="brand/favicon.ico" sizes="any">' in page
+    assert 'rel="apple-touch-icon"' in page
+    # and the mark by the title says nothing to a screen reader: the <h1>
+    # next to it is the same name.
+    mark = re.search(r'<img class="mark"[^>]*>', page).group(0)
+    assert 'alt=""' in mark and 'aria-hidden="true"' in mark
+
+
 # --- accessibility --------------------------------------------------------
 
 def test_every_field_has_a_label_bound_to_it(page):
@@ -269,9 +297,12 @@ def contrast(first, second):
 CONTRAST_RULES = [
     ("ink", "paper", 4.5), ("ink", "sheet", 4.5),
     ("muted", "paper", 4.5), ("muted", "sheet", 4.5),
-    ("forest", "paper", 4.5), ("forest", "sheet", 4.5),
+    ("signal", "paper", 4.5), ("signal", "sheet", 4.5),
     ("clay", "paper", 4.5), ("clay", "sheet", 4.5),
     ("line", "paper", 3.0), ("line", "sheet", 3.0),
+    # The accent wash is a background too — the banner, a hovered segment, a
+    # keyword chip — and it was the one nobody was measuring against.
+    ("ink", "signal-wash", 4.5), ("muted", "signal-wash", 4.5),
 ]
 
 
@@ -367,7 +398,7 @@ def test_the_palette_meets_wcag_aa(stylesheet, scheme):
 def test_controls_the_browser_paints_have_an_explicit_background(stylesheet):
     """A <select> drop-down and an autofilled field are painted by the browser,
     not by this stylesheet. Left transparent they come out in the theme's
-    colours against ours — ivory text on white, or on Chrome's autofill
+    colours against ours — near-white text on white, or on Chrome's autofill
     yellow — so both get an explicit pair."""
     assert re.search(r"select,\s*select option[^{]*\{[^}]*background-color: var\(--field-bg\)",
                      stylesheet, re.S)

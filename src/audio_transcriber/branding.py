@@ -1,0 +1,83 @@
+"""The program's mark, and where the copies of it live.
+
+Three front ends want the same icon — the browser wants a favicon, the window
+wants something for the task bar and the alt-tab list, and the packagers want
+a file to point a shortcut at — so the files sit in one place,
+``data/brand/``, and every front end asks here for them rather than reaching
+into the other one's directory.
+
+The mark is a padlock cut through by a waveform: the two things this program
+is, in one shape. It comes in three drawings and a set of renders. ``icon.svg``
+is the master, on its rounded plate; ``icon-small.svg`` is the same lock with
+three fat bars instead of five, because five stop being separate below about
+32 px; ``icon-mark.svg`` is the lock with no plate, for putting on a
+background that is already dark. The PNGs are renders of the first two — the
+small drawing below 48 px, the master above it — and ``favicon.ico`` carries
+six of them for browsers that still ask for one file.
+
+Nothing here is required for the program to run: a build that lost its data
+files should transcribe anyway, so the callers treat a missing icon as
+cosmetic (:func:`icon_files` simply comes back short) instead of failing.
+"""
+import os
+
+#: Where the files are: package data, so a wheel carries them.
+DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "brand")
+
+#: The master drawing, and the one to hand anything that can render SVG.
+ICON_SVG = "icon.svg"
+
+#: The lock without its plate, for a dark background of someone else's.
+MARK_SVG = "icon-mark.svg"
+
+#: What a browser asks for at ``/favicon.ico`` if it ignores the SVG.
+FAVICON = "favicon.ico"
+
+#: The rendered sizes, smallest first. Below 48 px these come from the
+#: simplified drawing; above it from the master.
+ICON_SIZES = (16, 32, 48, 64, 128, 256, 512)
+
+#: The two names by which a desktop attaches the mark to this program, rather
+#: than to the interpreter that happens to be running it. They are here, with
+#: the files, because they are part of the same job: on both platforms the
+#: window can set its icon and still not be the thing whose icon is drawn.
+#:
+#: On Linux it is the basename of the desktop entry the window declares
+#: (``packaging/audio-transcriber.desktop``, installed by ``install.sh``):
+#: Wayland has no counterpart to X11's ``_NET_WM_ICON``, so what the dock and
+#: the alt-tab list draw is that file's ``Icon=``, resolved through the icon
+#: theme, and never a picture the window hands over.
+DESKTOP_ENTRY = "audio-transcriber"
+
+#: On Windows it is the Application User Model ID, which is what Explorer
+#: groups task-bar buttons by and takes their icon from. Its default is the
+#: interpreter's, so a ``pip install`` run of this program shows the Python
+#: logo on the task bar however many renders the package carries. The
+#: ``Company.Product`` form is the one Explorer expects, and a pinned shortcut
+#: has to carry the same string to pin to the same button.
+WINDOWS_APP_ID = "Digithera.AudioTranscriber"
+
+
+def path(name):
+    """The full path of one brand file, whether or not it is there."""
+    return os.path.join(DIR, name)
+
+
+def icon_png(size):
+    """The path of the rendered icon at ``size`` pixels."""
+    return path(f"icon-{size}.png")
+
+
+def icon_files():
+    """``(size, path)`` for every rendered icon that is actually present.
+
+    A window builds its icon from all of them, so that the desktop picks the
+    size it wants instead of scaling one render: 16 px in a title bar and 256
+    in the alt-tab list are different drawings here, not the same one twice.
+    """
+    found = []
+    for size in ICON_SIZES:
+        candidate = icon_png(size)
+        if os.path.exists(candidate):
+            found.append((size, candidate))
+    return found

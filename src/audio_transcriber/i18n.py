@@ -601,6 +601,9 @@ MESSAGES = {
             "The model could not be loaded on {device}: {error}",
         "summary.pass": "  Reading part {part} of {total}...",
         "summary.folding": "  Folding {groups} groups (level {level})...",
+        "summary.prereducing":
+            "  {passes} passes is more than this machine should spend; "
+            "choosing what matters and reading {allowed}.",
         "summary.no_room":
             "No model fits in this machine's memory: {needed} GB needed, "
             "{free} GB free. Quoting the transcript instead.",
@@ -1205,6 +1208,9 @@ MESSAGES = {
             "Il modello non si e' potuto caricare su {device}: {error}",
         "summary.pass": "  Leggo la parte {part} di {total}...",
         "summary.folding": "  Fondo {groups} gruppi (livello {level})...",
+        "summary.prereducing":
+            "  {passes} passaggi sono troppi per questa macchina: scelgo "
+            "quello che conta e ne leggo {allowed}.",
         "summary.no_room":
             "Nessun modello entra nella memoria di questa macchina: {needed} "
             "GB richiesti, {free} GB liberi. Cito la trascrizione.",
