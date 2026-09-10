@@ -213,6 +213,9 @@ MESSAGES = {
             "  one pip bundles - or, on a headless machine, missing system libraries.\n"
             "  See docs/gui.md. The web interface needs none of this: try 'web'.",
         "gui.app_name": "Audio Transcriber",
+        # The same line the web page opens with: one promise, said once, in
+        # both front ends.
+        "gui.tagline": "Local transcription. Nothing leaves this machine.",
         "gui.window_title": "audio-transcriber {version}",
         "gui.ready": "{count} recordings in the library",
         "gui.tab_transcribe": "Transcribe",
@@ -597,6 +600,13 @@ MESSAGES = {
         "summary.load_failed":
             "The model could not be loaded on {device}: {error}",
         "summary.pass": "  Reading part {part} of {total}...",
+        "summary.folding": "  Folding {groups} groups (level {level})...",
+        "summary.no_room":
+            "No model fits in this machine's memory: {needed} GB needed, "
+            "{free} GB free. Quoting the transcript instead.",
+        "summary.over_budget":
+            "  WARNING: {model} is estimated at {needed} GB and this machine "
+            "has {free} GB free. Loading it anyway, as asked.",
         "summary.reducing": "  Writing the summary from {total} parts...",
         "summary.model_said_nothing":
             "{model} returned nothing usable. Try another model, or "
@@ -803,6 +813,7 @@ MESSAGES = {
             "  librerie di sistema mancanti. Vedi docs/gui.md. L'interfaccia web non ha\n"
             "  bisogno di niente di tutto questo: prova 'web'.",
         "gui.app_name": "Audio Transcriber",
+        "gui.tagline": "Trascrizione locale. Niente esce da questa macchina.",
         "gui.window_title": "audio-transcriber {version}",
         "gui.ready": "{count} registrazioni in libreria",
         "gui.tab_transcribe": "Trascrivi",
@@ -1193,6 +1204,13 @@ MESSAGES = {
         "summary.load_failed":
             "Il modello non si e' potuto caricare su {device}: {error}",
         "summary.pass": "  Leggo la parte {part} di {total}...",
+        "summary.folding": "  Fondo {groups} gruppi (livello {level})...",
+        "summary.no_room":
+            "Nessun modello entra nella memoria di questa macchina: {needed} "
+            "GB richiesti, {free} GB liberi. Cito la trascrizione.",
+        "summary.over_budget":
+            "  ATTENZIONE: {model} e' stimato in {needed} GB e questa "
+            "macchina ne ha {free} liberi. Lo carico lo stesso, come chiesto.",
         "summary.reducing": "  Scrivo il riassunto dalle {total} parti...",
         "summary.model_said_nothing":
             "{model} non ha restituito niente di utilizzabile. Prova un altro modello, "

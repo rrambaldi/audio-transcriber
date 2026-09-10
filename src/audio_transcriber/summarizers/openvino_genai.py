@@ -20,15 +20,19 @@ Three parts, in order of how often they bite:
     with a warning, because somebody summarising a five-minute note on battery
     has a case.
 *the model*
-    Named the way the keyword sets are: a size this machine can carry, or any
-    Hugging Face id, or a directory that already holds a converted model. The
-    first run converts it to OpenVINO IR at int4 and keeps it in the managed
-    model directory; every run after that loads it.
+    Any Hugging Face id, or a directory that already holds a converted model,
+    or — the default — whatever :mod:`~audio_transcriber.summarizers.plan`
+    works out this machine can hold. The first run converts it to OpenVINO IR
+    at int4 and keeps it in the managed model directory; every run after that
+    loads it. When the plan says nothing fits, nothing is loaded: the caller
+    is told, and the page is written by the extractive engine instead.
 *the reading*
     A transcript that fits goes in one pass. One that does not is cut into
     chunks on sentence boundaries, each summarised on its own, and the chunk
-    summaries summarised together — the prompts and the parsing for both live
-    in :mod:`~audio_transcriber.summarizers.prompting`, so the next runtime
+    summaries folded together in a tree rather than in a single prompt — a
+    prompt holding every partial grows with the recording, which is what
+    overflows a small model. The prompts and the parsing live in
+    :mod:`~audio_transcriber.summarizers.prompting`, so the next runtime
     inherits them.
 
 Everything this module says goes to stderr. Converting a model and loading it
@@ -41,30 +45,21 @@ import re
 import sys
 
 from .. import paths
-from ..hardware import available_ram_gb, openvino_devices
+from ..hardware import available_ram_gb, openvino_devices, total_ram_gb
 from ..i18n import t
 from ..summary import (
     STAGE_READING,
     STAGE_WRITING,
+    NotEnoughMemory,
     SummaryError,
     language_of,
 )
-from . import prompting
+from . import plan, prompting
 
 NAME = "openvino"
 
 #: How the page names this engine. The model is appended when it is known.
 LABEL = "OpenVINO GenAI"
-
-#: Recommended models by the memory they need once converted to int4, largest
-#: first. Any Hugging Face id works; these are what ``auto`` chooses between,
-#: and the numbers are the weights plus room for the KV cache of a long
-#: transcript, which is the part people forget.
-MODELS = (
-    ("Qwen/Qwen3-8B", 9.0),
-    ("Qwen/Qwen3-4B", 5.0),
-    ("Qwen/Qwen3-1.7B", 2.5),
-)
 
 #: Where converted models are kept, under the managed model directory.
 NAMESPACE = "summary"
@@ -74,8 +69,10 @@ NAMESPACE = "summary"
 #: the memory saving is not.
 BITS = 4
 
-#: Tokens the model may spend on one answer.
-MAX_NEW_TOKENS = 1400
+#: Tokens the model may spend on one answer when nothing says otherwise. The
+#: plan says otherwise: a map answer is a list and the root answer is a page,
+#: and on a small model the difference between them is most of the window.
+MAX_NEW_TOKENS = prompting.REDUCE_ANSWER_TOKENS
 
 #: The band of a progress bar the reading passes are mapped into. Loading and
 #: compiling the model own the first slice, and writing the final summary the
@@ -112,26 +109,19 @@ def resolve_device(device=None):
     return fallback
 
 
-def recommend_model(ram=None):
-    """The largest recommended model this machine can hold, by free memory.
+def resolve_model(model=None, settings=None):
+    """What to load: a directory or an id as given, or whatever the plan chose.
 
     On an integrated GPU the model lives in system memory, so free RAM is the
-    real limit whichever device runs it."""
-    free = available_ram_gb() if ram is None else ram
-    if free is None:
-        return MODELS[-1][0]
-    for name, needed in MODELS:
-        if free >= needed:
-            return name
-    return MODELS[-1][0]
-
-
-def resolve_model(model=None, ram=None):
-    """What to load: a directory as given, or a name to convert and cache."""
+    real limit whichever device runs it — which is why the choice is the
+    plan's and not this module's."""
     name = str(model or "auto").strip()
-    if not name or name.lower() == "auto":
-        name = recommend_model(ram)
-    return name
+    if name and name.lower() != "auto":
+        return name
+    chosen = plan.resolve_plan(plan.OPENVINO, settings or {})
+    if chosen is None:
+        return None
+    return chosen.model.hf_id or chosen.model.name
 
 
 def converted_dir(hf_id, models_dir=None):
@@ -223,13 +213,30 @@ class Pipeline:
         # the same recording should not disagree with each other.
         self.config.do_sample = False
 
-    def ask(self, system, user):
+    def ask(self, system, user, max_new_tokens=None, think=False):
         """One prompt, one answer.
+
+        ``max_new_tokens`` is per stage rather than per model: a map answer is
+        a bulleted list and the final answer is a page, and on a small model
+        the difference between the two is most of the window.
+
+        ``think`` is off by default, and the reason is a failure that looks
+        like an empty summary. The token budget is the *whole* budget, so a
+        reasoning model that narrates for its entire allowance is truncated
+        before the answer starts, the parser finds no sections, and the run
+        ends in "returned nothing usable". In the map stage there is nothing
+        to reason about anyway: the question is what this chunk says.
 
         ``ChatHistory`` is the way to give the model a system message; where
         the runtime predates it, the two halves are concatenated and the
         pipeline applies the chat template to the result on its own."""
         genai = self._genai
+        config = genai.GenerationConfig()
+        config.max_new_tokens = int(max_new_tokens or MAX_NEW_TOKENS)
+        config.do_sample = False
+        if not think:
+            self._no_thinking(config)
+
         if hasattr(genai, "ChatHistory"):
             conversation = genai.ChatHistory([
                 {"role": "system", "content": system},
@@ -237,11 +244,87 @@ class Pipeline:
             ])
         else:                                       # pragma: no cover - old runtime
             conversation = f"{system}\n\n{user}"
-        return str(self.pipe.generate(conversation, self.config)).strip()
+        return str(self.pipe.generate(conversation, config)).strip()
+
+    def _no_thinking(self, config):
+        """Turn reasoning off, by whichever means the runtime offers.
+
+        Two of them exist and neither is universal: some builds expose the
+        chat template's own switch on the generation config, and some models
+        answer to a marker in the prompt. Where neither is reachable this does
+        nothing and says so here rather than pretending: a switch that
+        silently fails is worse than a documented absence, because the symptom
+        is a truncated answer three chunks later."""
+        for attribute in ("enable_thinking", "apply_chat_template_kwargs"):
+            if not hasattr(config, attribute):
+                continue
+            if attribute == "enable_thinking":
+                config.enable_thinking = False
+            else:                       # pragma: no cover - runtime dependent
+                kwargs = dict(getattr(config, attribute) or {})
+                kwargs["enable_thinking"] = False
+                setattr(config, attribute, kwargs)
+            return True
+        return False
+
+
+def _read(pipeline, system, parts, language, chosen, report, band):
+    """The map stage: one answer per chunk, and the sentences behind each.
+
+    Returns the answers with the chunk they came from, because a reduce pass
+    above needs the source to check itself against and only this level knows
+    which sentences went into which answer."""
+    low, high = band
+    partials = []
+    for index, part in enumerate(parts, start=1):
+        print(t("summary.pass", part=index, total=len(parts)), file=sys.stderr)
+        report(low + (high - low) * (index - 1) // len(parts), STAGE_READING)
+        answer = pipeline.ask(
+            system, prompting.map_prompt(part, language, index, len(parts)),
+            max_new_tokens=chosen.map_answer_tokens, think=False)
+        partials.append((answer, list(part)))
+    return partials
+
+
+def _fold(pipeline, system, partials, language, chosen, report, band):
+    """The reduce stage: fold the answers in a tree until one is left.
+
+    Every pass is handed a small extract of the transcript underneath it. The
+    partials it is merging are the model's own writing, and by the second
+    level it has no other way to tell what it made up one level down."""
+    low, high = band
+    fanin = prompting.fanin_for(
+        len(partials), chosen.context_tokens, chosen.map_answer_tokens,
+        chosen.reduce_answer_tokens, prompting.EVIDENCE_TOKENS)
+    levels = prompting.reduce_tree(partials, fanin=fanin, max_fanin=fanin)
+    prompt = ""
+    for depth, level in enumerate(levels):
+        report(low + (high - low) * depth // max(1, len(levels)), STAGE_WRITING)
+        root = depth == len(levels) - 1
+        folded = []
+        for group in level:
+            texts = [partials[index][0] for index in group]
+            sentences = [line for index in group for line in partials[index][1]]
+            evidence = prompting.evidence_for(sentences, language=language)
+            if root:
+                print(t("summary.reducing", total=len(partials)), file=sys.stderr)
+                prompt = prompting.reduce_prompt(texts, language, evidence)
+                answer = pipeline.ask(system, prompt,
+                                      max_new_tokens=chosen.reduce_answer_tokens)
+            else:
+                print(t("summary.folding", groups=len(level), level=depth + 1),
+                      file=sys.stderr)
+                prompt = prompting.reduce_partial_prompt(texts, language,
+                                                         evidence)
+                answer = pipeline.ask(system, prompt,
+                                      max_new_tokens=chosen.map_answer_tokens)
+            folded.append((answer, sentences))
+        partials = folded
+    return partials[0][0], prompt
 
 
 def summarize(material, settings=None, progress=None):
-    """Write the summary, in one pass or in two stages.
+    """Write the summary, in one pass or as a tree of them.
 
     Returns the sections and no caveat: unlike the extractive engine, this one
     really did write prose about the recording, and the line under the title
@@ -254,34 +337,43 @@ def summarize(material, settings=None, progress=None):
         if progress:
             progress(percent, stage)
 
-    hf_id = resolve_model(settings.get("summary_model"))
+    chosen = plan.resolve_plan(plan.OPENVINO, settings)
+    if chosen is None:
+        needed = plan.cheapest(plan.OPENVINO)
+        free = plan.usable_ram_gb(available_ram_gb(), total_ram_gb())
+        raise NotEnoughMemory(
+            t("summary.no_room",
+              needed="?" if needed is None else f"{needed:.1f}",
+              free="?" if free is None else f"{free:.1f}"),
+            needed=needed, free=free)
+    warn_if_over_budget(chosen)
+
+    hf_id = resolve_model(settings.get("summary_model"), settings) \
+        or chosen.model.hf_id or chosen.model.name
     device = resolve_device(settings.get("summary_device"))
+    system = prompting.prompts_for(language)["system"]
+
+    budget = int(settings.get("summary_chunk_tokens") or chosen.chunk_tokens)
+    parts = prompting.chunks(sentences, budget, chosen.chunk_overlap)
+    if not parts:
+        raise SummaryError(t("summary.empty"))
+
     report(4, "stage.loading_model")
     model_path = prepare(hf_id, settings.get("models_dir"))
     pipeline = Pipeline(model_path, device)
-    system = prompting.prompts_for(language)["system"]
-
-    budget = int(settings.get("summary_chunk_tokens") or prompting.CHUNK_TOKENS)
-    parts = prompting.chunks(sentences, budget)
-    if not parts:
-        raise SummaryError(t("summary.empty"))
 
     if len(parts) == 1:
         report(READING_BAND[0], STAGE_READING)
         prompt = prompting.single_prompt(parts[0], language)
-        answer = pipeline.ask(system, prompt)
+        answer = pipeline.ask(system, prompt,
+                              max_new_tokens=chosen.reduce_answer_tokens)
     else:
         low, high = READING_BAND
-        partials = []
-        for index, part in enumerate(parts, start=1):
-            print(t("summary.pass", part=index, total=len(parts)), file=sys.stderr)
-            report(low + (high - low) * (index - 1) // len(parts), STAGE_READING)
-            partials.append(pipeline.ask(
-                system, prompting.map_prompt(part, language, index, len(parts))))
-        print(t("summary.reducing", total=len(parts)), file=sys.stderr)
-        report(high, STAGE_WRITING)
-        prompt = prompting.reduce_prompt(partials, language)
-        answer = pipeline.ask(system, prompt)
+        seam = low + (high - low) * 2 // 3
+        partials = _read(pipeline, system, parts, language, chosen, report,
+                         (low, seam))
+        answer, prompt = _fold(pipeline, system, partials, language, chosen,
+                               report, (seam, high))
 
     sections = prompting.parse(answer, language, prompt)
     if not (sections.abstract or sections.points or sections.decisions
@@ -290,6 +382,25 @@ def summarize(material, settings=None, progress=None):
     return sections, None
 
 
+def warn_if_over_budget(chosen):
+    """Say so when a model named by hand does not fit the estimate.
+
+    It is still loaded: somebody who typed a model name has the right to be
+    wrong about their own machine. They do not have the right to be surprised
+    about it afterwards."""
+    if chosen is None or chosen.est_ram_gb is None:
+        return False
+    usable = plan.usable_ram_gb(available_ram_gb(), total_ram_gb())
+    if usable is None or chosen.est_ram_gb <= usable:
+        return False
+    print(t("summary.over_budget", model=chosen.model.name,
+            needed=f"{chosen.est_ram_gb:.1f}", free=f"{usable:.1f}"),
+          file=sys.stderr)
+    return True
+
+
 def label(settings=None):
     """How the page should name this engine, model included."""
-    return f"{LABEL} — {resolve_model((settings or {}).get('summary_model'))}"
+    settings = settings or {}
+    name = resolve_model(settings.get("summary_model"), settings)
+    return f"{LABEL} — {name}" if name else LABEL

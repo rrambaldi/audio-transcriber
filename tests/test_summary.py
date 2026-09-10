@@ -285,6 +285,44 @@ def test_the_abstract_and_the_points_never_repeat_each_other():
         assert point.text not in result.sections.abstract
 
 
+def test_a_machine_with_no_room_gets_quoted_sentences_and_the_reason(monkeypatch):
+    """Refusing to load is a decision, and the page has to own up to it.
+
+    A reader handed somebody's own words where they expected prose is owed the
+    reason in figures — and in the language that was spoken, like every other
+    caveat on the page."""
+    from audio_transcriber import summarizers
+
+    class Refusing:
+        NAME = "openvino"
+
+        @staticmethod
+        def label(settings=None):
+            return "OpenVINO GenAI — a model that never loaded"
+
+        @staticmethod
+        def summarize(material, settings=None, progress=None):
+            raise summary.NotEnoughMemory("no room", needed=2.5, free=0.9)
+
+    real_load = summarizers.load
+    monkeypatch.setattr(summarizers, "resolve_summarizer",
+                        lambda engine=None: "openvino")
+    monkeypatch.setattr(summarizers, "load",
+                        lambda name: Refusing if name == "openvino"
+                        else real_load(name))
+
+    material = summary.Material(title="Riunione ISO",
+                                sentences=summary.sentences_of(SEGMENTS),
+                                language="it", duration=70)
+    result = summary.summarize(material, {})
+
+    assert result.engine == EXTRACTIVE
+    assert "2.5" in result.text and "0.9" in result.text
+    assert "Nessun modello entra" in result.text
+    assert "frasi prese dalla trascrizione" in result.text   # both caveats
+    assert "never loaded" not in result.text
+
+
 def test_summarising_nothing_is_an_error_with_a_sentence_in_it():
     empty = summary.Material(title="X", sentences=(), language="it")
     with pytest.raises(summary.SummaryError) as raised:

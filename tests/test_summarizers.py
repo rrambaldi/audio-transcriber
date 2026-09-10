@@ -11,8 +11,8 @@ import pytest
 
 from audio_transcriber import paths
 from audio_transcriber.summarizers import openvino_genai as engine
-from audio_transcriber.summarizers import prompting
-from audio_transcriber.summary import Sentence, SummaryError
+from audio_transcriber.summarizers import plan, prompting
+from audio_transcriber.summary import NotEnoughMemory, Sentence, SummaryError
 
 
 @pytest.fixture(autouse=True)
@@ -385,21 +385,21 @@ def test_with_openvino_unavailable_the_request_is_passed_through(monkeypatch):
 
 # --- choosing the model ---------------------------------------------------
 
-def test_the_recommended_model_is_the_largest_that_fits():
-    assert engine.recommend_model(ram=32.0) == "Qwen/Qwen3-8B"
-    assert engine.recommend_model(ram=6.0) == "Qwen/Qwen3-4B"
-    assert engine.recommend_model(ram=3.0) == "Qwen/Qwen3-1.7B"
-    assert engine.recommend_model(ram=1.0) == "Qwen/Qwen3-1.7B"
-
-
-def test_memory_that_cannot_be_read_takes_the_smallest_model():
-    assert engine.recommend_model(ram=None) == engine.MODELS[-1][0]
+def test_the_model_is_whatever_the_plan_worked_out(monkeypatch, roomy):
+    """The engine no longer has an opinion; it asks."""
+    assert engine.resolve_model("auto") == roomy.model.hf_id
 
 
 def test_a_model_asked_for_by_name_is_used_as_asked():
     assert engine.resolve_model("Qwen/Qwen3-4B") == "Qwen/Qwen3-4B"
     assert engine.resolve_model("/models/mine-ov") == "/models/mine-ov"
-    assert engine.resolve_model("auto", ram=32.0) == "Qwen/Qwen3-8B"
+
+
+def test_a_model_already_converted_is_still_accepted_by_name():
+    """Nobody's model directory should quietly stop being usable."""
+    for name in plan.LEGACY_MODELS:
+        assert engine.resolve_model(name) == name
+    assert not {model.hf_id for model in plan.CATALOGUE} & set(plan.LEGACY_MODELS)
 
 
 def test_the_converted_model_is_named_after_what_it_came_from(tmp_path):
@@ -438,17 +438,35 @@ class FakePipeline:
         FakePipeline.asked = []
         self.model_path, self.device = model_path, device
 
-    def ask(self, system, user):
-        FakePipeline.asked.append(user)
+    def ask(self, system, user, max_new_tokens=None, think=False):
+        FakePipeline.asked.append({"prompt": user, "tokens": max_new_tokens,
+                                   "think": think})
         return "## In breve\nUn riassunto vero.\n\n## Punti chiave\n- [0:08] Budget."
 
 
 @pytest.fixture
-def stubbed(monkeypatch, tmp_path):
+def roomy(monkeypatch):
+    """A machine with room, so the plan does not refuse before we get there."""
+    plan.forget()
+    monkeypatch.setattr(plan, "available_ram_gb", lambda: 32.0)
+    monkeypatch.setattr(plan, "total_ram_gb", lambda: 64.0)
+    monkeypatch.setattr(plan, "physical_cores", lambda: 8)
+    monkeypatch.setattr(engine, "available_ram_gb", lambda: 32.0)
+    monkeypatch.setattr(engine, "total_ram_gb", lambda: 64.0)
+    yield plan.resolve_plan(plan.OPENVINO, {})
+    plan.forget()
+
+
+@pytest.fixture
+def stubbed(monkeypatch, tmp_path, roomy):
     monkeypatch.setattr(engine, "prepare", lambda hf_id, models_dir=None: str(tmp_path))
     monkeypatch.setattr(engine, "Pipeline", FakePipeline)
     monkeypatch.setattr(engine, "openvino_devices", lambda: ["CPU"])
     return FakePipeline
+
+
+def prompts(stub):
+    return [call["prompt"] for call in stub.asked]
 
 
 def material(sentences, language="it"):
@@ -459,25 +477,86 @@ def material(sentences, language="it"):
 def test_a_transcript_that_fits_is_summarised_in_one_prompt(stubbed):
     sections, note = engine.summarize(material(SENTENCES), {})
     assert len(stubbed.asked) == 1
-    assert "Parliamo del budget." in stubbed.asked[0]
+    assert "Parliamo del budget." in prompts(stubbed)[0]
     assert sections.abstract == "Un riassunto vero."
     assert note is None
 
 
-def test_a_long_transcript_is_read_in_parts_and_then_reduced(stubbed):
+def test_a_long_transcript_is_read_in_parts_and_then_folded(stubbed):
     many = [Sentence(f"Frase numero {n} del verbale.", n * 10.0) for n in range(60)]
     engine.summarize(material(many), {"summary_chunk_tokens": 120})
 
-    # every part, then one more prompt that puts them together
-    assert len(stubbed.asked) > 2
-    assert "parte 1 di" in stubbed.asked[0]
-    assert "riassunti parziali" in stubbed.asked[-1]
-    assert "Un riassunto vero." in stubbed.asked[-1]
+    asked = prompts(stubbed)
+    assert "parte 1 di" in asked[0]
+    assert "riassunti parziali" in asked[-1]
+    assert "Un riassunto vero." in asked[-1]
+
+
+def test_the_passes_are_exactly_the_ones_the_tree_calls_for(stubbed):
+    """Not one per chunk plus one: the folding levels are passes too."""
+    many = [Sentence(f"Frase numero {n} del verbale.", n * 10.0) for n in range(400)]
+    engine.summarize(material(many), {"summary_chunk_tokens": 120})
+
+    chunks = prompting.chunks(many, 120, stubbed_overlap := 0.1)
+    fanin = prompting.fanin_for(len(chunks), 16384, 500, 1400,
+                                prompting.EVIDENCE_TOKENS)
+    levels = prompting.reduce_tree(range(len(chunks)), fanin=fanin,
+                                   max_fanin=fanin)
+    expected = len(chunks) + sum(len(level) for level in levels)
+    assert len(stubbed.asked) == expected
+    assert sum(1 for call in stubbed.asked
+               if "parte 1 di" in call["prompt"]) == 1
+
+
+def test_the_map_answers_under_a_tighter_budget_than_the_page(stubbed, roomy):
+    many = [Sentence(f"Frase numero {n} del verbale.", n * 10.0) for n in range(60)]
+    engine.summarize(material(many), {"summary_chunk_tokens": 120})
+
+    mapping = [call for call in stubbed.asked if "parte 1 di" in call["prompt"]]
+    root = stubbed.asked[-1]
+    assert mapping[0]["tokens"] == roomy.map_answer_tokens
+    assert root["tokens"] == roomy.reduce_answer_tokens
+    assert root["tokens"] > mapping[0]["tokens"]
+
+
+def test_the_model_is_told_not_to_think_while_reading_a_chunk(stubbed):
+    """Its whole budget spent narrating is a truncated answer and no page."""
+    many = [Sentence(f"Frase numero {n} del verbale.", n * 10.0) for n in range(60)]
+    engine.summarize(material(many), {"summary_chunk_tokens": 120})
+    mapping = [call for call in stubbed.asked if "parte 1 di" in call["prompt"]]
+    assert mapping and all(call["think"] is False for call in mapping)
+
+
+def test_every_fold_is_given_the_transcript_to_check_itself_against(stubbed):
+    many = [Sentence(f"Il budget vale {n} mila euro.", n * 10.0) for n in range(60)]
+    engine.summarize(material(many), {"summary_chunk_tokens": 120})
+    folds = [call["prompt"] for call in stubbed.asked
+             if "parte 1 di" not in call["prompt"]]
+    assert folds
+    assert all(prompting.FENCE_START in prompt for prompt in folds)
+
+
+def test_a_machine_with_no_room_loads_nothing_at_all(monkeypatch, tmp_path):
+    plan.forget()
+    monkeypatch.setattr(plan, "available_ram_gb", lambda: 0.8)
+    monkeypatch.setattr(plan, "total_ram_gb", lambda: 2.0)
+    monkeypatch.setattr(plan, "physical_cores", lambda: 2)
+    loaded = []
+    monkeypatch.setattr(engine, "prepare",
+                        lambda hf_id, models_dir=None: loaded.append(hf_id))
+
+    with pytest.raises(NotEnoughMemory) as refused:
+        engine.summarize(material(SENTENCES), {})
+    assert loaded == []
+    assert refused.value.needed and refused.value.free is not None
+    plan.forget()
 
 
 def test_the_model_saying_nothing_usable_is_an_error_not_an_empty_page(stubbed,
                                                                       monkeypatch):
-    monkeypatch.setattr(FakePipeline, "ask", lambda self, system, user: "   ")
+    monkeypatch.setattr(FakePipeline, "ask",
+                        lambda self, system, user, max_new_tokens=None,
+                        think=False: "   ")
     with pytest.raises(SummaryError) as raised:
         engine.summarize(material(SENTENCES), {})
     assert "extractive" in str(raised.value)

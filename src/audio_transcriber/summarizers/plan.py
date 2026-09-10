@@ -224,10 +224,14 @@ def kv_gb(model, context_tokens, kv_k="q8_0", kv_v="q8_0"):
 
 
 def estimate_ram_gb(model, quant, context_tokens, kv_k="q8_0", kv_v="q8_0"):
-    """Weights, plus cache, plus what the runtime costs on top."""
-    weights = model.weights.get(quant)
-    if weights is None:
-        weights = max(model.weights.values())
+    """Weights, plus cache, plus what the runtime costs on top.
+
+    None for a model that is not in the catalogue: its shape is unknown, and a
+    number invented for it would be worse than the absence of one — it would
+    be believed."""
+    if not model.weights:
+        return None
+    weights = model.weights.get(quant, max(model.weights.values()))
     return (weights + kv_gb(model, context_tokens, kv_k, kv_v)
             + RUNTIME_OVERHEAD_GB)
 
@@ -317,6 +321,26 @@ def _fit(model, tier, usable, quant=None, context=None, kv=None):
     return quant, context, kv_k, kv_v, estimate()
 
 
+def tier_for(usable):
+    """The largest tier this much memory can hold, or the smallest one."""
+    for tier in TIERS:
+        if usable is not None and usable >= tier.floor:
+            return tier
+    return TIERS[-1]
+
+
+def unknown(name, tier, context):
+    """A catalogue entry for a model nobody catalogued.
+
+    Somebody may name any Hugging Face id, or a directory they converted by
+    hand. Nothing is known about its shape, so nothing is estimated for it:
+    the plan carries the name and admits the rest."""
+    return Model(name=name, hf_id=name, gguf_repo=None, gguf_file=None,
+                 context=int(context), attn_layers=0, kv_heads=0, head_dim=0,
+                 weights={}, tier=tier.name, floor=0.0,
+                 note="not in the catalogue: nothing estimated")
+
+
 def _plan_of(model, tier, quant, context, kv_k, kv_v, estimate, threads):
     """Assemble the plan around a model that has been made to fit."""
     # Never the whole window, and never more than the figure this program
@@ -330,7 +354,8 @@ def _plan_of(model, tier, quant, context, kv_k, kv_v, estimate, threads):
                 chunk_tokens=max(256, int(room * CHUNK_SHARE)),
                 chunk_overlap=CHUNK_OVERLAP,
                 max_passes=tier.max_passes, prereduce=tier.prereduce,
-                threads=threads, est_ram_gb=round(estimate, 2),
+                threads=threads,
+                est_ram_gb=None if estimate is None else round(estimate, 2),
                 tier=tier.name, map_answer_tokens=tier.map_answer,
                 reduce_answer_tokens=tier.reduce_answer)
 
@@ -390,10 +415,16 @@ def _resolve(engine, settings, available, total, cores):
     asked_context = settings.get("summary_context_tokens")
     asked_kv = settings.get("summary_kv_type")
 
-    wanted = named(settings.get("summary_model"))
-    if wanted is not None:
-        tier = asked_tier or tier_named(wanted.tier) or TIERS[-1]
+    asked_model = str(settings.get("summary_model") or "").strip()
+    if asked_model and asked_model.lower() != "auto":
+        wanted = named(asked_model)
+        tier = (asked_tier or tier_named(wanted.tier if wanted else None)
+                or tier_for(usable))
         kv = kv_pair(asked_kv, tier.kv)
+        if wanted is None:
+            model = unknown(asked_model, tier, asked_context or tier.context)
+            return _plan_of(model, tier, None, model.context, kv[0], kv[1],
+                            None, threads)
         context = min(int(asked_context or tier.context), wanted.context)
         quant = quants_for(wanted)
         quant = "Q4_K_M" if "Q4_K_M" in quant else (quant[-1] if quant else None)
@@ -413,6 +444,25 @@ def _resolve(engine, settings, available, total, cores):
             if fitted:
                 return _plan_of(model, tier, *fitted, threads=threads)
     return None
+
+
+def cheapest(engine):
+    """The least this engine could possibly need, in GiB, or None.
+
+    What the smallest model in the catalogue costs at the smallest context and
+    the coarsest cache it is allowed. It is the number a machine is compared
+    against before being told no, and the number the page prints when it
+    is."""
+    tier = TIERS[-1]
+    best = None
+    for model in candidates(tier, engine):
+        quants = quants_for(model)
+        if not quants:
+            continue
+        estimate = estimate_ram_gb(model, quants[-1], 2048, *KV_LADDER[-1])
+        if estimate is not None and (best is None or estimate < best):
+            best = estimate
+    return best
 
 
 def forget():

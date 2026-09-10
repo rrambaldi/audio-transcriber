@@ -174,6 +174,12 @@ HEADINGS = {
         "extractive_note":
             "These are sentences taken from the transcript, chosen by weight "
             "and left as they were said — not a text written about it.",
+        "no_model_note":
+            "No model fits in this machine's memory ({needed} GB needed, "
+            "{free} GB free), so nobody wrote this page.",
+        "reduced_note":
+            "Summarised from {kept}% of the transcript, chosen by weight: "
+            "the whole of it does not fit in this machine's model.",
     },
     "it": {
         "title": "Riassunto",
@@ -187,6 +193,14 @@ HEADINGS = {
         "extractive_note":
             "Queste sono frasi prese dalla trascrizione, scelte per peso e "
             "lasciate come sono state dette: non un testo scritto su di essa.",
+        "no_model_note":
+            "Nessun modello entra nella memoria di questa macchina ({needed} "
+            "GB richiesti, {free} GB liberi): questa pagina non l'ha scritta "
+            "nessuno.",
+        "reduced_note":
+            "Riassunto da una selezione del {kept}% della trascrizione, "
+            "scelta per peso: l'intera trascrizione non entra nel modello di "
+            "questa macchina.",
     },
 }
 
@@ -226,6 +240,24 @@ STAGE_WRITING = "stage.summary_writing"
 
 class SummaryError(Exception):
     """Any reason a summary could not be produced."""
+
+
+class NotEnoughMemory(SummaryError):
+    """This machine cannot hold a model, so no model is loaded.
+
+    Not a failure but a decision, and the reason it is an exception rather
+    than a return value is that it is raised from inside an engine and caught
+    by :func:`summarize`, which then asks the extractive engine instead and
+    says so on the page. An engine that quietly produced somebody else's
+    output under its own name would be the worse design.
+
+    It carries the two numbers because the page has to print them: a reader
+    who is handed quoted sentences where they expected prose is owed the
+    reason, in figures."""
+
+    def __init__(self, message, needed=None, free=None):
+        super().__init__(message)
+        self.needed, self.free = needed, free
 
 
 def estimate_tokens(text):
@@ -501,6 +533,18 @@ def material_from_text(text, title="", language="", duration=None):
                     language=language, duration=duration)
 
 
+def _refusal_note(material, refused):
+    """Why this page was quoted rather than written, in figures.
+
+    In the language that was spoken, like every other note on the page: a
+    caveat under an Italian summary has to be in Italian, whatever language
+    the person's desktop is in."""
+    words = HEADINGS.get(language_of(material.language), HEADINGS["en"])
+    return words["no_model_note"].format(
+        needed="?" if refused.needed is None else f"{refused.needed:.1f}",
+        free="?" if refused.free is None else f"{refused.free:.1f}")
+
+
 def summarize(material, settings=None, progress=None):
     """Summarise ``material`` with whichever engine the settings ask for.
 
@@ -511,7 +555,7 @@ def summarize(material, settings=None, progress=None):
     ``progress(percent, stage)`` is called as the run advances, and is how the
     queue reports a summary that takes minutes. It is also where a cancelled
     job stops: the callback the interfaces pass raises."""
-    from .summarizers import load, resolve_summarizer
+    from .summarizers import EXTRACTIVE, load, resolve_summarizer
 
     settings = settings or {}
     if not material.sentences:
@@ -522,7 +566,17 @@ def summarize(material, settings=None, progress=None):
     started = time.time()
     if progress:
         progress(2, STAGE_SELECTING)
-    sections, note = engine.summarize(material, settings, progress=progress)
+    try:
+        sections, note = engine.summarize(material, settings, progress=progress)
+    except NotEnoughMemory as refused:
+        # The engine looked at this machine and declined to load anything.
+        # Quoted sentences are an acceptable page; a machine in swap, or a job
+        # queue killed halfway through, is not. The page says which happened.
+        name = EXTRACTIVE
+        engine = load(name)
+        sections, note = engine.summarize(material, settings, progress=progress)
+        note = " ".join(part for part in (_refusal_note(material, refused),
+                                          note) if part)
     text = render(material, sections, engine.label(settings), note=note)
     kept = len(sections.points) + len(sections.decisions) + len(sections.actions)
     return Summary(text=text, sections=sections, engine=name,
