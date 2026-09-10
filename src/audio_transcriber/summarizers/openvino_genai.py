@@ -279,13 +279,13 @@ def _cut_to_fit(sentences, budget, chosen, language="it", tries=3):
     adjusted by what it answers, which converges in two rounds and cannot
     disagree with the thing it is trying to satisfy."""
     target = budget * chosen.max_passes
-    kept, parts = list(sentences), prompting.chunks(sentences, budget,
-                                                    chosen.chunk_overlap)
+    kept, parts = list(sentences), prompting.chunks(
+        sentences, budget, chosen.chunk_overlap, language)
     for _ in range(tries):
         if target <= 0:
             break
         kept = reduce_sentences(sentences, int(target), language)
-        parts = prompting.chunks(kept, budget, chosen.chunk_overlap)
+        parts = prompting.chunks(kept, budget, chosen.chunk_overlap, language)
         if len(parts) <= chosen.max_passes:
             break
         target = int(target * chosen.max_passes / len(parts))
@@ -378,7 +378,7 @@ def summarize(material, settings=None, progress=None):
     system = prompting.prompts_for(language)["system"]
 
     budget = int(settings.get("summary_chunk_tokens") or chosen.chunk_tokens)
-    parts = prompting.chunks(sentences, budget, chosen.chunk_overlap)
+    parts = prompting.chunks(sentences, budget, chosen.chunk_overlap, language)
     if not parts:
         raise SummaryError(t("summary.empty"))
 

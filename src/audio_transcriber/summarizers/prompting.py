@@ -236,12 +236,12 @@ def transcript_for(sentences):
     return "\n".join(lines)
 
 
-def _cost(sentence):
+def _cost(sentence, language=None):
     """What one sentence costs in a prompt: its words, its minute, its name."""
-    return estimate_tokens(sentence.text) + 8
+    return estimate_tokens(sentence.text, language) + 8
 
 
-def _carried(chunk, tokens):
+def _carried(chunk, tokens, language=None):
     """The tail of a chunk to repeat at the head of the next one.
 
     Never the whole chunk, however small the budget: a chunk made only of
@@ -250,7 +250,7 @@ def _carried(chunk, tokens):
         return []
     kept, size = [], 0
     for sentence in reversed(chunk[1:]):
-        cost = _cost(sentence)
+        cost = _cost(sentence, language)
         if size + cost > tokens:
             break
         kept.append(sentence)
@@ -259,7 +259,7 @@ def _carried(chunk, tokens):
     return kept
 
 
-def chunks(sentences, budget=CHUNK_TOKENS, overlap=0.0):
+def chunks(sentences, budget=CHUNK_TOKENS, overlap=0.0, language=None):
     """Cut the transcript into passes that each fit, on sentence boundaries.
 
     A sentence longer than the whole budget still gets its own chunk: cutting
@@ -276,11 +276,11 @@ def chunks(sentences, budget=CHUNK_TOKENS, overlap=0.0):
     carry = max(0.0, min(0.5, float(overlap or 0.0))) * budget
     made, current, size = [], [], 0
     for sentence in sentences:
-        cost = _cost(sentence)
+        cost = _cost(sentence, language)
         if current and size + cost > budget:
             made.append(current)
-            current = _carried(current, carry)
-            size = sum(_cost(item) for item in current)
+            current = _carried(current, carry, language)
+            size = sum(_cost(item, language) for item in current)
         current.append(sentence)
         size += cost
     if current:

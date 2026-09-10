@@ -34,9 +34,9 @@ except ImportError as exc:      # pragma: no cover - depends on the machine
     pytest.skip(f"PySide6 cannot be loaded here: {exc}", allow_module_level=True)
 
 from audio_transcriber import __version__, branding, i18n, paths  # noqa: E402
+from audio_transcriber.gui import masthead as masthead_module  # noqa: E402
 from audio_transcriber.gui import style, widgets  # noqa: E402
 from audio_transcriber.gui import window as window_module  # noqa: E402
-from audio_transcriber.gui import masthead as masthead_module  # noqa: E402
 from audio_transcriber.gui.masthead import MARK_PX, Masthead  # noqa: E402
 from audio_transcriber.gui.window import (  # noqa: E402
     MainWindow,
@@ -193,10 +193,10 @@ def test_on_a_dark_theme_the_mark_loses_its_plate(window):
     icon = window.windowIcon()
 
     window.masthead.setPalette(light)
-    assert masthead_module.drawing_for(window.masthead, icon) is icon
+    assert masthead_module.drawing_for(icon, window.masthead) is icon
 
     window.masthead.setPalette(dark)
-    plateless = masthead_module.drawing_for(window.masthead, icon)
+    plateless = masthead_module.drawing_for(icon, window.masthead)
     assert plateless is not icon
     # It is an SVG, and Qt's SVG plugin is not on every machine: if it cannot
     # be drawn, mark_pixmap has to fall back to the renders rather than
@@ -214,7 +214,7 @@ def test_the_mark_is_redrawn_when_the_desktop_changes_theme(window):
     window.masthead.setPalette(dark)          # delivers a PaletteChange
     after = window.masthead.mark.pixmap().toImage()
     assert not after.isNull()
-    if masthead_module.drawing_for(window.masthead, window.windowIcon()) \
+    if masthead_module.drawing_for(window.windowIcon(), window.masthead) \
             is not window.windowIcon():
         assert after != before
 

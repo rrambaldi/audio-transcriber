@@ -410,6 +410,64 @@ def test_an_unknown_entry_stops_the_command(tmp_path):
                   "--library-dir", str(tmp_path / "library")])
 
 
+# --- how many tokens is that ----------------------------------------------
+
+#: Spoken Italian of the shape ``sentences_of`` produces, and what three real
+#: tokenizers make of it. Counted on 2026-09-10 with the tokenizers of the
+#: models in the summary catalogue; the reference figure kept is the highest
+#: of the three, because underestimating is the direction that overflows a
+#: context.
+ITALIAN_SPEECH = [
+    "Parliamo del budget del progetto ISO.",
+    "Sono quarantaduemila euro, pero' l'anno scorso ne abbiamo spesi trentotto.",
+    "Decidiamo entro venerdi', perche' il comitato si riunisce lunedi'.",
+    "Vi mando il documento aggiornato con le tabelle riviste.",
+    "La consulenza esterna scade a fine mese e va rinnovata.",
+    "Non sono d'accordo: quella voce andrebbe spostata sull'altro capitolo.",
+    "Va bene, allora facciamo cosi' e ne riparliamo alla prossima riunione.",
+    "Chi si occupa di avvisare l'ufficio acquisti?",
+    "Me ne occupo io, entro mercoledi' mattina.",
+    "Perfetto, grazie a tutti.",
+]
+ITALIAN_TOKENS = 190          # MiniCPM5-1B; Granite 176, LFM2.5 169
+
+ENGLISH_SPEECH = [
+    "Let us start with the budget for the ISO project.",
+    "It is forty-two thousand euro, but last year we spent thirty-eight.",
+    "We have to decide by Friday, because the committee meets on Monday.",
+]
+ENGLISH_TOKENS = 40           # the same three tokenizers all agree here
+
+
+def test_the_estimate_does_not_undercount_italian():
+    """Undercounting is the direction that overflows a context.
+
+    Four characters to the token is the figure everybody quotes, and on
+    Italian it is wrong by a third: these tokenizers are trained mostly on
+    English, and Italian arrives in pieces."""
+    counted = sum(summary.estimate_tokens(line, "it") for line in ITALIAN_SPEECH)
+    assert counted >= ITALIAN_TOKENS * 0.9
+    assert counted <= ITALIAN_TOKENS * 1.3          # nor wildly over
+
+
+def test_the_estimate_does_not_undercount_english_either():
+    counted = sum(summary.estimate_tokens(line, "en") for line in ENGLISH_SPEECH)
+    assert counted >= ENGLISH_TOKENS * 0.9
+    assert counted <= ENGLISH_TOKENS * 1.3
+
+
+def test_a_language_nobody_named_is_charged_the_careful_rate():
+    """An unknown language is charged the rate that cannot overflow."""
+    line = ITALIAN_SPEECH[0]
+    assert summary.estimate_tokens(line) == summary.estimate_tokens(line, "it")
+    assert summary.estimate_tokens(line) > summary.estimate_tokens(line, "en")
+
+
+def test_nothing_costs_nothing():
+    assert summary.estimate_tokens("") == 0
+    assert summary.estimate_tokens(None) == 0
+
+
 # --- the invariant the whole feature rests on -----------------------------
 
 def test_the_pure_modules_reach_no_runtime_and_no_network():

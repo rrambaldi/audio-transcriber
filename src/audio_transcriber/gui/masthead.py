@@ -50,7 +50,7 @@ def mark_pixmap(icon, widget, size=MARK_PX):
     :func:`drawing_for`."""
     ratio = widget.devicePixelRatioF() or 1.0
     edge = max(1, round(size * ratio))
-    pixmap = drawing_for(widget, icon).pixmap(QSize(edge, edge))
+    pixmap = drawing_for(icon, widget).pixmap(QSize(edge, edge))
     if pixmap.isNull():
         # The plateless drawing is an SVG and Qt's SVG plugin is not always
         # there. The renders always are.
@@ -60,7 +60,7 @@ def mark_pixmap(icon, widget, size=MARK_PX):
     return pixmap
 
 
-def drawing_for(widget, icon):
+def drawing_for(icon, widget):
     """The mark on its plate, or the plateless one on a dark theme.
 
     The plate is a very dark navy, drawn to lift the mark off a light page.
@@ -84,10 +84,10 @@ class Masthead(QWidget):
     def __init__(self, icon=None, parent=None):
         super().__init__(parent)
 
-        # Decorative, exactly as on the web page: the name is written next to
-        # it, and a screen reader that reads both says it twice.
+        # A picture and no text, which is the desktop equivalent of the web
+        # page's empty alt: the name is written next to it, and a screen
+        # reader that read both would say it twice.
         self.mark = QLabel()
-        self.mark.setAccessibleName("")
         self.mark.setAlignment(Qt.AlignmentFlag.AlignCenter)
         if icon is not None and not icon.isNull():
             self.mark.setPixmap(mark_pixmap(icon, self))

@@ -143,7 +143,7 @@ def test_no_prompt_of_the_tree_overflows_the_smallest_tier():
     because the machine is small. Every prompt of the tree has to fit, at
     every level — including the ones that fold answers rather than chunks."""
     words = "riga di riassunto del verbale "
-    partials = [(words * 68).strip() for _ in range(40)]        # ~500 tokens
+    partials = [(words * 47).strip() for _ in range(40)]        # ~500 tokens
     assert 450 <= prompting.estimate_tokens(partials[0]) <= 550
 
     fanin = prompting.fanin_for(len(partials), XS_CONTEXT,

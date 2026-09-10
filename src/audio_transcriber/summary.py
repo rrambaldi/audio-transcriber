@@ -260,14 +260,33 @@ class NotEnoughMemory(SummaryError):
         self.needed, self.free = needed, free
 
 
-def estimate_tokens(text):
+#: Characters per token, per language, measured rather than assumed. Counted
+#: on 2026-09-10 with the tokenizers of the models in the summary catalogue —
+#: MiniCPM5-1B, Granite 4.0 H-Micro, LFM2.5-1.2B — over spoken Italian
+#: sentences of the shape this program actually produces, and the figure kept
+#: is the *worst* of the three.
+#:
+#: Italian is nowhere near the four characters to the token that gets quoted:
+#: it runs between 2.8 and 3.2, because the tokenizers are trained mostly on
+#: English and Italian arrives in pieces. English really is around 4.6. The
+#: error that matters is underestimating, which produces chunks larger than
+#: the budget says — the overflow this whole feature exists to avoid — so an
+#: unknown language is charged the Italian rate.
+CHARS_PER_TOKEN = {"it": 2.8, "en": 4.4}
+CONSERVATIVE_CHARS_PER_TOKEN = 2.8
+
+
+def estimate_tokens(text, language=None):
     """Roughly how many tokens a piece of text is worth.
 
-    Four characters to the token, which is close enough for the only two
-    questions asked of it — does this fit in the context, and how much has the
-    reduction saved — and wrong enough that nothing should be promised on it.
-    """
-    return max(0, len(text or "")) // 4
+    Still a heuristic, and still nothing to promise on: it answers two
+    questions — does this fit in the context, and how much has the reduction
+    saved — and it answers them from the length of the string. What changed is
+    that the divisor was measured instead of guessed, and that it is not the
+    same for every language."""
+    per = CHARS_PER_TOKEN.get(language_of(language) if language else None,
+                              CONSERVATIVE_CHARS_PER_TOKEN)
+    return int(max(0, len(text or "")) / per)
 
 
 def language_of(code):
@@ -449,7 +468,8 @@ def reduce(sentences, target_tokens, language="it"):
     the extract each reduce pass checks its own partials against."""
     if not sentences or target_tokens <= 0:
         return list(sentences)
-    total = sum(estimate_tokens(sentence.text) for sentence in sentences)
+    total = sum(estimate_tokens(sentence.text, language)
+                for sentence in sentences)
     if total <= target_tokens:
         return list(sentences)
 
@@ -457,7 +477,7 @@ def reduce(sentences, target_tokens, language="it"):
     budget, kept = target_tokens, []
     for index in np.argsort(scores)[::-1]:
         index = int(index)
-        cost = estimate_tokens(sentences[index].text)
+        cost = estimate_tokens(sentences[index].text, language)
         if cost > budget:
             continue
         kept.append(index)
@@ -546,8 +566,8 @@ def reduction_note(before, after, language="it"):
     a good one — the selection is by weight, not by truncation — but the
     reader has to be told, for the same reason the extractive page says it is
     quoting. Silence here would be the one dishonest thing on the page."""
-    total = sum(estimate_tokens(sentence.text) for sentence in before)
-    kept = sum(estimate_tokens(sentence.text) for sentence in after)
+    total = sum(estimate_tokens(sentence.text, language) for sentence in before)
+    kept = sum(estimate_tokens(sentence.text, language) for sentence in after)
     if not total or kept >= total:
         return None
     words = HEADINGS.get(language_of(language), HEADINGS["en"])
