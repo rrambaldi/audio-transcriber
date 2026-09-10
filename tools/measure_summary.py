@@ -186,26 +186,37 @@ def open_model(engine, model, chosen, convert=False):
 
 
 def screen(pipeline, rows, sample):
-    """Score one loaded model against the reference summaries."""
-    scores, copied, started, written = [], 0, time.time(), []
+    """Score one loaded model against the reference summaries.
+
+    An empty answer is counted rather than scored. Zero is what a model that
+    said nothing gets and also what a model that said something useless gets,
+    and those are different problems: the first is usually a reasoning model
+    whose reasoning could not be switched off, narrating until the allowance
+    ran out. Averaging them into one number hides the only clue."""
+    scores, copied, empty, started, written = [], 0, 0, time.time(), []
     for index, row in enumerate(rows[:sample], start=1):
         article = row["source"][:ARTICLE_CHARS]
-        answer = pipeline.ask(SYSTEM, ASK.format(article=article),
-                              max_new_tokens=ANSWER_TOKENS, think=False)
-        answer = prompting.without_thinking(answer)
-        copied += copies_the_input(answer, article)
+        raw = pipeline.ask(SYSTEM, ASK.format(article=article),
+                           max_new_tokens=ANSWER_TOKENS, think=False)
+        answer = prompting.without_thinking(raw)
+        note = ""
+        if not answer.strip():
+            empty += 1
+            note = ("  EMPTY — the model was still reasoning when it ran out"
+                    if prompting.thought_without_answering(raw) else "  EMPTY")
+        elif copies_the_input(answer, article):
+            copied += 1
+            note = "  COPIED THE ARTICLE"
         hypothesis, reference = words(answer), words(row["target"])
         scores.append((rouge_n(hypothesis, reference, 1),
                        rouge_n(hypothesis, reference, 2),
                        rouge_l(hypothesis, reference)))
-        written.append(answer[:400])
-        print(f"    {index}/{sample}  rouge1={scores[-1][0]:.3f}"
-              f"{'  COPIED THE ARTICLE' if copies_the_input(answer, article) else ''}",
-              flush=True)
+        written.append(answer[:400] if answer.strip() else f"<empty> raw: {raw[:200]}")
+        print(f"    {index}/{sample}  rouge1={scores[-1][0]:.3f}{note}", flush=True)
     rouge1, rouge2, rougeL = (sum(column) / len(column) for column in zip(*scores, strict=True))
     return {"rouge1": round(rouge1, 4), "rouge2": round(rouge2, 4),
             "rougeL": round(rougeL, 4), "copied_the_article": copied,
-            "items": len(scores), "first_answers": written[:3],
+            "answered_nothing": empty, "items": len(scores), "first_answers": written[:3],
             "seconds_per_item": round((time.time() - started) / len(scores), 1)}
 
 

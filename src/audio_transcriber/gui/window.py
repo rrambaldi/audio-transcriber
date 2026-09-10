@@ -10,10 +10,11 @@ it adds is a microphone, a player and a folder-free way of reaching them.
 import os
 import sys
 
-from PySide6.QtCore import QSettings, QSize, Qt
+from PySide6.QtCore import QSettings, QSize, Qt, QTimer
 from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import (
     QApplication,
+    QLabel,
     QMainWindow,
     QMessageBox,
     QTabWidget,
@@ -24,7 +25,7 @@ from PySide6.QtWidgets import (
 from .. import __version__, branding, paths
 from ..i18n import t
 from ..jobs import JobQueue
-from . import style
+from . import style, theme
 from .library_panel import LibraryPanel
 from .masthead import Masthead
 from .system_panel import SystemPanel
@@ -37,6 +38,10 @@ SETTINGS_FILENAME = "gui.ini"
 
 #: A first-run size that fits a 1366x768 laptop screen.
 DEFAULT_SIZE = (1180, 760)
+
+#: How long a message stays in the status bar before the library line comes
+#: back. What Qt's own timed message used.
+MESSAGE_MS = 8000
 
 
 def app_icon():
@@ -119,7 +124,7 @@ class MainWindow(QMainWindow):
         self.library.message.connect(self.announce)
         self.transcribe.entry_requested.connect(self.show_entry)
         self.transcribe.job_finished.connect(self._job_finished)
-        self.statusBar().showMessage(self._library_line())
+        self._build_status_line()
         self._restore_geometry()
 
     def _follow_colour_scheme(self):
@@ -145,11 +150,35 @@ class MainWindow(QMainWindow):
         # the new palette does not reach them on its own.
         style.renote(self)
 
-    # --- moving between the tabs ------------------------------------------
+    # --- the status line --------------------------------------------------
+
+    def _build_status_line(self):
+        """A label of our own rather than ``showMessage``.
+
+        Qt draws a status bar's message in a rect of its own making, seven
+        pixels from the frame, and neither contents margins nor a style
+        sheet's padding move it: it was the one line in the window still
+        glued to the edge. A widget in the bar obeys the layout, so the
+        message starts where everything above it starts."""
+        self.status_line = QLabel()
+        style.note(self.status_line)
+        self.statusBar().addWidget(self.status_line)
+        self.statusBar().setContentsMargins(theme.GUTTER, 0, theme.GUTTER, 0)
+        # What replaces a message when it has had its time.
+        self._message_over = QTimer(self)
+        self._message_over.setSingleShot(True)
+        self._message_over.timeout.connect(self.rest)
+        self.rest()
+
+    def rest(self):
+        """Say what the window says when it has nothing else to say."""
+        self._message_over.stop()
+        self.status_line.setText(self._library_line())
 
     def announce(self, text):
-        """Put a one-line message in the status bar."""
-        self.statusBar().showMessage(text, 8000)
+        """Put a one-line message in the status bar, for a while."""
+        self.status_line.setText(text)
+        self._message_over.start(MESSAGE_MS)
 
     def show_entry(self, entry_id):
         """Bring the library tab up on one entry."""
@@ -170,12 +199,17 @@ class MainWindow(QMainWindow):
         return t("gui.ready", count=count)
 
     def _job_finished(self, entry_id):
-        """A transcription has been filed: the library list is now stale."""
+        """A transcription has been filed: the library list is now stale.
+
+        The finished job is announced and then left up for its eight seconds.
+        It used to be overwritten in the next two statements - the count was
+        put back immediately, so the one message worth reading, after forty
+        minutes of transcribing, was the one nobody ever saw."""
         self.library.reload()
         if entry_id:
             self.announce(t("gui.job_finished", entry=entry_id))
-        self.statusBar().clearMessage()
-        self.statusBar().showMessage(self._library_line())
+        else:
+            self.rest()
 
     # --- geometry ---------------------------------------------------------
 

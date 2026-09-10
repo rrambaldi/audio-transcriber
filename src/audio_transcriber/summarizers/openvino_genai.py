@@ -169,10 +169,30 @@ def prepare(hf_id, models_dir=None):
     except SummaryError:
         raise
     except Exception as exc:
-        raise SummaryError(t("summary.conversion_failed", model=hf_id,
-                             error=exc)) from exc
+        raise SummaryError(_conversion_error(hf_id, exc)) from exc
     print(t("openvino.model_saved", path=target), file=sys.stderr)
     return target
+
+
+#: What the OpenVINO exporter says when the installed transformers is newer
+#: than the architecture's converter was written for. It names the ceiling,
+#: which is the one thing needed to get past it.
+_TOO_NEW = re.compile(r"Maximum required is ([\d.]+), got:? ([\d.]+)")
+
+
+def _conversion_error(hf_id, exc):
+    """The exporter's complaint, and what to do about it where that is known.
+
+    One failure is common enough and opaque enough to deserve translating:
+    the converter for a given architecture is pinned to a maximum version of
+    transformers, and an environment that installed a newer one cannot export
+    that model at all. The library says so in a sentence that reads like a
+    bug; it is a version pin, and the fix is one line."""
+    found = _TOO_NEW.search(str(exc))
+    if not found:
+        return t("summary.conversion_failed", model=hf_id, error=exc)
+    return t("summary.conversion_too_new", model=hf_id,
+             ceiling=found.group(1), installed=found.group(2))
 
 
 class Pipeline:
@@ -195,6 +215,9 @@ class Pipeline:
         except Exception as exc:
             raise SummaryError(t("summary.load_failed", device=device,
                                  error=exc)) from exc
+        #: Set once, the first time reasoning cannot be turned off. Saying it
+        #: every prompt would bury the transcript's own progress lines.
+        self.warned_about_thinking = False
         self.config = openvino_genai.GenerationConfig()
         self.config.max_new_tokens = MAX_NEW_TOKENS
         # Greedy: a summary is not a place for creativity, and two runs over
@@ -222,8 +245,15 @@ class Pipeline:
         config = genai.GenerationConfig()
         config.max_new_tokens = int(max_new_tokens or MAX_NEW_TOKENS)
         config.do_sample = False
-        if not think:
-            self._no_thinking(config)
+        if not think and not self._no_thinking(config) and not self.warned_about_thinking:
+            # Worth saying out loud, once. A reasoning model whose reasoning
+            # stays on spends its allowance narrating and is cut off before
+            # the answer begins; what comes back is empty, and an empty answer
+            # is indistinguishable from a model too small for the job. The
+            # run recovers — it asks again with room — but slowly, and the
+            # person watching deserves to know why.
+            print(t("summary.thinking_stays_on"), file=sys.stderr)
+            self.warned_about_thinking = True
 
         if hasattr(genai, "ChatHistory"):
             conversation = genai.ChatHistory([

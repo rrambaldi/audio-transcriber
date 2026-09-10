@@ -135,8 +135,10 @@ class Masthead(QWidget):
         titles.addWidget(self.tagline)
 
         band = QHBoxLayout()
-        band.setContentsMargins(12, 10, 12, 8)
-        band.setSpacing(12)
+        # The same side gutter the tabs and the panels get, so the mark, the
+        # first tab and the first group box's rule all start on one line.
+        band.setContentsMargins(theme.GUTTER, 14, theme.GUTTER, 12)
+        band.setSpacing(14)
         band.addWidget(self.mark, 0, Qt.AlignmentFlag.AlignVCenter)
         band.addLayout(titles, 1)
         band.addWidget(self.version, 0, Qt.AlignmentFlag.AlignTop)

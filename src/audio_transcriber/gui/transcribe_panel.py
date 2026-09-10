@@ -214,6 +214,10 @@ class TranscribePanel(QWidget):
         queue_layout.addLayout(actions)
 
         layout = QVBoxLayout(self)
+        # No gutter of its own: the tab widget's pane has one, and two of them
+        # put this tab's first rule a few pixels inside the tab above it.
+        # See theme.GUTTER.
+        layout.setContentsMargins(0, 0, 0, 0)
         layout.addWidget(header)
         layout.addWidget(queue_box, 1)
 

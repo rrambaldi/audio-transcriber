@@ -607,6 +607,11 @@ MESSAGES = {
             "  Converting {model} to OpenVINO at int{bits}. This happens once, and it\n"
             "  downloads several gigabytes.",
         "summary.conversion_failed": "Could not convert {model}: {error}",
+        "summary.conversion_too_new":
+            "Cannot convert {model}: the converter for it needs transformers "
+            "{ceiling} at the newest, and {installed} is installed.\n"
+            "  pip install \"transformers<={ceiling}\"   (conversion only:\n"
+            "  a model already converted loads without transformers at all)",
         "summary.loading_model": "  Loading {path} on {device}...",
         "summary.load_failed":
             "The model could not be loaded on {device}: {error}",
@@ -644,6 +649,9 @@ MESSAGES = {
             "llama-server stopped before answering (exit {code}).",
         "summary.server_silent": "llama-server did not answer within {seconds}s.",
         "summary.server_failed": "llama-server refused the request: {error}",
+        "summary.thinking_stays_on":
+            "  NOTE: this runtime offers no way to turn the model's reasoning off,\n"
+            "  so every answer pays for it and some come back empty.",
         "summary.model_said_nothing":
             "{model} returned nothing usable. Try another model, or "
             "'--engine extractive'.",
@@ -1247,6 +1255,12 @@ MESSAGES = {
             "  Converto {model} in OpenVINO a int{bits}. Succede una volta sola, e\n"
             "  scarica diversi gigabyte.",
         "summary.conversion_failed": "Non sono riuscito a convertire {model}: {error}",
+        "summary.conversion_too_new":
+            "Non posso convertire {model}: il convertitore per questo "
+            "modello vuole transformers {ceiling} al massimo, e ne e' "
+            "installato {installed}.\n"
+            "  pip install \"transformers<={ceiling}\"   (riguarda solo la conversione:\n"
+            "  un modello gia' convertito si carica senza transformers)",
         "summary.loading_model": "  Carico {path} su {device}...",
         "summary.load_failed":
             "Il modello non si e' potuto caricare su {device}: {error}",
@@ -1284,6 +1298,9 @@ MESSAGES = {
             "llama-server si e' fermato prima di rispondere (uscita {code}).",
         "summary.server_silent": "llama-server non ha risposto entro {seconds}s.",
         "summary.server_failed": "llama-server ha rifiutato la richiesta: {error}",
+        "summary.thinking_stays_on":
+            "  NOTA: questo runtime non permette di spegnere il ragionamento del\n"
+            "  modello, quindi ogni risposta lo paga e qualcuna torna vuota.",
         "summary.model_said_nothing":
             "{model} non ha restituito niente di utilizzabile. Prova un altro modello, "
             "oppure '--engine extractive'.",

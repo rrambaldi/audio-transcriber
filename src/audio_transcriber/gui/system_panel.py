@@ -55,6 +55,7 @@ class SystemPanel(QWidget):
         buttons.addStretch(1)
 
         layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)   # the pane's gutter is the only one
         layout.addWidget(hardware)
         layout.addWidget(locations)
         layout.addLayout(buttons)

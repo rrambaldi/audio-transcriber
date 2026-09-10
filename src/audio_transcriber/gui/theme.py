@@ -78,10 +78,27 @@ FALLBACKS = {
 }
 
 #: How much smaller the uppercase label is than the interface font, and how
-#: far its letters are spaced. Both come from the stylesheet: 0.72rem against
-#: a 1rem body, and 0.14em of tracking.
-LABEL_SCALE = 0.82
+#: far its letters are spaced. The tracking is the stylesheet's 0.14em. The
+#: size is not its 0.72rem, and cannot be: that ratio was written against a
+#: 16 px body, and a desktop's interface font is nine points to begin with -
+#: 0.72 of it is six and a half, which is a size nobody reads. What is kept is
+#: the *relation* - a label is smaller than the prose next to it - at a size
+#: that lands near the page's own 11.5 px.
+LABEL_SCALE = 0.9
 LABEL_TRACKING = 114
+
+#: A tab is the same treatment at the interface font's own size. The page can
+#: afford 0.72rem there because its tab strip sits inside a form that has just
+#: asked a question; in a window the three tabs *are* the navigation, and at
+#: 0.82 of a 9pt desktop font they came out at seven and a half points - a row
+#: of captions rather than a row of tabs.
+TAB_SCALE = 1.0
+
+#: The gutter between the window's edge and what is in it, in pixels. The page
+#: gives itself between 1rem and 4rem of side padding and a measure to sit in;
+#: a window cannot indent as luxuriously as a sheet of paper, but it was
+#: putting a group box's rule flush against the frame.
+GUTTER = 24
 
 #: How much larger a heading is. The page's h1 is far larger than this, but it
 #: has a page to itself; in a window the masthead has to share a line with the
@@ -223,7 +240,12 @@ def base_font(template=None, available=None):
     return font
 
 
-def label_font(base):
+def tab_font(base):
+    """The label treatment at full size, for the tab strip. See TAB_SCALE."""
+    return label_font(base, TAB_SCALE)
+
+
+def label_font(base, scale=LABEL_SCALE):
     """The page's uppercase, letter-spaced label, as a font.
 
     ``.button``, ``.tab``, ``th`` and ``legend`` are one treatment in the
@@ -234,7 +256,7 @@ def label_font(base):
     font.setCapitalization(QFont.Capitalization.AllUppercase)
     font.setLetterSpacing(QFont.SpacingType.PercentageSpacing, LABEL_TRACKING)
     font.setWeight(QFont.Weight.DemiBold)
-    _scale(font, LABEL_SCALE)
+    _scale(font, scale)
     return font
 
 
@@ -271,20 +293,31 @@ def qss(which="light"):
 QMainWindow, QDialog, QWidget#masthead {{ background: {token['paper']}; }}
 QToolTip {{ background: {token['sheet']}; color: {token['ink']};
             border: 1px solid {token['rule']}; padding: 4px 6px; }}
-QStatusBar {{ color: {token['muted']}; border-top: 1px solid {token['rule']}; }}
+QStatusBar {{ color: {token['muted']}; border-top: 1px solid {token['rule']};
+              padding: 3px {GUTTER}px; }}
 QStatusBar::item {{ border: none; }}
 
-/* --- tabs: a word with a line under it ---------------------------------- */
+/* --- tabs: a word with the accent under it ------------------------------- */
+/*  The page can draw a tab as a word with a hairline under it because its
+    strip sits inside a form that has just asked a question. These three are
+    the whole navigation of the window, so they are given the interface font's
+    own size, room to be pressed, and an indicator in the accent rather than
+    in the ink: an underline the colour of the text reads as underlined text.
+    The strip keeps the page's rule along its foot, and the selected tab's
+    marker sits on top of it.  */
 QTabWidget::pane {{ border: none; border-top: 1px solid {token['rule']};
-                    top: -1px; }}
+                    top: -1px; padding: {GUTTER // 2}px {GUTTER}px {GUTTER}px; }}
+QTabWidget::tab-bar {{ left: {GUTTER}px; }}
 QTabBar {{ qproperty-drawBase: 0; background: transparent; }}
 QTabBar::tab {{ background: transparent; border: none;
-                border-bottom: 2px solid transparent;
-                color: {token['muted']}; padding: 6px 2px 8px;
-                margin-right: 22px; }}
+                border-bottom: 3px solid transparent;
+                color: {token['muted']}; padding: 10px 4px 9px;
+                margin: 0 28px 0 0; }}
 QTabBar::tab:selected {{ color: {token['ink']};
-                         border-bottom-color: {token['ink']}; }}
-QTabBar::tab:hover:!selected {{ color: {token['signal']}; }}
+                         border-bottom-color: {token['signal']}; }}
+QTabBar::tab:hover:!selected {{ color: {token['signal']};
+                                border-bottom-color: {token['rule']}; }}
+QTabBar::tab:focus {{ color: {token['ink']}; }}
 
 /* --- buttons: typographic, never boxy ----------------------------------- */
 QPushButton, QToolButton {{ background: transparent; border: none;
@@ -404,16 +437,21 @@ class Labels(QObject):
     #: parent, a style sheet or a style having overwritten what we set.
     WHEN = (QEvent.Type.Polish, QEvent.Type.FontChange)
 
-    def __init__(self, font, parent=None):
+    def __init__(self, font, tabs=None, parent=None):
         super().__init__(parent)
         self.font = font
+        self.tabs = tabs or font
+
+    def font_for(self, watched):
+        """The strip gets the larger of the two; see :data:`TAB_SCALE`."""
+        return self.tabs if isinstance(watched, QTabBar) else self.font
 
     def eventFilter(self, watched, event):
         if (event.type() in self.WHEN
                 and isinstance(watched, LABEL_WIDGETS)
                 and watched.font().capitalization()
                 != QFont.Capitalization.AllUppercase):
-            watched.setFont(self.font)
+            watched.setFont(self.font_for(watched))
         return False                # never swallow it
 
 
@@ -436,12 +474,12 @@ def apply(application, which=None):
     application.setFont(base)
 
     global _labels
-    label = label_font(base)
+    label, tabs = label_font(base), tab_font(base)
     if _labels is None:
-        _labels = Labels(label, application)
+        _labels = Labels(label, tabs, application)
         application.installEventFilter(_labels)
     else:
-        _labels.font = label
+        _labels.font, _labels.tabs = label, tabs
 
     application.setPalette(palette(which))
     # Ours goes last and is replaced rather than appended, so a second call

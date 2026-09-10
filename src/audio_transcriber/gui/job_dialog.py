@@ -22,7 +22,7 @@ from PySide6.QtWidgets import (
 )
 
 from ..i18n import t
-from . import style
+from . import style, theme
 from .options_form import OptionsForm
 
 
@@ -71,6 +71,9 @@ class JobDialog(QDialog):
         buttons.rejected.connect(self.reject)
 
         layout = QVBoxLayout(self)
+        # A dialog has no pane to take its gutter from.
+        layout.setContentsMargins(theme.GUTTER, theme.GUTTER,
+                                  theme.GUTTER, theme.GUTTER)
         layout.addWidget(heading)
         layout.addWidget(note)
         layout.addWidget(scroll, 1)
