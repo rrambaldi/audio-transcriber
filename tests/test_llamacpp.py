@@ -357,3 +357,86 @@ def test_a_cache_that_cannot_be_written_costs_nothing_but_time(stubbed,
     many = [Sentence(f"Frase numero {n} del verbale.", n * 10.0) for n in range(60)]
     sections, _ = engine.summarize(material(many), {"summary_chunk_tokens": 120})
     assert sections.abstract
+
+
+def test_answers_nobody_comes_back_for_are_swept_away(stubbed, tmp_path,
+                                                      monkeypatch):
+    """The program has no daemon, so writing is the only time to tidy up."""
+    import os
+    import time
+
+    from audio_transcriber.summarizers import partials
+
+    cache = {"cache_dir": str(tmp_path / "cache"), "summary_chunk_tokens": 120}
+    stale = partials._path("ff" + "0" * 62, cache["cache_dir"])
+    os.makedirs(os.path.dirname(stale), exist_ok=True)
+    open(stale, "w").write("an answer from last month")
+    old = time.time() - (partials.KEEP_DAYS + 1) * 86400
+    os.utime(stale, (old, old))
+
+    many = [Sentence(f"Frase numero {n} del verbale.", n * 10.0) for n in range(60)]
+    engine.summarize(material(many), cache)
+    assert not os.path.exists(stale)
+
+
+def test_a_binding_too_old_for_the_template_still_answers(monkeypatch):
+    """It costs the tokens the narration takes, and nothing else.
+
+    Claiming to have switched reasoning off would be worse than paying for
+    it: the symptom of a switch that silently failed is a truncated answer
+    several passes later."""
+    seen = []
+
+    class OldBinding:
+        def create_chat_completion(self, messages, **kwargs):
+            seen.append(kwargs)
+            if "chat_template_kwargs" in kwargs:
+                raise TypeError("unexpected keyword argument")
+            return {"choices": [{"message": {"content": "Un riassunto."}}]}
+
+    binding = engine.Binding.__new__(engine.Binding)
+    binding.model = OldBinding()
+    binding.template_kwargs = True
+    binding.formatter = None            # this model publishes no template
+
+    assert binding.ask("sys", "user", 100) == "Un riassunto."
+    assert binding.template_kwargs is False
+    assert binding.ask("sys", "user", 100) == "Un riassunto."
+    # Asked once, refused, and never asked again.
+    assert sum("chat_template_kwargs" in call for call in seen) == 1
+
+
+def test_the_models_own_template_is_how_reasoning_is_turned_off():
+    """A binding that cannot pass the variable is not the end of the road.
+
+    The variable lives in the model's own chat template, and the template is
+    in the model's metadata, so it can be rendered here instead. Without this
+    a reasoning model narrates until its allowance runs out and comes back
+    with nothing — which looks from the outside like a model too small for the
+    job, and is not."""
+    rendered, asked = [], []
+
+    class Formatter:
+        def __call__(self, messages, **kwargs):
+            rendered.append(kwargs)
+
+            class Response:
+                prompt = "<|im_start|>assistant\n<think>\n\n</think>\n\n"
+                stop = ["<|im_end|>"]
+            return Response()
+
+    class Model:
+        def create_completion(self, prompt, **kwargs):
+            asked.append(prompt)
+            return {"choices": [{"text": " Un riassunto vero."}]}
+
+        def create_chat_completion(self, messages, **kwargs):
+            pytest.fail("it went through the chat path anyway")
+
+    binding = engine.Binding.__new__(engine.Binding)
+    binding.model, binding.formatter = Model(), Formatter()
+    binding.template_kwargs = True
+
+    assert binding.ask("sys", "user", 200) == "Un riassunto vero."
+    assert rendered == [{"enable_thinking": False}]
+    assert "</think>" in asked[0]

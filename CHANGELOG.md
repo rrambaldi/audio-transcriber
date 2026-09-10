@@ -8,6 +8,77 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- **A summary engine for a machine with no accelerator at all.** A GGUF
+  through llama.cpp, which is the environment the rest of this feature was
+  always about: two cores, no GPU, a few gigabytes. Nothing is converted — the
+  file is downloaded already quantised and loaded as it arrives — and the
+  weights are mapped from disk, so a model larger than the free memory is slow
+  rather than fatal. Either way in works: `llama-cpp-python`, or the
+  `llama-server` binary alone, which is one file and no Python and is what a
+  server would rather deploy. When the binary is used it is bound to
+  `127.0.0.1` on a port the kernel picked, it lives for exactly one summary,
+  and it is stopped in a `finally`. `auto` now prefers it over the extractive
+  engine and after OpenVINO, and `environment-cpu.yml` offers it commented,
+  with what it costs.
+
+- **The model is chosen by what the machine can actually hold.** The old
+  policy was three names against three numbers of free gigabytes, written by
+  hand; it left out the KV cache, which is what nobody counts until the
+  machine starts swapping, and it had no way to say no. The estimate is now
+  weights plus cache plus runtime, with the cache calculated from the model's
+  own shape and only over its **attention** layers — which is why the
+  catalogue prefers hybrids: Granite 4.0 H-Micro keeps a cache in four of its
+  forty layers. When a size class does not quite fit, the context goes first,
+  then the precision of the cache, then of the weights, then the class below;
+  and the key is never quantised below `q8_0`, because a symmetric four-bit
+  cache does not fail loudly, it quietly stops being faithful. When nothing
+  fits, nothing is loaded: the page is written by the extractive engine and
+  says so, with both figures. `audio-transcriber hardware` prints the plan it
+  would choose here, which is the only way to inspect the policy without
+  reading the code.
+
+- **The reduction stage is finally called.** It was documented as the thing
+  that lets a small model summarise an hour of speech and had no caller but
+  its own test. On the smaller classes the transcript is now selected down
+  before it is read, and the page says what share arrived.
+
+### Changed
+
+- **A long recording is folded in a tree rather than in one prompt.** A single
+  reduce prompt holds every partial summary, so it grows with the length of
+  the recording: fifteen chunks of a ninety-thousand-token meeting was a
+  twenty-one-thousand-token prompt handed to the model chosen precisely
+  because the machine is small. The partials are folded in groups, the groups
+  folded again, and the fan-in is what that model's context can hold. Each
+  level answers under its own budget — a chunk summary is a list, only the
+  last pass writes the page — and reasoning is off while reading a chunk,
+  where a model that narrates for its whole allowance is cut off before the
+  answer starts.
+
+- **Every folding pass is given a piece of the transcript, not only the
+  summaries it is merging.** From the second level up the model is summarising
+  its own writing and cannot tell what it invented one level down; a few
+  hundred tokens of the highest-weighted original sentences, with the
+  instruction to correct against them, is the measured cure and costs nothing
+  this program did not already have. Chunks are also kept below what the
+  window allows and overlap by a tenth: faithfulness sags in the middle of a
+  long input, and a decision taken across a boundary was otherwise half in
+  each pass.
+
+- **Italian is counted at the rate Italian costs.** Four characters to the
+  token is the figure everybody quotes and it is wrong here by a third:
+  measured with the tokenizers of the models in the catalogue, over spoken
+  Italian, the rate is 2.8 to 3.2. Undercounting is the direction that
+  produces chunks larger than the budget claims, so the divisor is per
+  language, the worst measured case is kept, and an unnamed language is
+  charged the careful rate.
+
+- **Passes already read are not read again.** A map pass is deterministic and
+  independent, so it is kept under the cache directory: asking for the same
+  recording at a different length re-reads nothing, and an interrupted job
+  resumes where it stopped. The key carries a version of the prompts, because
+  a cache that survives a prompt change is a bug that accumulates.
+
 - **The program has a mark.** A padlock cut through by a waveform — what it
   does and the fact that nothing leaves the machine, in one shape — as an icon
   set in `src/audio_transcriber/data/brand/`: the master drawing on its plate,

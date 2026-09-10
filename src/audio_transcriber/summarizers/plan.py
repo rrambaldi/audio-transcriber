@@ -104,13 +104,13 @@ CHUNK_OVERLAP = 0.1
 #: same depth would hold, and that is the difference between reading a long
 #: transcript and not.
 CATALOGUE = (
-    Model(name="MiniCPM5-1B",
-          hf_id="openbmb/MiniCPM5-1B",
-          gguf_repo="openbmb/MiniCPM5-1B-GGUF",
-          gguf_file="MiniCPM5-1B-{quant}.gguf",
-          context=131072, attn_layers=24, kv_heads=2, head_dim=128,
-          weights={"Q4_K_M": 0.64, "Q8_0": 1.07, "F16": 2.02},
-          tier="xs", floor=1.0),
+    # First in its tier because it is the one that works. Asked in Italian to
+    # summarise a news article in three sentences, MiniCPM5-1B at Q4_K_M
+    # returns the article — not a bad summary, no summary: it copies the input
+    # verbatim, on the simplest instruction that can be given. This one
+    # answers with three sentences of its own. Measured 2026-09-10 on the
+    # Evalita-LLM Fanpage task; the hybrid also holds a cache in six of its
+    # sixteen layers against the other's twenty-four, so it is cheaper too.
     Model(name="LFM2.5-1.2B",
           hf_id="LiquidAI/LFM2.5-1.2B-Instruct",
           gguf_repo="LiquidAI/LFM2.5-1.2B-Instruct-GGUF",
@@ -119,6 +119,16 @@ CATALOGUE = (
           weights={"Q4_K_M": 0.68, "Q5_K_M": 0.79, "Q6_K": 0.90,
                    "Q8_0": 1.16},
           tier="xs", floor=1.0),
+    # Kept, and not chosen: somebody who has already fetched it can still ask
+    # for it by name, and at Q8_0 it may well behave. At Q4_K_M it does not.
+    Model(name="MiniCPM5-1B",
+          hf_id="openbmb/MiniCPM5-1B",
+          gguf_repo="openbmb/MiniCPM5-1B-GGUF",
+          gguf_file="MiniCPM5-1B-{quant}.gguf",
+          context=131072, attn_layers=24, kv_heads=2, head_dim=128,
+          weights={"Q4_K_M": 0.64, "Q8_0": 1.07, "F16": 2.02},
+          tier="xs", floor=1.0,
+          note="copies the article instead of summarising it at Q4_K_M"),
     Model(name="MiniCPM5-2B",
           hf_id="openbmb/MiniCPM5-2B",
           gguf_repo="openbmb/MiniCPM5-2B-GGUF",
@@ -161,15 +171,21 @@ LEGACY_MODELS = ("Qwen/Qwen3-8B", "Qwen/Qwen3-4B", "Qwen/Qwen3-1.7B")
 #: One tier: how much usable memory it wants, and how a model runs there. The
 #: answer budgets shrink with the tier because they are what the level above
 #: has to carry: a map answer of 500 tokens is nothing to a model with 16k of
-#: context and is a third of the window of one with 2k.
+#: context and is a quarter of the window of one with 2k.
+#:
+#: They do not shrink as far as the arithmetic alone would allow, and that is
+#: a lesson from running one. A small model spends the first thirty or forty
+#: tokens of an answer restating the question, so a budget tight enough to
+#: look elegant is a budget that truncates the list halfway through its second
+#: item. The floor here is what a bulleted summary of a chunk actually needs.
 Tier = namedtuple("Tier", "name floor context kv max_passes prereduce "
                           "map_answer reduce_answer")
 
 TIERS = (
     Tier("l",  6.0, 16384, ("f16", "f16"),   None, False, 500, 1400),
     Tier("m",  3.5,  8192, ("q8_0", "q8_0"),    8, True,  500, 1200),
-    Tier("s",  2.0,  4096, ("q8_0", "q8_0"),    4, True,  300,  800),
-    Tier("xs", 1.0,  2048, ("q8_0", "q4_0"),    3, True,  150,  500),
+    Tier("s",  2.0,  4096, ("q8_0", "q8_0"),    4, True,  400,  900),
+    Tier("xs", 1.0,  2048, ("q8_0", "q4_0"),    3, True,  350,  650),
 )
 
 #: The engines this policy chooses for. Spelled out here rather than imported
@@ -270,10 +286,14 @@ def candidates(tier, engine, usable=None):
     is the better model of the two in the largest tier and wants eight
     gigabytes to be worth loading, so a machine with seven gets the other
     one rather than a squeezed version of the bigger."""
-    found = [model for model in CATALOGUE
+    found = [(index, model) for index, model in enumerate(CATALOGUE)
              if model.tier == tier.name and runnable(model, engine)
              and (usable is None or usable >= model.floor)]
-    return tuple(sorted(found, key=lambda model: model.floor, reverse=True))
+    # The floor first, then the order they are listed in: two models in one
+    # tier that want the same memory are ranked by the catalogue, which is
+    # where a measurement can be recorded and a preference explained.
+    found.sort(key=lambda pair: (-pair[1].floor, pair[0]))
+    return tuple(model for _, model in found)
 
 
 def _lower(context):
@@ -319,6 +339,16 @@ def _fit(model, tier, usable, quant=None, context=None, kv=None):
     if estimate() > usable:
         return None
     return quant, context, kv_k, kv_v, estimate()
+
+
+def evidence_for(context_tokens):
+    """How much original transcript a fold may be shown, at this context.
+
+    A share rather than a constant: four hundred tokens of evidence is nothing
+    in a sixteen-thousand-token window and a fifth of a two-thousand-token
+    one, where it would be taken out of the material the fold is there to
+    merge."""
+    return max(120, min(prompting.EVIDENCE_TOKENS, int(context_tokens) // 8))
 
 
 def tier_for(usable):

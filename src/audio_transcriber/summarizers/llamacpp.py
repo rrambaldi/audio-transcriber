@@ -195,16 +195,71 @@ class Binding:
         except Exception as exc:
             raise SummaryError(t("summary.load_failed", device="CPU",
                                  error=exc)) from exc
+        #: Whether this binding will pass arguments through to the chat
+        #: template. Newer ones will and older ones raise; there is no way to
+        #: ask beforehand, so it is discovered once and remembered.
+        self.template_kwargs = True
+        self.formatter = self._own_template()
+
+    def _own_template(self):
+        """A renderer for the model's own chat template, or None.
+
+        The way to turn reasoning off is a variable in that template, and a
+        binding too old to pass one leaves no other route — so the template is
+        taken out of the model's metadata and rendered here instead. It is
+        worth the reach: a reasoning model whose reasoning cannot be turned
+        off spends its whole allowance narrating, is cut off before the answer
+        begins, and looks from the outside exactly like a model too small for
+        the job.
+
+        None when the model has no template, or when its template has no such
+        variable, and then nothing here pretends otherwise."""
+        try:
+            from llama_cpp import llama_chat_format
+
+            template = (self.model.metadata or {}).get("tokenizer.chat_template")
+            if not template or "enable_thinking" not in template:
+                return None
+            return llama_chat_format.Jinja2ChatFormatter(
+                template=template,
+                eos_token=self.model.metadata.get("tokenizer.ggml.eos_token", "</s>"),
+                bos_token=self.model.metadata.get("tokenizer.ggml.bos_token", "<s>"),
+                stop_token_ids=None, add_generation_prompt=True)
+        except Exception:               # pragma: no cover - runtime dependent
+            return None
 
     def ask(self, system, user, max_new_tokens=None, think=False):
-        """One prompt, one answer, greedily."""
-        answer = self.model.create_chat_completion(
-            messages=[{"role": "system", "content": system},
-                      {"role": "user", "content": user}],
-            max_tokens=int(max_new_tokens or 512), temperature=0.0,
-            **({} if think else
-               {"chat_template_kwargs": {"enable_thinking": False}}))
-        return str(answer["choices"][0]["message"]["content"] or "").strip()
+        """One prompt, one answer, greedily.
+
+        Turning reasoning off is the model's chat template's business, and
+        reaching it means passing arguments through the binding. Where the
+        binding is too old for that, the request goes without: the narration
+        is stripped from the answer either way, it is only the token budget
+        that pays for it. Pretending to have switched it off would be worse
+        than paying."""
+        messages = [{"role": "system", "content": system},
+                    {"role": "user", "content": user}]
+        options = dict(max_tokens=int(max_new_tokens or 512), temperature=0.0)
+        if not think and self.formatter is not None:
+            rendered = self.formatter(messages=messages, enable_thinking=False)
+            answer = self.model.create_completion(
+                rendered.prompt, stop=rendered.stop or [], **options)
+            choices = answer.get("choices") or [{}]
+            return str(choices[0].get("text") or "").strip()
+        if not think and self.template_kwargs:
+            try:
+                return self._content(self.model.create_chat_completion(
+                    messages=messages,
+                    chat_template_kwargs={"enable_thinking": False}, **options))
+            except TypeError:
+                self.template_kwargs = False
+        return self._content(self.model.create_chat_completion(
+            messages=messages, **options))
+
+    @staticmethod
+    def _content(answer):
+        choices = answer.get("choices") or [{}]
+        return str(choices[0].get("message", {}).get("content") or "").strip()
 
     def close(self):
         self.model = None

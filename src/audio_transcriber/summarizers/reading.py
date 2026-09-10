@@ -65,6 +65,30 @@ def cut_to_fit(sentences, budget, chosen, language="it", tries=3):
     return kept, parts
 
 
+def ask(pipeline, system, prompt, budget, chosen, echo_prompt=None):
+    """One prompt, one answer, with the one failure worth retrying.
+
+    A model whose reasoning could not be switched off — the runtime may not
+    expose the switch, and this program will not pretend it did — spends the
+    whole allowance narrating and is cut off before the answer starts. What
+    comes back is indistinguishable from a model too small for the job, and it
+    is not the same thing: it is fixed by asking again with the room the
+    narration needs, once, and never at the cost of the context."""
+    raw = pipeline.ask(system, prompt, max_new_tokens=budget, think=False)
+    answer = prompting.usable_answer(raw, echo_prompt)
+    if answer or not prompting.thought_without_answering(raw):
+        return answer
+
+    room = max(budget, chosen.context_tokens
+               - prompting.estimate_tokens(prompt) - 64)
+    if room <= budget:
+        return answer
+    print(t("summary.still_thinking", tokens=room), file=sys.stderr)
+    return prompting.usable_answer(
+        pipeline.ask(system, prompt, max_new_tokens=room, think=False),
+        echo_prompt)
+
+
 def _map(pipeline, system, parts, language, chosen, report, band,
          cache_dir=None):
     """One answer per chunk, and the sentences behind each.
@@ -78,7 +102,7 @@ def _map(pipeline, system, parts, language, chosen, report, band,
     over the same recording — a different length, or a job resumed after being
     interrupted — costs nothing at all."""
     low, high = band
-    found = []
+    found, written = [], False
     for index, part in enumerate(parts, start=1):
         report(low + (high - low) * (index - 1) // len(parts), STAGE_READING)
         prompt = prompting.map_prompt(part, language, index, len(parts))
@@ -88,14 +112,30 @@ def _map(pipeline, system, parts, language, chosen, report, band,
         if answer is None:
             print(t("summary.pass", part=index, total=len(parts)),
                   file=sys.stderr)
-            answer = pipeline.ask(system, prompt,
-                                  max_new_tokens=chosen.map_answer_tokens,
-                                  think=False)
-            partials.put(name, answer, cache_dir)
+            answer = ask(pipeline, system, prompt, chosen.map_answer_tokens,
+                         chosen, echo_prompt=prompt)
+            if not answer:
+                # The model handed back the question. That happens with the
+                # small ones, and left alone it poisons every level above:
+                # what the fold merges would be the prompt, and the page would
+                # look finished. The chunk still has to contribute something,
+                # so it contributes the sentences that carry it — arithmetic
+                # instead of a model, which is what this program falls back on
+                # everywhere else.
+                print(t("summary.pass_echoed", part=index, total=len(parts)),
+                      file=sys.stderr)
+                answer = prompting.evidence_for(part, chosen.map_answer_tokens,
+                                                language)
+            written = partials.put(name, answer, cache_dir) or written
         else:
             print(t("summary.pass_cached", part=index, total=len(parts)),
                   file=sys.stderr)
         found.append((answer, list(part)))
+    if written:
+        # This program has no daemon, so the only moment anything can be
+        # tidied away is a moment when something was added. A cache that only
+        # grows fills the disk of the small machine it was meant to help.
+        partials.sweep(cache_dir)
     return found
 
 
@@ -106,9 +146,14 @@ def _fold(pipeline, system, answers, language, chosen, report, band):
     it is merging is the model's own writing, and by the second level it has
     no other way to tell what it invented one level down."""
     low, high = band
+    # How much of the original a fold may be shown is a share of the window,
+    # not a constant: four hundred tokens is nothing at sixteen thousand and a
+    # fifth of two thousand, where it would come out of the material the fold
+    # is there to merge.
+    evidence_tokens = plan.evidence_for(chosen.context_tokens)
     fanin = prompting.fanin_for(
         len(answers), chosen.context_tokens, chosen.map_answer_tokens,
-        chosen.reduce_answer_tokens, prompting.EVIDENCE_TOKENS)
+        chosen.reduce_answer_tokens, evidence_tokens)
     levels = prompting.reduce_tree(answers, fanin=fanin, max_fanin=fanin)
     prompt = ""
     for depth, level in enumerate(levels):
@@ -118,19 +163,26 @@ def _fold(pipeline, system, answers, language, chosen, report, band):
         for group in level:
             texts = [answers[index][0] for index in group]
             sentences = [line for index in group for line in answers[index][1]]
-            evidence = prompting.evidence_for(sentences, language=language)
+            evidence = prompting.evidence_for(sentences, evidence_tokens,
+                                              language)
             if root:
                 print(t("summary.reducing", total=len(answers)), file=sys.stderr)
                 prompt = prompting.reduce_prompt(texts, language, evidence)
-                answer = pipeline.ask(
-                    system, prompt, max_new_tokens=chosen.reduce_answer_tokens)
+                # No prompt is passed to the echo check here, deliberately.
+                # A reduce prompt carries the partial summaries, and those are
+                # exactly the content that is supposed to come back: measured
+                # against them, a good answer looks like an echo. What a fold
+                # can wrongly reproduce is the scaffold, and :func:`parse`
+                # recognises that on its own.
+                answer = ask(pipeline, system, prompt,
+                             chosen.reduce_answer_tokens, chosen)
             else:
                 print(t("summary.folding", groups=len(level), level=depth + 1),
                       file=sys.stderr)
                 prompt = prompting.reduce_partial_prompt(texts, language,
                                                          evidence)
-                answer = pipeline.ask(
-                    system, prompt, max_new_tokens=chosen.map_answer_tokens)
+                answer = ask(pipeline, system, prompt,
+                             chosen.map_answer_tokens, chosen) or texts[0]
             folded.append((answer, sentences))
         answers = folded
     return answers[0][0], prompt
@@ -208,8 +260,12 @@ def summarize_with(open_pipeline, chosen, material, settings=None,
         if len(parts) == 1:
             report(READING_BAND[0], STAGE_READING)
             prompt = prompting.single_prompt(parts[0], language)
-            answer = pipeline.ask(system, prompt,
-                                  max_new_tokens=chosen.reduce_answer_tokens)
+            # No echo check against this prompt: it carries the headings the
+            # answer is supposed to come back under, so measured against it a
+            # well-shaped answer looks copied. What a one-pass answer can
+            # wrongly reproduce is the transcript, and the fence catches that.
+            answer = ask(pipeline, system, prompt,
+                         chosen.reduce_answer_tokens, chosen)
         else:
             low, high = READING_BAND
             seam = int(low + (high - low) * FOLDING_FROM)

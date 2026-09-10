@@ -622,3 +622,76 @@ def test_summarising_nothing_never_reaches_the_model(stubbed):
     with pytest.raises(SummaryError):
         engine.summarize(material([]), {})
     assert stubbed.asked == []
+
+
+# --- a model that reasons instead of answering ----------------------------
+
+def test_a_model_still_thinking_when_it_ran_out_is_asked_again(stubbed, roomy):
+    """Told apart from a model too small for the job, which it resembles.
+
+    The token budget is the whole budget, so reasoning that fills it leaves an
+    answer that parses to nothing. One of those two is fixed by asking again
+    with room; the other is not, and they must not share an outcome."""
+    calls = []
+
+    def thinking_once(self, system, user, max_new_tokens=None, think=False):
+        calls.append(max_new_tokens)
+        if len(calls) == 1:
+            return "<think>\nDunque, l'utente vuole che io"      # cut off here
+        return "## In breve\nUn riassunto vero."
+
+    monkeypatch = pytest.MonkeyPatch()
+    monkeypatch.setattr(FakePipeline, "ask", thinking_once)
+    try:
+        sections, _ = engine.summarize(material(SENTENCES), {})
+    finally:
+        monkeypatch.undo()
+
+    assert sections.abstract == "Un riassunto vero."
+    assert len(calls) == 2
+    assert calls[1] > calls[0], "asked again with more room than it had"
+
+
+def test_a_model_that_is_simply_too_small_is_not_asked_twice(stubbed):
+    """Nothing was truncated, so more room would change nothing."""
+    calls = []
+
+    def useless(self, system, user, max_new_tokens=None, think=False):
+        calls.append(max_new_tokens)
+        return "   "
+
+    monkeypatch = pytest.MonkeyPatch()
+    monkeypatch.setattr(FakePipeline, "ask", useless)
+    try:
+        with pytest.raises(SummaryError):
+            engine.summarize(material(SENTENCES), {})
+    finally:
+        monkeypatch.undo()
+    assert len(calls) == 1
+
+
+def test_a_finished_thought_is_not_a_truncated_one():
+    assert prompting.thought_without_answering("<think>ecco</think>\n## In breve") is False
+    assert prompting.thought_without_answering("<think>ecco, e poi") is True
+    assert prompting.thought_without_answering("## In breve\nTesto.") is False
+
+
+def test_a_thought_with_no_end_never_reaches_the_page():
+    """It is the whole of what there was room for, not a preamble.
+
+    Left in, the model's English narration about what the user might have
+    meant becomes the abstract of an Italian summary."""
+    cut_off = "<think>\nOkay, the user wants me to extract the parts that"
+    assert prompting.usable_answer(cut_off) == ""
+    assert prompting.parse(cut_off, "it").abstract == ""
+
+
+def test_an_echo_reflowed_onto_one_line_is_still_an_echo():
+    """Models rewrap what they copy, and two lines come back as one."""
+    prompt = prompting.map_prompt(SENTENCES, "it", 2, 2)
+    reflowed = ("Questa e' la parte 2 di 2 di una trascrizione. Elenca, in "
+                "italiano, solo quello che compare in QUESTA parte: i punti "
+                "trattati, le decisioni prese e le cose che qualcuno si e' "
+                "impegnato a fare. Un elenco puntato, ogni riga con il minuto.")
+    assert reflowed not in prompt          # not as written, only reflowed
+    assert prompting.usable_answer(reflowed, prompt) == ""

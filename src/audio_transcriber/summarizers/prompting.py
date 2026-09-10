@@ -218,6 +218,28 @@ def prompts_for(language):
     return PROMPTS.get(language_of(language), PROMPTS["en"])
 
 
+#: Built once per language, on demand: the prompts are constants.
+_SCAFFOLDS = {}
+
+
+def scaffold(language):
+    """Every line this program's own prompts are made of, as literal text.
+
+    What it is for is recognising those lines coming back: a model that
+    reproduces the shape it was given has not written anything, and the shape
+    is known exactly because this module wrote it."""
+    code = language_of(language)
+    if code not in _SCAFFOLDS:
+        lines = set()
+        for template in prompts_for(code).values():
+            for line in re.sub(r"\{[^}]*\}", "", template).splitlines():
+                line = line.strip()
+                if len(line) > 3:
+                    lines.add(line)
+        _SCAFFOLDS[code] = frozenset(lines)
+    return _SCAFFOLDS[code]
+
+
 def transcript_for(sentences):
     """The transcript as the model reads it: a minute, a speaker, a sentence.
 
@@ -432,7 +454,7 @@ def parse(answer, language="it", prompt=None):
     to tell an oddly-shaped summary from a model that simply repeated the
     question."""
     language = language_of(language)
-    text = _THINK.sub("", str(answer or "")).strip()
+    text = without_thinking(answer)
     if not text:
         return Sections()
 
@@ -449,10 +471,20 @@ def parse(answer, language="it", prompt=None):
         if field is None or not line.strip():
             continue
         bullet = _BULLET.match(line)
+        content = bullet.group(1) if bullet else line.strip()
+        # A line the model copied out of the instructions is not something it
+        # wrote about the recording. Small models reproduce the scaffold they
+        # were given, and "one paragraph of three or four lines" arriving as
+        # the abstract is a page that looks finished and says nothing. It is
+        # the instructions that are checked against, not the whole prompt: a
+        # reduce prompt carries the partial summaries too, and those are
+        # exactly the content that is supposed to come back.
+        if content in scaffold(language):
+            continue
         if field == "abstract":
-            collected["abstract"].append(bullet.group(1) if bullet else line.strip())
+            collected["abstract"].append(content)
         elif bullet:
-            collected[field].append(bullet.group(1))
+            collected[field].append(content)
 
     if not matched:
         return Sections(abstract=_not_an_echo(text, prompt))
@@ -465,6 +497,43 @@ def parse(answer, language="it", prompt=None):
         keywords=[word.strip() for line in collected["keywords"]
                   for word in line.split(",") if word.strip()],
     )
+
+
+#: An opening narration with no end: the model was still thinking when the
+#: budget ran out.
+_UNFINISHED_THOUGHT = re.compile(r"<think>(?!.*</think>)", re.DOTALL | re.IGNORECASE)
+
+
+def thought_without_answering(answer):
+    """Whether the model spent its whole allowance narrating.
+
+    The budget is the *whole* budget, so a model that reasons for all of it is
+    cut off before the answer begins — and what comes back parses to nothing,
+    which looks exactly like a model too small for the job. It is worth
+    telling the two apart: one of them is fixed by asking again with room."""
+    return bool(_UNFINISHED_THOUGHT.search(str(answer or "")))
+
+
+def usable_answer(answer, prompt=None):
+    """What is left of an answer once the model's echo of the question is gone.
+
+    Applied to every answer, not only to the ones that arrive in an
+    unrecognisable shape. A small model very often opens by restating what it
+    was asked — sometimes that is all it does — and in a map/reduce that
+    matters twice over: the echo is charged against the answer budget, so the
+    real content is what gets truncated, and whatever survives is fed to the
+    level above as if it were a summary."""
+    return _not_an_echo(without_thinking(answer), prompt)
+
+
+def without_thinking(text):
+    """The answer with the model's narration gone, finished or not.
+
+    A narration with no end is not a preamble to an answer: it is the whole of
+    what there was room for, and everything from it on is thinking aloud."""
+    text = _THINK.sub("", str(text or ""))
+    unfinished = _UNFINISHED_THOUGHT.search(text)
+    return (text[:unfinished.start()] if unfinished else text).strip()
 
 
 def _not_an_echo(text, prompt=None):
@@ -480,14 +549,23 @@ def _not_an_echo(text, prompt=None):
     lines that appear verbatim in what was asked are dropped, the transcript
     fence ends the answer wherever it appears, and if what survives is too
     short to be a summary there is no summary."""
-    echoed = FENCE_START in text
+    # The marker as it was sent, and as a model that dropped the dashes writes
+    # it back. Recognising only the exact spelling would miss most echoes.
+    marker = next((found for found in (FENCE_START, FENCE_START.strip("-"))
+                   if found in text), None)
+    echoed = marker is not None
     if echoed:
-        text = text.split(FENCE_START, 1)[0].strip()
+        text = text.split(marker, 1)[0].strip()
     if prompt:
+        # Compared with the whitespace flattened out of both, because a model
+        # reflows what it copies: two lines of the question come back as one,
+        # and matched literally that would read as an original sentence.
+        flat = " ".join(prompt.split())
         kept, dropping = [], True
         for line in text.splitlines():
-            if dropping and (not line.strip() or line.strip() in prompt):
-                echoed = echoed or bool(line.strip())
+            packed = " ".join(line.split())
+            if dropping and (not packed or packed in flat):
+                echoed = echoed or bool(packed)
                 continue
             dropping = False
             kept.append(line)

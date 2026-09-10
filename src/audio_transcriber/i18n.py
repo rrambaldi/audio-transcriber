@@ -238,6 +238,8 @@ MESSAGES = {
         "gui.summary_long": "long",
         "gui.summary_engine_extractive": "no model: the sentences that carry the transcript",
         "gui.summary_engine_openvino": "a local model, on this machine's Intel device",
+        "gui.summary_engine_llamacpp":
+            "a local model, on this machine's processor",
         "gui.summary_queued": "Summary of '{title}' queued.",
         "gui.summary_done": "Summary of '{title}' written.",
         "gui.summary_failed": "Could not summarise '{title}': {error}",
@@ -611,6 +613,12 @@ MESSAGES = {
         "summary.pass": "  Reading part {part} of {total}...",
         "summary.pass_cached":
             "  Part {part} of {total} was already read; reusing it.",
+        "summary.pass_echoed":
+            "  Part {part} of {total} came back as the question; quoting "
+            "that part instead.",
+        "summary.still_thinking":
+            "  The model was still thinking when its answer ran out; "
+            "asking again with {tokens} tokens.",
         "summary.folding": "  Folding {groups} groups (level {level})...",
         "summary.prereducing":
             "  {passes} passes is more than this machine should spend; "
@@ -863,6 +871,8 @@ MESSAGES = {
         "gui.summary_long": "lungo",
         "gui.summary_engine_extractive": "nessun modello: le frasi che reggono la trascrizione",
         "gui.summary_engine_openvino": "un modello locale, sul dispositivo Intel di questa macchina",
+        "gui.summary_engine_llamacpp":
+            "un modello locale, sul processore di questa macchina",
         "gui.summary_queued": "Riassunto di '{title}' messo in coda.",
         "gui.summary_done": "Riassunto di '{title}' scritto.",
         "gui.summary_failed": "Non ho riassunto '{title}': {error}",
@@ -1243,6 +1253,12 @@ MESSAGES = {
         "summary.pass": "  Leggo la parte {part} di {total}...",
         "summary.pass_cached":
             "  La parte {part} di {total} era gia' letta: la riuso.",
+        "summary.pass_echoed":
+            "  La parte {part} di {total} e' tornata indietro come domanda: "
+            "cito quella parte invece.",
+        "summary.still_thinking":
+            "  Il modello stava ancora ragionando quando la risposta e' "
+            "finita: richiedo con {tokens} token.",
         "summary.folding": "  Fondo {groups} gruppi (livello {level})...",
         "summary.prereducing":
             "  {passes} passaggi sono troppi per questa macchina: scelgo "
