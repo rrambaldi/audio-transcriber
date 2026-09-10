@@ -37,6 +37,19 @@ All notable changes to this project are documented here. The format follows
   would choose here, which is the only way to inspect the policy without
   reading the code.
 
+- **Handling for what small models actually do.** Every one of these was
+  found by running a 1.2-billion-parameter model on a two-core machine, and
+  none of them could have been found any other way. A `<think>` block with no
+  end never reaches the page, and a model still thinking when its allowance
+  ran out is asked again with room — a different failure from a model too
+  small for the job, which from the outside it resembles exactly. An answer
+  that gives back the question is recognised even when reflowed onto one line,
+  and the chunk it came from contributes its own highest-weighted sentences
+  instead. A line copied out of this program's own instructions is not treated
+  as something the model wrote about the recording. And a heading written as
+  `**Punti chiave**` rather than `## Punti chiave` is still a heading:
+  unrecognised, every section the model wrote landed in the abstract.
+
 - **The reduction stage is finally called.** It was documented as the thing
   that lets a small model summarise an hour of speech and had no caller but
   its own test. On the smaller classes the transcript is now selected down

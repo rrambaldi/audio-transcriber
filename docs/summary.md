@@ -200,12 +200,34 @@ recording at a different length re-reads nothing, and a job interrupted
 halfway resumes where it stopped. Changing a prompt bumps the version, because
 a cache that survives the change is not a saving but a bug that accumulates.
 
-Two habits of language models are handled rather than hoped away. A reasoning
-model's `<think>` block never reaches the page. And a model too small for the
-job answers by repeating the question: the transcript in the prompt is fenced
-with a marker, so an answer that echoes it is recognised as an echo, and you
-get "returned nothing usable — try another model, or `--engine extractive`"
-instead of a page that looks like a summary and is the transcript again.
+Several habits of language models are handled rather than hoped away, and
+every one of them was found by running a small model rather than by reasoning
+about it.
+
+A reasoning model's `<think>` block never reaches the page — including one
+with no end, which is not a preamble to an answer but the whole of what there
+was room for. If the model was still thinking when its allowance ran out, it
+is asked again with room, once: that is a different failure from a model too
+small for the job, and from the outside they look identical.
+
+A model too small answers by repeating the question. The transcript is fenced
+with a marker, so an answer that gives it back is recognised — even when the
+model has reflowed it onto one line, which is what they do. A chunk whose pass
+came back as the question still contributes: it contributes its own
+highest-weighted sentences, arithmetic instead of a model.
+
+A model that copies the instructions is recognised too. The scaffold is this
+program's own text, so a line of it coming back is not something the model
+wrote about the recording; "one paragraph of three or four lines" printed as
+the summary is a page that looks finished and says nothing.
+
+And a heading written as `**Punti chiave**` rather than `## Punti chiave` is
+still a heading. Left unrecognised, every section the model wrote lands in the
+abstract.
+
+When nothing survives all of that, you get "returned nothing usable — try
+another model, or `--engine extractive`" instead of a page that looks like a
+summary and is the transcript again.
 
 ## Choosing a model, and refusing to
 
@@ -222,13 +244,22 @@ layers, a tenth of what a dense model of the same depth would keep.
 
 | size class | usable memory | model | context | cache (key/value) | pre-reduction |
 |---|---|---|---|---|---|
-| `xs` | 1.0–2.0 GB | MiniCPM5-1B Q4_K_M | 2048 | q8_0 / q4_0 | always |
+| `xs` | 1.0–2.0 GB | LFM2.5-1.2B Q4_K_M | 2048 | q8_0 / q4_0 | always |
 | `s` | 2.0–3.5 GB | MiniCPM5-2B Q4_K_M | 4096 | q8_0 / q8_0 | above 4 passes |
 | `m` | 3.5–6.0 GB | Granite 4.0 H-Micro Q4_K_M | 8192 | q8_0 / q8_0 | above 8 passes |
 | `l` | above 6.0 GB | Qwen3.5-4B, or Granite 4.0 H-Tiny above 8 GB | 16384 | f16 / f16 | no |
 
 "Usable" is the free memory less a reserve for the operating system and for
 the rest of this program, which is holding a transcript while the model runs.
+
+The smallest class is LFM2.5-1.2B and not MiniCPM5-1B, and the reason is worth
+recording: asked in Italian to summarise a news article in three sentences,
+MiniCPM5-1B at Q4_K_M returns the article. Not a poor summary — no summary: it
+copies the input, on the simplest instruction that can be given. Both are in
+the catalogue and either can be asked for by name; only one of them is chosen.
+That is what the Italian screening in
+[summary-lowram-plan.md](summary-lowram-plan.md) is for, and it is why a
+catalogue picked on English benchmarks is not enough.
 
 When a class does not quite fit, things are given up in the order they cost
 least: the context first, then the precision of the cache, then the precision
