@@ -164,6 +164,24 @@ All notable changes to this project are documented here. The format follows
   do at all — there is no `text-transform` and no `letter-spacing` in a Qt
   style sheet, and a font set on a container is inherited by everything in it.
 
+- **The window holds its content off its own frame, and its tabs look like
+  tabs.** Two things the first pass got wrong. A group box's rule was flush
+  against the window: there is now one gutter, set on the tab widget's pane,
+  and the masthead, the tab strip, every panel and the status line all start
+  on the same vertical — which took the status line out of `showMessage`,
+  because Qt draws a status message seven pixels from the frame and neither
+  contents margins nor a style sheet will move it. And the three tabs read as
+  a row of captions: the page's 0.72rem label is a ratio written against a
+  16 px body, so on a 9pt desktop font it came out near seven points, with an
+  underline the colour of the text — which reads as underlined text. The strip
+  keeps the case and the tracking, gives up the shrinking, has room to be
+  pressed, and marks the tab you are on in the accent.
+
+  One thing fell out of that: a finished transcription now stays in the status
+  line for its eight seconds. It was announced and then overwritten by the
+  library count in the next statement, so the one message worth reading after
+  forty minutes of work was the one nobody ever saw.
+
 - **The typefaces moved in with the icons.** They were under
   `web/static/fonts/`, which was the right place while only the page used
   them; both front ends do now, so they are `data/brand/fonts/`, served at

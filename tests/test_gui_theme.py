@@ -27,6 +27,7 @@ try:
         QLabel,
         QPushButton,
         QTableWidget,
+        QTabWidget,
         QVBoxLayout,
         QWidget,
     )
@@ -150,6 +151,51 @@ def test_the_label_font_is_the_page_s_uppercase_micro_label(application):
     assert label.letterSpacing() == theme.LABEL_TRACKING
     assert label.weight() >= QFont.Weight.DemiBold
     assert label.pointSizeF() < base.pointSizeF()
+
+
+def test_a_tab_gets_the_same_treatment_at_full_size(application, restored):
+    """Three tabs are the whole navigation of this window, and at the label's
+    own ratio they came out around seven points: a row of captions, which is
+    what "they do not look like tabs" means. The strip therefore keeps the
+    case and the tracking and gives up the shrinking."""
+    theme.apply(application, "light")
+    base = QFont(application.font())
+    tab = theme.tab_font(base)
+
+    assert tab.capitalization() == QFont.Capitalization.AllUppercase
+    assert tab.pointSizeF() == pytest.approx(base.pointSizeF())
+    assert tab.pointSizeF() > theme.label_font(base).pointSizeF()
+
+    host = QWidget()
+    tabs = QTabWidget(host)
+    tabs.addTab(QWidget(), "Transcribe")
+    host.show()
+    for _ in range(3):
+        QApplication.processEvents()
+    strip = tabs.tabBar().font()
+    assert strip.capitalization() == QFont.Capitalization.AllUppercase
+    assert strip.pointSizeF() == pytest.approx(tab.pointSizeF())
+    host.deleteLater()
+
+
+def test_the_selected_tab_is_marked_in_the_accent_not_in_the_ink(application):
+    """An underline the colour of the text reads as underlined text, which is
+    the other half of why the strip did not look like tabs."""
+    sheet = theme.qss("light")
+    selected = sheet.split("QTabBar::tab:selected")[1].split("}")[0]
+
+    assert theme.colour("signal", "light").name().upper() in selected.upper()
+    assert "border-bottom: 3px solid transparent" in sheet
+
+
+def test_the_content_is_held_off_the_frame(application):
+    """The gutter: a group box's rule was flush against the window."""
+    sheet = theme.qss("light")
+    pane = sheet.split("QTabWidget::pane")[1].split("}")[0]
+
+    assert f"{theme.GUTTER}px" in pane
+    assert f"QTabWidget::tab-bar {{ left: {theme.GUTTER}px; }}" in sheet
+    assert theme.GUTTER >= 16
 
 
 def test_a_heading_is_the_serif_and_a_note_is_not(application):

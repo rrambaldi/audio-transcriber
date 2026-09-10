@@ -463,9 +463,29 @@ stylesheet's own token values, by `tests/test_gui_theme.py`.
 | `--signal` | `QPalette.Highlight`, the focus ring, a timestamp, the primary action |
 | a field as one rule under the text | `QLineEdit`, `QComboBox`, `QSpinBox` with a single bottom border |
 | `.button`, typographic and never boxy | `QPushButton` with no fill and a bottom rule; `#primary` is the accent and a heavier rule, not a filled box |
-| `.tab` | `QTabBar::tab`, a word with a line under it |
+| `.tab` | `QTabBar::tab`, a word with the accent under it — see below |
 | `.row .title` in the serif | the queue and library rows, painted by `widgets.JobDelegate` |
 | `.drop`, dashed | `QFrame#drop`, dashed, washed in the accent while a file is over it |
+
+Two deliberate departures from the page, both because a window is not a sheet
+of paper:
+
+- **The tab strip is set at the interface font's own size**, not at the
+  page's 0.72rem, and the selected tab is marked in the accent rather than in
+  the ink. The page can afford a whisper there because its tab strip sits
+  inside a form that has just asked a question; these three tabs are the whole
+  navigation of the window, and at the label's ratio on a 9pt desktop font
+  they came out near seven points with a text-coloured underline — a row of
+  captions, which is exactly what "they don't look like tabs" means.
+- **Everything is held `theme.GUTTER` off the frame** — the masthead, the tab
+  strip, each panel and the status line all start on the same vertical. The
+  page gives itself between 1rem and 4rem of side padding; a window cannot
+  indent that luxuriously, but a group box's rule flush against the frame is
+  not the same design. The gutter is set once, on the tab widget's pane, so
+  the panels carry no margins of their own. The status line is a label in the
+  bar rather than `showMessage`, because Qt draws a status message seven
+  pixels from the frame and neither contents margins nor a style sheet move
+  it.
 
 Two things Qt cannot do, and where they went:
 

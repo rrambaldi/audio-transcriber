@@ -854,7 +854,7 @@ def test_the_queue_line_lists_the_states_instead_of_choosing_one(window, tmp_pat
 def test_the_status_bar_says_what_is_in_the_library(window):
     """It used to hold the library path, permanently, in the one place a
     message can appear."""
-    assert "recordings in the library" in window.statusBar().currentMessage()
+    assert "recordings in the library" in window.status_line.text()
 
 
 # --- starting one recording ------------------------------------------------
