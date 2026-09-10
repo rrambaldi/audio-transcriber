@@ -197,6 +197,19 @@ MESSAGES = {
         "web.missing":
             "The web interface needs FastAPI and Uvicorn.\n"
             "  pip install \"audio-transcriber-ov[web]\"",
+        # --- a text you already have -----------------------------------------
+        "reference.unreadable": "Cannot read the text at {path}: {error}",
+        "reference.corrected":
+            "  The text you gave corrected {corrected} of {heard} words heard.",
+        "reference.matched":
+            "  {percent}% of it turned up in the audio; the rest was not said, "
+            "and nothing was added for it.",
+        "reference.poor":
+            "  WARNING: only {percent}% of your text turned up in the audio. "
+            "If it belongs to another recording it has corrected almost "
+            "nothing, which is the right outcome but probably not the one you "
+            "wanted.",
+
         "web.job_queued": "queued",
         "web.job_running": "running",
         "web.job_done": "done",
@@ -294,6 +307,20 @@ MESSAGES = {
         "gui.sub_chars_tip":
             "Characters on one line, spaces included. Leave it at the preset unless you "
             "know the player: 42 is the professional reference, 32 the narrowest in use.",
+        "gui.label_reference": "A text you have",
+        "gui.reference_note":
+            "A script, a press release, a transcript from elsewhere: its rare "
+            "words are given to the engine so it spells them right, and "
+            "afterwards they correct what it misheard or cut short. What was "
+            "actually said still wins - nothing is added because the text "
+            "expected it.",
+        "gui.reference_hint":
+            "Paste a script, a press release, a transcript from elsewhere. "
+            "Leave empty and the recording is simply transcribed.",
+        "gui.reference_tip":
+            "Two things it does: the names and rare words go to the engine "
+            "before it starts, and afterwards it corrects the words it "
+            "misheard or cut short. It never adds what was not said.",
         "gui.sub_words_tip":
             "A new subtitle every so many words. Not one of the trade's numbers - they "
             "measure characters and reading speed - but honoured when given.",
@@ -873,6 +900,20 @@ MESSAGES = {
         "web.missing":
             "L'interfaccia web richiede FastAPI e Uvicorn.\n"
             "  pip install \"audio-transcriber-ov[web]\"",
+        # --- un testo che hai gia' ---------------------------------------------
+        "reference.unreadable": "Non riesco a leggere il testo in {path}: {error}",
+        "reference.corrected":
+            "  Il testo che hai dato ha corretto {corrected} parole su "
+            "{heard} sentite.",
+        "reference.matched":
+            "  Il {percent}% di quel testo si ritrova nell'audio; il resto "
+            "non e' stato detto, e non e' stato aggiunto niente per questo.",
+        "reference.poor":
+            "  ATTENZIONE: solo il {percent}% del tuo testo si ritrova "
+            "nell'audio. Se e' di un'altra registrazione non ha corretto "
+            "quasi nulla, che e' il risultato giusto ma probabilmente non "
+            "quello che volevi.",
+
         "web.job_queued": "in coda",
         "web.job_running": "in corso",
         "web.job_done": "completato",
@@ -964,6 +1005,20 @@ MESSAGES = {
         "gui.sub_chars_tip":
             "Caratteri su una riga, spazi compresi. Lascialo al preset se non conosci il "
             "player: 42 e' il riferimento professionale, 32 il piu' stretto in uso.",
+        "gui.label_reference": "Un testo che hai",
+        "gui.reference_note":
+            "Un copione, un comunicato, una trascrizione presa altrove: le "
+            "sue parole rare vengono passate al motore perche' le scriva "
+            "giuste, e dopo correggono quello che ha sentito male o troncato. "
+            "Quello che e' stato detto davvero vince comunque: niente viene "
+            "aggiunto perche' il testo se lo aspettava.",
+        "gui.reference_hint":
+            "Incolla un copione, un comunicato, una trascrizione presa "
+            "altrove. Vuoto: la registrazione viene semplicemente trascritta.",
+        "gui.reference_tip":
+            "Fa due cose: i nomi e le parole rare vanno al motore prima che "
+            "cominci, e dopo correggono quello che ha sentito male o "
+            "troncato. Non aggiunge mai quello che non e' stato detto.",
         "gui.sub_words_tip":
             "Un sottotitolo nuovo ogni tot parole. Non e' uno dei numeri del mestiere - "
             "quello misura caratteri e velocita' di lettura - ma viene rispettato.",
@@ -1453,6 +1508,9 @@ HELP = {
         "help.subtitle_chars": "characters per subtitle line, overriding the preset",
         "help.subtitle_lines": "lines per subtitle, overriding the preset",
         "help.subtitle_words": "words per subtitle, if you would rather cap that",
+        "help.reference":
+            "a text you already have for this recording: its rare words help "
+            "the engine spell, and afterwards it corrects what was misheard",
         "help.lib_list": "list the entries, newest first",
         "help.lib_show": "show one entry and its transcript",
         "help.lib_search": "find entries whose transcript or notes contain some text",
@@ -1569,6 +1627,10 @@ HELP = {
         "help.subtitle_chars": "caratteri per riga di sottotitolo, invece di quelli del preset",
         "help.subtitle_lines": "righe per sottotitolo, invece di quelle del preset",
         "help.subtitle_words": "parole per sottotitolo, se preferisci limitare quelle",
+        "help.reference":
+            "un testo che hai gia' per questa registrazione: le sue parole "
+            "rare aiutano il motore a scrivere giusto, e dopo correggono "
+            "quello che ha sentito male",
         "help.lib_list": "elenca le voci, dalla piu' recente",
         "help.lib_show": "mostra una voce e la sua trascrizione",
         "help.lib_search": "cerca le voci il cui testo o le cui note contengono qualcosa",

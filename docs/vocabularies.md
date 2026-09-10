@@ -159,3 +159,13 @@ budget the current selection uses.
 A library entry records the names of the installed sets used for it, under
 `transcription.vocabulary` in `metadata.json`, so a transcript can be traced
 back to the vocabulary that shaped it.
+
+## A whole text instead of a list
+
+A keyword set is a list of terms you keep. If what you have is a *text* for
+this particular recording — a script, a press release, a transcript from
+somewhere else — hand that over instead, with `--reference FILE` or the box in
+the window and the page: its distinctive words go into the prompt the same way
+these sets do, and afterwards it also corrects the words the engine misheard
+or cut short. Keyword sets keep first claim on the prompt's few hundred
+characters. See [subtitles.md](subtitles.md) for the whole of it.

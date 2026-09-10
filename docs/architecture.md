@@ -54,6 +54,7 @@ summary.py               a library entry or a text file, summarised
 | `hardware.py` | what this machine can do |
 | `i18n.py` | the message catalogue |
 | `branding.py` | where the icon files are, so the browser and the window take theirs from one place |
+| `reference.py` | a text you already have: its rare words prompt the engine, then they correct what it misheard |
 
 ## Decisions worth knowing about
 

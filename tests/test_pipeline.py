@@ -198,3 +198,91 @@ def test_an_empty_transcription_is_still_an_error(engine, monkeypatch):
                                                              "model": "small"}))
     with pytest.raises(pipeline.EmptyTranscription):
         pipeline.run("meeting.wav", dict(SETTINGS))
+
+
+# --- a text you already have ----------------------------------------------
+
+TIMED = [{"text": "primo punto all'ordine del giorno", "start": 0.0, "end": 2.0,
+          "words": [{"word": word, "start": index * 0.4,
+                     "end": index * 0.4 + 0.35}
+                    for index, word in enumerate(
+                        ["primo", "punto", "all'ordine", "del", "giorno"])]}]
+
+
+@pytest.fixture
+def timed_engine(monkeypatch):
+    """An engine that reports its words, the way faster-whisper can."""
+    def fake_transcribe(audio, model, language, device, progress=None, **kwargs):
+        return TIMED, TIMED[0]["text"], {"backend": "faster-whisper",
+                                         "device": "CPU", "model": model}
+
+    monkeypatch.setattr(pipeline, "load_audio",
+                        lambda source: np.zeros(16000, dtype=np.float32))
+    monkeypatch.setattr(pipeline, "duration_seconds", lambda audio: 4.0)
+    monkeypatch.setattr(pipeline, "transcribe", fake_transcribe)
+
+
+def test_a_reference_text_corrects_what_was_heard(timed_engine):
+    """It corrects the spelling and leaves the recording alone: the sentence
+    the text has and the audio does not is not in the transcript."""
+    result = pipeline.run("meeting.wav", dict(
+        SETTINGS, reference="Primo punto all'ordine del giorno, signori."))
+
+    assert result.text.startswith("Primo punto all'ordine del giorno")
+    # "signori" was in the text and not in the audio, so it is not here.
+    assert "signori" not in result.text
+    assert result.reference["heard"] == 5
+    assert result.reference["corrected"] == 1        # "primo" -> "Primo"
+
+
+def test_a_reference_text_reaches_the_engine_as_a_prompt(engine):
+    """Its rare words go in before the run: that is the only lever there is
+    over a spelling the engine has not got."""
+    pipeline.run("meeting.wav", dict(
+        SETTINGS, reference="Il piano di Rambaldi per l'H.264 e' approvato."))
+
+    prompt = engine["kwargs"].get("prompt") or engine["kwargs"].get("initial_prompt")
+    assert prompt and "Rambaldi" in prompt
+    assert "H.264" in prompt
+    # And not the prose around them.
+    assert " per " not in f" {prompt} "
+    assert " il " not in f" {prompt} "
+
+
+def test_the_keyword_sets_keep_first_claim_on_the_prompt(engine):
+    """What somebody asked for by name is worth more than what a module
+    picked out of a text, and the prompt is a few hundred characters."""
+    long_prompt = "x" * 890
+    pipeline.run("meeting.wav", dict(SETTINGS, prompt=long_prompt,
+                                     reference="Rambaldi H.264 ISO"))
+
+    prompt = engine["kwargs"].get("prompt") or engine["kwargs"].get("initial_prompt")
+    assert prompt.startswith(long_prompt)
+    assert len(prompt) <= 900
+
+
+def test_a_reference_file_that_cannot_be_read_fails_before_the_work(engine):
+    """An hour of transcription is a poor way to find out about a typo in a
+    path, so the file is read before the engine is touched."""
+    with pytest.raises(pipeline.ReferenceError):
+        pipeline.run("meeting.wav",
+                     dict(SETTINGS, reference_file="/nowhere/script.txt"))
+    assert "kwargs" not in engine
+
+
+def test_a_reference_file_is_read_when_nothing_was_pasted(timed_engine, tmp_path):
+    script = tmp_path / "script.txt"
+    script.write_text("Primo punto all'ordine del giorno.", encoding="utf-8")
+
+    result = pipeline.run("meeting.wav",
+                          dict(SETTINGS, reference_file=str(script)))
+
+    assert result.reference["coverage"] == 1.0
+    assert result.text.startswith("Primo punto")
+
+
+def test_without_a_reference_nothing_changes(engine):
+    """The feature is opt-in and leaves no trace on a run that did not ask."""
+    result = pipeline.run("meeting.wav", dict(SETTINGS))
+
+    assert result.reference is None

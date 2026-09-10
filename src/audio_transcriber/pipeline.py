@@ -18,6 +18,9 @@ from .cleaning import clean_segments, paragraphs_from_blob, to_paragraphs
 from .config import read_prompt
 from .diarization import assign_speakers, check_diar_assets, diarize, format_dialogue
 from .i18n import t
+from .reference import ReferenceError
+from .reference import correct as respell
+from .reference import prompt_from as reference_prompt
 from .subtitles import (
     OVERRIDABLE,
     SubtitleError,
@@ -30,7 +33,7 @@ from .subtitles import (
 from .subtitles import cues as build_cues
 from .subtitles import preset as subtitle_preset
 from .transcription import transcribe
-from .vocabularies import split_names
+from .vocabularies import MAX_PROMPT_CHARS, split_names
 
 #: The stages a run goes through, as ``(percentage reached, message key)``.
 #: A transcription is minutes or hours of one blocking call, and a bar that
@@ -54,9 +57,13 @@ ENGINE_BAND = (5, 95)
 ENGINE_BAND_WITH_DIARIZATION = (5, 60)
 DIARIZATION_BAND = (60, 95)
 
-#: What one run produces. ``info`` is the backend/device/model record.
+#: What one run produces. ``info`` is the backend/device/model record, and
+#: ``reference`` is what a given text corrected, on the runs that were handed
+#: one, and ``None`` on every other.
 Result = namedtuple("Result",
-                    "text segments info audio_duration elapsed diarized prompt")
+                    "text segments info audio_duration elapsed diarized prompt "
+                    "reference",
+                    defaults=(None,))
 
 
 class EmptyTranscription(Exception):
@@ -135,6 +142,42 @@ def write_subtitles(entry, result, settings, kinds=None):
     return written, cue_list, validate(cue_list, spec)
 
 
+def resolve_reference(settings):
+    """The text somebody already has for this recording, if there is one.
+
+    Pasted in - the web page and the window both have a box - or a file named
+    on the command line. It is not what the run will say: it is used to help
+    the engine spell and then to proof-read what it heard. See
+    :mod:`audio_transcriber.reference`."""
+    text = settings.get("reference") or ""
+    path = settings.get("reference_file")
+    if not text and path:
+        try:
+            with open(path, encoding="utf-8") as handle:
+                text = handle.read()
+        except OSError as failure:
+            raise ReferenceError(
+                t("reference.unreadable", path=path, error=failure)) from failure
+    return text.strip()
+
+
+def prompt_with_reference(prompt, reference):
+    """The prompt, with the reference text's distinctive words added to it.
+
+    Whisper's prompt is a few hundred characters and the keyword sets have
+    first claim on them: what a person asked for by name is worth more than
+    what a module picked out of a text. The reference's own words get whatever
+    is left, longest-standing first, and if nothing is left the reference
+    still does its other job - proof-reading afterwards."""
+    if not reference:
+        return prompt
+    room = MAX_PROMPT_CHARS - len(prompt or "") - 1
+    extra = reference_prompt(reference, limit=room) if room > 0 else ""
+    if not extra:
+        return prompt
+    return f"{prompt} {extra}".strip() if prompt else extra
+
+
 def resolve_prompt(settings):
     """The initial prompt in effect: keyword sets, then prompt file or string."""
     return read_prompt(settings.get("prompt"), settings.get("prompt_file"),
@@ -197,6 +240,12 @@ def run(source, settings, prompt=None, progress=None):
     transcription on an engine that cannot report its own progress."""
     if prompt is None:
         prompt = resolve_prompt(settings)
+    # Read before a minute of work is spent: a file that cannot be opened
+    # should fail now, not after the transcription.
+    reference = resolve_reference(settings)
+    # What it buys before the engine runs: the spellings it would otherwise
+    # invent. What it buys afterwards is further down.
+    prompt = prompt_with_reference(prompt, reference)
 
     report = report_to(progress)
     report(*STAGE_STARTED)
@@ -222,12 +271,22 @@ def run(source, settings, prompt=None, progress=None):
         # Word timings make a subtitle cut fall where the speaker paused
         # instead of being interpolated: worth the time when subtitles are
         # wanted, not worth it otherwise.
+        # Word timings make a subtitle cut fall where the speaker paused
+        # instead of being interpolated: worth the time when subtitles are
+        # wanted, not worth it otherwise.
         word_timestamps=bool(settings.get("subtitles")),
     )
     report(band[1], STAGE_LAYING_OUT)
     if not segments and not blob.strip():
         raise EmptyTranscription()   # its message is the translated one
     segments = clean_segments(segments, drop_fillers=not settings.get("keep_fillers"))
+
+    proofed = None
+    if reference:
+        # The second job: what was heard stays what was heard, and only the
+        # words the text plainly spells better are rewritten. A sentence the
+        # speaker never said does not appear because the text expected it.
+        segments, proofed = respell(segments, reference)
 
     text, diarized = None, False
     if diarizing:
@@ -247,7 +306,7 @@ def run(source, settings, prompt=None, progress=None):
            STAGE_LAYING_OUT)
     return Result(text=text, segments=segments, info=info,
                   audio_duration=audio_duration, elapsed=time.time() - started,
-                  diarized=diarized, prompt=prompt)
+                  diarized=diarized, prompt=prompt, reference=proofed)
 
 
 
@@ -271,6 +330,11 @@ def file_in_library(library, source, result, settings, title=None, store="copy")
         },
         stats={"words": len(result.text.split()), "segments": len(result.segments)},
     )
+    if result.reference:
+        # Kept with the entry and not only printed once: somebody coming back
+        # in a month should be able to see that a text was used, how many
+        # words it corrected, and how much of it turned up in the audio.
+        entry.update(reference=result.reference)
     kinds, cue_list, problems = write_subtitles(entry, result, settings)
     if kinds:
         entry.update(subtitles={

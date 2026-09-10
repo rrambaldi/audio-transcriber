@@ -417,6 +417,29 @@ def test_both_schemes_define_every_colour(stylesheet):
     assert set(light) <= set(dark)
 
 
+# --- a text you already have ----------------------------------------------
+
+def test_the_page_takes_a_text_you_already_have(page, script):
+    """It helps the engine spell and then corrects what it misheard. It lives
+    with the subtitle numbers, which is where the use case comes up."""
+    assert 'id="reference"' in page
+    assert 'data-t="reference_label"' in page
+    assert 'data-t="reference_note"' in page
+    subs = page.split('id="subtitle-fields"')[1].split("</fieldset>")[0]
+    assert 'id="reference"' in subs
+    assert 'body.append("reference"' in script
+
+
+def test_the_page_does_not_promise_the_text_will_be_used_verbatim(script):
+    """The note has to say what actually happens, because the tempting reading
+    of a paste box is "these are the words now" - and they are not: the audio
+    decides what was said."""
+    note = script.split("reference_note:")[1].split("\n")[0]
+
+    assert "rare words" in note
+    assert "actually said still wins" in note
+
+
 # --- about, and the licence -----------------------------------------------
 
 def test_the_licence_is_one_click_from_the_footer(page, script):

@@ -50,6 +50,12 @@ LANGUAGES = LANGUAGE_CHOICES
 #: why theirs never reaches the server's configuration.
 MAX_CUSTOM_VOCABULARY = vocabularies.MAX_CUSTOM_VOCABULARY
 
+#: How much text may be pasted in as a reference. Two hours of speech is
+#: about 20,000 words; this is roughly twice that, which is enough for
+#: anything somebody has the audio of and far short of what would make an
+#: upload worth worrying about.
+MAX_REFERENCE = 250_000
+
 
 def create_app(settings=None, queue=None):
     """Build the application. ``settings`` are the resolved CLI defaults."""
@@ -202,6 +208,7 @@ def register_routes(app):
         subtitle_preset: str = Form(""),
         subtitle_chars: int | None = Form(None),
         subtitle_words: int | None = Form(None),
+        reference: str = Form(""),
     ):
         queue = request.app.state.queue
         names = vocabularies.split_names(vocabulary)
@@ -210,6 +217,10 @@ def register_routes(app):
                 vocabularies.get(name, vocab_dir(request))
             except vocabularies.VocabularyError as exc:
                 raise HTTPException(status_code=400, detail=str(exc)) from exc
+        if len(reference) > MAX_REFERENCE:
+            raise HTTPException(
+                status_code=413,
+                detail=f"the reference text is limited to {MAX_REFERENCE} characters")
         if len(custom_vocabulary) > MAX_CUSTOM_VOCABULARY:
             raise HTTPException(
                 status_code=413,
@@ -242,7 +253,10 @@ def register_routes(app):
                        "subtitles": ",".join(wanted) or None,
                        "subtitle_preset": subtitle_preset or None,
                        "subtitle_chars": subtitle_chars or None,
-                       "subtitle_words": subtitle_words or None},
+                       "subtitle_words": subtitle_words or None,
+                       # A text somebody already has: it helps the engine
+                       # spell, then proof-reads it. See reference.py.
+                       "reference": reference.strip() or None},
             vocabularies=names, custom_vocabulary=custom_vocabulary)
         return job.as_dict()
 

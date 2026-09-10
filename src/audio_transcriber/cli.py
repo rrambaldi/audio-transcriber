@@ -16,6 +16,7 @@ from .config import OUTPUTS, ConfigError, load_config, load_dotenv, resolve
 from .formatting import format_duration
 from .i18n import AVAILABLE_LANGUAGES, set_language, t
 from .library import STORE_COPY, STORE_MODES, Library, LibraryError
+from .reference import POOR_MATCH, ReferenceError
 from .subtitles import PROBLEM_GROUPS, TIMING_PROBLEMS
 from .summarizers import CHOICES as SUMMARY_ENGINES
 from .summary import LENGTHS as SUMMARY_LENGTHS
@@ -285,6 +286,10 @@ def build_parser(defaults):
                     default=None, metavar="N", help=t("help.subtitle_lines"))
     tr.add_argument("--subtitle-words", dest="subtitle_words", type=int,
                     default=None, metavar="N", help=t("help.subtitle_words"))
+    # A text you already have for this recording: it helps the engine spell
+    # and then proof-reads what it heard. See audio_transcriber/reference.py.
+    tr.add_argument("--reference", dest="reference_file", default=None,
+                    metavar="FILE", help=t("help.reference"))
 
     # --- summarize --------------------------------------------------------
     sm = subparsers.add_parser("summarize", help=t("help.cmd_summarize"),
@@ -413,8 +418,12 @@ def command_transcribe(args, settings):
         result = pipeline.run(source, settings, prompt=prompt)
     except pipeline.EmptyTranscription as exc:
         sys.exit(str(exc))
+    except ReferenceError as exc:
+        sys.exit(str(exc))
     if settings["diarize"] and not result.diarized:
         print(t("diarize.no_turns"))
+    if result.reference:
+        report_reference(result.reference)
 
     written = write_result(args, settings, source, result)
 
@@ -429,6 +438,21 @@ def command_transcribe(args, settings):
              if result.elapsed > 0 and result.audio_duration
              else t("cli.speed_unknown"))
     print(t("cli.elapsed", elapsed=format_duration(result.elapsed), speed=speed))
+
+
+def report_reference(report):
+    """Say what the given text corrected, and how much of it was said at all.
+
+    Two numbers, and the second is the one that catches a mistake: a text of
+    another recording corrects almost nothing, and without saying how much of
+    it turned up in the audio, "corrected 3 words" reads like a success."""
+    print(t("reference.corrected", corrected=report["corrected"],
+            heard=report["heard"]))
+    percent = round(report["coverage"] * 100)
+    if report["coverage"] < POOR_MATCH:
+        print(t("reference.poor", percent=percent), file=sys.stderr)
+    else:
+        print(t("reference.matched", percent=percent))
 
 
 def write_subtitle_files(settings, target_stem, result):

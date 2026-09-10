@@ -230,3 +230,23 @@ def test_the_dialog_names_the_recording_it_is_about(application):
     dialog = JobDialog("Comitato di direzione", SETTINGS)
     assert "Comitato di direzione" in dialog.windowTitle()
     assert dialog.start.text() == "Transcribe"
+
+
+# --- a text you already have ----------------------------------------------
+
+def test_the_form_takes_a_text_you_already_have(form):
+    """It helps the engine spell and then corrects what it misheard; it sits
+    with the subtitle numbers, which is where the use case comes up."""
+    form.reference.setPlainText("  Buongiorno a tutti. Cominciamo.  ")
+
+    assert form.choices()["reference"] == "Buongiorno a tutti. Cominciamo."
+    # And it reaches the queue the way every other choice does.
+    assert settings_of(form)["reference"] == "Buongiorno a tutti. Cominciamo."
+
+
+def test_an_empty_text_is_not_an_override(form):
+    """Empty means "just transcribe", which is the program's default: it must
+    not travel as an empty string and turn into a proof-reading against
+    nothing."""
+    assert form.choices()["reference"] == ""
+    assert "reference" not in settings_of(form)

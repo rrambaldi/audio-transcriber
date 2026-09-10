@@ -101,6 +101,35 @@ def test_the_root_favicon_answers(client):
     assert response.content[:4] == b"\x00\x00\x01\x00"
 
 
+def test_a_pasted_text_reaches_the_job(client, tmp_path):
+    """It travels as an override like every other choice, so the pipeline sees
+    it and nothing in between has to know what it is for."""
+    recording = tmp_path / "meeting.wav"
+    recording.write_bytes(b"not really audio")
+    with open(recording, "rb") as handle:
+        answer = client.post("/api/jobs", files={"file": ("meeting.wav", handle,
+                                                          "audio/wav")},
+                             data={"output": "subtitles", "subtitles_save": "srt",
+                                   "reference": "Buongiorno a tutti."})
+    assert answer.status_code == 202
+
+    job = client.app.state.queue.get(answer.json()["id"])
+    assert job.settings["reference"] == "Buongiorno a tutti."
+
+
+def test_a_text_too_large_to_be_one_is_refused(client, tmp_path):
+    """The same reasoning as the custom vocabulary: a bound, said out loud."""
+    from audio_transcriber.web.api import MAX_REFERENCE
+
+    recording = tmp_path / "meeting.wav"
+    recording.write_bytes(b"not really audio")
+    with open(recording, "rb") as handle:
+        answer = client.post("/api/jobs", files={"file": ("meeting.wav", handle,
+                                                          "audio/wav")},
+                             data={"reference": "x" * (MAX_REFERENCE + 1)})
+    assert answer.status_code == 413
+
+
 def test_about_carries_the_whole_licence(client):
     """The page shows the licence itself, so the server has to send it - and
     the wish in front of it is the half worth reading."""

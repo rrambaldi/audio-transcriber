@@ -45,7 +45,75 @@ transcribed months ago can be cut with today's numbers without transcribing it
 again. With no preset asked for, the download matches the one the entry was
 cut with when it was made.
 
-## The numbers
+## When you already have a text for the recording
+
+A common case, and the reason it is documented here: you have the audio *and*
+something written for it — a script, a press release, the slides, a transcript
+from somewhere else — and you want the subtitles to spell the names right.
+
+```bash
+audio-transcriber meeting.mp4 --srt --reference script.txt
+```
+
+In the window it is a box in the *Subtitles* section, "A text you have"; on
+the page it is the same box under the subtitle numbers. It works on any run,
+not only a subtitled one.
+
+**The audio decides what was said; the text decides how it is written.** That
+division is the whole design, because a speaker improvises, skips a paragraph
+and adds a sentence nobody wrote down. So the text is used twice and never as
+a replacement:
+
+- **Before the run**, as a prompt. Its distinctive words — names, acronyms,
+  numbers, compounds, long rare words — are handed to the engine, which is the
+  same mechanism a [keyword set](vocabularies.md) uses and the only lever
+  Whisper offers over spelling. The prose between them is left out: a prompt is
+  a few hundred characters, and spending them on "and then we agreed that" buys
+  nothing. Keyword sets asked for by name keep first claim on that budget; the
+  reference gets what is left.
+- **After the run**, as a proof-reader. Every word the engine produced is lined
+  up with the word the text has in that position, and it is corrected *only
+  where the two are plainly the same word*: an accent dropped (`perche` →
+  `perché`), a name misheard (`rambardi` → `Rambaldi`), a word cut short
+  (`trascriz` → `trascrizioni`). Where the audio says something the text does
+  not, the audio wins and the word stands. "Plainly the same word" is one
+  edit inside a word of six letters or more, or a word the engine cut short —
+  see the table below for what that deliberately excludes.
+
+What it will **not** do, on purpose:
+
+| not done | why |
+|---|---|
+| replace a word with a different word | `bilancio` heard against `budget` written is not a spelling difference: the speaker said something else |
+| add a sentence the text has and the audio does not | that is a recording that does not exist |
+| remove a sentence the speaker improvised | the same, backwards |
+| impose a capital that is only a sentence start in the text | the engine's sentence may run straight through it; a name keeps its capital because the text never writes it in lower case |
+| correct a word by resemblance | resemblance is the wrong measure: `premesso` and `permesso` are 87% alike and two different words. What counts is the *number of edits* — one — which is measured, not felt: on thirty-two real pairs the edit rule put none on the wrong side and a similarity ratio got between three and fifteen wrong |
+| correct words shorter than six letters | `caso`/`corso`, `anno`/`hanno`, `dati`/`date` are one edit apart and all real |
+| change a plural, a tense or a gender | one edit, and at the *end* of the word: that is an inflection, and the speaker said one or the other — the engine heard which, and a text written beforehand does not get to decide it |
+| move a timing, or change how many words there are | the transcript, the cues and the audio would stop agreeing |
+
+**What it reports.** Two numbers, and the second is the one that catches a
+mistake:
+
+```
+  The text you gave corrected 41 of 3980 words heard.
+  92% of it turned up in the audio; the rest was not said, and nothing was added for it.
+```
+
+Under 60% it says so on stderr: a text of another recording corrects almost
+nothing, which is the right outcome but probably not the one you wanted. A
+partial script — the first ten minutes of an hour — is a real thing to hand in
+and its own number tells that story. The same figures are kept in the library
+entry under `reference`.
+
+**What it is not.** Not a forced aligner: it does not invent a timing for a
+word the engine never heard, and it does not use the text as the transcript.
+If you want the words of the text verbatim, the honest tool for that is a
+subtitle editor, because it means deciding for each difference which of the two
+is right — and only you know that.
+
+## The numbers## The numbers
 
 | key | what it limits |
 |---|---|

@@ -141,6 +141,14 @@
             <label for="save-vtt" data-t="sub_save_vtt">Keep a .vtt with the entry</label>
           </div>
         </div>
+        <!-- A text you already have for this recording. Outside the grid
+             because a paste box wants the full width. -->
+        <div class="field">
+          <label for="reference" data-t="reference_label">A text you already have</label>
+          <textarea id="reference" rows="6" spellcheck="false"
+                    aria-describedby="reference-note"></textarea>
+          <p class="note" id="reference-note" data-t="reference_note">A script, a press release, a transcript from elsewhere. Its rare words are given to the engine so it spells them right, and afterwards it corrects the words it misheard or cut short. What was actually said still wins: nothing is added because the text expected it.</p>
+        </div>
       </fieldset>
 
       <fieldset class="vocab">

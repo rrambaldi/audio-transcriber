@@ -234,6 +234,9 @@ def subtitle_settings(choices):
         "subtitle_preset": choices.get("subtitle_preset") or None,
         "subtitle_chars": choices.get("subtitle_chars") or None,
         "subtitle_words": choices.get("subtitle_words") or None,
+        # A text somebody already has: it helps the engine spell and then
+        # proof-reads what it heard. See audio_transcriber/reference.py.
+        "reference": (choices.get("reference") or "").strip() or None,
     }
 
 

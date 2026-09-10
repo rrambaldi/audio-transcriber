@@ -152,6 +152,11 @@ class OptionsForm(QWidget):
         self.subtitle_words.setRange(0, 60)
         self.subtitle_words.setSpecialValueText(t("gui.sub_from_preset"))
         self.subtitle_words.setToolTip(t("gui.sub_words_tip"))
+        # A text somebody already has for this recording: it helps the engine
+        # spell and then proof-reads it. See audio_transcriber/reference.py.
+        self.reference = QPlainTextEdit()
+        self.reference.setPlaceholderText(t("gui.reference_hint"))
+        self.reference.setToolTip(t("gui.reference_tip"))
         self.save_srt = QCheckBox(t("gui.sub_save_srt"))
         self.save_vtt = QCheckBox(t("gui.sub_save_vtt"))
         for box in (self.save_srt, self.save_vtt):
@@ -214,6 +219,8 @@ class OptionsForm(QWidget):
         save_row.addWidget(self.save_vtt)
         save_row.addStretch(1)
         subtitle_form.addRow(t("gui.label_sub_save"), _wrap(save_row))
+        subtitle_form.addRow(style.note(QLabel(t("gui.reference_note"))))
+        subtitle_form.addRow(t("gui.label_reference"), self.reference)
         self.step_subtitles = widgets.Disclosure(t("gui.group_subtitles"),
                                                  subtitle_page, key="subtitles")
 
@@ -357,6 +364,7 @@ class OptionsForm(QWidget):
             "subtitle_words": self.subtitle_words.value(),
             "srt": self.save_srt.isChecked(),
             "vtt": self.save_vtt.isChecked(),
+            "reference": self.reference.toPlainText().strip(),
         }
 
     def set_choices(self, choices, vocabularies=None, custom_text=None):

@@ -49,6 +49,8 @@ const I18N = {
     rename_label: "Title",
     rename_ok: "Rename",
     colophon: "audio-transcriber {version} — {sets} keyword sets installed. Everything runs on this machine.",
+    reference_label: "A text you already have",
+    reference_note: "A script, a press release, a transcript from elsewhere. Its rare words are given to the engine so it spells them right, and afterwards it corrects the words it misheard or cut short. What was actually said still wins: nothing is added because the text expected it.",
     about_open: "About this program",
     about_title: "About audio-transcriber",
     about_version: "Version {version}",
@@ -239,6 +241,8 @@ const I18N = {
     rename_label: "Titolo",
     rename_ok: "Rinomina",
     colophon: "audio-transcriber {version} — {sets} set di parole chiave installati. Tutto gira su questa macchina.",
+    reference_label: "Un testo che hai gia'",
+    reference_note: "Un copione, un comunicato, una trascrizione presa altrove. Le sue parole rare vengono passate al motore perche' le scriva giuste, e dopo correggono quelle che ha sentito male o troncato. Quello che e' stato detto davvero vince comunque: niente viene aggiunto perche' il testo se lo aspettava.",
     about_open: "Informazioni su questo programma",
     about_title: "Informazioni su audio-transcriber",
     about_version: "Versione {version}",
@@ -1541,6 +1545,9 @@ $("job-form").addEventListener("submit", async (event) => {
   }
   for (const name of selectedInstalled()) body.append("vocabulary", name);
   body.append("custom_vocabulary", customText());
+  // A text somebody already has: it helps the engine spell and then
+  // proof-reads it. Empty means "just transcribe".
+  body.append("reference", $("reference").value.trim());
 
   const button = $("submit");
   button.disabled = true;

@@ -8,20 +8,45 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
-- **Everybody else's work is written down, and the copyleft part is said out
-  loud.** [docs/third-party.md](docs/third-party.md) lists what ships inside
-  the program (the two typefaces, OFL, and nothing else), what pip installs
-  into the user's environment with the licence of each — checked against
-  installed metadata where this machine had it, marked *declared* where it was
-  not — and what the program downloads at run time, which is model weights
-  that are not covered by this licence at all: Whisper is MIT, the pyannote
-  models are gated with their own terms, and a GGUF summary model carries
-  whatever its model card says. Two dependencies are copyleft and are now
-  named in the About box itself, where a user can be expected to find them:
-  **Qt through PySide6, LGPL v3**, and **ffmpeg**, LGPL 2.1, which
-  `imageio-ffmpeg` brings for reading audio. `tests/test_licence.py` fails if
-  a new dependency is not listed, and checks that both front ends say the
-  copyleft two.
+- **A text you already have can help the transcription and correct it.** The
+  case: you have the recording *and* something written for it — a script, a
+  press release, the slides, a transcript from somewhere else. Paste it (a box
+  in the window's *Subtitles* section, the same box on the page,
+  `--reference FILE` on the command line) and it is used twice, never as a
+  replacement.
+
+  Before the run, as a prompt: its distinctive words — names, acronyms,
+  numbers, compounds, long rare words — go to the engine, which is the same
+  mechanism a keyword set uses and the only lever Whisper offers over
+  spelling. The prose between them is left out, because a prompt is a few
+  hundred characters and "and then we agreed that" buys nothing; keyword sets
+  asked for by name keep first claim on that budget.
+
+  After the run, as a proof-reader: each word the engine produced is lined up
+  with the word the text has in that position and corrected *only where the
+  two are plainly the same word* — an accent dropped (`perche` → `perché`), a
+  name misheard (`rambardi` → `Rambaldi`), a word cut short (`trascriz` →
+  `trascrizioni`). "Plainly the same word" is a Levenshtein distance of one,
+  inside a word of at least six letters, and not at the last letter — where
+  one edit is a plural or a tense, which the audio decides. That rule is
+  measured rather than felt: on thirty-two pairs drawn from real engine slips
+  and real near-misses it puts none on the wrong side, where a similarity
+  *ratio* at any threshold gets between three and fifteen wrong — `premesso`
+  and `permesso` are 87% alike and two different words. **The audio decides what was said; the text decides how it
+  is written.** A word that is simply another word stands as heard, a sentence
+  the text has and the audio does not is not added, a sentence the speaker
+  improvised is not removed, and a capital that is only a sentence start in
+  the text is not imposed — while a name keeps its capital, because the text
+  never writes it in lower case. Nothing is re-timed and no word is added or
+  dropped, so the transcript, the cues and the audio cannot come to disagree.
+
+  It reports what it corrected *and* how much of the text turned up in the
+  audio at all — "corrected 41 of 3980 words heard", "92% of it turned up" —
+  warning under 60%, because a text of another recording corrects almost
+  nothing and "corrected 3 words" reads like a success. The figures are kept
+  with the library entry under `reference`.
+  [docs/subtitles.md](docs/subtitles.md) has the whole of it, including the
+  list of what it will not do and why.
 
 - **Both front ends can show the licence, in an About box.** In the browser it
   is one click from the bottom of the page — *About this program*, in the
