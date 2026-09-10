@@ -54,6 +54,13 @@ diarize = ["pyannote.audio"]
 # openvino-genai alone. Nothing here talks to a network service: the model
 # runs on this machine, which is the whole point of the feature.
 summarize-ov = ["openvino-genai>=2025.0", "optimum-intel[openvino]", "transformers"]
+# Summaries written by a local model on plain CPU cores, through llama.cpp:
+# the machine with no Intel device at all. Deliberately not part of "all" and
+# not part of any installer's default, because there is no wheel for it on
+# most platforms and pip builds it from source — half an hour on the two-core
+# server this is for. The engine also accepts a "llama-server" binary instead,
+# which is one file and needs no compiler; see docs/summary.md.
+summarize-cpp = ["llama-cpp-python>=0.3"]
 # The local web interface ("audio-transcriber web").
 web = ["fastapi>=0.110", "uvicorn>=0.27", "python-multipart>=0.0.9"]
 # The desktop window ("audio-transcriber gui"). Both halves are named on

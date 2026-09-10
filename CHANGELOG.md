@@ -55,6 +55,24 @@ All notable changes to this project are documented here. The format follows
   its own test. On the smaller classes the transcript is now selected down
   before it is read, and the page says what share arrived.
 
+### Fixed
+
+- **A machine with plenty of memory was told it had none.** The reserve kept
+  free for the operating system was a fifth of the *installed* RAM, so a
+  desktop with thirty-two gigabytes and seven of them free — an ordinary
+  Tuesday — reserved six of the seven and concluded that no model fits, with
+  an Intel GPU sitting idle. What has to stay free does not grow with how much
+  RAM somebody bought; the reserve is capped at two gigabytes.
+
+- **The Windows installer did not install the summary engine.** Its default
+  extras were `openvino,gui,record`, so a machine with an Intel device
+  transcribed and then reported that no summary engine was installed, having
+  just listed three OpenVINO devices — the devices come from `openvino`,
+  writing a summary needs `openvino_genai`. `summarize-ov` is in the default
+  now, and it is only the small half of a download that extra already makes.
+  There is also a `summarize-cpp` extra at last, for the llama.cpp engine; it
+  is in no default, because pip builds it from source.
+
 ### Changed
 
 - **A long recording is folded in a tree rather than in one prompt.** A single

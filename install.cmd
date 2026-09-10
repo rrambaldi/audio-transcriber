@@ -7,7 +7,7 @@ rem  Run it from the checkout. It puts itself in the right conda environment,
 rem  pulls, installs, checks what actually goes wrong on Windows, and prints
 rem  what to run:
 rem
-rem      install.cmd                       openvino,gui,record  (the default)
+rem      install.cmd                       openvino,summarize-ov,gui,record
 rem      install.cmd cpu,gui               a machine with no Intel iGPU
 rem      install.cmd openvino,gui,record,diarize
 rem      install.cmd openvino,gui --base   into whatever is active, base included
@@ -21,7 +21,12 @@ rem  "python -c" one-liner as block delimiters.
 rem ---------------------------------------------------------------------------
 
 set "AT_EXTRAS=%~1"
-if "%AT_EXTRAS%"=="" set "AT_EXTRAS=openvino,gui,record"
+rem "summarize-ov" is in the default because without it a machine with an Intel
+rem device transcribes but cannot have a summary written for it, and nothing
+rem says so: "audio-transcriber hardware" reports three OpenVINO devices and
+rem then that no engine is installed. The extra adds openvino-genai on top of
+rem what "openvino" already pulls, which is the small half of the download.
+if "%AT_EXTRAS%"=="" set "AT_EXTRAS=openvino,summarize-ov,gui,record"
 set "AT_MODE=%~2"
 if "%AT_ENV%"=="" set "AT_ENV=srt-ov2"
 

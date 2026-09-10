@@ -76,6 +76,8 @@ pip install -e ".[cpu]"        # server, or any machine without a GPU
 pip install -e ".[openvino]"   # PC with an Intel iGPU or NPU
 pip install -e ".[all]"        # everything: both engines, diarization, web,
                                # the window and its recorder
+pip install -e ".[summarize-ov]"   # summaries written by a model, on an Intel device
+pip install -e ".[summarize-cpp]"  # the same, on plain CPU cores (builds from source)
 pip install -e ".[diarize]"    # diarization, on top of either
 pip install -e ".[web]"        # the local web interface, on top of either
 pip install -e ".[gui]"        # the desktop window (Qt), on top of either
