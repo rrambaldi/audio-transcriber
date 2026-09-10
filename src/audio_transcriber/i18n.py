@@ -25,7 +25,8 @@ MESSAGES = {
 
         # --- hardware -------------------------------------------------------
         "hardware.summary":
-            "CPU: {cores} cores | free RAM: {ram} | OpenVINO: {openvino} | CUDA: {cuda}",
+            "CPU: {cores} cores | RAM: {ram} free of {total} | OpenVINO: {openvino} | "
+            "CUDA: {cuda}",
         "hardware.unknown": "unknown",
         "hardware.not_installed": "not installed",
         "hardware.yes": "yes",
@@ -613,7 +614,8 @@ MESSAGES = {
 
         # --- hardware -------------------------------------------------------
         "hardware.summary":
-            "CPU: {cores} core | RAM libera: {ram} | OpenVINO: {openvino} | CUDA: {cuda}",
+            "CPU: {cores} core | RAM: {ram} liberi su {total} | OpenVINO: {openvino} | "
+            "CUDA: {cuda}",
         "hardware.unknown": "n/d",
         "hardware.not_installed": "non installato",
         "hardware.yes": "si",

@@ -36,7 +36,8 @@ def test_placeholders_match_across_catalogues():
 
 def test_explicit_language_wins():
     assert i18n.set_language("it") == "it"
-    assert "RAM libera" in i18n.t("hardware.summary", cores=1, ram="1", openvino="-", cuda="-")
+    assert "liberi su" in i18n.t("hardware.summary", cores=1, ram="1",
+                                 total="2", openvino="-", cuda="-")
 
 
 def test_locale_style_codes_are_accepted():
