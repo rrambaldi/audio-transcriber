@@ -474,6 +474,8 @@ class JobQueue:
             "length": job.settings.get("summary_length") or summarising.DEFAULT_LENGTH,
             "sentences_kept": result.kept,
             "sentences_total": result.of,
+            "tier": result.tier,
+            "caveat": result.note,
             "created_at": now(),
         })
         job.words = len(result.text.split())

@@ -491,8 +491,17 @@ def summary_state(entry):
         return "", t("gui.summary_none")
     made = data.get("summary") or {}
     when = (made.get("created_at") or "")[:16].replace("T", " ")
-    return text, t("gui.summary_made_by",
-                   engine=made.get("engine") or "-", when=when or "-")
+    caption = t("gui.summary_made_by",
+                engine=made.get("engine") or "-", when=when or "-")
+    # What was actually read matters as much as who read it: a page written by
+    # a one-billion-parameter model from two fifths of the speech is a
+    # different thing from one written by a model that read all of it, and
+    # somebody about to quote it in a meeting should be able to tell.
+    if made.get("tier"):
+        caption += t("gui.summary_tier", tier=made["tier"])
+    if made.get("caveat"):
+        caption += f" — {made['caveat']}"
+    return text, caption
 
 
 def entry_details(entry):

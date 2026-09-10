@@ -226,6 +226,7 @@ MESSAGES = {
         "gui.tab_summary": "Summary",
         "gui.summary_none": "No summary yet. It is written on this machine; nothing is sent anywhere.",
         "gui.summary_made_by": "written by {engine}, {when}",
+        "gui.summary_tier": " (size class {tier})",
         "gui.summary_run": "Summarise",
         "gui.summary_again": "Summarise again",
         "gui.summary_engine": "Written by",
@@ -581,6 +582,12 @@ MESSAGES = {
         "summary.stats":
             "   kept {kept} of {of} sentences | engine: {engine} | {elapsed:.1f}s",
         "summary.auto_engine": "engine that '--engine auto' would pick: {engine}",
+        "summary.plan_line":
+            "  plan for this machine: tier {tier}, {model} {quant}, context "
+            "{context}, cache {kv}, about {ram} GB",
+        "summary.plan_none":
+            "  plan for this machine: no model fits ({needed} GB would be "
+            "needed), so summaries quote the transcript",
         "summary.npu_warning":
             "  WARNING: the NPU runs LLMs on static shapes, with the prompt capped at\n"
             "  1024 tokens by default and 8K at best. An hour of transcript is about\n"
@@ -600,6 +607,8 @@ MESSAGES = {
         "summary.load_failed":
             "The model could not be loaded on {device}: {error}",
         "summary.pass": "  Reading part {part} of {total}...",
+        "summary.pass_cached":
+            "  Part {part} of {total} was already read; reusing it.",
         "summary.folding": "  Folding {groups} groups (level {level})...",
         "summary.prereducing":
             "  {passes} passes is more than this machine should spend; "
@@ -611,6 +620,20 @@ MESSAGES = {
             "  WARNING: {model} is estimated at {needed} GB and this machine "
             "has {free} GB free. Loading it anyway, as asked.",
         "summary.reducing": "  Writing the summary from {total} parts...",
+        "summary.llamacpp_missing":
+            "llama.cpp is not installed. Run: pip install llama-cpp-python\n"
+            "  or put the 'llama-server' binary on the PATH.",
+        "summary.no_gguf": "No GGUF is published for {model}.",
+        "summary.downloading":
+            "Downloading {model} ({quant}) - once, and only this once...",
+        "summary.model_ready": "Model ready at: {path}",
+        "summary.download_truncated":
+            "The download of {model} stopped early: {got} bytes of {expected}.",
+        "summary.download_failed": "Could not download {model}: {error}",
+        "summary.server_stopped":
+            "llama-server stopped before answering (exit {code}).",
+        "summary.server_silent": "llama-server did not answer within {seconds}s.",
+        "summary.server_failed": "llama-server refused the request: {error}",
         "summary.model_said_nothing":
             "{model} returned nothing usable. Try another model, or "
             "'--engine extractive'.",
@@ -827,6 +850,7 @@ MESSAGES = {
         "gui.tab_summary": "Riassunto",
         "gui.summary_none": "Nessun riassunto. Viene scritto su questa macchina: non esce niente da qui.",
         "gui.summary_made_by": "scritto da {engine}, {when}",
+        "gui.summary_tier": " (classe {tier})",
         "gui.summary_run": "Riassumi",
         "gui.summary_again": "Riassumi di nuovo",
         "gui.summary_engine": "Scritto da",
@@ -1188,6 +1212,13 @@ MESSAGES = {
         "summary.stats":
             "   tenute {kept} frasi su {of} | motore: {engine} | {elapsed:.1f}s",
         "summary.auto_engine": "motore che '--engine auto' sceglierebbe: {engine}",
+        "summary.plan_line":
+            "  piano per questa macchina: tier {tier}, {model} {quant}, "
+            "contesto {context}, cache {kv}, circa {ram} GB",
+        "summary.plan_none":
+            "  piano per questa macchina: nessun modello entra (ne "
+            "servirebbero {needed} GB), quindi i riassunti citano la "
+            "trascrizione",
         "summary.npu_warning":
             "  ATTENZIONE: l'NPU esegue gli LLM a forme statiche, con il prompt limitato\n"
             "  a 1024 token di default e 8K al massimo. Un'ora di trascrizione sono circa\n"
@@ -1207,6 +1238,8 @@ MESSAGES = {
         "summary.load_failed":
             "Il modello non si e' potuto caricare su {device}: {error}",
         "summary.pass": "  Leggo la parte {part} di {total}...",
+        "summary.pass_cached":
+            "  La parte {part} di {total} era gia' letta: la riuso.",
         "summary.folding": "  Fondo {groups} gruppi (livello {level})...",
         "summary.prereducing":
             "  {passes} passaggi sono troppi per questa macchina: scelgo "
@@ -1218,6 +1251,20 @@ MESSAGES = {
             "  ATTENZIONE: {model} e' stimato in {needed} GB e questa "
             "macchina ne ha {free} liberi. Lo carico lo stesso, come chiesto.",
         "summary.reducing": "  Scrivo il riassunto dalle {total} parti...",
+        "summary.llamacpp_missing":
+            "llama.cpp non e' installato. Esegui: pip install llama-cpp-python\n"
+            "  oppure metti l'eseguibile 'llama-server' nel PATH.",
+        "summary.no_gguf": "Per {model} non e' pubblicato nessun GGUF.",
+        "summary.downloading":
+            "Scarico {model} ({quant}): una volta sola, adesso...",
+        "summary.model_ready": "Modello pronto in: {path}",
+        "summary.download_truncated":
+            "Lo scaricamento di {model} si e' interrotto: {got} byte su {expected}.",
+        "summary.download_failed": "Non riesco a scaricare {model}: {error}",
+        "summary.server_stopped":
+            "llama-server si e' fermato prima di rispondere (uscita {code}).",
+        "summary.server_silent": "llama-server non ha risposto entro {seconds}s.",
+        "summary.server_failed": "llama-server ha rifiutato la richiesta: {error}",
         "summary.model_said_nothing":
             "{model} non ha restituito niente di utilizzabile. Prova un altro modello, "
             "oppure '--engine extractive'.",
@@ -1270,6 +1317,11 @@ HELP = {
         "help.sum_engine": "which engine writes the summary (default: auto)",
         "help.sum_length": "how much of the transcript to keep: short | medium | long",
         "help.sum_model": "which model writes it: auto, a Hugging Face id, or a converted directory",
+        "help.sum_context":
+            "tokens of context to give the model (default: from the plan)",
+        "help.sum_kv":
+            "KV cache precision: q8_0, or q8_0/q4_0 for key and value apart",
+        "help.sum_tier": "force a size class: xs | s | m | l",
         "help.sum_device": "Intel device to run the model on: auto | CPU | GPU | NPU",
         "help.sum_out": "write the summary to this file instead of into the entry",
         "help.sum_print": "print the summary instead of saving it anywhere",
@@ -1381,6 +1433,11 @@ HELP = {
         "help.sum_engine": "quale motore scrive il riassunto (default: auto)",
         "help.sum_length": "quanto tenere della trascrizione: short | medium | long",
         "help.sum_model": "quale modello lo scrive: auto, un id Hugging Face, o una cartella gia' convertita",
+        "help.sum_context":
+            "token di contesto da dare al modello (default: dal piano)",
+        "help.sum_kv":
+            "precisione della cache KV: q8_0, oppure q8_0/q4_0 per chiave e valore",
+        "help.sum_tier": "forza una classe di dimensione: xs | s | m | l",
         "help.sum_device": "dispositivo Intel su cui eseguire il modello: auto | CPU | GPU | NPU",
         "help.sum_out": "scrivi il riassunto in questo file invece che nella voce",
         "help.sum_print": "stampa il riassunto invece di salvarlo",

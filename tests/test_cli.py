@@ -355,3 +355,38 @@ def test_nothing_is_said_about_the_clock_when_no_remark_depends_on_it(capsys):
 def test_no_remarks_means_no_report(capsys):
     report({})
     assert capsys.readouterr().err == ""
+
+
+def test_hardware_says_what_the_summary_would_load(capsys, monkeypatch):
+    """The policy is arithmetic nobody can see; this makes it say so."""
+    from audio_transcriber.summarizers import plan
+
+    plan.forget()
+    monkeypatch.setenv("AUDIO_TRANSCRIBER_LANG", "en")
+    monkeypatch.setattr(plan, "available_ram_gb", lambda: 32.0)
+    monkeypatch.setattr(plan, "total_ram_gb", lambda: 64.0)
+    monkeypatch.setattr(plan, "physical_cores", lambda: 8)
+
+    cli.main(["hardware"])
+    output = capsys.readouterr().out
+    assert "plan for this machine" in output
+    assert "tier l" in output
+    assert "context 16384" in output
+    assert "cache f16/f16" in output
+    plan.forget()
+
+
+def test_hardware_says_when_no_model_would_fit(capsys, monkeypatch):
+    from audio_transcriber.summarizers import plan
+
+    plan.forget()
+    monkeypatch.setenv("AUDIO_TRANSCRIBER_LANG", "en")
+    monkeypatch.setattr(plan, "available_ram_gb", lambda: 0.8)
+    monkeypatch.setattr(plan, "total_ram_gb", lambda: 2.0)
+    monkeypatch.setattr(plan, "physical_cores", lambda: 2)
+
+    cli.main(["hardware"])
+    output = capsys.readouterr().out
+    assert "no model fits" in output
+    assert "quote the transcript" in output
+    plan.forget()

@@ -43,11 +43,14 @@ audio-transcriber meeting.mp4        # -> meeting.txt
   duration — as `.srt` or `.vtt`, with named presets from Netflix's guide to
   vertical video. See [docs/subtitles.md](docs/subtitles.md).
 - **Summaries**, if you want them, as a `summary.md` in the library entry.
-  With a local model on an Intel iGPU: an abstract, the decisions, and who
-  agreed to do what, each carrying the minute it was said at. Without one, on
-  any machine at all: the sentences that carry the transcript, picked by
-  weight. Nothing is sent anywhere — the model runs on your computer and there
-  is no endpoint to configure. See [docs/summary.md](docs/summary.md).
+  With a local model — on an Intel iGPU through OpenVINO, or on plain CPU
+  cores through llama.cpp: an abstract, the decisions, and who agreed to do
+  what, each carrying the minute it was said at. The model is chosen by what
+  the machine can actually hold, counting the memory the attention cache will
+  take, and on a machine that can hold none it says so and quotes the
+  transcript instead. Nothing is sent anywhere — the model runs on your
+  computer and there is no endpoint to configure. See
+  [docs/summary.md](docs/summary.md).
 - **Keyword sets** to stop it mangling your technical terms — named, listed,
   and selectable from the command line or the web page.
 - **A local web interface**, optional: drop a file in the browser or record
@@ -334,7 +337,10 @@ small server you may prefer to leave it off.
       needs no model
 - [x] Summaries written by a local model, on an Intel iGPU through OpenVINO.
       Never a cloud API.
-- [ ] A summary engine for a machine with no Intel device either
+- [x] A summary engine for a machine with no Intel device either: a GGUF on
+      the CPU, through llama.cpp
+- [x] Choosing the model by what the machine can hold, cache included, and
+      refusing to load one when it cannot
 
 ## Contributing
 

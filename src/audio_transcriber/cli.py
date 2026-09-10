@@ -92,6 +92,8 @@ keep_fillers = false
 # machine has — see "audio-transcriber hardware":
 #   openvino    a local model on an Intel iGPU, which writes real prose;
 #               needs the [summarize-ov] extra
+#   llamacpp    a GGUF on the CPU, for a machine with no accelerator; needs
+#               llama-cpp-python or the 'llama-server' binary
 #   extractive  no model at all: the sentences that carry the transcript,
 #               printed as they were said. Works everywhere, downloads nothing.
 engine = "auto"
@@ -108,8 +110,26 @@ engine = "auto"
 # device = "auto"
 # Tokens of transcript per pass. Below this the whole thing goes in at once;
 # above it, the transcript is read in chunks and the chunks summarised
-# together. Lower it for a model with a small context window.
+# together. Left unset, the plan works it out from the model's context.
 # chunk_tokens = 6000
+# Everything below is worked out from this machine's memory and is here for a
+# controlled deployment, or to reproduce somebody else's result. See the plan
+# that would be chosen with "audio-transcriber hardware".
+# Size class to force: xs | s | m | l.
+# tier = "s"
+# Context window to give the model. Bigger is not better: the KV cache grows
+# with it, and a model reads the middle of a long prompt least faithfully.
+# context_tokens = 4096
+# Precision of the KV cache, "key/value" or one type for both. The key is
+# never taken below q8_0 whatever is written here: a q4 key does not fail
+# loudly, it quietly stops being faithful to the transcript.
+# kv_type = "q8_0/q4_0"
+# How many partial summaries one folding pass may merge. Left unset, as many
+# as the model's context can hold.
+# reduce_fanin = 6
+# Path to the 'llama-server' binary, when it is not on the PATH. With it, the
+# llamacpp engine needs no Python packages at all.
+# llama_server = "/opt/llama.cpp/llama-server"
 
 [diarization]
 # Work out who said what. Needs the [diarize] extra and pyannote models.
@@ -279,6 +299,12 @@ def build_parser(defaults):
                     help=t("help.sum_model"))
     sm.add_argument("--device", dest="summary_device", default=None,
                     help=t("help.sum_device"))
+    sm.add_argument("--context-tokens", dest="summary_context_tokens", type=int,
+                    default=None, metavar="N", help=t("help.sum_context"))
+    sm.add_argument("--kv-type", dest="summary_kv_type", default=None,
+                    metavar="TYPE", help=t("help.sum_kv"))
+    sm.add_argument("--tier", dest="summary_tier", default=None,
+                    metavar="TIER", help=t("help.sum_tier"))
     sm.add_argument("--out", dest="out", default=None, help=t("help.sum_out"))
     sm.add_argument("--print", dest="show", action="store_true",
                     help=t("help.sum_print"))
@@ -544,6 +570,8 @@ def command_summarize(args, settings):
             "length": settings.get("summary_length") or summarising.DEFAULT_LENGTH,
             "sentences_kept": result.kept,
             "sentences_total": result.of,
+            "tier": result.tier,
+            "caveat": result.note,
             "created_at": datetime.now().astimezone().isoformat(timespec="seconds"),
         })
         print(t("summary.written", path=entry.summary_path))
@@ -744,7 +772,9 @@ def command_hardware(args):
 
     try:
         from .summarizers import resolve_summarizer
-        print(t("summary.auto_engine", engine=resolve_summarizer("auto")))
+        engine = resolve_summarizer("auto")
+        print(t("summary.auto_engine", engine=engine))
+        print(_summary_plan_line(engine))
     except SummaryError as exc:
         print(exc)
 
@@ -753,6 +783,30 @@ def command_hardware(args):
              NO_MODEL: "hardware.diarize_unconfigured"}.get(state, "hardware.diarize_ready"),
             detail=detail))
     return 0 if backend else 1
+
+
+def _summary_plan_line(engine):
+    """What the summary engine would load here, and what it would take.
+
+    The policy that decides between a written page and a quoted one lives in
+    arithmetic nobody can see; this is where it is made to say so out loud,
+    and it is worth more than any amount of documentation about it."""
+    from .summarizers import plan as planning
+
+    # With no model engine installed the question is still worth answering:
+    # "would a model fit here if I installed one" is exactly what somebody
+    # reading this report wants to know before installing one.
+    engine = engine if engine in (planning.OPENVINO,
+                                  planning.LLAMACPP) else planning.LLAMACPP
+    chosen = planning.resolve_plan(engine, {})
+    if chosen is None:
+        needed = planning.cheapest(engine)
+        return t("summary.plan_none",
+                 needed="?" if needed is None else f"{needed:.1f}")
+    return t("summary.plan_line", tier=chosen.tier, model=chosen.model.name,
+             quant=chosen.quant or "-", context=chosen.context_tokens,
+             kv=f"{chosen.kv_k}/{chosen.kv_v}",
+             ram="?" if chosen.est_ram_gb is None else f"{chosen.est_ram_gb:.1f}")
 
 
 def command_paths(settings=None):
@@ -865,7 +919,9 @@ def collect_cli_settings(args):
              "keep_fillers", "diarize", "speakers", "diar_model", "models_dir",
              "library_dir", "vocab_dir", "subtitle_preset", "subtitle_chars",
              "subtitle_lines", "subtitle_words", "output", "summarizer",
-             "summary_length", "summary_model", "summary_device")
+             "summary_length", "summary_model", "summary_device",
+             "summary_chunk_tokens", "summary_context_tokens",
+             "summary_kv_type", "summary_tier", "summary_llama_server")
     values = {name: getattr(args, name, None) for name in names}
     # --srt and --vtt are flags; together they are the "save these formats"
     # setting, and neither given means the configured value stands.

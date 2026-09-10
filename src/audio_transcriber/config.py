@@ -48,6 +48,11 @@ DEFAULTS = {
     "summary_model": None,        # None/"auto": the largest one this machine holds
     "summary_device": None,       # None/"auto": the Intel iGPU, then the CPU
     "summary_chunk_tokens": None,  # None: the module's default
+    "summary_context_tokens": None,  # None: the tier's own context window
+    "summary_kv_type": None,      # None: the tier's own cache precision
+    "summary_reduce_fanin": None,  # None: as many partials as the context holds
+    "summary_tier": None,         # None: worked out from this machine's memory
+    "summary_llama_server": None,  # None: 'llama-server' on the PATH
     "speakers": None,
     "diar_model": None,
     "models_dir": None,
@@ -83,6 +88,11 @@ SCHEMA = {
     ("summary", "model"): ("summary_model", str),
     ("summary", "device"): ("summary_device", str),
     ("summary", "chunk_tokens"): ("summary_chunk_tokens", int),
+    ("summary", "context_tokens"): ("summary_context_tokens", int),
+    ("summary", "kv_type"): ("summary_kv_type", str),
+    ("summary", "reduce_fanin"): ("summary_reduce_fanin", int),
+    ("summary", "tier"): ("summary_tier", str),
+    ("summary", "llama_server"): ("summary_llama_server", str),
     ("diarization", "enabled"): ("diarize", bool),
     ("diarization", "speakers"): ("speakers", int),
     ("diarization", "model"): ("diar_model", str),

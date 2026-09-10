@@ -226,8 +226,13 @@ Sections.__new__.__defaults__ = ("", (), (), (), ())
 Point = namedtuple("Point", "start speaker text")
 Point.__new__.__defaults__ = (None, None, "")
 
-#: One finished summary, ready to be written to ``summary.md``.
-Summary = namedtuple("Summary", "text sections engine language elapsed kept of")
+#: One finished summary, ready to be written to ``summary.md``. ``note`` is
+#: the caveat printed under the title, when there is one, and ``tier`` the
+#: size of machine the model was chosen for — both are recorded beside the
+#: summary so that a page read weeks later can still say how it was made.
+Summary = namedtuple("Summary",
+                     "text sections engine language elapsed kept of note tier")
+Summary.__new__.__defaults__ = (None, None)
 
 #: The stages a summary goes through, as message keys. Selection is instant,
 #: so it exists only to say the run has begun; the model reading a long
@@ -574,6 +579,22 @@ def reduction_note(before, after, language="it"):
     return words["reduced_note"].format(kept=int(round(100.0 * kept / total)))
 
 
+def _tier_of(name, settings):
+    """The size of machine the model was chosen for, or None.
+
+    Asked of the plan rather than of the engine, because the engine's contract
+    is three things and this is not one of them. It costs nothing: the plan is
+    memoised on the shape of the machine, and by this point it has already
+    been worked out once."""
+    from .summarizers import EXTRACTIVE
+    from .summarizers import plan as planning
+
+    if name == EXTRACTIVE:
+        return None
+    chosen = planning.resolve_plan(name, settings)
+    return chosen.tier if chosen else None
+
+
 def _refusal_note(material, refused):
     """Why this page was quoted rather than written, in figures.
 
@@ -623,4 +644,5 @@ def summarize(material, settings=None, progress=None):
     return Summary(text=text, sections=sections, engine=name,
                    language=language_of(material.language),
                    elapsed=time.time() - started,
-                   kept=kept, of=len(material.sentences))
+                   kept=kept, of=len(material.sentences),
+                   note=note, tier=_tier_of(name, settings))

@@ -158,3 +158,41 @@ def test_no_output_chosen_leaves_every_flag_alone():
 def test_resolve_settles_the_output_as_well():
     settings = config.resolve({"output": "speakers"}, {"diarize": False})
     assert settings["diarize"] is True
+
+
+def test_the_summary_plan_can_be_pinned_from_the_file():
+    """For a controlled deployment, or to reproduce somebody else's result."""
+    write_config('[summary]\n'
+                 'tier = "s"\n'
+                 'context_tokens = 4096\n'
+                 'kv_type = "q8_0/q4_0"\n'
+                 'reduce_fanin = 4\n'
+                 'llama_server = "/opt/llama.cpp/llama-server"\n')
+    settings, _, warnings = config.load_config()
+    assert settings["summary_tier"] == "s"
+    assert settings["summary_context_tokens"] == 4096
+    assert settings["summary_kv_type"] == "q8_0/q4_0"
+    assert settings["summary_reduce_fanin"] == 4
+    assert settings["summary_llama_server"].endswith("llama-server")
+    assert warnings == []
+
+
+def test_a_summary_key_of_the_wrong_type_is_refused():
+    write_config('[summary]\ncontext_tokens = "big"\n')
+    with pytest.raises(config.ConfigError) as raised:
+        config.load_config()
+    assert "context_tokens" in str(raised.value)
+
+
+def test_a_misspelled_summary_key_warns_like_any_other():
+    write_config('[summary]\nkv_typo = "q8_0"\n')
+    _, _, warnings = config.load_config()
+    assert any("kv_typo" in warning for warning in warnings)
+
+
+def test_every_summary_default_has_a_place_in_the_file():
+    """A setting nobody can write in config.toml is a setting nobody has."""
+    written = {name for (_, _), (name, _) in config.SCHEMA.items()}
+    for name in config.DEFAULTS:
+        if name.startswith("summary"):
+            assert name in written, name
