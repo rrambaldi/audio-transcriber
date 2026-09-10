@@ -53,6 +53,7 @@ summary.py               a library entry or a text file, summarised
 | `config.py` | `.env`, `config.toml`, and the precedence rules |
 | `hardware.py` | what this machine can do |
 | `i18n.py` | the message catalogue |
+| `branding.py` | where the icon files are, so the browser and the window take theirs from one place |
 
 ## Decisions worth knowing about
 

@@ -125,8 +125,47 @@ case "$EXTRAS" in
     ;;
 esac
 
-# --- what to run -----------------------------------------------------------
 BIN="$(dirname "$("$PYTHON" -c 'import sys; print(sys.executable)')")"
+
+# --- the menu entry, and with it the icon in the dock ----------------------
+#  Linux only, and only when the window was installed. Wayland draws the icon
+#  of the .desktop file a window names, not one the window hands it, so
+#  without this the dock and the alt-tab list show a grey default however many
+#  renders the package carries. The icon has to go through the icon theme, so
+#  the PNGs are copied into hicolor under the entry's own name.
+case "$(uname -s):$EXTRAS" in
+Linux:*gui*)
+    APPS="${XDG_DATA_HOME:-$HOME/.local/share}/applications"
+    ICONS="${XDG_DATA_HOME:-$HOME/.local/share}/icons/hicolor"
+    BRAND="$("$PYTHON" -c 'from audio_transcriber import branding; print(branding.DIR)' 2>/dev/null)"
+    if [ -n "$BRAND" ] && [ -d "$BRAND" ] && mkdir -p "$APPS" 2>/dev/null; then
+        # Exec is rewritten: a virtualenv is not on the PATH of the session
+        # that starts a menu entry, so the entry has to name the interpreter's
+        # own bin directory.
+        sed "s|^Exec=audio-transcriber gui$|Exec=$BIN/audio-transcriber gui|" \
+            packaging/audio-transcriber.desktop \
+            > "$APPS/audio-transcriber.desktop" 2>/dev/null
+        for SIZE in 16 32 48 64 128 256 512; do
+            [ -f "$BRAND/icon-$SIZE.png" ] || continue
+            mkdir -p "$ICONS/${SIZE}x${SIZE}/apps" 2>/dev/null &&
+                cp "$BRAND/icon-$SIZE.png" \
+                   "$ICONS/${SIZE}x${SIZE}/apps/audio-transcriber.png" 2>/dev/null
+        done
+        [ -f "$BRAND/icon.svg" ] &&
+            mkdir -p "$ICONS/scalable/apps" 2>/dev/null &&
+            cp "$BRAND/icon.svg" "$ICONS/scalable/apps/audio-transcriber.svg" 2>/dev/null
+        command -v update-desktop-database >/dev/null 2>&1 &&
+            update-desktop-database "$APPS" 2>/dev/null
+        command -v gtk-update-icon-cache >/dev/null 2>&1 &&
+            gtk-update-icon-cache -q -t -f "$ICONS" 2>/dev/null
+        say "menu entry: $APPS/audio-transcriber.desktop"
+        say "            (delete it, and $ICONS/*/apps/audio-transcriber.*,"
+        say "             to undo this)"
+    fi
+    ;;
+esac
+
+# --- what to run -----------------------------------------------------------
 cat <<EOF
 
 ---------------------------------------------------------------------------

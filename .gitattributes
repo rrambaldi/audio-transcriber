@@ -3,3 +3,9 @@
 # core.autocrlf says.
 *.cmd text eol=crlf
 *.bat text eol=crlf
+
+# The icon renders and the .ico container: never let a checkout rewrite line
+# endings inside a binary file.
+*.png binary
+*.ico binary
+*.woff2 binary

@@ -1,0 +1,73 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 640" width="1280" height="640">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0E1A2D"/><stop offset=".55" stop-color="#0A1220"/><stop offset="1" stop-color="#060A13"/>
+    </linearGradient>
+    <linearGradient id="plate" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#16263E"/><stop offset="1" stop-color="#0A1220"/>
+    </linearGradient>
+    <linearGradient id="lock" x1=".08" y1="0" x2=".92" y2="1">
+      <stop offset="0" stop-color="#6FF0D8"/><stop offset=".45" stop-color="#22D3EE"/><stop offset="1" stop-color="#4F7BF7"/>
+    </linearGradient>
+    <linearGradient id="sheen" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fff" stop-opacity=".18"/><stop offset=".6" stop-color="#fff" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="rule" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#22D3EE" stop-opacity=".55"/><stop offset="1" stop-color="#4F7BF7" stop-opacity="0"/>
+    </linearGradient>
+    <radialGradient id="glow" cx=".5" cy=".4" r=".6">
+      <stop offset="0" stop-color="#22D3EE" stop-opacity=".2"/><stop offset="1" stop-color="#22D3EE" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="halo" cx=".22" cy=".45" r=".7">
+      <stop offset="0" stop-color="#22D3EE" stop-opacity=".13"/><stop offset="1" stop-color="#22D3EE" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="1280" height="640" fill="url(#bg)"/>
+  <rect width="1280" height="640" fill="url(#halo)"/>
+  <g><rect x="766" y="189.85" width="6.16" height="84.3" rx="3.08" fill="url(#lock)" opacity="0.285"/>
+  <rect x="780.667" y="175.672" width="6.16" height="112.657" rx="3.08" fill="url(#lock)" opacity="0.274"/>
+  <rect x="795.333" y="162.579" width="6.16" height="138.842" rx="3.08" fill="url(#lock)" opacity="0.264"/>
+  <rect x="810" y="151.558" width="6.16" height="160.883" rx="3.08" fill="url(#lock)" opacity="0.253"/>
+  <rect x="824.667" y="143.406" width="6.16" height="177.187" rx="3.08" fill="url(#lock)" opacity="0.243"/>
+  <rect x="839.333" y="138.66" width="6.16" height="186.681" rx="3.08" fill="url(#lock)" opacity="0.232"/>
+  <rect x="854" y="137.548" width="6.16" height="188.905" rx="3.08" fill="url(#lock)" opacity="0.222"/>
+  <rect x="868.667" y="139.979" width="6.16" height="184.042" rx="3.08" fill="url(#lock)" opacity="0.212"/>
+  <rect x="883.333" y="145.556" width="6.16" height="172.888" rx="3.08" fill="url(#lock)" opacity="0.202"/>
+  <rect x="898" y="153.62" width="6.16" height="156.76" rx="3.08" fill="url(#lock)" opacity="0.191"/>
+  <rect x="912.667" y="163.321" width="6.16" height="137.357" rx="3.08" fill="url(#lock)" opacity="0.182"/>
+  <rect x="927.333" y="173.707" width="6.16" height="116.587" rx="3.08" fill="url(#lock)" opacity="0.172"/>
+  <rect x="942" y="183.815" width="6.16" height="96.369" rx="3.08" fill="url(#lock)" opacity="0.162"/>
+  <rect x="956.667" y="186.925" width="6.16" height="90.1498" rx="3.08" fill="url(#lock)" opacity="0.152"/>
+  <rect x="971.333" y="179.817" width="6.16" height="104.367" rx="3.08" fill="url(#lock)" opacity="0.143"/>
+  <rect x="986" y="175.024" width="6.16" height="113.952" rx="3.08" fill="url(#lock)" opacity="0.134"/>
+  <rect x="1000.67" y="172.736" width="6.16" height="118.529" rx="3.08" fill="url(#lock)" opacity="0.124"/>
+  <rect x="1015.33" y="172.855" width="6.16" height="118.291" rx="3.08" fill="url(#lock)" opacity="0.115"/>
+  <rect x="1030" y="175.018" width="6.16" height="113.964" rx="3.08" fill="url(#lock)" opacity="0.106"/>
+  <rect x="1044.67" y="178.644" width="6.16" height="106.711" rx="3.08" fill="url(#lock)" opacity="0.097"/>
+  <rect x="1059.33" y="183.005" width="6.16" height="97.9896" rx="3.08" fill="url(#lock)" opacity="0.089"/>
+  <rect x="1074" y="187.309" width="6.16" height="89.3816" rx="3.08" fill="url(#lock)" opacity="0.080"/>
+  <rect x="1088.67" y="188.906" width="6.16" height="86.1888" rx="3.08" fill="url(#lock)" opacity="0.072"/>
+  <rect x="1103.33" y="186.884" width="6.16" height="90.2312" rx="3.08" fill="url(#lock)" opacity="0.064"/>
+  <rect x="1118" y="186.781" width="6.16" height="90.438" rx="3.08" fill="url(#lock)" opacity="0.057"/>
+  <rect x="1132.67" y="188.804" width="6.16" height="86.3922" rx="3.08" fill="url(#lock)" opacity="0.049"/>
+  <rect x="1147.33" y="186.811" width="6.16" height="90.3774" rx="3.08" fill="url(#lock)" opacity="0.042"/>
+  <rect x="1162" y="180.999" width="6.16" height="102.001" rx="3.08" fill="url(#lock)" opacity="0.036"/>
+  <rect x="1176.67" y="174.034" width="6.16" height="115.932" rx="3.08" fill="url(#lock)" opacity="0.030"/>
+  <rect x="1191.33" y="166.671" width="6.16" height="130.659" rx="3.08" fill="url(#lock)" opacity="0.025"/></g>
+  <g transform="translate(106,128) scale(0.445312)">
+    <rect width="512" height="512" rx="112" fill="url(#plate)"/>
+    <rect width="512" height="512" rx="112" fill="url(#glow)"/>
+    <rect x="1.5" y="1.5" width="509" height="509" rx="110.5" fill="none" stroke="#fff" stroke-opacity=".1" stroke-width="3"/>
+    <path d="M193 218 V202 A63 63 0 0 1 319 202 V218" fill="none" stroke="url(#lock)" stroke-width="29"/>
+    <path fill-rule="evenodd" fill="url(#lock)" d="M186 200 H326 A40 40 0 0 1 366 240 V342 A40 40 0 0 1 326 382 H186 A40 40 0 0 1 146 342 V240 A40 40 0 0 1 186 200 Z M187 274 H187 A11 11 0 0 1 198 285 V309 A11 11 0 0 1 187 320 H187 A11 11 0 0 1 176 309 V285 A11 11 0 0 1 187 274 Z M221 251 H221 A11 11 0 0 1 232 262 V332 A11 11 0 0 1 221 343 H221 A11 11 0 0 1 210 332 V262 A11 11 0 0 1 221 251 Z M255 235 H255 A11 11 0 0 1 266 246 V348 A11 11 0 0 1 255 359 H255 A11 11 0 0 1 244 348 V246 A11 11 0 0 1 255 235 Z M289 258 H289 A11 11 0 0 1 300 269 V325 A11 11 0 0 1 289 336 H289 A11 11 0 0 1 278 325 V269 A11 11 0 0 1 289 258 Z M323 269 H323 A11 11 0 0 1 334 280 V314 A11 11 0 0 1 323 325 H323 A11 11 0 0 1 312 314 V280 A11 11 0 0 1 323 269 Z"/>
+    <path fill-rule="evenodd" fill="url(#sheen)" d="M186 200 H326 A40 40 0 0 1 366 240 V342 A40 40 0 0 1 326 382 H186 A40 40 0 0 1 146 342 V240 A40 40 0 0 1 186 200 Z M187 274 H187 A11 11 0 0 1 198 285 V309 A11 11 0 0 1 187 320 H187 A11 11 0 0 1 176 309 V285 A11 11 0 0 1 187 274 Z M221 251 H221 A11 11 0 0 1 232 262 V332 A11 11 0 0 1 221 343 H221 A11 11 0 0 1 210 332 V262 A11 11 0 0 1 221 251 Z M255 235 H255 A11 11 0 0 1 266 246 V348 A11 11 0 0 1 255 359 H255 A11 11 0 0 1 244 348 V246 A11 11 0 0 1 255 235 Z M289 258 H289 A11 11 0 0 1 300 269 V325 A11 11 0 0 1 289 336 H289 A11 11 0 0 1 278 325 V269 A11 11 0 0 1 289 258 Z M323 269 H323 A11 11 0 0 1 334 280 V314 A11 11 0 0 1 323 325 H323 A11 11 0 0 1 312 314 V280 A11 11 0 0 1 323 269 Z"/>
+  </g>
+  <text x="106" y="424" font-family="JetBrains Mono, DejaVu Sans Mono, monospace" font-size="66" font-weight="800" fill="#EAF3FF">audio-transcriber</text>
+  <rect x="106" y="450" width="340" height="3" rx="1.5" fill="url(#rule)"/>
+  <text x="106" y="498" font-family="JetBrains Mono, DejaVu Sans Mono, monospace" font-size="24" fill="#8FA6C4">Local audio &amp; video transcription on Intel iGPU.</text>
+  <text x="106" y="532" font-family="JetBrains Mono, DejaVu Sans Mono, monospace" font-size="24" fill="#8FA6C4">No cloud — your recordings never leave your machine.</text>
+  <rect x="106" y="566" width="118" height="38" rx="19" fill="#22D3EE" fill-opacity=".08" stroke="#22D3EE" stroke-opacity=".22"/><text x="123" y="592.4" font-family="JetBrains Mono, DejaVu Sans Mono, monospace" font-size="20" fill="#8FD9E8">Whisper</text>
+  <rect x="236" y="566" width="130" height="38" rx="19" fill="#22D3EE" fill-opacity=".08" stroke="#22D3EE" stroke-opacity=".22"/><text x="253" y="592.4" font-family="JetBrains Mono, DejaVu Sans Mono, monospace" font-size="20" fill="#8FD9E8">OpenVINO</text>
+  <rect x="378" y="566" width="154" height="38" rx="19" fill="#22D3EE" fill-opacity=".08" stroke="#22D3EE" stroke-opacity=".22"/><text x="395" y="592.4" font-family="JetBrains Mono, DejaVu Sans Mono, monospace" font-size="20" fill="#8FD9E8">Intel iGPU</text>
+  <rect x="544" y="566" width="166" height="38" rx="19" fill="#22D3EE" fill-opacity=".08" stroke="#22D3EE" stroke-opacity=".22"/><text x="561" y="592.4" font-family="JetBrains Mono, DejaVu Sans Mono, monospace" font-size="20" fill="#8FD9E8">diarization</text>
+</svg>

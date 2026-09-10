@@ -246,6 +246,13 @@ preset is the one it was cut with when it was made. `X-Subtitle-Cues` and
 framework. It is served by the same process. The interface language follows the
 server's — `audio-transcriber --lang it web` gives an Italian page.
 
+The icon is not in `static/`. Browser and window use the same files, so they
+sit in the package as `data/brand/` and the app mounts them at `/brand`: the
+page links its favicon and shows the mark next to the title from there, with
+relative URLs, which is what makes them work under a `--root-path` prefix as
+well. `GET /favicon.ico` answers too, for the browser that asks the root
+before it has seen the page. See [brand.md](brand.md).
+
 It is laid out as a sheet of paper rather than as an application: each section
 puts its explanation in a narrow column and its controls in a wide one, fields
 are a single rule under the text, and the buttons are typographic. Two

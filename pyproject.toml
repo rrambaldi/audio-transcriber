@@ -85,9 +85,12 @@ audio-transcriber = "audio_transcriber.cli:main"
 [tool.setuptools.packages.find]
 where = ["src"]
 
-# The bundled keyword sets and the web interface are data, not modules.
+# The bundled keyword sets, the icon set and the web interface are data, not
+# modules. The icons are shared: the browser and the desktop window both take
+# theirs from data/brand.
 [tool.setuptools.package-data]
-audio_transcriber = ["data/vocabularies/*.txt", "web/static/*", "web/static/fonts/*"]
+audio_transcriber = ["data/vocabularies/*.txt", "data/brand/*",
+                     "web/static/*", "web/static/fonts/*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

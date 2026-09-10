@@ -429,6 +429,46 @@ dependencies. `audio-transcriber gui` says so rather than showing a traceback.
 | `gui/qt_recorder.py` | the fallback recorder, on QtMultimedia alone |
 | `gui/system_panel.py` | hardware and directories |
 | `gui/multimedia.py` | QtMultimedia when it is there, and a clear answer when it is not |
+| `gui/masthead.py` | the band above the tabs: the mark, the name, the promise |
+
+## The mark, and whose icon the desktop actually draws
+
+The window icon is not the window's own: `branding.py` hands out the renders
+that ship with the package, and `window.app_icon()` builds a `QIcon` from all
+of them, so the title bar gets the 16 px drawing and the alt-tab list the
+256 px one. It is set on the `QApplication` and on the window, because a
+window opened inside another Qt process has no say over that application. See
+[brand.md](brand.md).
+
+Setting it is not the end of it, because on two of the three platforms the
+thing whose icon gets drawn is not the window:
+
+- **Windows** takes a task-bar button's icon from the process's *Application
+  User Model ID*, and the default is the interpreter's — so a `pip install`
+  run of this program showed the mark in its own title bar and the Python
+  logo on the task bar. `window.claim_taskbar_identity()` sets it to
+  `branding.WINDOWS_APP_ID` before the first window exists, which is the only
+  moment Explorer looks. A pinned shortcut has to carry the same string in
+  `System.AppUserModel.ID` to pin to that button.
+- **Wayland** has no counterpart to X11's `_NET_WM_ICON`: a window cannot
+  hand the compositor a picture of itself. What GNOME and KDE draw in the dock
+  and the alt-tab list is the `Icon=` of the desktop entry whose basename the
+  application declares, so `launch()` calls `setDesktopFileName()` with
+  `branding.DESKTOP_ENTRY`. The entry is `packaging/audio-transcriber.desktop`
+  and `./install.sh` installs it, with the renders copied into
+  `~/.local/share/icons/hicolor/*/apps/` under that same name — the icon is
+  resolved through the icon theme, not from a path. Without that step the dock
+  shows a grey default however many renders the package carries; X11 and macOS
+  are unaffected, they take the icon from the window itself.
+- **macOS** needs nothing: Qt puts `QApplication.windowIcon()` in the Dock.
+
+Above the tabs there is a masthead — the mark, "Audio Transcriber", and the
+same line the web page opens with. It is there because the title bar is not
+somewhere to put an identity: it is 16 px tall, and on a maximised Windows
+window or a tiling desktop it is not drawn at all. It paints none of the
+brand's colours over the desktop's, for the reason in `gui/style.py`; the mark
+carries the colour, and on a dark theme it swaps the master drawing for
+`icon-mark.svg`, whose plate would otherwise sink into the background.
 
 The engine underneath the menus is `recording.py`, next to `pipeline.py` and
 with no Qt in it: the two audio libraries are objects it is handed, so

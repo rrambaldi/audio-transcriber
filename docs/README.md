@@ -16,5 +16,7 @@
   chooses, and what to expect on a small server
 - [architecture.md](architecture.md) — how the modules fit together and the
   decisions behind them
+- [brand.md](brand.md) — the icon set: what the mark is, which file is used
+  where, and the two things that have to be uploaded by hand
 
 Start with the [README](../README.md) for installation and everyday use.

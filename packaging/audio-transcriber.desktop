@@ -1,0 +1,30 @@
+# The desktop entry, for Linux. Two things need it, and neither is the
+# application menu it is usually installed for:
+#
+#   * Wayland has no equivalent of X11's _NET_WM_ICON, so a window cannot hand
+#     the compositor a picture of itself. What GNOME and KDE draw in the dock
+#     and the alt-tab list is the icon of the .desktop file whose basename the
+#     window declares - which is why gui/window.py calls setDesktopFileName()
+#     with "audio-transcriber", the basename of this file.
+#   * The icon named below is resolved through the icon theme, not from a path,
+#     so the renders in src/audio_transcriber/data/brand/ have to be copied
+#     into hicolor as audio-transcriber.png. install.sh does both.
+#
+# Exec assumes the command is on PATH. install.sh rewrites it to the absolute
+# path of the environment it installed into, because a virtualenv normally is
+# not on the PATH of the session that starts the menu entry.
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=Audio Transcriber
+GenericName=Transcription
+GenericName[it]=Trascrizione
+Comment=Local audio and video transcription. Nothing leaves this machine.
+Comment[it]=Trascrizione locale di audio e video. Niente esce da questa macchina.
+Exec=audio-transcriber gui
+Icon=audio-transcriber
+Terminal=false
+Categories=AudioVideo;Audio;Utility;
+Keywords=transcription;transcribe;subtitles;whisper;speech;audio;video;
+StartupNotify=true
+StartupWMClass=audio-transcriber

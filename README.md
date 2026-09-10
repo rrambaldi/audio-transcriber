@@ -1,3 +1,8 @@
+<p align="center">
+  <img src="docs/assets/banner.png" srcset="docs/assets/banner@2x.png 2x"
+       width="820" alt="audio-transcriber — local audio and video transcription, nothing leaves your machine">
+</p>
+
 # audio-transcriber
 
 Turn audio and video recordings into readable text — **entirely on your

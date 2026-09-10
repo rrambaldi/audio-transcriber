@@ -6,7 +6,65 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- **The program has a mark.** A padlock cut through by a waveform — what it
+  does and the fact that nothing leaves the machine, in one shape — as an icon
+  set in `src/audio_transcriber/data/brand/`: the master drawing on its plate,
+  a three-bar simplification for 32 px and below where five bars turn to mud,
+  the lock without its plate, and renders from 16 to 512 px plus a
+  `favicon.ico`. It is package data, so a wheel carries it, and `branding.py`
+  is the one module that knows where it is. The browser tab and the home-screen
+  icon now have it, the page shows it next to the title, the desktop window
+  takes every size rather than one render scaled twice, and the
+  README opens with the banner. The files are served from `/brand`, next to
+  `/static`, with relative URLs, so they keep working behind a `--root-path`
+  prefix; `GET /favicon.ico` answers as well, for the tab restored before the
+  page has loaded. What has to be uploaded by hand is listed in
+  [docs/brand.md](docs/brand.md): the GitHub social preview and the avatar.
+
+- **The window opens with the mark, the name and the promise.** A masthead
+  above the tabs — the padlock, "Audio Transcriber", and the same line the web
+  page leads with, "Local transcription. Nothing leaves this machine." The
+  title bar was the only place the window said whose it was, and a title bar
+  is 16 px tall, is truncated when the window is narrow, and on a maximised
+  Windows window or a tiling desktop is not drawn at all. It paints none of
+  the brand's colours over the desktop's, for the reason in `gui/style.py`:
+  the mark carries the colour, the name is the window's own text at a larger
+  size, and the tagline is muted only as far as it can be and still clear the
+  contrast floor. On a dark theme the mark is drawn from `icon-mark.svg`
+  instead, whose missing plate is exactly the point — the plate is a dark navy
+  and would sink into a dark window — and it is redrawn when the desktop
+  switches theme under a running window.
+
+- **The task bar and the dock draw the mark too, and not Python's.** Setting
+  the window icon turned out to be enough on one platform of three. Windows
+  takes a task-bar button's icon from the process's Application User Model ID,
+  whose default is the interpreter's, so the window wore the mark and the
+  button people click wore the Python logo; it is now claimed before the first
+  window exists, which is the only moment Explorer looks at it. Wayland has no
+  counterpart to X11's `_NET_WM_ICON` — a window cannot hand the compositor a
+  picture — so what the dock draws is the icon of the desktop entry the
+  application declares: there is now one, `packaging/audio-transcriber.desktop`,
+  `./install.sh` installs it on Linux with the renders copied into the icon
+  theme under the same name, and the window declares it by name. macOS needed
+  nothing. [docs/gui.md](docs/gui.md) says which fix is for which.
+
 ### Changed
+
+- **The web page is painted in the program's own colours.** It was an ivory
+  sheet with forest-green ink, chosen before there was a mark to match; the
+  mark is `#0C1526` with a cyan-to-blue gradient, so the page and its icon
+  were two palettes sitting next to each other. Now the dark scheme *is* the
+  brand — the same ground, the same `#22D3EE` — and the light one is that
+  identity inverted: the ground colour becomes the ink, the paper a cool
+  near-white instead of a warm ivory, and the accent steps back along its own
+  gradient to the blue end, darkened to `#1C4FD8` because cyan is not text on
+  white. Neither scheme is the default; the reader's setting still decides.
+  The accent variable is called `--signal` rather than `--forest`, which had
+  stopped being true, and the unused `--ochre` is gone. Every text pair still
+  clears WCAG AA in both schemes, and the accent *wash* — the banner, a
+  hovered segment, a keyword chip — is now measured too, which it never was.
 
 - **The web page offers one action while it is working: stop.** Uploading,
   recording, transcribing, summarising, renaming, deleting, saving notes and
