@@ -116,16 +116,20 @@ def test_both_schemes_carry_the_same_names():
 
 # --- the typefaces --------------------------------------------------------
 
-def test_the_bundled_faces_load_or_the_stack_takes_over(application):
-    """Qt reads WOFF2 from 6.8 on. Where it cannot, the window falls back the
-    way a browser without webfonts does — the same design in another face —
-    rather than showing nothing."""
+def test_the_bundled_faces_actually_arrive(application):
+    """The files ship as plain sfnt precisely so that this holds on every
+    platform - see tests/test_branding.py for the Windows bug that says why.
+
+    A build that lost the files is still allowed to run: the family is absent,
+    the stack takes over, and the window looks like the page does in a browser
+    with no webfonts."""
     loaded = theme.load_fonts()
-    if loaded:
+    if branding.font_files():
         assert branding.SANS in loaded and branding.SERIF in loaded
         assert theme.family(branding.SANS) == branding.SANS
-    else:                       # pragma: no cover - Qt older than 6.8
-        assert theme.family(branding.SANS) != branding.SANS or True
+        assert theme.family(branding.SERIF) == branding.SERIF
+    else:                       # pragma: no cover - a build without the data
+        assert loaded == []
 
 
 def test_a_missing_face_falls_back_along_the_stylesheet_s_own_stack():

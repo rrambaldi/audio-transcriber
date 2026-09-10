@@ -482,6 +482,17 @@ Two things Qt cannot do, and where they went:
   without shouting the whole panel. Group titles keep the sans face at their
   normal case, in `--muted`, over the rule the page draws.
 
+And one thing Qt does not do at all, which is worth knowing before wondering
+why a window is in the wrong face: **Qt does not read a font itself.** It
+hands the bytes to the platform's font engine, and they disagree — FreeType
+takes WOFF2, DirectWrite does not, so a WOFF2 face loads on Linux and fails on
+Windows with `qt.qpa.fonts: Failed to create DirectWrite face from font data`.
+Both faces therefore ship as variable TrueType, which every engine reads, and
+the page loads those same two files. If a face is missing altogether the
+window falls through the stylesheet's own fallback stack — Corbel, Segoe UI,
+Georgia — which is the same design in a different face rather than a
+start-up failure.
+
 ## The mark, and whose icon the desktop actually draws
 
 The window icon is not the window's own: `branding.py` hands out the renders

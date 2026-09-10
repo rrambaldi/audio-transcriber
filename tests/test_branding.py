@@ -57,10 +57,46 @@ def test_both_faces_are_there_with_their_licences():
     assert set(families) == {branding.SERIF, branding.SANS}
     for family, path in families.items():
         assert os.path.exists(path), family
-        with open(path, "rb") as handle:
-            assert handle.read(4) == b"wOF2", family
     for licence in ("fraunces-OFL.txt", "karla-OFL.txt"):
         assert os.path.exists(branding.font_path(licence)), licence
+
+
+#: What an sfnt file starts with: TrueType outlines, an Apple-flavoured
+#: TrueType, or CFF outlines.
+SFNT = (b"\x00\x01\x00\x00", b"true", b"OTTO")
+
+
+def test_the_faces_are_in_a_format_every_platform_can_read():
+    """The regression test for a bug that only showed up on Windows.
+
+    These files were WOFF2, which is the right format for a web page and the
+    wrong one for the rest of this: Qt does not read a font itself, it hands
+    the bytes to the platform's font engine, and while FreeType takes WOFF2,
+    DirectWrite rejects it. So the window came up in a fallback face on the
+    platform most of these users are on, and said so twice:
+
+        qt.qpa.fonts: Failed to create DirectWrite face from font data.
+
+    A browser reads TrueType as happily as WOFF2 and both front ends are
+    served from the same machine, so one sfnt per face is what ships. A file
+    that is not one is this bug coming back."""
+    for family, path in branding.font_files():
+        with open(path, "rb") as handle:
+            start = handle.read(4)
+        assert start in SFNT, f"{family} is not an sfnt: {start!r}"
+        assert start != b"wOF2"
+
+
+def test_the_stylesheet_asks_for_the_files_that_are_shipped():
+    """The page and the window load the same two files, so a face renamed for
+    one of them and not the other is a page with no webfonts."""
+    with open(os.path.join(ROOT, "src", "audio_transcriber", "web", "static",
+                           "style.css"), encoding="utf-8") as handle:
+        css = handle.read()
+    for _, path in branding.font_files():
+        name = os.path.basename(path)
+        assert f'url("../brand/fonts/{name}")' in css, name
+    assert "woff2" not in css
 
 
 def test_the_faces_sit_with_the_icons_not_in_the_web_package():

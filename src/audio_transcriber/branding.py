@@ -19,7 +19,8 @@ The two typefaces are here for the same reason the icons are: the page and the
 window are meant to look like one program, and a font in ``web/static`` would
 be a file the window has to reach across the package to find. Fraunces carries
 the headings and Karla everything read while typing; both are OFL, self-hosted,
-and their licences sit next to them.
+and their licences sit next to them. They are shipped as variable TrueType
+rather than as WOFF2, and :data:`FONTS` says why.
 
 Nothing here is required for the program to run: a build that lost its data
 files should transcribe anyway, so the callers treat a missing icon or font as
@@ -48,7 +49,16 @@ FONT_SUBDIR = "fonts"
 #: The typefaces, as ``(family, file)``. The family is what both front ends
 #: name first in their font stack, so the same string has to be right for
 #: ``font-family`` in the stylesheet and for ``QFont`` in the window.
-FONTS = (("Fraunces", "fraunces.woff2"), ("Karla", "karla.woff2"))
+#:
+#: They are plain sfnt - variable TrueType - and not WOFF2, which is the
+#: better format for a web page and unreadable to half of what has to read
+#: these files. Qt hands an application font to the platform's font engine,
+#: and on Windows that is DirectWrite, which rejects WOFF2 outright: the
+#: window came up in a fallback face and Qt said so twice, on the platform
+#: most of this program's users are on. A browser reads TrueType as happily
+#: as WOFF2, and both front ends here are served from the same machine, so
+#: the compression the page loses is not worth a second copy of every face.
+FONTS = (("Fraunces", "fraunces.ttf"), ("Karla", "karla.ttf"))
 
 #: Which of them is which job: headings and titles in the serif, everything
 #: else in the sans. Both front ends make the same split.

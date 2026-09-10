@@ -436,9 +436,10 @@ def test_the_page_calls_nobody(page, script, stylesheet):
     # icons in the package's brand directory and are served from /brand.
     from audio_transcriber import branding
 
-    for name in ("fraunces.woff2", "karla.woff2", "fraunces-OFL.txt", "karla-OFL.txt"):
+    for name in ("fraunces-OFL.txt", "karla-OFL.txt"):
         assert os.path.exists(branding.font_path(name)), name
-    assert 'url("../brand/fonts/karla.woff2")' in stylesheet
+    for _, path in branding.font_files():
+        assert f'url("../brand/fonts/{os.path.basename(path)}")' in stylesheet
 
 
 def test_the_page_is_prefix_agnostic(page, script):

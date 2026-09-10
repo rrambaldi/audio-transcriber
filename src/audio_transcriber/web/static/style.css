@@ -18,7 +18,14 @@
    /brand, because the desktop window is painted in the same two faces and a
    font under static/ would be a file it had to reach across the package for.
    The URLs are relative to this stylesheet, so they survive a --root-path
-   prefix. Licences sit next to the files.
+   prefix.
+
+   Variable TrueType and not WOFF2, which would be the better format here and
+   is unreadable to the other half of what has to read these files: Qt hands
+   an application font to the platform's font engine, and DirectWrite - so,
+   Windows - rejects WOFF2. Both front ends are served from this machine, so
+   the compression is worth less than one file per face. Licences sit next to
+   the files.
 
    Fields are a single rule under the text, so the form reads like a printed
    one. That rule is therefore the only affordance an input has, and it is
@@ -27,13 +34,13 @@
 
 @font-face {
   font-family: "Fraunces";
-  src: url("../brand/fonts/fraunces.woff2") format("woff2-variations");
+  src: url("../brand/fonts/fraunces.ttf") format("truetype-variations");
   font-weight: 400 700;
   font-display: swap;
 }
 @font-face {
   font-family: "Karla";
-  src: url("../brand/fonts/karla.woff2") format("woff2-variations");
+  src: url("../brand/fonts/karla.ttf") format("truetype-variations");
   font-weight: 400 700;
   font-display: swap;
 }

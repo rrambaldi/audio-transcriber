@@ -200,6 +200,18 @@ All notable changes to this project are documented here. The format follows
 
 ### Fixed
 
+- **The window's typefaces did not load on Windows.** They shipped as WOFF2,
+  which is the right format for a web page and the wrong one for everything
+  else here: Qt does not read a font itself, it hands the bytes to the
+  platform's font engine, and while FreeType takes WOFF2, DirectWrite refuses
+  it. So the window came up in a fallback face on the platform most of these
+  users are on, and said so twice —
+  `qt.qpa.fonts: Failed to create DirectWrite face from font data`. Both faces
+  now ship as variable TrueType, which every engine and every browser reads;
+  the page loads the same two files, 154 KiB instead of 88, which is a
+  download from this machine to itself. A test asserts the shipped files are
+  sfnt, because the format is the whole bug.
+
 - **Half the Italian stopwords never matched anything.** They were typed
   without accents — `perche`, `cosi`, `pero`, `piu` — and Whisper writes
   Italian as it is spelled, so `perché`, `così`, `però` and `più` sailed

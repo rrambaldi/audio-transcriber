@@ -28,7 +28,7 @@ is the only module that knows the path — ask it, don't join paths of your own.
 | `icon-16/32/48.png` | Rendered from `icon-small.svg`. |
 | `icon-64/128/256/512.png` | Rendered from `icon.svg`. |
 | `favicon.ico` | 16/32/48/64/128/256 in one file, for browsers that ask for one. |
-| `fonts/fraunces.woff2`, `fonts/karla.woff2` | The two faces, as variable WOFF2. The page declares them in `@font-face`; Qt 6.8 and later read the same file. |
+| `fonts/fraunces.ttf`, `fonts/karla.ttf` | The two faces, as variable TrueType. Both front ends load these same two files: the page declares them in `@font-face`, the window hands them to `QFontDatabase`. **Not WOFF2**, although that is the better format for a page: Qt passes an application font to the platform's font engine, and DirectWrite — so, Windows — rejects WOFF2, which left the window in a fallback face there. A browser reads TrueType just as happily, and both front ends are served from the same machine, so the compression is worth less than one file per face. |
 | `fonts/*-OFL.txt` | Their licences, which travel with the files. |
 
 One file is neither package data nor art: `packaging/audio-transcriber.desktop`

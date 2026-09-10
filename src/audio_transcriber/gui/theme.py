@@ -105,18 +105,23 @@ MARKER = "/* audio-transcriber: the brand, in Qt */"
 def load_fonts():
     """Hand Qt the bundled typefaces; answer with the families it took.
 
-    WOFF2 is what the page already ships and what Qt 6.8 and later can read.
-    On an older Qt, or a build without the files, the family simply does not
-    arrive and :func:`family` falls through to the next name in the stack -
-    the window then looks like the page does on a browser with no webfonts,
-    which is the same design in a different face."""
+    Qt does not read a font itself: it passes the bytes to the platform's font
+    engine, and they do not agree on what a font is. FreeType takes WOFF2,
+    DirectWrite refuses it - which is why these files are plain sfnt, and why
+    ``branding.FONTS`` says so at some length.
+
+    A face that still does not arrive - a build without the files, an engine
+    that dislikes something else about them - is not an error here: the family
+    is simply absent and :func:`family` falls through to the next name in the
+    stack, exactly as the page does in a browser with no webfonts. The same
+    design in a different face is a fallback; a traceback on start-up because
+    of a typeface would not be."""
     loaded = []
     for _family, file in branding.font_files():
         handle = QFontDatabase.addApplicationFont(file)
         if handle < 0:
             continue
-        for name in QFontDatabase.applicationFontFamilies(handle):
-            loaded.append(name)
+        loaded.extend(QFontDatabase.applicationFontFamilies(handle))
     return loaded
 
 

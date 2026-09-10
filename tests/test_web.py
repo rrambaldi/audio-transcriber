@@ -81,6 +81,19 @@ def test_the_icon_is_served_under_the_page(client):
         assert client.get("/" + name).status_code == 200, name
 
 
+def test_the_typefaces_are_served_under_the_page(client):
+    """The stylesheet asks for ../brand/fonts/<face>, a directory deeper than
+    anything else on the mount: the page loses its faces silently if that
+    path stops resolving."""
+    from audio_transcriber import branding
+
+    for _, path in branding.font_files():
+        name = os.path.basename(path)
+        response = client.get(f"/brand/{branding.FONT_SUBDIR}/{name}")
+        assert response.status_code == 200, name
+        assert response.content[:4] != b"wOF2"      # sfnt; see test_branding
+
+
 def test_the_root_favicon_answers(client):
     """A restored tab asks for it before it has the HTML that names it."""
     response = client.get("/favicon.ico")
