@@ -242,14 +242,33 @@ def machine():
             "models_dir": paths.models_dir("summary")}
 
 
+def why_missing(engine):
+    """What is absent, and the line that would fix it — or None if it is here.
+
+    "No engine is installed" is a true thing to say to somebody whose machine
+    reports an Intel GPU and three OpenVINO devices, and a useless one. The
+    devices come from ``openvino``; writing a summary needs ``openvino_genai``
+    as well, and that distinction is the whole of the confusion."""
+    from audio_transcriber import summarizers
+
+    if summarizers.is_installed(engine):
+        return None
+    if engine == plan.OPENVINO:
+        seen = hardware.openvino_devices()
+        found = (f"OpenVINO itself is here ({', '.join(seen)}), but "
+                 "openvino_genai is not") if seen else "openvino_genai is not installed"
+        return f"{found}\n      pip install \"audio-transcriber-ov[summarize-ov]\""
+    return ("neither llama-cpp-python nor a llama-server binary was found\n"
+            "      pip install llama-cpp-python\n"
+            "      or put llama-server on the PATH, or name it in config.toml")
+
+
 def engines_here(asked):
     """Which engines to measure: the ones asked for, or the ones installed."""
     from audio_transcriber import summarizers
 
-    if asked and asked != "both":
-        return [asked]
-    return [name for name in (plan.OPENVINO, plan.LLAMACPP)
-            if summarizers.is_installed(name)]
+    wanted = [asked] if asked and asked != "both" else [plan.OPENVINO, plan.LLAMACPP]
+    return [name for name in wanted if summarizers.is_installed(name)]
 
 
 def main(argv=None):
@@ -283,7 +302,10 @@ def main(argv=None):
 
     found = engines_here(args.engine)
     if not found:
-        raise SystemExit("no summary engine that loads a model is installed here")
+        asked = [args.engine] if args.engine != "both" else [plan.OPENVINO, plan.LLAMACPP]
+        lines = ["nothing here can load a model, so there is nothing to measure:"]
+        lines += [f"  {name}: {why_missing(name)}" for name in asked]
+        raise SystemExit("\n".join(lines))
     names = [name.strip() for name in args.models.split(",")] if args.models else None
     rows = [] if args.skip_screening else dataset(args.dataset)
 

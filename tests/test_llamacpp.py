@@ -8,6 +8,7 @@ that the server is never bound anywhere but the loopback, and that the process
 is stopped even when the summary fails.
 """
 import os
+from pathlib import Path
 
 import pytest
 
@@ -99,7 +100,7 @@ def test_a_model_already_here_is_not_downloaded_again(monkeypatch, tmp_path):
     model = plan.named("openbmb/MiniCPM5-1B")
     where = engine.model_path(model, "Q4_K_M", str(tmp_path))
     paths.ensure(os.path.dirname(where))
-    open(where, "wb").write(b"GGUF")
+    Path(where).write_bytes(b"GGUF")
     monkeypatch.setattr(engine.urllib.request, "urlopen",
                         lambda *a, **k: pytest.fail("it went to the network"))
     assert engine.fetch(model, "Q4_K_M", str(tmp_path)) == where
@@ -370,7 +371,7 @@ def test_answers_nobody_comes_back_for_are_swept_away(stubbed, tmp_path,
     cache = {"cache_dir": str(tmp_path / "cache"), "summary_chunk_tokens": 120}
     stale = partials._path("ff" + "0" * 62, cache["cache_dir"])
     os.makedirs(os.path.dirname(stale), exist_ok=True)
-    open(stale, "w").write("an answer from last month")
+    Path(stale).write_text("an answer from last month", encoding="utf-8")
     old = time.time() - (partials.KEEP_DAYS + 1) * 86400
     os.utime(stale, (old, old))
 

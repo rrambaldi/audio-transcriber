@@ -80,7 +80,7 @@ def test_the_seam_is_repeated_when_an_overlap_is_asked_for():
     plain = prompting.chunks(many, 200)
     lapped = prompting.chunks(many, 200, overlap=0.2)
     assert len(lapped) >= len(plain)
-    repeated = set(s.text for s in plain[0]) & set(s.text for s in lapped[1])
+    repeated = {s.text for s in plain[0]} & {s.text for s in lapped[1]}
     assert repeated, "the second pass never saw the end of the first"
 
 
@@ -501,7 +501,7 @@ def test_the_passes_are_exactly_the_ones_the_tree_calls_for(stubbed):
     many = [Sentence(f"Frase numero {n} del verbale.", n * 10.0) for n in range(400)]
     engine.summarize(material(many), {"summary_chunk_tokens": 120})
 
-    chunks = prompting.chunks(many, 120, stubbed_overlap := 0.1)
+    chunks = prompting.chunks(many, 120, 0.1)
     fanin = prompting.fanin_for(len(chunks), 16384, 500, 1400,
                                 prompting.EVIDENCE_TOKENS)
     levels = prompting.reduce_tree(range(len(chunks)), fanin=fanin,

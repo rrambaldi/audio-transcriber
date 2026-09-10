@@ -239,7 +239,7 @@ class Binding:
         than paying."""
         messages = [{"role": "system", "content": system},
                     {"role": "user", "content": user}]
-        options = dict(max_tokens=int(max_new_tokens or 512), temperature=0.0)
+        options = {"max_tokens": int(max_new_tokens or 512), "temperature": 0.0}
         if not think and self.formatter is not None:
             rendered = self.formatter(messages=messages, enable_thinking=False)
             answer = self.model.create_completion(

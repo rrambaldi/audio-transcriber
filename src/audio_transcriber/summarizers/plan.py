@@ -81,8 +81,16 @@ RUNTIME_OVERHEAD_GB = 0.35
 
 #: Left for the operating system and for the rest of this program, which is
 #: holding a transcript and possibly a job queue while the model runs.
+#:
+#: A share of the machine, and then a ceiling — the ceiling is the part that
+#: was learned the hard way. What has to be kept free does not grow with how
+#: much RAM was installed: a desktop with thirty-two gigabytes needs no more
+#: elbow room than one with eight. Without the cap, a large machine that is
+#: merely busy — seven gigabytes free of thirty-two, which is an ordinary
+#: Tuesday — reserved six of the seven and concluded that no model fits.
 RESERVE_GB = 0.75
 RESERVE_SHARE = 0.20
+RESERVE_CAP_GB = 2.0
 
 #: How much of what fits in a pass a chunk actually uses. Faithfulness is
 #: U-shaped — high at the start and the end of an input, measurably lower in
@@ -257,7 +265,7 @@ def usable_ram_gb(available, total):
     if available is None:
         return None
     reserve = RESERVE_GB if not total else max(RESERVE_GB, total * RESERVE_SHARE)
-    return max(0.0, available - reserve)
+    return max(0.0, available - min(reserve, RESERVE_CAP_GB))
 
 
 def quants_for(model):

@@ -29,8 +29,10 @@ from ..summary import (
     NotEnoughMemory,
     SummaryError,
     language_of,
-    reduce as reduce_sentences,
     reduction_note,
+)
+from ..summary import (
+    reduce as reduce_sentences,
 )
 from . import partials, plan, prompting
 

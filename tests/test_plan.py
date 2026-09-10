@@ -61,12 +61,27 @@ def test_the_estimate_is_weights_plus_cache_plus_the_runtime():
                       + plan.RUNTIME_OVERHEAD_GB))
 
 
-def test_the_reserve_scales_with_the_machine():
-    """A fifth of a big machine, and never less than three quarters of a gig."""
+def test_the_reserve_scales_with_the_machine_but_stops():
+    """A fifth of it, never below three quarters of a gig, never above two.
+
+    The ceiling matters more than either: what has to stay free does not grow
+    with how much was installed, and without it a large machine that is merely
+    busy reserves nearly everything it has left."""
     assert plan.usable_ram_gb(2.0, 2.0) == pytest.approx(1.25)
-    assert plan.usable_ram_gb(40.0, 64.0) == pytest.approx(27.2)
+    assert plan.usable_ram_gb(40.0, 64.0) == pytest.approx(38.0)
     assert plan.usable_ram_gb(0.2, 2.0) == 0.0
     assert plan.usable_ram_gb(None, 8.0) is None
+
+
+def test_a_big_machine_that_is_busy_is_not_told_it_is_full():
+    """Seven gigabytes free of thirty-two is an ordinary Tuesday.
+
+    Reserving a fifth of what was installed left half a gigabyte of it and
+    concluded that no model fits — on a desktop with an Intel GPU."""
+    usable = plan.usable_ram_gb(6.8, 31.5)
+    assert usable > 4.0
+    chosen = plan.resolve_plan(plan.OPENVINO, ram=6.8, total=31.5, cores=8)
+    assert chosen is not None and chosen.tier == "m"
 
 
 # --- choosing a tier ------------------------------------------------------

@@ -30,6 +30,8 @@ from ..summary import (
     Sections,
     estimate_tokens,
     language_of,
+)
+from ..summary import (
     reduce as reduce_sentences,
 )
 
