@@ -308,6 +308,42 @@ it is worth checking rather than assuming. It runs after step 8, because on
 this machine only the GGUF path can run at all; it changes numbers in the
 catalogue, not code.
 
+## Measuring it somewhere else
+
+`tools/measure_summary.py` runs the measurements this plan rests on, on
+whatever machine it is pointed at, and writes one file. Two of them cannot be
+taken on a small server at all: the largest size class wants more memory than
+one has, and the OpenVINO engine wants an Intel device.
+
+```bash
+python tools/measure_summary.py --sample 10 --out report.json
+python tools/measure_summary.py --engine openvino --convert     # converts, once per model
+```
+
+It asks three questions, in the order they matter. Does this model summarise
+Italian at all — a model can score respectably on an English benchmark and,
+asked in Italian for three sentences, hand back the article. How well, in
+ROUGE against Evalita-LLM's Fanpage task, on a small sample: a screening that
+separates usable from not, rather than a leaderboard. And does the whole
+pipeline work end to end, with the page it produced and everything the run
+said along the way.
+
+### What it has said so far
+
+Measured on a two-core server with no accelerator, 15 articles, at the
+quantisation and context each size class would really use:
+
+| model | class | ROUGE-1 | ROUGE-2 | ROUGE-L | s/article |
+|---|---|---|---|---|---|
+| LFM2.5-1.2B | `xs` | **0.274** | **0.078** | **0.161** | 28.4 |
+| MiniCPM5-1B | `xs` | 0.199 | 0.045 | 0.122 | 39.5 |
+
+The gap is wider than it looks. MiniCPM5-1B at Q4_K_M does not summarise: it
+returns the article, and a copied article still scores respectably on ROUGE-1
+by sheer word overlap. That is why the script checks for the copy separately
+and reports it as a count rather than folding it into a number. The `xs` class
+was changed on the strength of it.
+
 ## Open questions
 
 These are the places where the spec and the code, or the spec and itself, do
