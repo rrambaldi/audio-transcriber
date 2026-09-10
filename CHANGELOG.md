@@ -8,6 +8,21 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- **Everybody else's work is written down, and the copyleft part is said out
+  loud.** [docs/third-party.md](docs/third-party.md) lists what ships inside
+  the program (the two typefaces, OFL, and nothing else), what pip installs
+  into the user's environment with the licence of each — checked against
+  installed metadata where this machine had it, marked *declared* where it was
+  not — and what the program downloads at run time, which is model weights
+  that are not covered by this licence at all: Whisper is MIT, the pyannote
+  models are gated with their own terms, and a GGUF summary model carries
+  whatever its model card says. Two dependencies are copyleft and are now
+  named in the About box itself, where a user can be expected to find them:
+  **Qt through PySide6, LGPL v3**, and **ffmpeg**, LGPL 2.1, which
+  `imageio-ffmpeg` brings for reading audio. `tests/test_licence.py` fails if
+  a new dependency is not listed, and checks that both front ends say the
+  copyleft two.
+
 - **Both front ends can show the licence, in an About box.** In the browser it
   is one click from the bottom of the page — *About this program*, in the
   footer — and in the window it is the version in the masthead, which now
@@ -70,6 +85,24 @@ All notable changes to this project are documented here. The format follows
   before it is read, and the page says what share arrived.
 
 ### Fixed
+
+- **The window was still drawing the wrong cut of the serif, on Windows.**
+  Twice now the axis was the answer and twice it was ignored, so this time the
+  axis is gone: Qt does not apply a variable axis itself, it asks the
+  platform's font engine, and where that engine does not it draws the file's
+  *default instance* — which in Fraunces is `opsz 9, wght 900`, the Black text
+  cut. That is exactly what a screenshot from Windows showed, letterforms and
+  weight both. The window now loads three static cuts instanced from the same
+  file — `Fraunces Display` for a masthead-sized title, `Fraunces Text` in
+  Regular and SemiBold for everything smaller, so a weight is a face and never
+  a synthesis — and asks for a family by name. 105 KiB for the three, less
+  than the variable file they came from. The page keeps the variable file: a
+  browser applies the axes properly, and one file there covers both cuts.
+
+- **The About box reads in the right order.** The version sits directly under
+  the name, where somebody looking for it looks, and the licence's own name
+  sits under the "license" heading with the text it names, instead of being
+  bolted onto the version line. Both front ends.
 
 - **And the wrong weight of it, for the same reason.** `QFont.setWeight`
   chooses among the *named* instances a font declares and never touches the

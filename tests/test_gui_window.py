@@ -274,12 +274,13 @@ def test_the_masthead_is_painted_in_the_brand_not_in_the_desktop_s_colours(windo
     # The page's three lines, in the page's two faces: the eyebrow in the
     # letter-spaced sans, the name and the promise in the serif.
     assert masthead.eyebrow.font().capitalization() == QFont.Capitalization.AllUppercase
-    assert masthead.name.font().family() == theme.family(branding.SERIF)
+    assert masthead.name.font().family() == theme.family(branding.SERIF_DISPLAY)
     assert masthead.tagline.font().italic() is True
-    # And the name is the page's h1: the display cut, at display size.
-    if hasattr(QFont, "setVariableAxis"):
-        assert masthead.name.font().variableAxisValue(QFont.Tag("opsz")) \
-            == theme.DISPLAY_OPSZ
+    # And the name is the page's h1: the display cut, at display size. A cut
+    # by name, not an optical size asked of a variable file - see
+    # tests/test_gui_theme.py for the bug that distinction fixes.
+    assert masthead.name.font().family() == theme.family(branding.SERIF_DISPLAY)
+    assert masthead.tagline.font().family() == theme.family(branding.SERIF_TEXT)
     assert masthead.name.font().pointSizeF() > masthead.tagline.font().pointSizeF()
 
 

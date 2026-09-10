@@ -21,7 +21,7 @@ pytest.importorskip("PySide6", reason="the desktop window needs Qt")
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 try:
-    from PySide6.QtGui import QColor, QFont, QPalette
+    from PySide6.QtGui import QColor, QFont, QFontDatabase, QPalette
     from PySide6.QtWidgets import (
         QApplication,
         QLabel,
@@ -202,30 +202,45 @@ def test_a_heading_is_the_serif_and_a_note_is_not(application):
     base = QFont(application.font())
     title = theme.title_font(base, 1.45)
 
-    assert title.family() == theme.family(branding.SERIF)
+    assert title.family() == theme.family(branding.SERIF_TEXT)
     assert title.pointSizeF() > base.pointSizeF()
     assert theme.title_font(base, 1.0, italic=True).italic() is True
 
 
 def test_a_display_heading_asks_for_the_display_cut(application):
-    """Fraunces is variable, and the optical size is the axis that matters:
-    at 9 it is a sturdy text face, at 144 the high-contrast display cut with
-    hairline serifs. The page asks for 144 in its h1, and a plain QFont asks
-    for neither - which drew the text cut at display size, and is the whole
-    difference between the window and the page."""
-    if not hasattr(QFont, "setVariableAxis"):   # pragma: no cover - Qt < 6.7
-        pytest.skip("this Qt cannot set a variable axis")
-    tag = QFont.Tag("opsz")
+    """Fraunces ships here as two static cuts: the display one, whose serifs
+    are hairlines, and the text one, which holds up at fifteen pixels. A
+    heading asks for one by name.
+
+    It used to ask the variable file for an optical size instead, and that is
+    the bug this test stands in for: where a font engine does not apply a
+    variable axis it draws the file's default instance, and Fraunces' default
+    is opsz 9 at weight 900 - the Black text cut. The window looked right on
+    Linux and came out heavy, with the wrong letterforms, on Windows."""
     base = QFont(application.font())
 
-    display = theme.title_font(base, theme.TITLE_SCALE, opsz=theme.DISPLAY_OPSZ)
-    assert display.variableAxisValue(tag) == theme.DISPLAY_OPSZ
-    section = theme.title_font(base, 1.35, opsz=theme.SECTION_OPSZ)
-    assert section.variableAxisValue(tag) == theme.SECTION_OPSZ
-    # Small type asks for nothing and gets the text cut, which is the one that
-    # holds up at fifteen pixels. A row's title is set that way; Qt reports an
-    # axis nobody set as zero.
-    assert theme.title_font(base, 1.15).variableAxisValue(tag) == 0.0
+    display = theme.title_font(base, theme.TITLE_SCALE, display=theme.DISPLAY)
+    assert display.family() == theme.family(branding.SERIF_DISPLAY)
+    # Everything smaller gets the text cut, which is the default.
+    for smaller in (theme.title_font(base, 1.35, weight=QFont.Weight.DemiBold),
+                    theme.title_font(base, 1.15)):
+        assert smaller.family() == theme.family(branding.SERIF_TEXT)
+    assert theme.title_font(base, 1.0, display=theme.TEXT).family() \
+        == theme.family(branding.SERIF_TEXT)
+
+
+def test_the_static_cuts_are_what_the_window_loads(application):
+    """Both cuts of the text face, so a weight is a face and not a synthesis:
+    Qt matches Regular or SemiBold and never has to embolden anything."""
+    theme.load_fonts()
+    families = QFontDatabase.families()
+    if branding.SERIF_DISPLAY not in families:  # pragma: no cover - no data
+        pytest.skip("this build has no bundled faces")
+
+    assert branding.SERIF_TEXT in families
+    assert set(QFontDatabase.styles(branding.SERIF_TEXT)) >= {"Regular", "SemiBold"}
+    # And the variable file is still there, because the page loads that one.
+    assert branding.SERIF in families
 
 
 def test_a_display_heading_is_tracked_in(application):

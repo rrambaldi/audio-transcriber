@@ -224,8 +224,7 @@ class LibraryPanel(QWidget):
         # The heading of what is being read, so it is set the way the page
         # sets one: the serif, a size up. See gui/theme.py.
         self.title.setFont(theme.title_font(self.font(), 1.35,
-                                            weight=QFont.Weight.DemiBold,
-                                            opsz=theme.SECTION_OPSZ))
+                                            weight=QFont.Weight.DemiBold))
         right_layout.addWidget(self.title)
 
         player_row = QHBoxLayout()

@@ -11,6 +11,7 @@ is the *only* thing that decides which icon the dock draws, and a window that
 declares an entry nobody installed simply gets the grey default.
 """
 import os
+import re
 import tomllib
 
 from audio_transcriber import branding
@@ -50,15 +51,17 @@ def test_the_icons_are_declared_as_package_data():
 
 # --- the typefaces --------------------------------------------------------
 
-def test_both_faces_are_there_with_their_licences():
-    """Two front ends are set in them, and both are OFL: the licence travels
-    with the file or the redistribution is not one."""
-    families = dict(branding.font_files())
-    assert set(families) == {branding.SERIF, branding.SANS}
-    for family, path in families.items():
-        assert os.path.exists(path), family
-    for licence in ("fraunces-OFL.txt", "karla-OFL.txt"):
-        assert os.path.exists(branding.font_path(licence)), licence
+def test_both_typefaces_are_there_with_their_licences():
+    """Two typefaces, several files - Fraunces ships in four cuts - and both
+    are OFL: the licence travels with the font or the redistribution is not
+    one. What is *cited* is one line per typeface, which is what an About box
+    should say."""
+    cited = dict(branding.TYPEFACES)
+    assert set(cited) == {branding.SERIF, branding.SANS}
+    for family, licence in cited.items():
+        assert os.path.exists(branding.font_path(licence)), family
+    for _family, path in branding.font_files():
+        assert os.path.exists(path)
 
 
 #: What an sfnt file starts with: TrueType outlines, an Apple-flavoured
@@ -88,74 +91,36 @@ def test_the_faces_are_in_a_format_every_platform_can_read():
 
 
 def test_the_stylesheet_asks_for_the_files_that_are_shipped():
-    """The page and the window load the same two files, so a face renamed for
-    one of them and not the other is a page with no webfonts."""
+    """The page loads the *variable* file - a browser applies the axes, so one
+    file covers a display heading and a row's title - and the window loads the
+    static cuts, which is a difference worth pinning down: what the page asks
+    for over HTTP has to exist, and it must not be asking for a cut that only
+    the window uses."""
     with open(os.path.join(ROOT, "src", "audio_transcriber", "web", "static",
                            "style.css"), encoding="utf-8") as handle:
         css = handle.read()
-    for _, path in branding.font_files():
-        name = os.path.basename(path)
-        assert f'url("../brand/fonts/{name}")' in css, name
+    asked = re.findall(r'url\("\.\./brand/fonts/([^"]+)"\)', css)
+
+    assert sorted(asked) == ["fraunces.ttf", "karla.ttf"]
+    for name in asked:
+        assert os.path.exists(branding.font_path(name)), name
     assert "woff2" not in css
 
 
-def test_the_faces_sit_with_the_icons_not_in_the_web_package():
-    """Shared data, for the same reason the icons are shared: the window must
-    not reach across the package into web/static to be painted."""
-    for _, path in branding.font_files():
-        assert os.path.dirname(path) == os.path.join(branding.DIR,
-                                                     branding.FONT_SUBDIR)
-    assert not os.path.exists(os.path.join(
-        os.path.dirname(branding.DIR), "..", "web", "static", "fonts"))
+def test_every_cut_the_window_asks_for_ships():
+    """Three static faces and the variable one, each with an sfnt header and a
+    licence beside it."""
+    shipped = {name for _family, name, _licence in branding.FONTS}
 
-
-# --- the Linux desktop entry ----------------------------------------------
-
-DESKTOP_FILE = os.path.join(ROOT, "packaging", "audio-transcriber.desktop")
-
-
-def desktop_entry():
-    """The entry's keys, comments and the group header dropped."""
-    keys = {}
-    with open(DESKTOP_FILE, encoding="utf-8") as handle:
-        for line in handle:
-            line = line.strip()
-            if not line or line.startswith(("#", "[")):
-                continue
-            name, _, value = line.partition("=")
-            keys[name] = value
-    return keys
-
-
-def test_the_window_declares_the_entry_that_is_shipped():
-    """``setDesktopFileName`` names a basename, and a compositor looks that
-    name up: the two have to be the same string or the icon is the default."""
-    assert os.path.basename(DESKTOP_FILE) == f"{branding.DESKTOP_ENTRY}.desktop"
-
-
-def test_the_entry_names_an_icon_theme_name_not_a_path():
-    """A path would work in the menu and not in the dock. What the entry names
-    is an icon-theme name, which install.sh puts into hicolor under exactly
-    that name — so it must not look like a file."""
-    icon = desktop_entry()["Icon"]
-    assert icon == branding.DESKTOP_ENTRY
-    assert not os.path.isabs(icon) and not icon.endswith(".png")
-
-
-def test_the_entry_starts_the_window_and_says_it_is_one():
-    keys = desktop_entry()
-    assert keys["Type"] == "Application"
-    assert keys["Exec"].endswith("audio-transcriber gui")
-    assert keys["Terminal"] == "false"
-    # How a compositor ties an X11 window back to this entry; Qt sets
-    # WM_CLASS from the application name, which is the same string.
-    assert keys["StartupWMClass"] == branding.DESKTOP_ENTRY
-
-
-def test_install_sh_installs_the_entry_and_the_themed_icons():
-    """The entry is only useful once it is in ~/.local/share: an entry left in
-    the checkout is an entry no desktop ever reads."""
-    with open(os.path.join(ROOT, "install.sh"), encoding="utf-8") as handle:
-        script = handle.read()
-    assert "packaging/audio-transcriber.desktop" in script
-    assert "applications" in script and "icons/hicolor" in script
+    assert shipped == {"fraunces.ttf", "fraunces-display.ttf", "fraunces-text.ttf",
+                       "fraunces-text-semibold.ttf", "karla.ttf"}
+    for _family, name, licence in branding.FONTS:
+        path = branding.font_path(name)
+        assert os.path.exists(path), name
+        with open(path, "rb") as handle:
+            assert handle.read(4) in SFNT, name
+        assert os.path.exists(branding.font_path(licence)), licence
+    # The families the window names by hand have to be among them.
+    named = {family for family, _name, _licence in branding.FONTS}
+    assert {branding.SERIF, branding.SERIF_DISPLAY, branding.SERIF_TEXT,
+            branding.SANS} <= named

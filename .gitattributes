@@ -4,8 +4,9 @@
 *.cmd text eol=crlf
 *.bat text eol=crlf
 
-# The icon renders and the .ico container: never let a checkout rewrite line
-# endings inside a binary file.
+# The icon renders, the .ico container and the typefaces: never let a checkout
+# rewrite line endings inside a binary file.
 *.png binary
 *.ico binary
+*.ttf binary
 *.woff2 binary

@@ -71,9 +71,12 @@ TOKENS = {
 #: What to fall back to, in order, when the bundled face is not there: the
 #: same stacks the stylesheet names, so a machine without the fonts and a
 #: browser without them land on the same face.
+_SERIF_STACK = ("Iowan Old Style", "Palatino Linotype", "Palatino", "Georgia",
+                "serif")
 FALLBACKS = {
-    branding.SERIF: ("Iowan Old Style", "Palatino Linotype", "Palatino",
-                     "Georgia", "serif"),
+    branding.SERIF: _SERIF_STACK,
+    branding.SERIF_DISPLAY: (branding.SERIF,) + _SERIF_STACK,
+    branding.SERIF_TEXT: (branding.SERIF,) + _SERIF_STACK,
     branding.SANS: ("Avenir Next", "Corbel", "Segoe UI", "sans-serif"),
 }
 
@@ -107,14 +110,13 @@ GUTTER = 24
 #: text.
 TITLE_SCALE = 2.3
 
-#: Fraunces is a variable font, and the axis that matters is the optical size:
-#: at 9 it is a sturdy text face and at 144 the high-contrast display cut with
-#: hairline serifs. The page asks for 144 in its h1 and 72 in a section
-#: heading; asking for neither - which is what a plain QFont does - draws the
-#: text cut at display size, which is the whole difference between the window
-#: and the page.
-DISPLAY_OPSZ = 144.0
-SECTION_OPSZ = 72.0
+#: Which cut a heading is set in. Fraunces comes in two static faces here -
+#: the display cut, whose serifs are hairlines and whose contrast is high, and
+#: the text cut, which is what holds up at fifteen pixels - and a heading asks
+#: for one by name. It used to ask the variable file for an optical size
+#: instead, which worked on Linux and drew the file's default instance on
+#: Windows: see ``branding.FONTS``.
+DISPLAY, TEXT = True, False
 
 #: The page sets -0.02em on its h1: at display size the default fit is loose.
 TITLE_TRACKING = 98
@@ -275,40 +277,28 @@ def label_font(base, scale=LABEL_SCALE):
 
 
 def title_font(base, scale=TITLE_SCALE, italic=False, weight=QFont.Weight.Medium,
-               opsz=None, tracking=None):
+               display=TEXT, tracking=None):
     """A heading in the serif: the masthead, a section title, a row's title.
 
-    ``opsz`` is the optical size to cut it at - :data:`DISPLAY_OPSZ` for the
-    masthead, :data:`SECTION_OPSZ` for a heading, and ``None`` for anything
-    small, which is what the page does too: a row's title asks for no optical
-    size and gets the text cut, because that is the one that holds up at
-    fifteen pixels.
+    ``display`` picks the cut: :data:`DISPLAY` for a masthead-sized title,
+    :data:`TEXT` - the default - for everything smaller. They are separate
+    static faces rather than one variable file asked for an optical size,
+    because a font engine that ignores an axis draws the default instance
+    instead, and Fraunces' is the Black text cut. ``branding.FONTS`` tells the
+    story; the short version is that the window looked right here and wrong on
+    Windows twice before this.
 
-    The weight is set twice, and the second time is the one that works:
-    ``QFont.setWeight`` picks among the *named* instances a font declares and
-    never touches the ``wght`` axis, so a variable face answers it with
-    whichever instance it happens to have - which is how the masthead came out
-    fatter than the page's own h1, and the promise under it came out bold when
-    it had been asked for regular.
-
-    Setting an axis needs Qt 6.7, and a font engine that honours it. Where
-    either is missing the named weight is all there is, and the face still
-    comes out - as its default instance, the way a browser without
-    variable-font support would draw it."""
+    The weight is a plain ``setWeight``, which is all a static family needs:
+    the text cut ships as Regular and SemiBold and Qt matches whichever is
+    nearer. A face that is missing falls through the stylesheet's own stack."""
     font = QFont(base)
-    font.setFamily(family(branding.SERIF))
+    wanted = branding.SERIF_DISPLAY if display else branding.SERIF_TEXT
+    font.setFamily(family(wanted))
     font.setWeight(weight)
     font.setItalic(italic)
     _scale(font, scale)
     if tracking:
         font.setLetterSpacing(QFont.SpacingType.PercentageSpacing, tracking)
-    if hasattr(font, "setVariableAxis"):
-        if opsz is not None:
-            font.setVariableAxis(QFont.Tag("opsz"), opsz)
-        # Qt's own weight numbers are the CSS ones, so the enum is the axis
-        # value. The sans is deliberately left to Qt's matching: its axis
-        # starts at 400 and it comes out right without help.
-        font.setVariableAxis(QFont.Tag("wght"), float(int(weight)))
     return font
 
 

@@ -19,8 +19,9 @@ The two typefaces are here for the same reason the icons are: the page and the
 window are meant to look like one program, and a font in ``web/static`` would
 be a file the window has to reach across the package to find. Fraunces carries
 the headings and Karla everything read while typing; both are OFL, self-hosted,
-and their licences sit next to them. They are shipped as variable TrueType
-rather than as WOFF2, and :data:`FONTS` says why.
+and their licences sit next to them. They ship as plain TrueType rather than
+as WOFF2, and the window loads static cuts rather than the variable file;
+:data:`FONTS` says why for both.
 
 Nothing here is required for the program to run: a build that lost its data
 files should transcribe anyway, so the callers treat a missing icon or font as
@@ -46,23 +47,43 @@ FAVICON = "favicon.ico"
 #: the files to Qt.
 FONT_SUBDIR = "fonts"
 
-#: The typefaces, as ``(family, file)``. The family is what both front ends
-#: name first in their font stack, so the same string has to be right for
-#: ``font-family`` in the stylesheet and for ``QFont`` in the window.
+#: Every face that ships, as ``(family, file, licence file)``.
 #:
-#: They are plain sfnt - variable TrueType - and not WOFF2, which is the
-#: better format for a web page and unreadable to half of what has to read
-#: these files. Qt hands an application font to the platform's font engine,
-#: and on Windows that is DirectWrite, which rejects WOFF2 outright: the
-#: window came up in a fallback face and Qt said so twice, on the platform
-#: most of this program's users are on. A browser reads TrueType as happily
-#: as WOFF2, and both front ends here are served from the same machine, so
-#: the compression the page loses is not worth a second copy of every face.
-FONTS = (("Fraunces", "fraunces.ttf"), ("Karla", "karla.ttf"))
+#: The variable file is what the *page* loads: a browser applies
+#: ``font-variation-settings``, so one file covers the display cut of a
+#: heading and the text cut of a row's title. The window loads the three
+#: static cuts instead, and the reason is a trap worth writing down. Qt hands
+#: an application font to the platform's font engine, and where that engine
+#: does not apply a variable axis it draws the file's *default instance* -
+#: which in Fraunces is ``opsz 9, wght 900``, the Black text cut. So the
+#: window came out on Windows in a heavy face with the wrong letterforms while
+#: looking exactly right on Linux, twice, and no amount of asking for an axis
+#: fixed it. A static cut has nothing left to ignore.
+#:
+#: They are instanced from the variable file with ``fonttools`` and given
+#: derived family names, which the OFL allows here: neither licence declares
+#: a reserved font name. ``docs/brand.md`` says how to make them again.
+FONTS = (
+    ("Fraunces", "fraunces.ttf", "fraunces-OFL.txt"),
+    ("Fraunces Display", "fraunces-display.ttf", "fraunces-OFL.txt"),
+    ("Fraunces Text", "fraunces-text.ttf", "fraunces-OFL.txt"),
+    ("Fraunces Text", "fraunces-text-semibold.ttf", "fraunces-OFL.txt"),
+    ("Karla", "karla.ttf", "karla-OFL.txt"),
+)
 
-#: Which of them is which job: headings and titles in the serif, everything
-#: else in the sans. Both front ends make the same split.
-SERIF, SANS = FONTS[0][0], FONTS[1][0]
+#: Which family is which job. ``SERIF`` is the variable file the page uses;
+#: the window asks for a cut by name - the display one for a masthead, the
+#: text one for anything smaller, where Qt picks Regular or SemiBold by weight.
+SERIF = "Fraunces"
+SERIF_DISPLAY = "Fraunces Display"
+SERIF_TEXT = "Fraunces Text"
+SANS = "Karla"
+
+#: The typefaces to *cite*, once each, with the licence that travels with
+#: them. Four of the five files above are the same typeface in different cuts,
+#: and an About box should say "Fraunces" once.
+TYPEFACES = (("Fraunces", "fraunces-OFL.txt"),
+             ("Karla", "karla-OFL.txt"))
 
 #: The rendered sizes, smallest first. Below 48 px these come from the
 #: simplified drawing; above it from the master.
@@ -111,7 +132,7 @@ def font_files():
     without the fonts falls back to the next family in the stack, which is
     what the stylesheet does too."""
     found = []
-    for family, name in FONTS:
+    for family, name, _licence in FONTS:
         candidate = font_path(name)
         if os.path.exists(candidate):
             found.append((family, candidate))

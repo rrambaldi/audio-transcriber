@@ -18,5 +18,7 @@
   decisions behind them
 - [brand.md](brand.md) — the icon set: what the mark is, which file is used
   where, and the two things that have to be uploaded by hand
+- [third-party.md](third-party.md) — everybody else's work: what ships inside
+  the program, what pip installs, what it downloads, and under what licence
 
 Start with the [README](../README.md) for installation and everyday use.

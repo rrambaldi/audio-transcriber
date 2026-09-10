@@ -344,16 +344,21 @@ MESSAGES = {
         "about.open": "About",
         "about.open_tip": "What this program is, and the licence it is given under",
         "about.title": "About audio-transcriber",
-        "about.version": "Version {version} — {licence}",
+        "about.version": "Version {version}",
         "about.licence": "License",
         "about.licence_missing":
             "This copy has no licence file to show. The terms are the MIT license.",
         "about.open_licence": "Open the license file",
         "about.bundled": "What is bundled",
         "about.fonts": "Two typefaces, each under its own licence:",
+        # The two copyleft ones are named here because an About box is where
+        # a user can reasonably be expected to find them; the rest are
+        # permissive and are listed in docs/third-party.md.
         "about.dependencies":
-            "The Python packages it depends on are installed separately and "
-            "keep their own licences.",
+            "Built on Qt through PySide6, under the LGPL v3, and it reads "
+            "audio with ffmpeg, under the LGPL 2.1. Everything else it uses "
+            "is installed separately and keeps its own licence: "
+            "docs/third-party.md lists them.",
         "gui.row_transcribe": "Transcribe",
         "gui.row_retry": "Try again",
         "gui.row_stop": "Stop",
@@ -1007,7 +1012,7 @@ MESSAGES = {
         "about.open": "Informazioni",
         "about.open_tip": "Cos'e' questo programma e con quale licenza e' dato",
         "about.title": "Informazioni su audio-transcriber",
-        "about.version": "Versione {version} — {licence}",
+        "about.version": "Versione {version}",
         "about.licence": "Licenza",
         "about.licence_missing":
             "Questa copia non ha un file di licenza da mostrare. I termini sono "
@@ -1016,8 +1021,10 @@ MESSAGES = {
         "about.bundled": "Cosa e' incluso",
         "about.fonts": "Due caratteri tipografici, ognuno con la sua licenza:",
         "about.dependencies":
-            "I pacchetti Python da cui dipende si installano a parte e "
-            "mantengono le loro licenze.",
+            "Costruito su Qt tramite PySide6, sotto LGPL v3, e legge l'audio "
+            "con ffmpeg, sotto LGPL 2.1. Tutto il resto si installa a parte e "
+            "mantiene la propria licenza: l'elenco e' in "
+            "docs/third-party.md.",
         "gui.row_transcribe": "Trascrivi",
         "gui.row_retry": "Riprova",
         "gui.row_stop": "Interrompi",

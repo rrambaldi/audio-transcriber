@@ -9,7 +9,18 @@ the files actually on disk.
 """
 import os
 
+import pytest
+
 from audio_transcriber import __version__, about, branding
+
+
+@pytest.fixture(autouse=True)
+def uncached():
+    """The licence is read once and kept, which is right for a running
+    program and wrong between two tests that patch where it lives."""
+    about.licence_text.cache_clear()
+    yield
+    about.licence_text.cache_clear()
 
 
 def test_the_licence_is_found_in_a_checkout():
@@ -26,11 +37,9 @@ def test_the_installed_copy_is_preferred_over_the_checkout(monkeypatch, tmp_path
     installed = tmp_path / "LICENSE"
     installed.write_text("INSTALLED\n\nPermission is hereby granted", encoding="utf-8")
     monkeypatch.setattr(about, "_installed_path", lambda: str(installed))
-    about.licence_text.cache_clear()
 
     assert about.licence_path() == str(installed)
     assert about.licence_text().startswith("INSTALLED")
-    about.licence_text.cache_clear()
 
 
 def test_a_copy_with_no_licence_file_says_so_instead_of_failing(monkeypatch):
@@ -38,7 +47,6 @@ def test_a_copy_with_no_licence_file_says_so_instead_of_failing(monkeypatch):
     run, and the front ends have a sentence for the case."""
     monkeypatch.setattr(about, "_installed_path", lambda: None)
     monkeypatch.setattr(about, "_CHECKOUT", "/nowhere/LICENSE")
-    about.licence_text.cache_clear()
 
     assert about.licence_path() is None
     assert about.licence_text() is None
@@ -47,7 +55,6 @@ def test_a_copy_with_no_licence_file_says_so_instead_of_failing(monkeypatch):
     facts = about.facts()
     assert facts["licence_text"] is None
     assert facts["spdx"] == "MIT"
-    about.licence_text.cache_clear()
 
 
 def test_the_title_is_the_licence_s_own_first_line():
@@ -73,11 +80,12 @@ def test_the_bundled_typefaces_are_reported_with_their_licences():
     where that is said out loud."""
     fonts = about.bundled_fonts()
 
+    # One entry per typeface, not per file: Fraunces ships in four cuts.
     assert [font["family"] for font in fonts] == [branding.SERIF, branding.SANS]
+    assert len(fonts) < len(branding.FONTS)
     for font in fonts:
         assert font["licence"] == "SIL Open Font License 1.1"
         assert font["licence_file"] and os.path.exists(font["licence_file"])
-        assert font["file"].endswith(".ttf")
 
 
 def test_the_facts_are_what_a_front_end_needs_and_no_prose():

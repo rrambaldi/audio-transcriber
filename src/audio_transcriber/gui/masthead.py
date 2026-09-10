@@ -45,10 +45,10 @@ NAME_SCALE = theme.TITLE_SCALE
 #: over the interface font, in the serif's italic.
 TAGLINE_SCALE = 1.3
 
-#: The weight of that italic. Light rather than regular: the italic has to be
-#: synthesised - the bundled subset has no italic face, as on the page - and a
-#: slanted regular reads a step heavier than an upright one.
-TAGLINE_WEIGHT = QFont.Weight.Light
+#: The weight of that italic: regular, which is what the page sets. The italic
+#: itself is synthesised, here and on the page - neither has an italic face of
+#: this typeface to draw from.
+TAGLINE_WEIGHT = QFont.Weight.Normal
 
 #: Below this relative luminance the window's background counts as dark, and
 #: the mark is drawn without its plate. Halfway is where the plate - a very
@@ -129,7 +129,7 @@ class Masthead(QWidget):
         # The page's own h1: the display cut of the serif, at display size,
         # tracked in a little. See theme.title_font.
         self.name.setFont(theme.title_font(self.font(), NAME_SCALE,
-                                           opsz=theme.DISPLAY_OPSZ,
+                                           display=theme.DISPLAY,
                                            tracking=theme.TITLE_TRACKING))
 
         self.tagline = QLabel(t("gui.tagline"))

@@ -51,12 +51,12 @@ const I18N = {
     colophon: "audio-transcriber {version} — {sets} keyword sets installed. Everything runs on this machine.",
     about_open: "About this program",
     about_title: "About audio-transcriber",
-    about_version: "Version {version} — {licence}",
+    about_version: "Version {version}",
     about_licence: "License",
     about_licence_missing: "This copy has no licence file to show. The terms are the MIT license.",
     about_bundled: "What is bundled",
     about_fonts: "Two typefaces, each under its own licence:",
-    about_dependencies: "The Python packages it depends on are installed separately and keep their own licences.",
+    about_dependencies: "Built on Qt through PySide6, under the LGPL v3, and it reads audio with ffmpeg, under the LGPL 2.1. Everything else it uses is installed separately and keeps its own licence: docs/third-party.md lists them.",
 
     new_transcription: "New transcription",
     tab_file: "Upload a file",
@@ -241,12 +241,12 @@ const I18N = {
     colophon: "audio-transcriber {version} — {sets} set di parole chiave installati. Tutto gira su questa macchina.",
     about_open: "Informazioni su questo programma",
     about_title: "Informazioni su audio-transcriber",
-    about_version: "Versione {version} — {licence}",
+    about_version: "Versione {version}",
     about_licence: "Licenza",
     about_licence_missing: "Questa copia non ha un file di licenza da mostrare. I termini sono quelli della licenza MIT.",
     about_bundled: "Cosa è incluso",
     about_fonts: "Due caratteri tipografici, ognuno con la sua licenza:",
-    about_dependencies: "I pacchetti Python da cui dipende si installano a parte e mantengono le loro licenze.",
+    about_dependencies: "Costruito su Qt tramite PySide6, sotto LGPL v3, e legge l'audio con ffmpeg, sotto LGPL 2.1. Tutto il resto si installa a parte e mantiene la propria licenza: l'elenco e' in docs/third-party.md.",
 
     new_transcription: "Nuova trascrizione",
     tab_file: "Carica un file",
@@ -1589,8 +1589,9 @@ async function openAbout() {
   }
   $("about-version").textContent = t("about_version", {
     version: aboutFacts.version,
-    licence: aboutFacts.licence_title || aboutFacts.spdx,
   });
+  $("about-licence-name").textContent =
+    aboutFacts.licence_title || aboutFacts.spdx;
   /* textContent, not innerHTML: a licence is text, and this one is the only
      screen in the program that shows a whole file. */
   $("about-licence").textContent =

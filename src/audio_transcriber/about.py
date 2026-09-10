@@ -103,17 +103,17 @@ def licence_title(text=None):
 def bundled_fonts():
     """The typefaces that ship with the program, and their licence files.
 
-    They are somebody else's work: OFL, which asks that the licence travel
-    with the font. It does - the files sit next to them - and this is where a
-    reader is told about it."""
+    One entry per typeface and not per file: Fraunces ships in four cuts, and
+    an About box should say "Fraunces" once. They are somebody else's work -
+    OFL, which asks that the licence travel with the font. It does, the files
+    sit next to them, and this is where a reader is told about it."""
     found = []
-    for family, file in branding.FONTS:
-        licence = branding.font_path(f"{os.path.splitext(file)[0]}-OFL.txt")
+    for family, licence_file in branding.TYPEFACES:
+        path = branding.font_path(licence_file)
         found.append({
             "family": family,
-            "file": os.path.basename(file),
             "licence": "SIL Open Font License 1.1",
-            "licence_file": licence if os.path.exists(licence) else None,
+            "licence_file": path if os.path.exists(path) else None,
         })
     return found
 

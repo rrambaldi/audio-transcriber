@@ -468,29 +468,22 @@ stylesheet's own token values, by `tests/test_gui_theme.py`.
 | `.row .title` in the serif | the queue and library rows, painted by `widgets.JobDelegate` |
 | `.drop`, dashed | `QFrame#drop`, dashed, washed in the accent while a file is over it |
 
-One thing about the typefaces is worth knowing, because getting it wrong is
-what made the first version of this look like a cheap imitation of the page
-rather than the same design. **Fraunces is a variable font, and the axis that
-matters is the optical size**: at `opsz 9` it is a sturdy text face, at
-`opsz 144` the high-contrast display cut with hairline serifs. The page asks
-for 144 in its `h1` and 72 in a section heading. A plain `QFont` asks for
-neither and gets the default instance — the text cut, drawn at display size,
-which is heavy and dull next to the page. `theme.title_font` takes an `opsz`,
-`QFont.setVariableAxis` applies it (Qt 6.7 and later; where it is missing the
-default instance still renders, as in a browser without variable-font
-support), and small type asks for nothing on purpose, because the text cut is
-the one that holds up at fifteen pixels.
-
-The same trap catches the **weight**: `QFont.setWeight` picks among the
-*named* instances a font declares and never touches the `wght` axis, so a
-variable face answers it with whichever instance it happens to have. That is
-why the masthead came out fatter than the page's own `h1`, and why the promise
-under it came out bold on Windows after being asked for regular. `title_font`
-now sets the axis as well as the named weight — Qt's weight numbers are the
-CSS ones, so the enum *is* the axis value — and the promise asks for Light,
-because its italic has to be synthesised (the bundled subset has no italic
-face, as on the page) and a slanted regular reads a step heavier than an
-upright one.
+**The window loads static cuts of the serif, not the variable file, and that
+is the second time the same class of bug has been paid for.** Qt does not
+apply a variable axis itself — it asks the platform's font engine, and where
+that engine does not, the file's *default instance* is drawn. Fraunces'
+default is `opsz 9, wght 900`: the Black text cut. So the masthead came out
+heavy with the wrong letterforms on Windows while looking exactly right here,
+first when it asked for an optical size and again when it asked for a weight
+(`QFont.setWeight` chooses among a font's *named* instances and never touches
+the `wght` axis, so a variable face answers it with whatever it happens to
+have). Two static faces settle it: `Fraunces Display` for a masthead-sized
+title, `Fraunces Text` — Regular and SemiBold, so a weight is a face and not
+a synthesis — for everything smaller. `theme.title_font` takes
+`display=theme.DISPLAY` or `theme.TEXT` and asks for a family by name; nothing
+depends on axis support any more, and the page keeps the variable file, where
+a browser applies the axes properly. [brand.md](brand.md) says how the cuts
+are made.
 
 Two deliberate departures from the page, both because a window is not a sheet
 of paper:

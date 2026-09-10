@@ -55,23 +55,28 @@ class AboutDialog(QDialog):
         titles.setSpacing(2)
         name = QLabel(t("gui.wordmark"))
         name.setFont(theme.title_font(self.font(), theme.TITLE_SCALE,
-                                      opsz=theme.DISPLAY_OPSZ,
+                                      display=theme.DISPLAY,
                                       tracking=theme.TITLE_TRACKING))
         titles.addWidget(name)
         tagline = QLabel(t("gui.tagline"))
         tagline.setFont(theme.title_font(self.font(), masthead.TAGLINE_SCALE,
                                          italic=True,
                                          weight=masthead.TAGLINE_WEIGHT))
-        titles.addWidget(style.note(tagline))
-        version = QLabel(t("about.version", version=__version__,
-                           licence=self.facts["licence_title"]))
-        version.setWordWrap(True)
+        # The version goes directly under the name, where somebody looking for
+        # it looks; the licence's own name goes under the "license" heading,
+        # with the text it names.
+        version = QLabel(t("about.version", version=__version__))
         titles.addWidget(style.note(version))
+        titles.addWidget(style.note(tagline))
         head.addLayout(titles, 1)
 
         licence_heading = QLabel(t("about.licence"))
         licence_heading.setFont(theme.label_font(self.font()))
         style.note(licence_heading)
+
+        self.licence_name = QLabel(self.facts["licence_title"])
+        self.licence_name.setWordWrap(True)
+        style.note(self.licence_name)
 
         self.licence = QPlainTextEdit()
         self.licence.setReadOnly(True)
@@ -110,6 +115,7 @@ class AboutDialog(QDialog):
         layout.setSpacing(10)
         layout.addLayout(head)
         layout.addWidget(licence_heading)
+        layout.addWidget(self.licence_name)
         layout.addWidget(self.licence, 1)
         layout.addWidget(bundled_heading)
         layout.addWidget(self.bundled)

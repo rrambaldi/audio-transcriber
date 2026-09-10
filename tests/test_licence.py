@@ -1,4 +1,5 @@
-"""The licence, and the one claim the packaging metadata makes about it.
+"""The licence, the claim the packaging metadata makes about it, and the list
+of everybody else's.
 
 The file is "the MIT license, with a wish": 164 words of preamble that say of
 themselves that nothing in them is a condition, followed by the MIT grant. On
@@ -149,3 +150,68 @@ def test_the_identifier_is_the_one_the_metadata_declares():
     declared = config()["project"]["license"]
 
     assert f"SPDX-License-Identifier: {declared}" in head
+
+
+# --- other people's work --------------------------------------------------
+
+THIRD_PARTY = os.path.join(ROOT, "docs", "third-party.md")
+
+#: Names that are not distributions to look up: the extras' own aliases.
+_NOT_A_PACKAGE = {"all", "dev"}
+
+
+def requirements():
+    """Every distribution this project asks pip for, by bare name."""
+    project = config()["project"]
+    wanted = list(project.get("dependencies", []))
+    for extra, names in project.get("optional-dependencies", {}).items():
+        if extra in _NOT_A_PACKAGE:
+            continue
+        wanted.extend(names)
+    bare = set()
+    for requirement in wanted:
+        # "optimum-intel[openvino]>=1.2" -> "optimum-intel"
+        bare.add(re.split(r"[\[<>=!;\s]", requirement, maxsplit=1)[0].strip())
+    return bare
+
+
+def test_every_dependency_is_accounted_for():
+    """A new dependency is one of the two things that rots a licence list, and
+    it is the one a test can catch: docs/third-party.md has to name it.
+
+    The other - a licence changing upstream - is a reading job, which is why
+    that file records what was checked and when."""
+    with open(THIRD_PARTY, encoding="utf-8") as handle:
+        listed = handle.read()
+
+    missing = sorted(name for name in requirements() if f"`{name}`" not in listed)
+    assert missing == [], f"not in docs/third-party.md: {missing}"
+
+
+def test_the_copyleft_ones_are_named_in_the_program_itself():
+    """Qt and ffmpeg are LGPL, and an About box is where a user can
+    reasonably be expected to find that. The rest are permissive and the file
+    is enough for them."""
+    from audio_transcriber import i18n
+
+    for language in i18n.MESSAGES:
+        i18n.set_language(language)
+        said = i18n.t("about.dependencies")
+        assert "PySide6" in said and "LGPL" in said, language
+        assert "ffmpeg" in said, language
+        assert "third-party.md" in said, language
+    i18n.set_language("en")
+
+
+def test_the_bundled_typefaces_are_the_only_vendored_thing():
+    """Everything else is installed by pip into the user's own environment.
+    If that stops being true, this file is where it has to be written down."""
+    from audio_transcriber import branding
+
+    with open(THIRD_PARTY, encoding="utf-8") as handle:
+        listed = handle.read()
+
+    for family, licence in branding.TYPEFACES:
+        assert family in listed
+        assert licence in listed
+    assert "SIL Open Font License 1.1" in listed
