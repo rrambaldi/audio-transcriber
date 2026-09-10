@@ -93,6 +93,31 @@ All notable changes to this project are documented here. The format follows
 
 ### Changed
 
+- **The licence is now the Gratitude & Random Kindness License.** The MIT
+  license, word for word, with a wish in front of it: that this software rests
+  on tools and ideas that were a gift, and so is given freely, with a wish
+  rather than a price. The wish says of itself that nothing in it is a
+  condition and that it is not enforceable, which is the only honest way to
+  wish for anything — so nothing downstream changes. The packaging metadata
+  says exactly that: the license *expression* is `MIT`, because that is what a
+  dependency scanner has to tell a user about what they owe, and the file
+  itself travels as `License-File`, because that is where a person reads it.
+  `tests/test_licence.py` compares the operative paragraphs with the canonical
+  MIT text word for word, so the wish can be rewritten freely and the terms
+  cannot be rewritten by accident. The metadata also moves to the PEP 639
+  form — an expression and `license-files` instead of a table and a
+  classifier, both of which setuptools now deprecates — so building needs
+  `setuptools>=77`.
+
+  Four files carry `SPDX-License-Identifier: MIT` in their own heads, and only
+  four: the two install scripts, which get copied out and run on their own,
+  and the stylesheet and the script a browser downloads. Those are the files
+  that travel without the repository around them, so they are the ones where a
+  header earns its three lines; everything else is covered by `LICENSE` and by
+  the package metadata. The header names the licence as well as the
+  identifier, because the identifier alone would drop the half of it that is
+  the point.
+
 - **A long recording is folded in a tree rather than in one prompt.** A single
   reduce prompt holds every partial summary, so it grows with the length of
   the recording: fifteen chunks of a ninety-thousand-token meeting was a

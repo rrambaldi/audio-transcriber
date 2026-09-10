@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=68"]
+requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -7,7 +7,14 @@ name = "audio-transcriber-ov"
 version = "0.3.0"
 description = "Local audio/video transcription with Whisper — Intel iGPU via OpenVINO or CPU-only servers via faster-whisper — with optional speaker diarization. No cloud, your data stays on your machine."
 readme = "README.md"
-license = { text = "MIT" }
+# MIT as the expression, the whole file as the text. The licence is the MIT
+# license word for word with a wish in front of it, and the wish says of
+# itself that nothing in it is a condition - so what a machine needs to know
+# about the terms is "MIT", and a scanner that reported anything else would be
+# telling a downstream user they have an obligation they do not have. The
+# words themselves travel as License-File, which is where a person reads them.
+license = "MIT"
+license-files = ["LICENSE"]
 authors = [{ name = "Roberto Rambaldi" }]
 requires-python = ">=3.11"
 keywords = ["whisper", "openvino", "faster-whisper", "transcription", "diarization",
@@ -18,7 +25,6 @@ classifiers = [
     "Environment :: X11 Applications :: Qt",
     "Environment :: Web Environment",
     "Intended Audience :: End Users/Desktop",
-    "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3 :: Only",
     "Programming Language :: Python :: 3.11",

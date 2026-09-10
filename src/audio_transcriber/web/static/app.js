@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 Roberto Rambaldi
+// SPDX-License-Identifier: MIT
+// The Gratitude & Random Kindness License: MIT, with a wish. See LICENSE.
+
 /* The whole interface: no framework, no build step, one file.
 
    Two kinds of keyword set live side by side here. The ones the server

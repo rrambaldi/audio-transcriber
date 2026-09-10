@@ -351,4 +351,8 @@ needs no models, no GPU and no network — please keep it that way.
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+The Gratitude & Random Kindness License — see [LICENSE](LICENSE). It is the
+MIT license, word for word, with a wish in front of it: nothing in the wish is
+a condition, so if you are here to use, copy, modify or sell this, the terms
+you are looking for are MIT and you already know them. The wish is worth
+reading anyway.

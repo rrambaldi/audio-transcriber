@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+# SPDX-FileCopyrightText: 2026 Roberto Rambaldi
+# SPDX-License-Identifier: MIT
+# The Gratitude & Random Kindness License: MIT, with a wish. See LICENSE.
 # ---------------------------------------------------------------------------
 #  audio-transcriber - update and install on Linux and macOS
 #

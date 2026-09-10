@@ -1,4 +1,7 @@
 @echo off
+rem SPDX-FileCopyrightText: 2026 Roberto Rambaldi
+rem SPDX-License-Identifier: MIT
+rem The Gratitude & Random Kindness License: MIT, with a wish. See LICENSE.
 
 rem ---------------------------------------------------------------------------
 rem  audio-transcriber - update and install on Windows
