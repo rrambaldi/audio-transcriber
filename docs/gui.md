@@ -432,6 +432,7 @@ dependencies. `audio-transcriber gui` says so rather than showing a traceback.
 | `gui/multimedia.py` | QtMultimedia when it is there, and a clear answer when it is not |
 | `gui/masthead.py` | the band above the tabs: the mark, the name, the promise |
 | `gui/theme.py` | the web page's palette and typefaces, as a Qt palette, fonts and style sheet |
+| `gui/about_dialog.py` | what the program is, and the licence it is given under |
 
 ## Look and feel: the page's, not the desktop's
 
@@ -467,6 +468,19 @@ stylesheet's own token values, by `tests/test_gui_theme.py`.
 | `.row .title` in the serif | the queue and library rows, painted by `widgets.JobDelegate` |
 | `.drop`, dashed | `QFrame#drop`, dashed, washed in the accent while a file is over it |
 
+One thing about the typefaces is worth knowing, because getting it wrong is
+what made the first version of this look like a cheap imitation of the page
+rather than the same design. **Fraunces is a variable font, and the axis that
+matters is the optical size**: at `opsz 9` it is a sturdy text face, at
+`opsz 144` the high-contrast display cut with hairline serifs. The page asks
+for 144 in its `h1` and 72 in a section heading. A plain `QFont` asks for
+neither and gets the default instance — the text cut, drawn at display size,
+which is heavy and dull next to the page. `theme.title_font` takes an `opsz`,
+`QFont.setVariableAxis` applies it (Qt 6.7 and later; where it is missing the
+default instance still renders, as in a browser without variable-font
+support), and small type asks for nothing on purpose, because the text cut is
+the one that holds up at fifteen pixels.
+
 Two deliberate departures from the page, both because a window is not a sheet
 of paper:
 
@@ -478,7 +492,8 @@ of paper:
   they came out near seven points with a text-coloured underline — a row of
   captions, which is exactly what "they don't look like tabs" means.
 - **Everything is held `theme.GUTTER` off the frame** — the masthead, the tab
-  strip, each panel and the status line all start on the same vertical. The
+  strip, each panel, the rule under the masthead and the status line all start
+  on the same vertical. The
   page gives itself between 1rem and 4rem of side padding; a window cannot
   indent that luxuriously, but a group box's rule flush against the frame is
   not the same design. The gutter is set once, on the tab widget's pane, so
@@ -512,6 +527,31 @@ the page loads those same two files. If a face is missing altogether the
 window falls through the stylesheet's own fallback stack — Corbel, Segoe UI,
 Georgia — which is the same design in a different face rather than a
 start-up failure.
+
+## About, and the licence
+
+The window has no menu bar — nothing in it is hidden behind one — so the way
+into the About box is **the version in the masthead**, which is where a version
+already was and what somebody clicks when they want to know what they are
+running. It says `v0.3.0 · About`, because a bare number is not something
+anybody thinks to click. **F1** opens the same box, being the key people press
+looking for help on a program that has none.
+
+What it shows is the version, the licence *whole* — the mark, the name and the
+tagline above it, then the text in a read-only field that grows with the
+dialog — and a line about what is bundled: the two typefaces, which are
+somebody else's work under OFL, and the Python packages, which are installed
+separately and are nobody's to relicense here. A button opens the licence file
+in whatever the desktop opens text with, and is disabled when this copy has no
+file to open.
+
+The licence text itself comes from `audio_transcriber/about.py`, which the web
+page asks too: a wheel keeps the file in its `dist-info` and a checkout keeps
+it at the top of the repository, and neither front end should know that. The
+box is `open()`ed rather than `exec()`d, because `exec` runs an event loop of
+its own — a thing to avoid while the window behind it is polling a
+transcription, and something that makes anything which opens the box
+unanswerable, tests included.
 
 ## The mark, and whose icon the desktop actually draws
 

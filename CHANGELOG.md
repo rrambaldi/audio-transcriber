@@ -8,6 +8,20 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- **Both front ends can show the licence, in an About box.** In the browser it
+  is one click from the bottom of the page — *About this program*, in the
+  footer — and in the window it is the version in the masthead, which now
+  reads `v0.3.0 · About`, or F1: there is no menu bar to hide an About box
+  behind, and a version is what somebody clicks when they want to know what
+  they are running. Both show the licence **whole** rather than by name,
+  because it is the MIT license with a wish in front of it and the wish is the
+  half worth a screen. Both also say what is bundled that is not ours: the two
+  typefaces, under OFL, whose licences the page links to and the window names.
+  The text comes from `audio_transcriber/about.py`, which finds the file
+  wherever this copy keeps it — a wheel's `dist-info`, or the top of a
+  checkout — so neither front end carries a copy to drift from, and a build
+  with no licence file at all says so instead of showing a blank box.
+
 - **A summary engine for a machine with no accelerator at all.** A GGUF
   through llama.cpp, which is the environment the rest of this feature was
   always about: two cores, no GPU, a few gigabytes. Nothing is converted — the
@@ -56,6 +70,24 @@ All notable changes to this project are documented here. The format follows
   before it is read, and the page says what share arrived.
 
 ### Fixed
+
+- **The window was drawing the wrong cut of its own typeface.** Fraunces is a
+  variable font, and the axis that matters is the optical size: at `opsz 9` it
+  is a sturdy text face, at `opsz 144` the high-contrast display cut with
+  hairline serifs. The page asks for 144 in its heading; a plain `QFont` asks
+  for nothing and gets the default instance, so the window drew the text cut
+  at display size — heavy and dull beside the page, which is exactly how it
+  looked. The masthead now asks for the display cut and the page's own sizes
+  (the name at 2.3× the interface font rather than 1.45×, tracked in 2% as the
+  page tracks it, the promise in the serif's italic at regular weight), and a
+  section heading asks for `opsz 72`. Where Qt is older than 6.7 the default
+  instance still renders, the way a browser without variable-font support
+  would draw it.
+
+- **The rule under the masthead ran out to the window frame** while everything
+  above and below it kept the gutter. It is the bottom edge of the masthead,
+  not a divider across the window, and the page draws it inside its own
+  margins too.
 
 - **A machine with plenty of memory was told it had none.** The reserve kept
   free for the operating system was a fifth of the *installed* RAM, so a

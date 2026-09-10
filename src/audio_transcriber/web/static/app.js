@@ -49,6 +49,14 @@ const I18N = {
     rename_label: "Title",
     rename_ok: "Rename",
     colophon: "audio-transcriber {version} — {sets} keyword sets installed. Everything runs on this machine.",
+    about_open: "About this program",
+    about_title: "About audio-transcriber",
+    about_version: "Version {version} — {licence}",
+    about_licence: "License",
+    about_licence_missing: "This copy has no licence file to show. The terms are the MIT license.",
+    about_bundled: "What is bundled",
+    about_fonts: "Two typefaces, each under its own licence:",
+    about_dependencies: "The Python packages it depends on are installed separately and keep their own licences.",
 
     new_transcription: "New transcription",
     tab_file: "Upload a file",
@@ -231,6 +239,14 @@ const I18N = {
     rename_label: "Titolo",
     rename_ok: "Rinomina",
     colophon: "audio-transcriber {version} — {sets} set di parole chiave installati. Tutto gira su questa macchina.",
+    about_open: "Informazioni su questo programma",
+    about_title: "Informazioni su audio-transcriber",
+    about_version: "Versione {version} — {licence}",
+    about_licence: "Licenza",
+    about_licence_missing: "Questa copia non ha un file di licenza da mostrare. I termini sono quelli della licenza MIT.",
+    about_bundled: "Cosa è incluso",
+    about_fonts: "Due caratteri tipografici, ognuno con la sua licenza:",
+    about_dependencies: "I pacchetti Python da cui dipende si installano a parte e mantengono le loro licenze.",
 
     new_transcription: "Nuova trascrizione",
     tab_file: "Carica un file",
@@ -1552,6 +1568,50 @@ $("job-form").addEventListener("submit", async (event) => {
     button.textContent = t("start");
   }
 });
+
+/* --- about ------------------------------------------------------------- */
+
+/* Fetched once and kept: neither the version nor the licence changes while
+   the page is open. */
+let aboutFacts = null;
+
+async function openAbout() {
+  if (!aboutFacts) {
+    try {
+      aboutFacts = await fetch(api("about")).then((r) => r.json());
+    } catch (error) {
+      /* The page is talking to a server that has stopped answering. The
+         banner already says so; opening an empty dialog on top of it would
+         only say it worse. */
+      offline(true, openAbout);
+      return;
+    }
+  }
+  $("about-version").textContent = t("about_version", {
+    version: aboutFacts.version,
+    licence: aboutFacts.licence_title || aboutFacts.spdx,
+  });
+  /* textContent, not innerHTML: a licence is text, and this one is the only
+     screen in the program that shows a whole file. */
+  $("about-licence").textContent =
+    aboutFacts.licence_text || t("about_licence_missing");
+
+  const fonts = $("about-fonts");
+  fonts.textContent = `${t("about_fonts")} `;
+  (aboutFacts.fonts || []).forEach((font, index) => {
+    if (index) fonts.append(document.createTextNode(", "));
+    const label = `${font.family} (${font.licence})`;
+    fonts.append(font.licence_url
+      ? el("a", { className: "link", href: font.licence_url, textContent: label,
+                  target: "_blank", rel: "noopener" })
+      : document.createTextNode(label));
+  });
+  fonts.append(document.createTextNode("."));
+  $("about").showModal();
+}
+
+$("about-open").addEventListener("click", openAbout);
+$("about-close").addEventListener("click", () => $("about").close());
 
 /* --- start ------------------------------------------------------------- */
 

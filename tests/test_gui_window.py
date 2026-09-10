@@ -24,7 +24,7 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 try:
     from PySide6.QtCore import Qt
-    from PySide6.QtGui import QColor, QFont, QPalette
+    from PySide6.QtGui import QColor, QFont, QKeySequence, QPalette, QShortcut
     from PySide6.QtWidgets import QApplication, QMessageBox
 except ImportError as exc:      # pragma: no cover - depends on the machine
     # PySide6 is installed but will not load: a partial install, or a Linux box
@@ -37,6 +37,7 @@ from audio_transcriber import __version__, branding, i18n, paths  # noqa: E402
 from audio_transcriber.gui import masthead as masthead_module  # noqa: E402
 from audio_transcriber.gui import style, theme, widgets  # noqa: E402
 from audio_transcriber.gui import window as window_module  # noqa: E402
+from audio_transcriber.gui.about_dialog import AboutDialog  # noqa: E402
 from audio_transcriber.gui.masthead import MARK_PX, Masthead  # noqa: E402
 from audio_transcriber.gui.window import (  # noqa: E402
     MainWindow,
@@ -169,6 +170,71 @@ def test_the_masthead_carries_the_mark_the_name_and_the_promise(window):
     assert pixmap.width() == round(MARK_PX * ratio)
 
 
+def test_the_version_in_the_masthead_is_the_way_into_the_about_box(window):
+    """The window has no menu bar to hide an About box behind, so the way in
+    is the version, which is what somebody clicks when they want to know what
+    they are running. A bare number is not something anybody thinks to click,
+    so the word is there too."""
+    version = window.masthead.version
+
+    assert __version__ in version.text()
+    assert '<a href="#about">' in version.text()
+    assert i18n.t("about.open") in version.text()
+    assert version.toolTip()
+
+    # The window is listening, and what comes up is the About box itself.
+    version.linkActivated.emit("#about")
+    opened = window.findChildren(AboutDialog)
+    assert len(opened) == 1
+    assert "Permission is hereby granted" in opened[0].licence.toPlainText()
+    opened[0].reject()
+
+
+def test_f1_asks_for_the_about_box_too(window):
+    """The key somebody presses looking for help, on a window with no help."""
+    keys = [shortcut.key() for shortcut in window.findChildren(QShortcut)]
+
+    assert QKeySequence(QKeySequence.StandardKey.HelpContents) in keys
+
+
+def test_the_about_box_shows_the_whole_licence(window):
+    """Not its name: the licence is the MIT license with a wish in front of
+    it, and the wish is the half worth a screen."""
+    dialog = AboutDialog(icon=window.windowIcon(), parent=window)
+    try:
+        text = dialog.licence.toPlainText()
+
+        assert "Permission is hereby granted" in text
+        assert "senseless acts of beauty" in text
+        assert dialog.licence.isReadOnly()
+        # Selectable, because copying it is the one thing somebody may want.
+        assert dialog.licence.textInteractionFlags() & \
+            Qt.TextInteractionFlag.TextSelectableByMouse
+        # And what is bundled that is not ours.
+        assert "SIL Open Font License 1.1" in dialog.bundled.text()
+        assert dialog.open_file.isEnabled() is True
+    finally:
+        dialog.deleteLater()
+
+
+def test_the_about_box_survives_a_build_with_no_licence_file(window, monkeypatch):
+    """A licence that cannot be shown is worth admitting, not worth a
+    traceback on a dialog somebody opened out of curiosity."""
+    from audio_transcriber import about
+
+    monkeypatch.setattr(about, "_installed_path", lambda: None)
+    monkeypatch.setattr(about, "_CHECKOUT", "/nowhere/LICENSE")
+    about.licence_text.cache_clear()
+    try:
+        dialog = AboutDialog(icon=window.windowIcon(), parent=window)
+        assert i18n.t("about.licence_missing") in dialog.licence.toPlainText()
+        # Nothing to open, and the button says so by being off.
+        assert dialog.open_file.isEnabled() is False
+        dialog.deleteLater()
+    finally:
+        about.licence_text.cache_clear()
+
+
 def test_the_masthead_is_above_the_tabs_not_inside_one(window):
     """It is true of the whole window, so it must not scroll away with a tab."""
     central = window.centralWidget()
@@ -196,6 +262,27 @@ def test_the_masthead_is_painted_in_the_brand_not_in_the_desktop_s_colours(windo
     assert masthead.eyebrow.font().capitalization() == QFont.Capitalization.AllUppercase
     assert masthead.name.font().family() == theme.family(branding.SERIF)
     assert masthead.tagline.font().italic() is True
+    # And the name is the page's h1: the display cut, at display size.
+    if hasattr(QFont, "setVariableAxis"):
+        assert masthead.name.font().variableAxisValue(QFont.Tag("opsz")) \
+            == theme.DISPLAY_OPSZ
+    assert masthead.name.font().pointSizeF() > masthead.tagline.font().pointSizeF()
+
+
+def test_the_rule_under_the_masthead_keeps_the_gutter(window):
+    """It is the bottom edge of the masthead, and the masthead sits in the
+    window's gutter: a rule running out to the frame was the one line in the
+    window that did not."""
+    window.resize(1000, 480)
+    window.show()
+    QApplication.processEvents()
+    rule = window.masthead.rule
+
+    left = rule.mapTo(window.masthead, rule.rect().topLeft()).x()
+    right = window.masthead.width() - (left + rule.width())
+    assert left == theme.GUTTER
+    assert right == theme.GUTTER
+    assert rule.height() == 1
 
 
 def test_on_a_dark_theme_the_mark_loses_its_plate(window):

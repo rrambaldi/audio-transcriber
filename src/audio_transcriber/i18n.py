@@ -329,6 +329,24 @@ MESSAGES = {
         "gui.group_queue": "Transcription queue",
         "gui.start": "Transcribe",
         "gui.cancel": "Cancel",
+        "gui.close": "Close",
+
+        # --- about, and the licence ------------------------------------------
+        # The licence itself is not translated: it is the text somebody may
+        # have to rely on, and a translation of it would be a second licence.
+        "about.open": "About",
+        "about.open_tip": "What this program is, and the licence it is given under",
+        "about.title": "About Audio Transcriber",
+        "about.version": "Version {version} — {licence}",
+        "about.licence": "License",
+        "about.licence_missing":
+            "This copy has no licence file to show. The terms are the MIT license.",
+        "about.open_licence": "Open the license file",
+        "about.bundled": "What is bundled",
+        "about.fonts": "Two typefaces, each under its own licence:",
+        "about.dependencies":
+            "The Python packages it depends on are installed separately and "
+            "keep their own licences.",
         "gui.row_transcribe": "Transcribe",
         "gui.row_retry": "Try again",
         "gui.row_stop": "Stop",
@@ -975,6 +993,23 @@ MESSAGES = {
         "gui.group_queue": "Coda di trascrizione",
         "gui.start": "Trascrivi",
         "gui.cancel": "Annulla",
+        "gui.close": "Chiudi",
+
+        # --- informazioni e licenza -------------------------------------------
+        "about.open": "Informazioni",
+        "about.open_tip": "Cos'e' questo programma e con quale licenza e' dato",
+        "about.title": "Informazioni su Audio Transcriber",
+        "about.version": "Versione {version} — {licence}",
+        "about.licence": "Licenza",
+        "about.licence_missing":
+            "Questa copia non ha un file di licenza da mostrare. I termini sono "
+            "quelli della licenza MIT.",
+        "about.open_licence": "Apri il file di licenza",
+        "about.bundled": "Cosa e' incluso",
+        "about.fonts": "Due caratteri tipografici, ognuno con la sua licenza:",
+        "about.dependencies":
+            "I pacchetti Python da cui dipende si installano a parte e "
+            "mantengono le loro licenze.",
         "gui.row_transcribe": "Trascrivi",
         "gui.row_retry": "Riprova",
         "gui.row_stop": "Interrompi",

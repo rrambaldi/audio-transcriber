@@ -101,6 +101,47 @@ def test_the_root_favicon_answers(client):
     assert response.content[:4] == b"\x00\x00\x01\x00"
 
 
+def test_about_carries_the_whole_licence(client):
+    """The page shows the licence itself, so the server has to send it - and
+    the wish in front of it is the half worth reading."""
+    data = client.get("/api/about").json()
+
+    assert data["spdx"] == "MIT"
+    assert "KINDNESS" in data["licence_title"].upper()
+    assert "Permission is hereby granted" in data["licence_text"]
+    assert "senseless acts of beauty" in data["licence_text"]
+
+
+def test_about_links_the_licences_of_what_is_bundled(client):
+    """Two typefaces are somebody else's work, under OFL. The URLs are
+    relative to the page, like every other brand URL, and they have to
+    actually resolve or the dialog links into nothing."""
+    fonts = client.get("/api/about").json()["fonts"]
+
+    assert [font["family"] for font in fonts] == ["Fraunces", "Karla"]
+    for font in fonts:
+        assert font["licence"] == "SIL Open Font License 1.1"
+        assert not font["licence_url"].startswith("/")
+        answer = client.get("/" + font["licence_url"])
+        assert answer.status_code == 200, font["licence_url"]
+        assert "SIL OPEN FONT LICENSE" in answer.text.upper()
+
+
+def test_about_admits_a_copy_with_no_licence_file(client, monkeypatch):
+    """A missing text is worth saying and not worth a 500."""
+    from audio_transcriber import about
+
+    monkeypatch.setattr(about, "_installed_path", lambda: None)
+    monkeypatch.setattr(about, "_CHECKOUT", "/nowhere/LICENSE")
+    about.licence_text.cache_clear()
+    try:
+        data = client.get("/api/about").json()
+        assert data["licence_text"] is None
+        assert data["spdx"] == "MIT"
+    finally:
+        about.licence_text.cache_clear()
+
+
 def test_status_describes_the_installation(client):
     data = client.get("/api/status").json()
     assert data["defaults"]["model"] == "small"

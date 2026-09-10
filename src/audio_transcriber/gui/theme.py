@@ -100,10 +100,24 @@ TAB_SCALE = 1.0
 #: putting a group box's rule flush against the frame.
 GUTTER = 24
 
-#: How much larger a heading is. The page's h1 is far larger than this, but it
-#: has a page to itself; in a window the masthead has to share a line with the
-#: tabs under it.
-TITLE_SCALE = 1.45
+#: How much larger a heading is than the interface font. The page's h1 goes up
+#: to 4.2rem, which is a page to itself; a window has a queue to show under
+#: its masthead. This is as large as the band can be without eating the tab
+#: below it, and it is what makes the name read as a title rather than as bold
+#: text.
+TITLE_SCALE = 2.3
+
+#: Fraunces is a variable font, and the axis that matters is the optical size:
+#: at 9 it is a sturdy text face and at 144 the high-contrast display cut with
+#: hairline serifs. The page asks for 144 in its h1 and 72 in a section
+#: heading; asking for neither - which is what a plain QFont does - draws the
+#: text cut at display size, which is the whole difference between the window
+#: and the page.
+DISPLAY_OPSZ = 144.0
+SECTION_OPSZ = 72.0
+
+#: The page sets -0.02em on its h1: at display size the default fit is loose.
+TITLE_TRACKING = 98
 
 #: The widgets that get the uppercase label font: the elements the stylesheet
 #: gives it to - ``.button``, ``.tab`` and ``th``.
@@ -260,13 +274,28 @@ def label_font(base, scale=LABEL_SCALE):
     return font
 
 
-def title_font(base, scale=TITLE_SCALE, italic=False, weight=QFont.Weight.Medium):
-    """A heading in the serif: the masthead, a row's title, a timer."""
+def title_font(base, scale=TITLE_SCALE, italic=False, weight=QFont.Weight.Medium,
+               opsz=None, tracking=None):
+    """A heading in the serif: the masthead, a section title, a row's title.
+
+    ``opsz`` is the optical size to cut it at - :data:`DISPLAY_OPSZ` for the
+    masthead, :data:`SECTION_OPSZ` for a heading, and ``None`` for anything
+    small, which is what the page does too: a row's title asks for no optical
+    size and gets the text cut, because that is the one that holds up at
+    fifteen pixels.
+
+    Setting an axis needs Qt 6.7, and a font engine that honours it. Where
+    either is missing the face still comes out - as its default instance, the
+    way a browser without variable-font support would draw it."""
     font = QFont(base)
     font.setFamily(family(branding.SERIF))
     font.setWeight(weight)
     font.setItalic(italic)
     _scale(font, scale)
+    if tracking:
+        font.setLetterSpacing(QFont.SpacingType.PercentageSpacing, tracking)
+    if opsz is not None and hasattr(font, "setVariableAxis"):
+        font.setVariableAxis(QFont.Tag("opsz"), opsz)
     return font
 
 

@@ -207,6 +207,37 @@ def test_a_heading_is_the_serif_and_a_note_is_not(application):
     assert theme.title_font(base, 1.0, italic=True).italic() is True
 
 
+def test_a_display_heading_asks_for_the_display_cut(application):
+    """Fraunces is variable, and the optical size is the axis that matters:
+    at 9 it is a sturdy text face, at 144 the high-contrast display cut with
+    hairline serifs. The page asks for 144 in its h1, and a plain QFont asks
+    for neither - which drew the text cut at display size, and is the whole
+    difference between the window and the page."""
+    if not hasattr(QFont, "setVariableAxis"):   # pragma: no cover - Qt < 6.7
+        pytest.skip("this Qt cannot set a variable axis")
+    tag = QFont.Tag("opsz")
+    base = QFont(application.font())
+
+    display = theme.title_font(base, theme.TITLE_SCALE, opsz=theme.DISPLAY_OPSZ)
+    assert display.variableAxisValue(tag) == theme.DISPLAY_OPSZ
+    section = theme.title_font(base, 1.35, opsz=theme.SECTION_OPSZ)
+    assert section.variableAxisValue(tag) == theme.SECTION_OPSZ
+    # Small type asks for nothing and gets the text cut, which is the one that
+    # holds up at fifteen pixels. A row's title is set that way; Qt reports an
+    # axis nobody set as zero.
+    assert theme.title_font(base, 1.15).variableAxisValue(tag) == 0.0
+
+
+def test_a_display_heading_is_tracked_in(application):
+    """The page sets -0.02em on its h1: at display size the default fit is
+    loose enough to read as gappy."""
+    base = QFont(application.font())
+    title = theme.title_font(base, theme.TITLE_SCALE, tracking=theme.TITLE_TRACKING)
+
+    assert title.letterSpacing() == theme.TITLE_TRACKING
+    assert title.letterSpacing() < 100
+
+
 def test_the_label_font_survives_the_style_sheet(application, restored):
     """The Qt behaviour this depends on, pinned down: a widget matched by a
     style-sheet rule has its font re-resolved from the application default,

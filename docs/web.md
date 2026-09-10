@@ -201,6 +201,7 @@ using it directly. `GET /api/docs` serves the generated schema.
 | endpoint | what it does |
 |---|---|
 | `GET /api/status` | version, interface language, models, defaults, limits |
+| `GET /api/about` | version, the licence — whole, not by name — and what is bundled |
 | `GET /api/vocabularies` | the installed keyword sets, with their text |
 | `GET /api/vocabularies/{name}` | one of them |
 | `POST /api/jobs` | multipart upload; returns the job |
@@ -253,6 +254,16 @@ next to the title from there, with relative URLs, which is what makes them
 work under a `--root-path` prefix as well. `GET /favicon.ico` answers too, for
 the browser that asks the root before it has seen the page. See
 [brand.md](brand.md).
+
+The licence is one click from the bottom of the page: *About this program*, in
+the footer, opens a dialog with the version, the whole licence text and a note
+about what is bundled — the two typefaces, which are somebody else's work under
+OFL and whose licences the dialog links to on the `/brand` mount. The text is
+not in the markup: it comes from `GET /api/about`, which reads the file the
+program was actually installed with, so the page cannot drift from it. A copy
+with no licence file — a wheel built without it — answers `null` and the page
+says so rather than showing a blank box. See [gui.md](gui.md) for the same box
+in the window, and `audio_transcriber/about.py`, which both ask.
 
 It is laid out as a sheet of paper rather than as an application: each section
 puts its explanation in a narrow column and its controls in a wide one, fields

@@ -19,7 +19,7 @@ from fastapi import Body, FastAPI, File, Form, HTTPException, Request, UploadFil
 from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 
-from .. import __version__, branding, i18n, pipeline, subtitles, vocabularies
+from .. import __version__, about, branding, i18n, pipeline, subtitles, vocabularies
 from ..backends import BACKENDS
 from ..config import OUTPUTS, output_of
 from ..diarization import availability as diarization_availability
@@ -86,6 +86,38 @@ def register_routes(app):
         before the HTML arrives — asks the root for its favicon, and a 404
         there is a line of noise in the log for every visit."""
         return FileResponse(branding.path(branding.FAVICON))
+
+    # --- who wrote it, and under what -------------------------------------
+
+    @app.get("/api/about")
+    def about_this_copy():
+        """The facts behind the About box: version, licence, what is bundled.
+
+        The licence is sent whole rather than by name. It is the MIT license
+        with a wish in front of it, and the wish is the half worth reading -
+        see :mod:`audio_transcriber.about`. A copy with no licence file to
+        read answers with ``null`` and the page says so, because a missing
+        text is worth admitting and not worth a 500."""
+        facts = about.facts()
+        return {
+            "version": facts["version"],
+            "spdx": facts["spdx"],
+            "licence_title": facts["licence_title"],
+            "licence_text": facts["licence_text"],
+            "fonts": [
+                {
+                    "family": font["family"],
+                    "licence": font["licence"],
+                    # Relative to the page, like every other brand URL, so a
+                    # --root-path prefix needs no rewriting.
+                    "licence_url": (
+                        f"brand/{branding.FONT_SUBDIR}/"
+                        f"{os.path.basename(font['licence_file'])}"
+                        if font["licence_file"] else None),
+                }
+                for font in facts["fonts"]
+            ],
+        }
 
     # --- what this installation can do ------------------------------------
 

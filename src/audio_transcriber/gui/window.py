@@ -11,7 +11,7 @@ import os
 import sys
 
 from PySide6.QtCore import QSettings, QSize, Qt, QTimer
-from PySide6.QtGui import QIcon
+from PySide6.QtGui import QIcon, QKeySequence, QShortcut
 from PySide6.QtWidgets import (
     QApplication,
     QLabel,
@@ -26,6 +26,7 @@ from .. import __version__, branding, paths
 from ..i18n import t
 from ..jobs import JobQueue
 from . import style, theme
+from .about_dialog import AboutDialog
 from .library_panel import LibraryPanel
 from .masthead import Masthead
 from .system_panel import SystemPanel
@@ -111,6 +112,11 @@ class MainWindow(QMainWindow):
         # not somewhere to put them - it is 16 px tall, and on a maximised
         # window or a tiling desktop it is not drawn at all.
         self.masthead = Masthead(self.windowIcon())
+        self.masthead.about_requested.connect(self.show_about)
+        # The key somebody presses looking for help, on a window that has
+        # nowhere else to put an About box: there is no menu bar.
+        QShortcut(QKeySequence.StandardKey.HelpContents, self,
+                  activated=self.show_about)
         central = QWidget()
         frame = QVBoxLayout(central)
         frame.setContentsMargins(0, 0, 0, 0)
@@ -179,6 +185,19 @@ class MainWindow(QMainWindow):
         """Put a one-line message in the status bar, for a while."""
         self.status_line.setText(text)
         self._message_over.start(MESSAGE_MS)
+
+    def show_about(self):
+        """What this program is, and the licence it is given under.
+
+        Opened rather than exec'd: ``exec`` runs an event loop of its own,
+        which is a thing to avoid when the window behind it is polling a
+        transcription - and which makes anything that opens this box
+        unanswerable, tests included. Qt owns the dialog through its parent
+        and lets it go when it closes."""
+        dialog = AboutDialog(icon=self.windowIcon(), parent=self)
+        dialog.finished.connect(dialog.deleteLater)
+        dialog.open()
+        return dialog
 
     def show_entry(self, entry_id):
         """Bring the library tab up on one entry."""

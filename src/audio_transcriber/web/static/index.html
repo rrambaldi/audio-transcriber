@@ -204,9 +204,32 @@
 
 <footer>
   <p class="note" id="colophon"></p>
+  <!-- The licence lives one click from the bottom of the page rather than in
+       a page of its own: it is short, and the wish in front of it is the part
+       worth reading. -->
+  <p class="note">
+    <button type="button" class="link" id="about-open" data-t="about_open">About this program</button>
+  </p>
 </footer>
 
 <!-- --------------------------------------------------------- dialogs -->
+<dialog id="about" aria-labelledby="about-title">
+  <div class="viewer-head">
+    <h2 id="about-title" data-t="about_title">About</h2>
+    <p class="note" id="about-standfirst" data-t="tagline">Local transcription. Nothing leaves this machine.</p>
+  </div>
+  <p class="note" id="about-version"></p>
+  <h3 data-t="about_licence">License</h3>
+  <pre class="prose" id="about-licence"></pre>
+  <h3 data-t="about_bundled">What is bundled</h3>
+  <p class="note" id="about-fonts"></p>
+  <p class="note" data-t="about_dependencies">The Python packages it depends on are installed separately and keep their own licences.</p>
+  <menu>
+    <span class="spacer"></span>
+    <button type="button" class="button" id="about-close" data-t="close">Close</button>
+  </menu>
+</dialog>
+
 <dialog id="set-editor" aria-labelledby="set-editor-title">
   <form method="dialog" id="set-form">
     <h2 id="set-editor-title" data-t="edit_set">Keyword set</h2>

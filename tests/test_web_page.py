@@ -417,6 +417,34 @@ def test_both_schemes_define_every_colour(stylesheet):
     assert set(light) <= set(dark)
 
 
+# --- about, and the licence -----------------------------------------------
+
+def test_the_licence_is_one_click_from_the_footer(page, script):
+    """It is short and the wish in front of it is the point, so it lives in a
+    dialog off the bottom of the page rather than in a page of its own."""
+    assert 'id="about-open"' in page
+    assert '<dialog id="about"' in page
+    assert 'id="about-licence"' in page
+    assert '$("about-open").addEventListener("click", openAbout)' in script
+
+
+def test_the_licence_text_comes_from_the_server_not_from_the_markup(page, script):
+    """The page must not carry a copy of the licence: two copies drift, and
+    the one that matters is the file the program was installed with."""
+    assert "Permission is hereby granted" not in page
+    assert 'fetch(api("about"))' in script
+    # Written as text, never as markup: a licence is text.
+    assert '$("about-licence").textContent' in script
+
+
+def test_the_about_box_says_what_is_bundled(page, script):
+    """Two typefaces under somebody else's licence, and the packages it
+    depends on which are nobody's to relicense here."""
+    assert 'data-t="about_bundled"' in page
+    assert 'data-t="about_dependencies"' in page
+    assert "font.licence_url" in script
+
+
 # --- the fonts are ours, not a third party's ------------------------------
 
 def test_the_page_calls_nobody(page, script, stylesheet):
