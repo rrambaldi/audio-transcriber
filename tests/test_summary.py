@@ -370,3 +370,33 @@ def test_an_unknown_entry_stops_the_command(tmp_path):
     with pytest.raises(SystemExit):
         cli.main(["summarize", "nessuna-voce",
                   "--library-dir", str(tmp_path / "library")])
+
+
+# --- the invariant the whole feature rests on -----------------------------
+
+def test_the_pure_modules_reach_no_runtime_and_no_network():
+    """Read as source rather than run, so it holds on a machine that has them.
+
+    These three are what makes a feature that only works on a machine with an
+    accelerator testable on one without: the moment one of them imports a
+    runtime, the test suite needs the runtime too, and the CPU environment
+    stops being able to check the policy that decides what runs on it."""
+    import ast
+    import pathlib
+
+    import audio_transcriber
+
+    forbidden = {"openvino", "openvino_genai", "openvino_tokenizers",
+                 "llama_cpp", "torch", "transformers", "optimum",
+                 "huggingface_hub", "requests", "httpx", "urllib", "socket",
+                 "http", "ftplib", "smtplib", "subprocess"}
+    root = pathlib.Path(audio_transcriber.__file__).parent
+    for name in ("summary.py", "summarizers/prompting.py", "summarizers/plan.py"):
+        tree = ast.parse((root / name).read_text(encoding="utf-8"))
+        imported = set()
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                imported |= {alias.name.split(".")[0] for alias in node.names}
+            elif isinstance(node, ast.ImportFrom) and node.module:
+                imported.add(node.module.split(".")[0])
+        assert not imported & forbidden, f"{name} reaches {imported & forbidden}"
