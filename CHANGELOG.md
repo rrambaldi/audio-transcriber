@@ -129,7 +129,7 @@ All notable changes to this project are documented here. The format follows
   high-contrast display cut with hairline serifs, and the page sets its
   heading in the second one. The window was drawing the first, at display
   size — heavy and dull beside the page, which is exactly how it looked. It
-  now takes the display cut and the page's own proportions: the name at 2.8×
+  now takes the display cut and the page's own proportions: the name at 3×
   the interface font rather than 1.45×, tracked in 2% as the page tracks it;
   the promise in the serif's italic at regular weight, a hair over the
   interface font; the mark at 64 pixels, which is a render drawn pixel for
