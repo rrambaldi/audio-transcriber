@@ -34,16 +34,17 @@ from . import style, theme
 #: display-size title. At 56 the 64 px render is the one Qt picks on a 1x
 #: screen and the 128 px one at 2x, so the drawing is always downscaled from a
 #: larger render rather than blown up from a smaller.
-MARK_PX = 56
+MARK_PX = 64
 
 #: How much larger than the interface font the name is. A ratio rather than a
 #: point size: the desktop's own font size is somebody's decision, often an
 #: accessibility one, and this has to grow with it.
 NAME_SCALE = theme.TITLE_SCALE
 
-#: And the promise under it, which the page sets at 1 to 1.15rem - a little
-#: over the interface font, in the serif's italic.
-TAGLINE_SCALE = 1.3
+#: And the promise under it, which the page sets at 1 to 1.15rem: a hair over
+#: the interface font, no more. It is a line to be read once, under a name
+#: that is meant to be seen.
+TAGLINE_SCALE = 1.1
 
 #: The weight of that italic: regular, which is what the page sets. The italic
 #: itself is synthesised, here and on the page - neither has an italic face of

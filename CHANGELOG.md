@@ -124,18 +124,18 @@ All notable changes to this project are documented here. The format follows
   belongs; the About box is one click away and is where the rest of what this
   program is already lives.
 
-- **The window was drawing the wrong cut of its own typeface.** Fraunces is a
-  variable font, and the axis that matters is the optical size: at `opsz 9` it
-  is a sturdy text face, at `opsz 144` the high-contrast display cut with
-  hairline serifs. The page asks for 144 in its heading; a plain `QFont` asks
-  for nothing and gets the default instance, so the window drew the text cut
-  at display size — heavy and dull beside the page, which is exactly how it
-  looked. The masthead now asks for the display cut and the page's own sizes
-  (the name at 2.3× the interface font rather than 1.45×, tracked in 2% as the
-  page tracks it, the promise in the serif's italic at regular weight), and a
-  section heading asks for `opsz 72`. Where Qt is older than 6.7 the default
-  instance still renders, the way a browser without variable-font support
-  would draw it.
+- **The window was drawing the wrong cut of its own typeface**, and at the
+  wrong size. Fraunces has two faces worth having: a sturdy text cut and a
+  high-contrast display cut with hairline serifs, and the page sets its
+  heading in the second one. The window was drawing the first, at display
+  size — heavy and dull beside the page, which is exactly how it looked. It
+  now takes the display cut and the page's own proportions: the name at 2.8×
+  the interface font rather than 1.45×, tracked in 2% as the page tracks it;
+  the promise in the serif's italic at regular weight, a hair over the
+  interface font; the mark at 64 pixels, which is a render drawn pixel for
+  pixel. (Two attempts to get the cut by asking the variable font for an
+  optical size are further down this section, under Fixed: they worked here
+  and not on Windows, and static faces are what settled it.)
 
 - **The rule under the masthead ran out to the window frame** while everything
   above and below it kept the gutter. It is the bottom edge of the masthead,

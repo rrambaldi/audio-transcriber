@@ -108,7 +108,7 @@ GUTTER = 24
 #: its masthead. This is as large as the band can be without eating the tab
 #: below it, and it is what makes the name read as a title rather than as bold
 #: text.
-TITLE_SCALE = 2.3
+TITLE_SCALE = 2.8
 
 #: Which cut a heading is set in. Fraunces comes in two static faces here -
 #: the display cut, whose serifs are hairlines and whose contrast is high, and
