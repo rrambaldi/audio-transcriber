@@ -37,6 +37,38 @@ All notable changes to this project are documented here. The format follows
   and would sink into a dark window — and it is redrawn when the desktop
   switches theme under a running window.
 
+- **The window is painted like the web page, typefaces included.** One
+  program, one look: the desktop window now takes the page's palette — the
+  light scheme the brand inverted, the dark scheme the mark's own colours,
+  following the desktop the way the page follows `prefers-color-scheme` and
+  changing under a running window — and its two typefaces, Fraunces for
+  headings and Karla for everything read while typing, which are handed to Qt
+  from the same files the page loads. The chrome follows: a field is one rule
+  under the text, a button is typographic and never boxy, the primary action
+  is the accent and a heavier rule rather than a filled box, a tab is a word
+  with a line under it, a queue row's title is set in the serif, and the drop
+  area is dashed. `gui/theme.py` holds it, and `tests/test_gui_theme.py`
+  compares every token with `web/static/style.css` itself and holds both
+  schemes to the same WCAG rules the page is held to.
+
+  This **reverses** the window's earlier rule that the desktop should paint
+  it, which was in `gui/style.py` for good reasons — a repainted window looks
+  foreign next to native ones — and the price is paid deliberately: a custom
+  desktop theme is no longer followed, and the style is forced to Fusion on
+  all three platforms, because the native Windows and macOS styles each ignore
+  a different half of the rules. The contrast floor stays and matters more: a
+  palette the program chose has no desktop to blame for its greys.
+  [docs/gui.md](docs/gui.md) records what it cost and the two things Qt cannot
+  do at all — there is no `text-transform` and no `letter-spacing` in a Qt
+  style sheet, and a font set on a container is inherited by everything in it.
+
+- **The typefaces moved in with the icons.** They were under
+  `web/static/fonts/`, which was the right place while only the page used
+  them; both front ends do now, so they are `data/brand/fonts/`, served at
+  `/brand` for the page and handed to `QFontDatabase` for the window, with
+  `branding.py` the only module that knows the path. A wheel carries them
+  through a second package-data line — a glob does not recurse.
+
 - **The task bar and the dock draw the mark too, and not Python's.** Setting
   the window icon turned out to be enough on one platform of three. Windows
   takes a task-bar button's icon from the process's Application User Model ID,

@@ -14,7 +14,7 @@ import html
 import os
 
 from PySide6.QtCore import Qt, QTimer, QUrl, Signal
-from PySide6.QtGui import QDesktopServices
+from PySide6.QtGui import QDesktopServices, QFont
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QComboBox,
@@ -43,7 +43,7 @@ from ..i18n import t
 from ..jobs import DONE, FAILED, FINISHED
 from ..library import MAX_NOTES, LibraryError
 from ..summary import SummaryError
-from . import multimedia, options
+from . import multimedia, options, theme
 
 #: Typing in the search box is not a query per keystroke: searching reads every
 #: transcript in the library, so it waits until the typing stops.
@@ -221,9 +221,10 @@ class LibraryPanel(QWidget):
         right_layout.setContentsMargins(0, 0, 0, 0)
         self.title = QLabel("")
         self.title.setWordWrap(True)
-        font = self.title.font()
-        font.setBold(True)
-        self.title.setFont(font)
+        # The heading of what is being read, so it is set the way the page
+        # sets one: the serif, a size up. See gui/theme.py.
+        self.title.setFont(theme.title_font(self.font(), theme.TITLE_SCALE * 0.8,
+                                            weight=QFont.Weight.DemiBold))
         right_layout.addWidget(self.title)
 
         player_row = QHBoxLayout()

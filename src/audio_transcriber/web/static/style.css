@@ -14,7 +14,11 @@
    Two typefaces, both self-hosted so the page keeps working with no network
    and calls nobody: Fraunces for the headings — an old-style serif with enough
    character to carry a title — and Karla for everything you read while typing.
-   Licences sit next to the files.
+   They live with the icons in the package's brand directory, served here at
+   /brand, because the desktop window is painted in the same two faces and a
+   font under static/ would be a file it had to reach across the package for.
+   The URLs are relative to this stylesheet, so they survive a --root-path
+   prefix. Licences sit next to the files.
 
    Fields are a single rule under the text, so the form reads like a printed
    one. That rule is therefore the only affordance an input has, and it is
@@ -23,13 +27,13 @@
 
 @font-face {
   font-family: "Fraunces";
-  src: url("fonts/fraunces.woff2") format("woff2-variations");
+  src: url("../brand/fonts/fraunces.woff2") format("woff2-variations");
   font-weight: 400 700;
   font-display: swap;
 }
 @font-face {
   font-family: "Karla";
-  src: url("fonts/karla.woff2") format("woff2-variations");
+  src: url("../brand/fonts/karla.woff2") format("woff2-variations");
   font-weight: 400 700;
   font-display: swap;
 }

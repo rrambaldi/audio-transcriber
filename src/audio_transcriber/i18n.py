@@ -216,6 +216,8 @@ MESSAGES = {
         # The same line the web page opens with: one promise, said once, in
         # both front ends.
         "gui.tagline": "Local transcription. Nothing leaves this machine.",
+        # The page's own eyebrow, above the title: same words, same place.
+        "gui.eyebrow": "Recordings and transcripts",
         "gui.window_title": "audio-transcriber {version}",
         "gui.ready": "{count} recordings in the library",
         "gui.tab_transcribe": "Transcribe",
@@ -840,6 +842,7 @@ MESSAGES = {
             "  bisogno di niente di tutto questo: prova 'web'.",
         "gui.app_name": "Audio Transcriber",
         "gui.tagline": "Trascrizione locale. Niente esce da questa macchina.",
+        "gui.eyebrow": "Registrazioni e trascrizioni",
         "gui.window_title": "audio-transcriber {version}",
         "gui.ready": "{count} registrazioni in libreria",
         "gui.tab_transcribe": "Trascrivi",

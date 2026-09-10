@@ -24,7 +24,7 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 try:
     from PySide6.QtCore import Qt
-    from PySide6.QtGui import QColor, QPalette
+    from PySide6.QtGui import QColor, QFont, QPalette
     from PySide6.QtWidgets import QApplication, QMessageBox
 except ImportError as exc:      # pragma: no cover - depends on the machine
     # PySide6 is installed but will not load: a partial install, or a Linux box
@@ -35,7 +35,7 @@ except ImportError as exc:      # pragma: no cover - depends on the machine
 
 from audio_transcriber import __version__, branding, i18n, paths  # noqa: E402
 from audio_transcriber.gui import masthead as masthead_module  # noqa: E402
-from audio_transcriber.gui import style, widgets  # noqa: E402
+from audio_transcriber.gui import style, theme, widgets  # noqa: E402
 from audio_transcriber.gui import window as window_module  # noqa: E402
 from audio_transcriber.gui.masthead import MARK_PX, Masthead  # noqa: E402
 from audio_transcriber.gui.window import (  # noqa: E402
@@ -54,8 +54,15 @@ SETTINGS = {"model": "auto", "language": "it", "backend": "auto", "device": "aut
 
 @pytest.fixture(scope="session")
 def application():
-    """One QApplication for the whole session: Qt allows exactly one."""
-    return QApplication.instance() or QApplication([])
+    """One QApplication for the whole session: Qt allows exactly one.
+
+    Painted the way ``window.launch`` paints it - Fusion, the brand's palette
+    and its two faces - because a window whose theme was never installed is
+    not the window anybody runs."""
+    application = QApplication.instance() or QApplication([])
+    application.setStyle("Fusion")
+    style.apply(application)
+    return application
 
 
 @pytest.fixture(autouse=True)
@@ -169,18 +176,26 @@ def test_the_masthead_is_above_the_tabs_not_inside_one(window):
     assert window.tabs.parent() is central
 
 
-def test_the_masthead_leaves_the_desktop_its_own_colours(window):
-    """No brand palette painted over the theme: the mark carries the colour.
+def test_the_masthead_is_painted_in_the_brand_not_in_the_desktop_s_colours(window):
+    """This is the reversal, pinned down: the window used to be painted by the
+    desktop on purpose, and is now painted in the program's own palette and
+    faces so that it and the web page read as one program. What did *not*
+    change is the floor under it — the tagline is the brand's muted ink, and
+    that ink still has to clear WCAG AA on the ground it sits on."""
+    masthead = window.masthead
+    ground = masthead.palette().color(QPalette.ColorRole.Window)
+    which = "dark" if ground.lightnessF() < 0.5 else "light"
+    assert ground == theme.colour("paper", which)
 
-    The reason is the one in gui/style.py — a window that repaints itself
-    looks foreign on every machine it runs on — and the tagline is the one
-    thing muted here, only as far as it can be and still be read."""
-    assert not window.masthead.styleSheet()
-    assert not window.masthead.autoFillBackground()
-    ground = window.masthead.palette().color(QPalette.ColorRole.Window)
-    muted = QColor(window.masthead.tagline.styleSheet()
-                   .split("color:")[1].strip(" ;"))
+    muted = QColor(masthead.tagline.styleSheet().split("color:")[1].strip(" ;"))
+    assert muted == theme.colour("muted", which)
     assert style.contrast(muted, ground) >= style.MIN_CONTRAST
+
+    # The page's three lines, in the page's two faces: the eyebrow in the
+    # letter-spaced sans, the name and the promise in the serif.
+    assert masthead.eyebrow.font().capitalization() == QFont.Capitalization.AllUppercase
+    assert masthead.name.font().family() == theme.family(branding.SERIF)
+    assert masthead.tagline.font().italic() is True
 
 
 def test_on_a_dark_theme_the_mark_loses_its_plate(window):

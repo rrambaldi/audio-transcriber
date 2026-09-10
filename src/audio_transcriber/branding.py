@@ -1,4 +1,4 @@
-"""The program's mark, and where the copies of it live.
+"""The program's mark and typefaces, and where the copies of them live.
 
 Three front ends want the same icon — the browser wants a favicon, the window
 wants something for the task bar and the alt-tab list, and the packagers want
@@ -15,9 +15,16 @@ background that is already dark. The PNGs are renders of the first two — the
 small drawing below 48 px, the master above it — and ``favicon.ico`` carries
 six of them for browsers that still ask for one file.
 
+The two typefaces are here for the same reason the icons are: the page and the
+window are meant to look like one program, and a font in ``web/static`` would
+be a file the window has to reach across the package to find. Fraunces carries
+the headings and Karla everything read while typing; both are OFL, self-hosted,
+and their licences sit next to them.
+
 Nothing here is required for the program to run: a build that lost its data
-files should transcribe anyway, so the callers treat a missing icon as
-cosmetic (:func:`icon_files` simply comes back short) instead of failing.
+files should transcribe anyway, so the callers treat a missing icon or font as
+cosmetic (:func:`icon_files` and :func:`font_files` simply come back short)
+instead of failing.
 """
 import os
 
@@ -32,6 +39,20 @@ MARK_SVG = "icon-mark.svg"
 
 #: What a browser asks for at ``/favicon.ico`` if it ignores the SVG.
 FAVICON = "favicon.ico"
+
+#: Where the typefaces are, under :data:`DIR`. The web page asks for them over
+#: HTTP - the app mounts this directory at ``/brand`` - and the window hands
+#: the files to Qt.
+FONT_SUBDIR = "fonts"
+
+#: The typefaces, as ``(family, file)``. The family is what both front ends
+#: name first in their font stack, so the same string has to be right for
+#: ``font-family`` in the stylesheet and for ``QFont`` in the window.
+FONTS = (("Fraunces", "fraunces.woff2"), ("Karla", "karla.woff2"))
+
+#: Which of them is which job: headings and titles in the serif, everything
+#: else in the sans. Both front ends make the same split.
+SERIF, SANS = FONTS[0][0], FONTS[1][0]
 
 #: The rendered sizes, smallest first. Below 48 px these come from the
 #: simplified drawing; above it from the master.
@@ -66,6 +87,25 @@ def path(name):
 def icon_png(size):
     """The path of the rendered icon at ``size`` pixels."""
     return path(f"icon-{size}.png")
+
+
+def font_path(name):
+    """The full path of one font file, whether or not it is there."""
+    return os.path.join(DIR, FONT_SUBDIR, name)
+
+
+def font_files():
+    """``(family, path)`` for every typeface that is actually present.
+
+    Comes back short rather than failing, like :func:`icon_files`: a build
+    without the fonts falls back to the next family in the stack, which is
+    what the stylesheet does too."""
+    found = []
+    for family, name in FONTS:
+        candidate = font_path(name)
+        if os.path.exists(candidate):
+            found.append((family, candidate))
+    return found
 
 
 def icon_files():

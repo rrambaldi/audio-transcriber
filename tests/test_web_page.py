@@ -432,8 +432,13 @@ def test_the_page_calls_nobody(page, script, stylesheet):
     assert remote == []
     assert "@import" not in stylesheet
     assert not re.search(r'fetch\(\s*["\'`]https?:', script)
+    # The faces are shared with the desktop window, so they sit with the
+    # icons in the package's brand directory and are served from /brand.
+    from audio_transcriber import branding
+
     for name in ("fraunces.woff2", "karla.woff2", "fraunces-OFL.txt", "karla-OFL.txt"):
-        assert os.path.exists(os.path.join(STATIC, "fonts", name)), name
+        assert os.path.exists(branding.font_path(name)), name
+    assert 'url("../brand/fonts/karla.woff2")' in stylesheet
 
 
 def test_the_page_is_prefix_agnostic(page, script):

@@ -10,7 +10,7 @@ They live here rather than in the panel because the library tab wants the
 same two things, and a second copy is how two lists start looking different.
 """
 from PySide6.QtCore import QSize, Qt, Signal
-from PySide6.QtGui import QPalette
+from PySide6.QtGui import QFont, QFontMetrics, QPalette
 from PySide6.QtWidgets import (
     QApplication,
     QFrame,
@@ -25,7 +25,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from . import style
+from . import style, theme
 
 #: Where the second line of a queue row is kept.
 DETAILS_ROLE = Qt.ItemDataRole.UserRole + 1
@@ -177,6 +177,10 @@ class JobDelegate(QStyledItemDelegate):
     #: Space above and below the pair of lines.
     PADDING = 6
 
+    #: How much larger the title is than the facts under it. The page sets a
+    #: row title at 1.15rem against a 0.85rem meta line.
+    TITLE_SCALE = 1.15
+
     def paint(self, painter, option, index):
         details = index.data(DETAILS_ROLE)
         if not details:
@@ -199,6 +203,10 @@ class JobDelegate(QStyledItemDelegate):
         painter.save()
         painter.setPen(ink)
         area = settings.rect.adjusted(4, self.PADDING, -4, -self.PADDING)
+        # The title in the serif, the facts under it in the interface face:
+        # the same pair the web page's rows are set in.
+        painter.setFont(theme.title_font(settings.font, self.TITLE_SCALE,
+                                         weight=QFont.Weight.DemiBold))
         metrics = painter.fontMetrics()
         line = metrics.height()
         painter.drawText(
@@ -211,10 +219,12 @@ class JobDelegate(QStyledItemDelegate):
         ground = settings.palette.color(QPalette.ColorRole.Highlight if selected
                                         else QPalette.ColorRole.Base)
         painter.setPen(style.readable(ink, ground))
+        painter.setFont(settings.font)
+        facts = painter.fontMetrics()
         painter.drawText(
-            area.left(), area.top() + line, area.width(), line,
+            area.left(), area.top() + line, area.width(), facts.height(),
             int(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter),
-            metrics.elidedText(details, Qt.TextElideMode.ElideRight, area.width()))
+            facts.elidedText(details, Qt.TextElideMode.ElideRight, area.width()))
         painter.restore()
 
     def sizeHint(self, option, index):
@@ -223,8 +233,9 @@ class JobDelegate(QStyledItemDelegate):
             return size
         settings = QStyleOptionViewItem(option)
         self.initStyleOption(settings, index)
-        line = settings.fontMetrics.height()
-        return QSize(size.width(), line * 2 + self.PADDING * 2)
+        title = theme.title_font(settings.font, self.TITLE_SCALE)
+        line = QFontMetrics(title).height() + settings.fontMetrics.height()
+        return QSize(size.width(), line + self.PADDING * 2)
 
 
 

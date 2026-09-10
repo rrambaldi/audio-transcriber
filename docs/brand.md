@@ -1,4 +1,4 @@
-# The mark
+# The mark, and the two faces
 
 A padlock whose body is cut through by an audio waveform: the two things this
 program is — it writes down what was said, and nothing leaves the machine it
@@ -8,12 +8,17 @@ detail would turn to mud.
 
 Palette: `#6FF0D8` → `#22D3EE` → `#4F7BF7`, on `#0C1526`.
 
+Typefaces: **Fraunces** for headings and titles, **Karla** for everything read
+while typing. Both OFL, both self-hosted, both used by *both* front ends — the
+page loads them over HTTP and the window hands the same files to Qt.
+
 ## Where the files are
 
-The icon set is **package data**, in `src/audio_transcriber/data/brand/`,
-because the program serves it: the web page links its favicon there and the
-desktop window builds its window icon from the same PNGs. `branding.py` is the
-only module that knows the path — ask it, don't join paths of your own.
+The icon set and the fonts are **package data**, in
+`src/audio_transcriber/data/brand/`, because the program serves them: the web
+page links its favicon and its `@font-face` there and the desktop window builds
+its window icon and its palette's typefaces from the same files. `branding.py`
+is the only module that knows the path — ask it, don't join paths of your own.
 
 | File | Use |
 |---|---|
@@ -23,6 +28,8 @@ only module that knows the path — ask it, don't join paths of your own.
 | `icon-16/32/48.png` | Rendered from `icon-small.svg`. |
 | `icon-64/128/256/512.png` | Rendered from `icon.svg`. |
 | `favicon.ico` | 16/32/48/64/128/256 in one file, for browsers that ask for one. |
+| `fonts/fraunces.woff2`, `fonts/karla.woff2` | The two faces, as variable WOFF2. The page declares them in `@font-face`; Qt 6.8 and later read the same file. |
+| `fonts/*-OFL.txt` | Their licences, which travel with the files. |
 
 One file is neither package data nor art: `packaging/audio-transcriber.desktop`
 is the Linux desktop entry. It names `Icon=audio-transcriber`, an icon-theme
@@ -51,9 +58,15 @@ The rest is repository art, which the program never opens, and it lives in
 - **The desktop window** sets the icon on the `QApplication` *and* on the
   window, from every PNG size present: the title bar takes the 16 px drawing
   and the alt-tab list the 256 px one, instead of one render scaled twice. It
-  also opens with a masthead above the tabs — the mark, the name and the same
-  promise the web page leads with — in the desktop's own palette, and drawn
-  from `icon-mark.svg` when that palette is dark. Setting the window icon is
+  also opens with the page's masthead above the tabs — the mark, an eyebrow,
+  the name in Fraunces and the promise in Fraunces italic — and the mark is
+  drawn from `icon-mark.svg` when the scheme is dark.
+- **The window is painted in this palette**, in both schemes, in the same two
+  faces: `gui/theme.py` is the stylesheet's tokens as a `QPalette`, a font
+  set and a Qt style sheet, and `tests/test_gui_theme.py` compares them with
+  `style.css` itself so the two front ends cannot drift. That reverses the
+  window's earlier "let the desktop paint it" rule; [gui.md](gui.md) says what
+  the reversal cost. Setting the window icon is
   not enough on two platforms, so `branding.py` also holds the two names a
   desktop attaches the mark by: `DESKTOP_ENTRY`, the basename of the Linux
   desktop entry a Wayland compositor looks the icon up from, and

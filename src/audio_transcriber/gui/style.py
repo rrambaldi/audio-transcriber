@@ -1,11 +1,19 @@
-"""The few visual decisions the window makes on purpose.
+"""The contrast floor, and the muted ink that explanatory text is written in.
 
-Qt paints with the palette the desktop hands it, and that is the right
-default: a program that repaints itself in its own colours looks foreign on
-every machine it runs on. Two things cannot be left to the desktop, though,
-because they are correctness rather than taste.
+This module used to open by arguing that the window should be painted by the
+desktop and not by the program. That is no longer what this program does:
+:mod:`audio_transcriber.gui.theme` paints it in the brand's own palette and
+typefaces, so that the window and the web page read as one program rather than
+as two that share a name. The argument is not wrong - a repainted window does
+look foreign next to native ones - it was simply outweighed by having one
+identity, and the reversal is written down in docs/gui.md rather than left as
+two contradicting docstrings.
 
-The first is the contrast of text somebody has to read. The web page has had
+What stays here is the half that was never taste, and it matters more now than
+it did: a palette this program chose has no desktop to blame if its greys
+cannot be read.
+
+The first thing is the contrast of text somebody has to read. The web page has had
 this checked by a test since it was written; the window had nothing, and a
 note rendered as *disabled* text came out at 1.75:1 against its box, where
 WCAG 1.4.3 asks for 4.5:1.
@@ -16,12 +24,16 @@ wrong one: the criterion exempts disabled *controls*, not the sentence that
 explains what a control does.
 
 So: :func:`readable` mutes a colour as far as it can while still clearing the
-ratio, :func:`note` uses it for explanatory text, and :func:`apply` lifts the
-whole disabled group of the palette to the same floor — a control this
-machine cannot offer stays legible, because reading why is the only thing
-left to do with it.
+ratio, :func:`note` writes explanatory text in the brand's muted ink and
+checks it against the same floor, and :func:`apply` installs the theme and
+then lifts the whole disabled group of the palette — a control this machine
+cannot offer stays legible, because reading why is the only thing left to do
+with it.
 """
 from PySide6.QtGui import QColor, QPalette
+from PySide6.QtWidgets import QWidget
+
+from . import theme
 
 #: WCAG 2.1 AA for text below 18pt: the floor everything here is measured
 #: against, including the text Qt would otherwise draw as disabled.
@@ -81,10 +93,26 @@ def readable(ink, ground, minimum=MIN_CONTRAST, blend=MUTED_BLEND):
 
 
 def note_colour(widget):
-    """The colour for explanatory text next to a control in ``widget``."""
+    """The colour for explanatory text next to a control in ``widget``.
+
+    The brand's own ``--muted``, which is the colour the page writes its notes
+    in, whenever it clears the floor against the background this particular
+    widget sits on. It does on both of the program's schemes; on somebody
+    else's palette - a window opened inside another Qt application, a test
+    that installed the desktop's own colours - it may not, and then the ink is
+    muted from that palette's own text colour instead."""
     palette = widget.palette()
-    return readable(palette.color(QPalette.ColorRole.WindowText),
-                    palette.color(QPalette.ColorRole.Window))
+    ground = palette.color(QPalette.ColorRole.Window)
+    which = "dark" if ground.lightnessF() < 0.5 else "light"
+    muted = theme.colour("muted", which)
+    if contrast(muted, ground) >= MIN_CONTRAST:
+        return muted
+    return readable(palette.color(QPalette.ColorRole.WindowText), ground)
+
+
+#: Marks a label whose ink was computed by :func:`note`, so that
+#: :func:`renote` can find it again when the palette changes underneath.
+NOTED = "audio_transcriber_note"
 
 
 def note(label):
@@ -95,7 +123,24 @@ def note(label):
     the bug this module exists to prevent. Returns the label so it can be
     used inline."""
     label.setStyleSheet(f"color: {note_colour(label).name()};")
+    label.setProperty(NOTED, True)
     return label
+
+
+def renote(root):
+    """Recompute every note under ``root`` for the palette in force now.
+
+    A note's ink is a colour worked out once and written into the widget's own
+    style sheet, which is what makes it survive a style that ignores palettes
+    - and what makes it stale when the desktop switches to dark. Rather than
+    have every panel remember which of its labels are notes, they are marked
+    when they are made and found again here. Answers how many it repainted."""
+    done = 0
+    for label in root.findChildren(QWidget):
+        if label.property(NOTED):
+            note(label)
+            done += 1
+    return done
 
 
 #: Where the stylesheet this module installs begins, so it can be replaced
@@ -110,8 +155,11 @@ _PAIRS = (
 )
 
 
-def apply(application, minimum=MIN_CONTRAST):
-    """Lift the disabled colours of ``application`` to a readable floor.
+def apply(application, minimum=MIN_CONTRAST, which=None):
+    """Paint the application in the brand, then lift its disabled colours.
+
+    The painting is :func:`audio_transcriber.gui.theme.apply`; what is left
+    here is the floor under it. Returns the palette actually installed.
 
     Qt draws disabled text at roughly a quarter of the contrast of enabled
     text, which is a convention rather than a rule and here it costs real
@@ -122,6 +170,7 @@ def apply(application, minimum=MIN_CONTRAST):
     Disabled still looks disabled: the control does not respond, takes no
     focus, and its indicator is drawn grey by the style. What changes is that
     the words survive."""
+    theme.apply(application, which)
     palette = application.palette()
     for role, ground_role in _PAIRS:
         # The ink starts from the enabled colour and is muted from there, but
@@ -162,34 +211,4 @@ def _disabled_qss(palette):
             f"QGroupBox:disabled {{ color: {text}; }}\n"
             f"QPushButton:disabled, QToolButton:disabled {{ color: {button}; }}\n"
             f"QComboBox:disabled, QSpinBox:disabled, QLineEdit:disabled, "
-            f"QPlainTextEdit:disabled, QTextEdit:disabled {{ color: {field}; }}\n"
-            + _primary_qss(palette))
-
-
-def _primary_qss(palette):
-    """The one filled button on a screen: the action the screen is for.
-
-    Everything else the window draws is left to the desktop, and this is the
-    exception because it is not decoration. "Transcribe" was the first of six
-    identical buttons in a row, which is the same as having no primary action
-    at all — the tab had no visible answer to "and now what".
-
-    The colours are the desktop's own selection colours, so a filled button
-    still belongs to the theme it is drawn in."""
-    fill = palette.color(QPalette.ColorGroup.Active,
-                         QPalette.ColorRole.Highlight)
-    ink = palette.color(QPalette.ColorGroup.Active,
-                        QPalette.ColorRole.HighlightedText)
-    off = palette.color(QPalette.ColorGroup.Disabled,
-                        QPalette.ColorRole.ButtonText)
-    edge = palette.color(QPalette.ColorGroup.Disabled,
-                         QPalette.ColorRole.Mid)
-    return (
-        f"QPushButton#primary {{ background: {fill.name()}; color: {ink.name()};"
-        f" border: 1px solid {fill.name()}; padding: 6px 16px;"
-        f" font-weight: 600; }}\n"
-        f"QPushButton#primary:hover {{ background: {fill.darker(112).name()};"
-        f" border-color: {fill.darker(112).name()}; }}\n"
-        f"QPushButton#primary:pressed {{ background: {fill.darker(125).name()}; }}\n"
-        f"QPushButton#primary:disabled {{ background: transparent;"
-        f" color: {off.name()}; border: 1px solid {edge.name()}; }}")
+            f"QPlainTextEdit:disabled, QTextEdit:disabled {{ color: {field}; }}")

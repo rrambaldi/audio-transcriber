@@ -43,6 +43,34 @@ def test_the_icons_are_declared_as_package_data():
         config = tomllib.load(handle)
     patterns = config["tool"]["setuptools"]["package-data"]["audio_transcriber"]
     assert "data/brand/*" in patterns
+    # A glob does not recurse: the fonts are a directory deeper and would be
+    # left out of the wheel by the line above.
+    assert "data/brand/fonts/*" in patterns
+
+
+# --- the typefaces --------------------------------------------------------
+
+def test_both_faces_are_there_with_their_licences():
+    """Two front ends are set in them, and both are OFL: the licence travels
+    with the file or the redistribution is not one."""
+    families = dict(branding.font_files())
+    assert set(families) == {branding.SERIF, branding.SANS}
+    for family, path in families.items():
+        assert os.path.exists(path), family
+        with open(path, "rb") as handle:
+            assert handle.read(4) == b"wOF2", family
+    for licence in ("fraunces-OFL.txt", "karla-OFL.txt"):
+        assert os.path.exists(branding.font_path(licence)), licence
+
+
+def test_the_faces_sit_with_the_icons_not_in_the_web_package():
+    """Shared data, for the same reason the icons are shared: the window must
+    not reach across the package into web/static to be painted."""
+    for _, path in branding.font_files():
+        assert os.path.dirname(path) == os.path.join(branding.DIR,
+                                                     branding.FONT_SUBDIR)
+    assert not os.path.exists(os.path.join(
+        os.path.dirname(branding.DIR), "..", "web", "static", "fonts"))
 
 
 # --- the Linux desktop entry ----------------------------------------------

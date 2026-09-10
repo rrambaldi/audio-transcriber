@@ -422,6 +422,7 @@ dependencies. `audio-transcriber gui` says so rather than showing a traceback.
 | module | what it holds |
 |---|---|
 | `gui/options.py` | every decision worth testing — the menus, the table rows, the transcript blocks — and **no Qt at all** |
+| `gui/style.py` | the contrast floor over the theme, and the muted ink a note is written in |
 | `gui/window.py` | the window, the three tabs, what happens when it closes |
 | `gui/transcribe_panel.py` | sources, options, the queue table |
 | `gui/library_panel.py` | the entry list, the reading pane, the notes editor, the player |
@@ -430,6 +431,56 @@ dependencies. `audio-transcriber gui` says so rather than showing a traceback.
 | `gui/system_panel.py` | hardware and directories |
 | `gui/multimedia.py` | QtMultimedia when it is there, and a clear answer when it is not |
 | `gui/masthead.py` | the band above the tabs: the mark, the name, the promise |
+| `gui/theme.py` | the web page's palette and typefaces, as a Qt palette, fonts and style sheet |
+
+## Look and feel: the page's, not the desktop's
+
+The window is painted in the program's own palette and typefaces, the same
+ones [web.md](web.md) documents — the light scheme is the brand inverted, the
+dark scheme is the mark's own colours, Fraunces carries the headings and Karla
+everything read while typing. Which scheme is used follows the desktop, the
+way the page follows `prefers-color-scheme`, and it changes under a running
+window.
+
+**This reverses an earlier decision, and the earlier one was not silly.** The
+window used to take the desktop's palette on purpose: a program that repaints
+itself looks foreign next to native ones, and `gui/style.py` used to open by
+saying so. What outweighed it is that the browser and the window are one
+program and were reading as two that share a name. The cost is paid on
+purpose: the window no longer follows a custom desktop theme, and the style is
+forced to Fusion on all three platforms, because the native Windows and macOS
+styles each ignore a different half of the rules in `gui/theme.py`.
+
+What did *not* change is the floor under it. `gui/style.py` still lifts every
+disabled colour until the words clear WCAG AA, and it matters more now than it
+did: a palette the program chose has no desktop to blame for its greys. Both
+schemes are held to the same contrast rules as the page's, against the
+stylesheet's own token values, by `tests/test_gui_theme.py`.
+
+| the page | the window |
+|---|---|
+| `--paper` / `--sheet` | `QPalette.Window` / `QPalette.Base` — Qt needs two surfaces where CSS needs one |
+| `--signal` | `QPalette.Highlight`, the focus ring, a timestamp, the primary action |
+| a field as one rule under the text | `QLineEdit`, `QComboBox`, `QSpinBox` with a single bottom border |
+| `.button`, typographic and never boxy | `QPushButton` with no fill and a bottom rule; `#primary` is the accent and a heavier rule, not a filled box |
+| `.tab` | `QTabBar::tab`, a word with a line under it |
+| `.row .title` in the serif | the queue and library rows, painted by `widgets.JobDelegate` |
+| `.drop`, dashed | `QFrame#drop`, dashed, washed in the accent while a file is over it |
+
+Two things Qt cannot do, and where they went:
+
+- **`text-transform` and `letter-spacing` do not exist in a Qt style sheet.**
+  The page's uppercase micro-label — buttons, tabs, table headings — is
+  therefore a `QFont`, and it cannot be installed as a class default either: a
+  widget matched by any style-sheet rule has its font re-resolved from the
+  application default, which drops both the case and the tracking.
+  `theme.Labels` is an event filter that sets it when a widget is polished,
+  which is late enough to survive and catches the buttons a queue row grows
+  later. `tests/test_gui_theme.py` pins that Qt behaviour down.
+- **A font set on a container is inherited by everything inside it**, so the
+  uppercase legend of the page's `fieldset` cannot be had on a `QGroupBox`
+  without shouting the whole panel. Group titles keep the sans face at their
+  normal case, in `--muted`, over the rule the page draws.
 
 ## The mark, and whose icon the desktop actually draws
 
@@ -462,13 +513,14 @@ thing whose icon gets drawn is not the window:
   are unaffected, they take the icon from the window itself.
 - **macOS** needs nothing: Qt puts `QApplication.windowIcon()` in the Dock.
 
-Above the tabs there is a masthead — the mark, "Audio Transcriber", and the
-same line the web page opens with. It is there because the title bar is not
-somewhere to put an identity: it is 16 px tall, and on a maximised Windows
-window or a tiling desktop it is not drawn at all. It paints none of the
-brand's colours over the desktop's, for the reason in `gui/style.py`; the mark
-carries the colour, and on a dark theme it swaps the master drawing for
-`icon-mark.svg`, whose plate would otherwise sink into the background.
+Above the tabs there is a masthead, and it is the page's masthead: the mark,
+an eyebrow, "Audio Transcriber" in Fraunces and the promise under it in
+Fraunces italic, over a rule drawn in the ink colour. It is there because the
+title bar is not somewhere to put an identity — it is 16 px tall, and on a
+maximised Windows window or a tiling desktop it is not drawn at all. On a dark
+scheme the mark swaps the master drawing for `icon-mark.svg`, whose plate would
+otherwise sink into the background, and drops the hairline ring that plate
+needs on paper.
 
 The engine underneath the menus is `recording.py`, next to `pipeline.py` and
 with no Qt in it: the two audio libraries are objects it is handed, so

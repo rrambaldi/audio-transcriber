@@ -10,7 +10,7 @@ twice a second is cheaper than making that thread talk to the GUI.
 import os
 
 from PySide6.QtCore import Qt, QTimer, QUrl, Signal
-from PySide6.QtGui import QKeySequence, QPalette, QShortcut
+from PySide6.QtGui import QKeySequence, QShortcut
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QDialog,
@@ -175,6 +175,9 @@ class TranscribePanel(QWidget):
         # to be somewhere you can point at, and with the recorder beside it
         # the half of the header that was not the recorder was empty.
         self.drop_zone = QFrame()
+        # Named, because that is how gui/theme.py reaches it: the page draws
+        # this area as a dashed rule, which no frame shape of Qt's is.
+        self.drop_zone.setObjectName("drop")
         self.drop_zone.setFrameShape(QFrame.Shape.StyledPanel)
         drop_layout = QVBoxLayout(self.drop_zone)
         drop_layout.addStretch(1)
@@ -239,15 +242,13 @@ class TranscribePanel(QWidget):
 
         Without it the only feedback is the cursor, which is the operating
         system's and says nothing about whether this window will take the
-        file."""
-        self.drop_zone.setAutoFillBackground(over)
-        if not over:
-            return
-        palette = self.drop_zone.palette()
-        base = palette.color(QPalette.ColorRole.Base)
-        accent = palette.color(QPalette.ColorRole.Highlight)
-        palette.setColor(QPalette.ColorRole.Window, style.mix(accent, base, 0.88))
-        self.drop_zone.setPalette(palette)
+        file. The tint itself is in gui/theme.py, as ``.drop.over`` is in the
+        stylesheet; what happens here is the property it keys off."""
+        self.drop_zone.setProperty("over", "true" if over else "false")
+        # A style sheet does not re-run on a property change unless the widget
+        # is asked to look at itself again.
+        self.drop_zone.style().unpolish(self.drop_zone)
+        self.drop_zone.style().polish(self.drop_zone)
 
     def dragLeaveEvent(self, event):
         self._highlight_drop(False)

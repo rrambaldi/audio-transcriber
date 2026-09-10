@@ -114,12 +114,36 @@ class MainWindow(QMainWindow):
         frame.addWidget(self.tabs, 1)
         self.setCentralWidget(central)
 
+        self._follow_colour_scheme()
         self.transcribe.message.connect(self.announce)
         self.library.message.connect(self.announce)
         self.transcribe.entry_requested.connect(self.show_entry)
         self.transcribe.job_finished.connect(self._job_finished)
         self.statusBar().showMessage(self._library_line())
         self._restore_geometry()
+
+    def _follow_colour_scheme(self):
+        """Repaint when the desktop switches between light and dark.
+
+        The page follows ``prefers-color-scheme`` and re-renders itself; the
+        window has to be told. Qt announces the change on its style hints -
+        from Qt 6.5 - and everything downstream of the palette follows: the
+        masthead redraws its mark, and every note recomputes its ink."""
+        hints = QApplication.instance().styleHints() if QApplication.instance() else None
+        changed = getattr(hints, "colorSchemeChanged", None)
+        if changed is None:         # pragma: no cover - Qt older than 6.5
+            return
+        changed.connect(lambda _scheme: self._repaint_for_scheme())
+
+    def _repaint_for_scheme(self):
+        """Install the other scheme, and let the widgets that cache ink know."""
+        application = QApplication.instance()
+        if application is None:     # pragma: no cover - during shutdown
+            return
+        style.apply(application)
+        # Every note is a colour written into a widget's own style sheet, so
+        # the new palette does not reach them on its own.
+        style.renote(self)
 
     # --- moving between the tabs ------------------------------------------
 
@@ -209,8 +233,14 @@ def launch(settings=None, argv=None):
     # and GNOME's dock on X11 too - finds the icon to draw for these windows.
     application.setDesktopFileName(branding.DESKTOP_ENTRY)
     application.setAttribute(Qt.ApplicationAttribute.AA_DontShowIconsInMenus, False)
-    # The desktop's own palette, with one floor imposed on it: text this
-    # window disables is still text somebody has to read. See gui/style.py.
+    # Fusion rather than the platform's own style, and this is the price of
+    # looking like the web page: the rules in gui/theme.py are written against
+    # one style, and the native Windows and macOS styles each ignore a
+    # different half of them. Fusion draws the same everywhere, so the window
+    # does too.
+    application.setStyle("Fusion")
+    # The program's own palette and typefaces - the page's, exactly - with the
+    # contrast floor over them. See gui/theme.py and gui/style.py.
     style.apply(application)
 
     window = MainWindow(settings)

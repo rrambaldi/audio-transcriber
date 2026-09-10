@@ -7,20 +7,26 @@ shows it 16 px wide and where a tiling desktop shows it not at all, and the
 promise was nowhere. Somebody who has the window open all day should be able
 to see whose program it is and what it does *without* the title bar.
 
-What this deliberately does *not* do is paint the brand's colours over the
-desktop's. :mod:`audio_transcriber.gui.style` explains why — a program that
-repaints itself looks foreign on every machine it runs on — so the band is
-drawn in the palette Qt was handed: the mark carries the colour, the name is
-the window's own text at a larger size, and the tagline is muted only as far
-as it can be while staying readable.
+It is the page's masthead, in the same three lines and the same two faces:
+the eyebrow in the letter-spaced sans, the name in Fraunces, the promise under
+it in Fraunces italic and the brand's muted ink. The rule underneath is the
+page's too — ``border-bottom: 1px solid var(--ink)`` — which is what makes the
+band read as a masthead rather than as the first panel of the window. See
+:mod:`audio_transcriber.gui.theme`.
 """
 from PySide6.QtCore import QSize, Qt
-from PySide6.QtGui import QFont, QIcon, QPalette
-from PySide6.QtWidgets import QHBoxLayout, QLabel, QVBoxLayout, QWidget
+from PySide6.QtGui import QIcon, QPalette
+from PySide6.QtWidgets import (
+    QFrame,
+    QHBoxLayout,
+    QLabel,
+    QVBoxLayout,
+    QWidget,
+)
 
 from .. import __version__, branding
 from ..i18n import t
-from . import style, widgets
+from . import style, theme
 
 #: How tall the mark is drawn, in logical pixels. At 40 the 48 px render is
 #: the one Qt picks on a 1x screen and the 128 px one at 2x, so the drawing is
@@ -30,7 +36,11 @@ MARK_PX = 40
 #: How much larger than the interface font the name is. A ratio rather than a
 #: point size: the desktop's own font size is somebody's decision, often an
 #: accessibility one, and this has to grow with it.
-NAME_SCALE = 1.35
+NAME_SCALE = theme.TITLE_SCALE
+
+#: And the promise under it, which the page sets at about 1.1rem against a
+#: 0.72rem eyebrow.
+TAGLINE_SCALE = 1.05
 
 #: Below this relative luminance the window's background counts as dark, and
 #: the mark is drawn without its plate. Halfway is where the plate - a very
@@ -98,27 +108,29 @@ class Masthead(QWidget):
             self._icon = None
             self.mark.setVisible(False)
 
+        self.eyebrow = QLabel(t("gui.eyebrow"))
+        self.eyebrow.setFont(theme.label_font(self.font()))
+        style.note(self.eyebrow)
+
         self.name = QLabel(t("gui.app_name"))
-        font = QFont(self.name.font())
-        font.setBold(True)
-        if font.pointSizeF() > 0:
-            font.setPointSizeF(font.pointSizeF() * NAME_SCALE)
-        else:                       # a font sized in pixels, as on some Linux
-            font.setPixelSize(max(1, round(font.pixelSize() * NAME_SCALE)))
-        self.name.setFont(font)
+        self.name.setFont(theme.title_font(self.font(), NAME_SCALE))
 
         self.tagline = QLabel(t("gui.tagline"))
         self.tagline.setWordWrap(True)
+        self.tagline.setFont(theme.title_font(self.font(), TAGLINE_SCALE,
+                                              italic=True))
         style.note(self.tagline)
 
         self.version = QLabel(f"v{__version__}")
+        self.version.setFont(theme.label_font(self.font()))
         self.version.setAlignment(Qt.AlignmentFlag.AlignRight
                                   | Qt.AlignmentFlag.AlignVCenter)
         style.note(self.version)
 
         titles = QVBoxLayout()
         titles.setContentsMargins(0, 0, 0, 0)
-        titles.setSpacing(1)
+        titles.setSpacing(2)
+        titles.addWidget(self.eyebrow)
         titles.addWidget(self.name)
         titles.addWidget(self.tagline)
 
@@ -129,13 +141,21 @@ class Masthead(QWidget):
         band.addLayout(titles, 1)
         band.addWidget(self.version, 0, Qt.AlignmentFlag.AlignTop)
 
-        # The hairline is what stops the band from reading as part of the
-        # first tab: the tab bar below it starts flush against it otherwise.
+        # The page draws this rule in the ink colour, not in the divider grey:
+        # it is the edge of the masthead, and the tab bar below has a grey one
+        # of its own. Without it the band reads as the first panel.
+        self.rule = QFrame()
+        self.rule.setFrameShape(QFrame.Shape.HLine)
+        self.rule.setFrameShadow(QFrame.Shadow.Plain)
+        self.rule.setFixedHeight(1)
+
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
         layout.addLayout(band)
-        layout.addWidget(widgets.separator())
+        layout.addWidget(self.rule)
+        self.setObjectName("masthead")
+        self._paint_rule()
 
     def changeEvent(self, event):
         """Redraw the mark when the desktop changes theme under us.
@@ -151,5 +171,28 @@ class Masthead(QWidget):
             return
         if self._icon is not None:
             self.mark.setPixmap(mark_pixmap(self._icon, self))
-        style.note(self.tagline)
-        style.note(self.version)
+        for label in (self.eyebrow, self.tagline, self.version):
+            style.note(label)
+        self._paint_rule()
+
+    def _paint_rule(self):
+        """The rule under the band, and the hairline round the mark.
+
+        The rule is drawn in the ink colour because it is the edge of the
+        masthead, not a divider inside it - the page draws the same one.
+
+        The ring round the mark is the page's too, and it is drawn only on the
+        light scheme: it exists because the plate's own colour is nearly the
+        dark ground, so the tile needs an edge to be a tile at all. On the
+        dark scheme the mark has no plate to give an edge to - the plateless
+        drawing is used there - and a ring would be a box round nothing."""
+        ink = self.palette().color(QPalette.ColorRole.WindowText).name()
+        self.rule.setStyleSheet(f"background: {ink}; border: none;")
+        which = "dark" if self.palette().color(
+            QPalette.ColorRole.Window).lightnessF() < 0.5 else "light"
+        if which == "dark":
+            self.mark.setStyleSheet("")
+        else:
+            self.mark.setStyleSheet(
+                f"border: 1px solid {theme.colour('rule', which).name()};"
+                f" border-radius: {round(MARK_PX * 0.22)}px;")
