@@ -43,6 +43,7 @@ message at the top.
 import os
 import re
 import sys
+import time
 
 from .. import paths
 from ..hardware import available_ram_gb, openvino_devices, total_ram_gb
@@ -215,7 +216,8 @@ class Pipeline:
         except ImportError:
             raise SummaryError(t("summary.openvino_missing")) from None
         self._genai = openvino_genai
-        print(t("summary.loading_model", path=os.path.basename(model_path),
+        self.model_name = os.path.basename(model_path)
+        print(t("summary.loading_model", path=self.model_name,
                 device=device), file=sys.stderr)
         try:
             self.pipe = openvino_genai.LLMPipeline(model_path, device)
@@ -283,7 +285,11 @@ class Pipeline:
             try:
                 prompt = self._prefilled(system, user)
                 config.apply_chat_template = False
-                return str(self.pipe.generate(prompt, config)).strip()
+                print(f"[DEBUG] {time.time():.1f} generate() with thinking-prefill, model={self.model_name}", file=sys.stderr)
+                start = time.time()
+                result = str(self.pipe.generate(prompt, config)).strip()
+                print(f"[DEBUG] {time.time():.1f} generate() done in {time.time()-start:.1f}s", file=sys.stderr)
+                return result
             except Exception as exc:           # pragma: no cover - runtime
                 # Not fatal, and not silent: fall back to the plain route and
                 # pay for the narration rather than lose the pass.
@@ -308,7 +314,12 @@ class Pipeline:
             ])
         else:                                       # pragma: no cover - old runtime
             conversation = f"{system}\n\n{user}"
-        return str(self.pipe.generate(conversation, config)).strip()
+        print(f"[DEBUG] {time.time():.1f} generate() START, model={self.model_name}, max_tokens={config.max_new_tokens}", file=sys.stderr)
+        start = time.time()
+        result = str(self.pipe.generate(conversation, config)).strip()
+        elapsed = time.time() - start
+        print(f"[DEBUG] {time.time():.1f} generate() DONE in {elapsed:.1f}s, result len={len(result)}", file=sys.stderr)
+        return result
 
     def _no_thinking(self, config):
         """Turn reasoning off, by whichever means the runtime offers.
