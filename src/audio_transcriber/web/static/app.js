@@ -172,6 +172,7 @@ const I18N = {
     rename: "rename",
     delete_entry: "delete",
     has_notes: "notes",
+    held: "waiting to start",
     queued: "queued",
     running: "transcribing",
     stage_summary_selecting: "choosing what matters",
@@ -189,6 +190,7 @@ const I18N = {
     stage_diarizing: "working out who said what",
     stage_laying_out: "laying out the text",
     take_out_of_queue: "take out of the queue",
+    start_job: "start",
     stop_job: "stop",
     confirm_stop_job: "Stop this transcription?",
     confirm_stop_job_body: "\"{title}\" stops and nothing reaches the library.",
@@ -364,6 +366,7 @@ const I18N = {
     rename: "rinomina",
     delete_entry: "elimina",
     has_notes: "note",
+    held: "in attesa di partire",
     queued: "in coda",
     running: "in corso",
     stage_summary_selecting: "scelta di cosa conta",
@@ -381,6 +384,7 @@ const I18N = {
     stage_diarizing: "chi ha detto cosa",
     stage_laying_out: "impaginazione del testo",
     take_out_of_queue: "togli dalla coda",
+    start_job: "avvia",
     stop_job: "ferma",
     confirm_stop_job: "Fermo questa trascrizione?",
     confirm_stop_job_body: "\"{title}\" si ferma e in libreria non arriva nulla.",
@@ -1125,6 +1129,18 @@ function renderJobs(jobs) {
       open.addEventListener("click", () => openEntry(job.entry_id));
       actions.append(open);
     }
+    if (job.status === "held") {
+      const start = el("button", { type: "button", className: "link", textContent: t("start_job") });
+      start.addEventListener("click", async () => {
+        try {
+          await fetch(api(`jobs/${job.id}/start`), { method: "POST" });
+          refreshJobs();
+        } catch (error) {
+          console.error("Failed to start job:", error);
+        }
+      });
+      actions.append(start);
+    }
     if (job.status === "queued" || job.status === "running") {
       const stop = el("button", { type: "button", className: "link",
                                   textContent: job.status === "running"
@@ -1132,11 +1148,11 @@ function renderJobs(jobs) {
       stop.addEventListener("click", () => cancelJob(job));
       actions.append(stop);
     }
-    if (["done", "failed", "cancelled"].includes(job.status)) {
+    if (["done", "failed", "cancelled", "held"].includes(job.status)) {
       const remove = el("button", { type: "button", className: "link",
                                     textContent: t("remove_from_list"),
-                                    disabled: pageBusy,
-                                    title: pageBusy ? t("busy_why") : "" });
+                                    disabled: pageBusy && job.status !== "held",
+                                    title: (pageBusy && job.status !== "held") ? t("busy_why") : "" });
       remove.addEventListener("click", async () => {
         const sure = await ask({
           title: t("confirm_remove_job"),

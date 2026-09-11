@@ -148,6 +148,30 @@ class JobQueue:
         self._order = []
         self._lock = threading.Lock()
         self._worker = None
+        self._restore_uploads()
+
+    def _restore_uploads(self):
+        """Scan the uploads directory and restore any cached files as jobs.
+
+        Files are added with HELD status, so they appear in the queue but do not
+        start until explicitly requested. This preserves them across server restarts."""
+        uploads = self.upload_dir()
+        if not os.path.isdir(uploads):
+            return
+        try:
+            files = sorted(os.listdir(uploads))
+        except OSError:
+            return
+        for filename in files:
+            path = os.path.join(uploads, filename)
+            if not os.path.isfile(path):
+                continue
+            title = safe_filename(filename)
+            job = Job(path, title=title, filename=filename, settings=self.settings)
+            job.status = HELD
+            with self._lock:
+                self._jobs[job.id] = job
+                self._order.append(job.id)
 
     # --- public API -------------------------------------------------------
 

@@ -271,6 +271,18 @@ def register_routes(app):
             raise HTTPException(status_code=404, detail="unknown job")
         return job.as_dict()
 
+    @app.post("/api/jobs/{job_id}/start")
+    def start_job(job_id: str, request: Request):
+        """Start a held job now.
+
+        A held job was restored from the uploads cache at startup: it waits for
+        the user to begin processing it."""
+        queue = request.app.state.queue
+        if not queue.start(job_id):
+            raise HTTPException(status_code=409, detail="this job cannot be started")
+        job = queue.get(job_id)
+        return job.as_dict() if job else {"started": job_id}
+
     @app.post("/api/jobs/{job_id}/cancel")
     def cancel_job(job_id: str, request: Request):
         """Take a job out of the queue, or ask the running one to stop.
