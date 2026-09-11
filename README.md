@@ -110,6 +110,13 @@ the interpreter and pip provide the rest — a Qt installed with
 `conda install pyside6` cannot be completed or replaced by pip afterwards, see
 [docs/gui.md](docs/gui.md).
 
+Afterwards, **`./run.sh`** and **`run.cmd`** are the same idea for running it:
+they get into the environment first — the conda one (`srt-ov2`, or `AT_ENV`),
+else on Linux and macOS whatever virtualenv the checkout has — and then hand
+everything they were given to the program, so `run.cmd hardware` and
+`./run.sh meeting.mp4 --summary` work from a shell that knows nothing about it. With no arguments they open the
+window, which is what a double-click on `run.cmd` does.
+
 Not sure what your machine can do?
 
 ```bash

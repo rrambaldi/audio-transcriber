@@ -8,6 +8,15 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- **Two launchers, `run.cmd` and `run.sh`.** They do what everybody was doing
+  by hand: get into the environment — the conda one named by `AT_ENV`,
+  `srt-ov2` by default on Windows, the active one or the checkout's virtualenv
+  elsewhere — and then run the program with whatever they were given.
+  `run.cmd hardware`, `./run.sh meeting.mp4 --lang it --summary`. With no
+  arguments they open the desktop window, so a double-click on `run.cmd` from
+  Explorer is a way to start the program. When this environment's `Scripts`
+  folder is not on `PATH` they use the module form, which always works.
+
 - **A text you already have can help the transcription and correct it.** The
   case: you have the recording *and* something written for it — a script, a
   press release, the slides, a transcript from somewhere else. Paste it (a box
