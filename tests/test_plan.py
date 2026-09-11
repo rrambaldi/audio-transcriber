@@ -81,7 +81,9 @@ def test_a_big_machine_that_is_busy_is_not_told_it_is_full():
     usable = plan.usable_ram_gb(6.8, 31.5)
     assert usable > 4.0
     chosen = plan.resolve_plan(plan.OPENVINO, ram=6.8, total=31.5, cores=8)
-    assert chosen is not None and chosen.tier == "m"
+    assert chosen is not None and chosen.tier == "s"
+    gguf = plan.resolve_plan(plan.LLAMACPP, ram=6.8, total=31.5, cores=8)
+    assert gguf is not None and gguf.tier == "m"
 
 
 # --- choosing a tier ------------------------------------------------------
@@ -108,7 +110,8 @@ def test_a_machine_too_small_for_the_smallest_model_is_told_no():
     assert plan.resolve_plan(plan.LLAMACPP, ram=0.8, total=2.0, cores=2) is None
 
 
-def test_a_machine_that_will_not_say_is_treated_as_the_smallest_one():
+def test_a_machine_that_will_not_say_is_treated_as_the_smallest_one(monkeypatch):
+    monkeypatch.setattr(plan, "available_ram_gb", lambda: None)
     chosen = plan.resolve_plan(plan.LLAMACPP, ram=None, total=None, cores=2)
     assert chosen is None or chosen.tier == "xs"
 
@@ -122,12 +125,17 @@ def test_the_better_model_of_a_tier_needs_the_memory_to_be_worth_it():
 
 
 def test_an_engine_is_never_offered_a_model_it_cannot_load():
-    """No GGUF is published for Qwen3.5-4B, so llama.cpp never sees it."""
+    """No GGUF is published for Qwen3.5-4B, so llama.cpp never sees it.
+    Hybrid Mamba architectures cannot run on OpenVINO GenAI, so OpenVINO never sees them."""
     for tier in plan.TIERS:
         for model in plan.candidates(tier, plan.LLAMACPP):
             assert model.gguf_repo and model.gguf_file
+        for model in plan.candidates(tier, plan.OPENVINO):
+            assert model.hf_id not in plan.OPENVINO_INCOMPATIBLE
     gguf = plan.resolve_plan(plan.LLAMACPP, ram=9.0, total=10.0, cores=8)
     assert gguf is None or gguf.model.name != "Qwen3.5-4B"
+    intel = plan.resolve_plan(plan.OPENVINO, ram=32.0, total=64.0, cores=8)
+    assert intel is not None and intel.model.hf_id not in plan.OPENVINO_INCOMPATIBLE
 
 
 # --- giving things up, in order -------------------------------------------

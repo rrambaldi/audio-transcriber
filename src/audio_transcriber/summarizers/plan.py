@@ -274,16 +274,27 @@ def quants_for(model):
     return tuple(name for name in QUANT_LADDER if name.upper() in have)
 
 
+#: Hybrid architectures (Mamba/SSM layers) whose OpenVINO export unrolls into
+#: tens of thousands of elementary nodes, which openvino_genai's CausalLM
+#: pipeline cannot load or execute cleanly.
+OPENVINO_INCOMPATIBLE = {
+    "ibm-granite/granite-4.0-h-micro",
+    "ibm-granite/granite-4.0-h-tiny",
+    "LiquidAI/LFM2.5-1.2B-Instruct",
+}
+
+
 def runnable(model, engine):
     """Whether this engine could load this model at all.
 
     The GGUF engine needs a GGUF, and not every model has one published; the
-    OpenVINO path converts from the Hugging Face checkpoint and needs that."""
+    OpenVINO path converts from the Hugging Face checkpoint and needs that,
+    excluding hybrid architectures that OpenVINO GenAI cannot load."""
     name = str(engine or "").strip().lower()
     if name == LLAMACPP:
         return bool(model.gguf_repo and model.gguf_file)
     if name == OPENVINO:
-        return bool(model.hf_id)
+        return bool(model.hf_id) and model.hf_id not in OPENVINO_INCOMPATIBLE
     return True
 
 

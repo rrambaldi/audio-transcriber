@@ -160,8 +160,8 @@ def candidates(engine, names=None, usable=None):
         return [model for model in wanted if plan.runnable(model, engine)]
     return [model for model in plan.CATALOGUE
             if plan.runnable(model, engine)
-            and (usable is None or plan.estimate_ram_gb(
-                model, "Q4_K_M", 2048, "q8_0", "q4_0") or 0) <= (usable or 0)]
+            and (usable is None or (plan.estimate_ram_gb(
+                model, "Q4_K_M", 2048, "q8_0", "q4_0") or 0) <= usable)]
 
 
 def plan_for(engine, model):
@@ -228,8 +228,19 @@ def end_to_end(engine, transcript):
     noise = io.StringIO()
     started = time.time()
     try:
-        with redirect_stderr(noise):
-            result = summary.summarize(material, {"summarizer": engine})
+        import sys
+        sys.stderr.write(f"[TRACE] end_to_end() START\n")
+        sys.stderr.flush()
+
+##        with redirect_stderr(noise):
+        sys.stderr.write(f"[TRACE] end_to_end() calling summary.summarize\n")
+        sys.stderr.flush()
+        result = summary.summarize(material, {"summarizer": engine})
+        sys.stderr.write(f"[TRACE] end_to_end() summary.summarize returned\n")
+        sys.stderr.flush()
+        
+        sys.stderr.write(f"[TRACE] end_to_end() RETURNED\n")
+        sys.stderr.flush()
         return {"ok": True, "engine": result.engine, "tier": result.tier,
                 "seconds": round(time.time() - started, 1), "note": result.note,
                 "sections": {"points": len(result.sections.points),

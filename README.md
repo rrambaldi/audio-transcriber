@@ -317,21 +317,29 @@ More detail in [docs/backends.md](docs/backends.md).
 
 ## Diarization setup
 
-Two options:
+pyannote models are hosted in **gated repositories** on Hugging Face, which require accepting their user conditions before downloading.
 
-1. **Online** — set `HUGGINGFACE_TOKEN` (in a `.env`, or as an environment
-   variable) with *Read access to public gated repos*, and accept the terms of
-   `pyannote/speaker-diarization-3.1`, `pyannote/segmentation-3.0` and
-   `pyannote/wespeaker-voxceleb-resnet34-LM` on huggingface.co.
-2. **Offline** — put the pyannote models locally and point a `config.yaml` at
-   them. No token needed at runtime. `audio-transcriber paths` shows where they
-   are expected.
+Two options to configure diarization:
 
-Either way the assets are checked *before* the long transcription starts, so a
-missing file does not cost you an hour.
+### 1. Online (Automatic download with Token)
 
-Diarization pulls in PyTorch (~2 GB) and wants a fair amount of RAM, so on a
-small server you may prefer to leave it off.
+1. Log in to [Hugging Face](https://huggingface.co) and accept the license / user conditions on the gated repositories:
+   - [pyannote/speaker-diarization-community-1](https://huggingface.co/pyannote/speaker-diarization-community-1) (or [pyannote/speaker-diarization-3.1](https://huggingface.co/pyannote/speaker-diarization-3.1))
+   - [pyannote/segmentation-3.0](https://huggingface.co/pyannote/segmentation-3.0)
+   - [pyannote/wespeaker-voxceleb-resnet34-LM](https://huggingface.co/pyannote/wespeaker-voxceleb-resnet34-LM)
+2. Generate an access token with **Read** permissions at [huggingface.co/settings/tokens](https://huggingface.co/settings/tokens).
+3. Set `HUGGINGFACE_TOKEN=hf_...` (or `HF_TOKEN`) in a `.env` file in your working directory (or in the user config directory), or as an environment variable.
+
+### 2. Offline / Manual download
+
+Place the downloaded pyannote model files locally so no token or network is required at runtime:
+- **Project-local folder**: create `pyannote-diar/` in the working directory containing `config.yaml` and the model assets (`pytorch_model.bin`, `xvec_transform.npz`, etc.).
+- **User data folder**: `%LOCALAPPDATA%\audio-transcriber\diarization\` on Windows, or `~/.local/share/audio-transcriber/diarization/` on Linux.
+- Run `audio-transcriber paths` to see all expected paths.
+
+Either way the assets are checked *before* the long transcription starts, so a missing file or unaccepted licence does not cost you an hour.
+
+Diarization pulls in PyTorch (~2 GB) and wants a fair amount of RAM, so on a small server you may prefer to leave it off.
 
 ## Roadmap
 

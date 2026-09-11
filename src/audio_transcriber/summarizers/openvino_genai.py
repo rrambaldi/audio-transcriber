@@ -211,16 +211,31 @@ class Pipeline:
     prompt would cost more than the prompts do."""
 
     def __init__(self, model_path, device):
+        import sys
+        sys.stderr.write(f"[TRACE] Pipeline.__init__ START\n")
+        sys.stderr.flush()
         try:
             import openvino_genai
+            sys.stderr.write(f"[TRACE] imported openvino_genai\n")
+            sys.stderr.flush()
         except ImportError:
             raise SummaryError(t("summary.openvino_missing")) from None
         self._genai = openvino_genai
         self.model_name = os.path.basename(model_path)
+
+        sys.stderr.write(f"[TRACE] about to load model: {model_path} on {device}\n")
+        sys.stderr.flush()
+
         print(t("summary.loading_model", path=self.model_name,
                 device=device), file=sys.stderr)
         try:
-            self.pipe = openvino_genai.LLMPipeline(model_path, device)
+            sys.stderr.write(f"[TRACE] calling LLMPipeline()...\n")
+            sys.stderr.flush()
+
+            self.pipe = openvino_genai.LLMPipeline(model_path, "CPU")
+
+            sys.stderr.write(f"[TRACE] LLMPipeline() returned\n")
+            sys.stderr.flush()
         except Exception as exc:
             raise SummaryError(t("summary.load_failed", device=device,
                                  error=exc)) from exc

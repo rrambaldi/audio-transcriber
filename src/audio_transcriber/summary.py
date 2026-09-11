@@ -619,6 +619,10 @@ def summarize(material, settings=None, progress=None):
     job stops: the callback the interfaces pass raises."""
     from .summarizers import EXTRACTIVE, load, resolve_summarizer
 
+    import sys
+    sys.stderr.write(f"[TRACE] summarize() START\n")
+    sys.stderr.flush()
+
     settings = settings or {}
     if not material.sentences:
         raise SummaryError(t("summary.empty"))
@@ -639,7 +643,14 @@ def summarize(material, settings=None, progress=None):
         sections, note = engine.summarize(material, settings, progress=progress)
         note = " ".join(part for part in (_refusal_note(material, refused),
                                           note) if part)
+    import sys
+    sys.stderr.write(f"[TRACE] calling render()...\n")
+    sys.stderr.flush()
     text = render(material, sections, engine.label(settings), note=note)
+    import sys
+    sys.stderr.write(f"[TRACE] render() returned\n")
+    sys.stderr.flush()
+
     kept = len(sections.points) + len(sections.decisions) + len(sections.actions)
     return Summary(text=text, sections=sections, engine=name,
                    language=language_of(material.language),

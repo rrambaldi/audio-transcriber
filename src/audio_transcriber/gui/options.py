@@ -182,7 +182,7 @@ def defaults_from(settings):
     settings = settings or {}
     return {
         "model": settings.get("model") or AUTO,
-        "language": settings.get("language") or "",
+        "language": settings.get("language") if settings.get("language") is not None else "it",
         "backend": settings.get("backend") or "auto",
         "diarize": bool(settings.get("diarize")),
         "speakers": int(settings.get("speakers") or 0),
