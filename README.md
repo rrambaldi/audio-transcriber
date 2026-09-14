@@ -334,9 +334,9 @@ Two options to configure diarization:
 
 Place the downloaded pyannote model files locally so no token or network is required at runtime:
 - **Project-local folder**: create `pyannote-diar/` in the working directory containing `config.yaml` and the model assets (`pytorch_model.bin`, `xvec_transform.npz`, etc.).
-- **User data folder**: `%LOCALAPPDATA%\audio-transcriber\diarization\` on Windows, or `~/.local/share/audio-transcriber/diarization/` on Linux.
+- **User data folder**: `%LOCALAPPDATA%\audio-transcriber\diarization\` on Windows, or `~/.local/share/audio-transcriber/diarization/` on Linux. A folder downloaded by hand can also be moved in **whole, under its own name** — `…\audio-transcriber\pyannote-diar\` — which is worth doing when the paths inside its `config.yaml` start with that name, as the ones people write usually do. No `config.toml` is needed for either.
 - **Anywhere else**: `--diar-model PATH`, or `model = "PATH"` under `[diarization]` in `config.toml`. `PATH` is either a `config.yaml` or — the shape pyannote 4 clones from the hub — the **directory** of a pipeline repository, with `config.yaml` and the weights beside it.
-- Run `audio-transcriber paths` to see all expected paths.
+- Run `audio-transcriber paths` to see all expected paths; its `diarization` line names the exact file being looked for, and the *This machine* tab of the window lists it too.
 
 The paths written inside a `config.yaml` are resolved by pyannote against the *working directory*, not against the config, which is why a folder that is plainly there stops being found the moment the program is started from somewhere else. They are settled here before the config is handed over — looked for beside the config and one level up as well — so a hand-made folder works from any directory. Your file is not modified: the resolved copy is written to the cache.
 

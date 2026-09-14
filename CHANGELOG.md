@@ -163,6 +163,17 @@ All notable changes to this project are documented here. The format follows
   path and **silently replaced by the default pipeline**, so the model that ran
   was not the model that was asked for.
 
+- **The models are looked for where people actually put them, and the command
+  that lists directories says where that is.** A folder of pyannote models is
+  found beside the command (as before), in the managed `diarization/`
+  directory, and now also as `pyannote-diar/` **inside** that directory —
+  moved in whole, under its own name, which is what keeps the relative paths
+  written in its config working. So a window started from a desktop shortcut,
+  with no `config.toml` anywhere, finds a folder that was simply dropped in.
+  `audio-transcriber paths` and the window's *This machine* tab now print a
+  `diarization` line naming the exact file being looked for, which is the
+  question — where do these files go? — that neither of them answered.
+
 - **A refused download says which of the two settings it is about.** A gated
   repository answers `403 Forbidden: Please enable access to public gated
   repositories in your fine-grained token settings`, and then a page of

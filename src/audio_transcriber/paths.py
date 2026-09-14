@@ -162,12 +162,32 @@ def vocabularies_dir():
     return os.path.join(config_dir(), "vocabularies")
 
 
+def diarization_candidates():
+    """Where a pyannote config is looked for, in the order it is looked for.
+
+    More than one place because there is more than one way people end up with
+    these files, and none of them involves reading this docstring. The folder
+    beside the command is the pre-0.3 habit; the managed directory is where
+    the tool would put them; ``pyannote-diar`` inside it is the same folder
+    downloaded by hand and dropped in whole — which keeps the paths written
+    inside its config working, since they tend to start with the folder's own
+    name."""
+    return [
+        os.path.join(os.getcwd(), LEGACY_DIARIZATION_DIRNAME, "config.yaml"),
+        os.path.join(data_dir(), "diarization", "config.yaml"),
+        os.path.join(data_dir(), LEGACY_DIARIZATION_DIRNAME, "config.yaml"),
+    ]
+
+
 def diarization_config():
-    """Default pyannote config: the legacy working-directory folder if present,
-    otherwise the managed one."""
-    legacy = os.path.join(os.getcwd(), LEGACY_DIARIZATION_DIRNAME, "config.yaml")
-    if os.path.exists(legacy):
-        return legacy
+    """The pyannote config in use: the first candidate that is there.
+
+    With none of them there, the managed location is the answer, because that
+    is where the file is missing *from* — an error message naming it is how
+    somebody finds out where to put one."""
+    for candidate in diarization_candidates():
+        if os.path.exists(candidate):
+            return candidate
     return os.path.join(data_dir(), "diarization", "config.yaml")
 
 
@@ -211,6 +231,9 @@ def describe(settings=None):
         ("data", (data_dir(), False)),
         ("models", chosen("models_dir", models_root())),
         ("library", chosen("library_dir", library_dir())),
+        # Asked about as often as the library: "I downloaded the models, where
+        # do they go?" - so the answer is one of the lines this prints.
+        ("diarization", (diarization_config(), False)),
         ("cache", chosen("cache_dir", cache_dir())),
     ]
     return [(label, path, os.path.exists(path), configured)

@@ -93,6 +93,35 @@ def test_legacy_diarization_config_is_found_in_the_working_directory(monkeypatch
     assert paths.diarization_config() == str(legacy / "config.yaml")
 
 
+def test_a_folder_dropped_into_the_data_directory_is_found(monkeypatch, tmp_path):
+    """Downloaded by hand and moved in whole, keeping its name — which is
+    what the paths written inside its config expect, since they start with
+    the folder's own name."""
+    monkeypatch.setenv(paths.ENV_HOME, str(tmp_path / "managed"))
+    monkeypatch.chdir(tmp_path)         # started from anywhere at all
+    folder = tmp_path / "managed" / "data" / paths.LEGACY_DIARIZATION_DIRNAME
+    folder.mkdir(parents=True)
+    (folder / "config.yaml").write_text("x")
+    assert paths.diarization_config() == str(folder / "config.yaml")
+
+
+def test_the_managed_location_is_what_is_missing_when_nothing_is_there(
+        monkeypatch, tmp_path):
+    """The answer names where to put one, rather than the last place looked."""
+    monkeypatch.setenv(paths.ENV_HOME, str(tmp_path / "managed"))
+    monkeypatch.chdir(tmp_path)
+    assert paths.diarization_config() == str(
+        tmp_path / "managed" / "data" / "diarization" / "config.yaml")
+
+
+def test_describe_says_where_the_diarization_models_go(monkeypatch, tmp_path):
+    """"I downloaded the models, where do I put them?" is answered by the
+    command that lists the directories, or it is answered by nobody."""
+    monkeypatch.setenv(paths.ENV_HOME, str(tmp_path))
+    rows = {label: path for label, path, _, _ in paths.describe()}
+    assert rows["diarization"].endswith("config.yaml")
+
+
 def test_windows_layout(monkeypatch, tmp_path):
     monkeypatch.setattr(paths.sys, "platform", "win32")
     monkeypatch.setenv("LOCALAPPDATA", str(tmp_path / "Local"))
