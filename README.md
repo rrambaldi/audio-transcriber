@@ -327,7 +327,7 @@ Two options to configure diarization:
    - [pyannote/speaker-diarization-community-1](https://huggingface.co/pyannote/speaker-diarization-community-1) (or [pyannote/speaker-diarization-3.1](https://huggingface.co/pyannote/speaker-diarization-3.1))
    - [pyannote/segmentation-3.0](https://huggingface.co/pyannote/segmentation-3.0)
    - [pyannote/wespeaker-voxceleb-resnet34-LM](https://huggingface.co/pyannote/wespeaker-voxceleb-resnet34-LM)
-2. Generate an access token with **Read** permissions at [huggingface.co/settings/tokens](https://huggingface.co/settings/tokens).
+2. Generate an access token with **Read** permissions at [huggingface.co/settings/tokens](https://huggingface.co/settings/tokens). A *fine-grained* token also needs **"Read access to the contents of all public gated repos you can access"** ticked — without it the download stops with `403 Forbidden: Please enable access to public gated repositories in your fine-grained token settings`, even though the conditions were accepted. A classic **Read** token has that access already.
 3. Set `HUGGINGFACE_TOKEN=hf_...` (or `HF_TOKEN`) in a `.env` file in your working directory (or in the user config directory), or as an environment variable.
 
 ### 2. Offline / Manual download
@@ -335,7 +335,10 @@ Two options to configure diarization:
 Place the downloaded pyannote model files locally so no token or network is required at runtime:
 - **Project-local folder**: create `pyannote-diar/` in the working directory containing `config.yaml` and the model assets (`pytorch_model.bin`, `xvec_transform.npz`, etc.).
 - **User data folder**: `%LOCALAPPDATA%\audio-transcriber\diarization\` on Windows, or `~/.local/share/audio-transcriber/diarization/` on Linux.
+- **Anywhere else**: `--diar-model PATH`, or `model = "PATH"` under `[diarization]` in `config.toml`. `PATH` is either a `config.yaml` or — the shape pyannote 4 clones from the hub — the **directory** of a pipeline repository, with `config.yaml` and the weights beside it.
 - Run `audio-transcriber paths` to see all expected paths.
+
+The paths written inside a `config.yaml` are resolved by pyannote against the *working directory*, not against the config, which is why a folder that is plainly there stops being found the moment the program is started from somewhere else. They are settled here before the config is handed over — looked for beside the config and one level up as well — so a hand-made folder works from any directory. Your file is not modified: the resolved copy is written to the cache.
 
 Either way the assets are checked *before* the long transcription starts, so a missing file or unaccepted licence does not cost you an hour.
 

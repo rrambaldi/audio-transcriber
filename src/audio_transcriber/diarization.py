@@ -1,7 +1,17 @@
 """Speaker diarization with pyannote, and mapping speakers onto segments.
 
-pyannote runs on the CPU here. It can work fully offline from a local
-``config.yaml``, or online from the Hugging Face repository with a token.
+pyannote runs on the CPU here. It can work fully offline from local files, or
+online from the Hugging Face repository with a token.
+
+Offline comes in two shapes, and both are accepted, because pyannote changed
+its mind between versions. A 3.x setup is a hand-written ``config.yaml``
+pointing at weights elsewhere on the disk; a 4.x one is a whole cloned
+repository — ``config.yaml`` plus the weights beside it — and the directory
+itself is what you hand over. The paths inside a config are resolved by
+pyannote against the *working directory*, which is why a folder that is
+plainly there stops being found the moment the program is started from
+somewhere else; :func:`localised_config` settles them against the config's own
+folder first, so where you started from stops mattering.
 """
 import os
 import re
@@ -20,9 +30,20 @@ _CONFIG_SUFFIXES = (".yaml", ".yml")
 
 
 def looks_like_path(value):
-    """Whether a config value names a file rather than a Hugging Face repo."""
-    return (os.sep in value or "/" in value
-            or value.lower().endswith(_WEIGHT_SUFFIXES + _CONFIG_SUFFIXES))
+    """Whether a value names something on this disk rather than a hub repo.
+
+    A slash alone cannot decide it: a repo id is ``owner/name`` and has one
+    too, which is how ``--diar-model pyannote/speaker-diarization-community-1``
+    used to be mistaken for a missing file and quietly replaced by the default
+    pipeline. What tells them apart is everything else — a file extension, a
+    backslash, a leading dot or root, or a second slash."""
+    if not value:
+        return False
+    if value.lower().endswith(_WEIGHT_SUFFIXES + _CONFIG_SUFFIXES):
+        return True
+    if "\\" in value or os.path.isabs(value) or value.startswith((".", "~")):
+        return True
+    return value.count("/") != 1
 
 
 #: Why diarization cannot run here, if it cannot.
@@ -50,6 +71,82 @@ def availability(model=None, token=None):
     return NO_MODEL, config
 
 
+#: The file a cloned pipeline repository is recognised by.
+CONFIG_NAME = "config.yaml"
+
+#: Keys in a pyannote config whose value is a model: a repo id, or a file.
+_MODEL_KEYS = r"(embedding|segmentation)"
+
+
+def config_in(model):
+    """The config file for ``model``, which may name a directory.
+
+    pyannote 4 keeps a pipeline and its weights in one repository and is handed
+    the directory; everything before it was handed a ``config.yaml``. Both are
+    allowed here, so a folder cloned from the hub works without anybody having
+    to know which of the two shapes it is."""
+    if os.path.isdir(model):
+        return os.path.join(model, CONFIG_NAME)
+    return model
+
+
+def resolve_reference(value, base):
+    """Where a path written inside a config really is, or None.
+
+    Tried in the order that keeps an existing setup working: as pyannote
+    itself would read it (against the working directory), then beside the
+    config, then one level up — which is where a config that names its own
+    folder, ``pyannote-diar/segmentation/...``, expects to be read from."""
+    if os.path.isabs(value):
+        return value if os.path.exists(value) else None
+    for candidate in (value,
+                      os.path.join(base, value),
+                      os.path.join(os.path.dirname(base), value)):
+        if os.path.exists(candidate):
+            return os.path.abspath(candidate)
+    return None
+
+
+def config_references(content):
+    """The ``(key, value)`` model references written in a config's text.
+
+    Only a key with a value on its own line counts. A config also has a
+    ``params:`` block where ``segmentation:`` opens a mapping and says nothing
+    itself — and a pattern spelled with ``\\s``, which matches a newline,
+    read the line below as its value and reported the tuning parameter as a
+    model file that had gone missing."""
+    references = []
+    for key, value in re.findall(rf"^[ \t]*{_MODEL_KEYS}[ \t]*:[ \t]*(\S.*?)[ \t]*$",
+                                 content, re.M):
+        references.append((key, value.strip().strip('"').strip("'")))
+    return references
+
+
+def localise(content, base):
+    """Rewrite a config's relative model paths as absolute ones.
+
+    Returns ``(text, missing)``. pyannote resolves what it reads against the
+    working directory, so a perfectly good folder is invisible to a program
+    started from anywhere else — a window launched from the desktop, a service
+    with a WorkingDirectory of its own. Settling the paths here means the
+    folder is found because of where *it* is."""
+    missing = []
+    for key, value in config_references(content):
+        if not looks_like_path(value):
+            continue  # a repo id: pyannote will fetch it, token already checked
+        found = resolve_reference(value, base)
+        if found is None:
+            missing.append((key, value))
+            continue
+        if found != value:
+            # A function as the replacement, not a string: a Windows path is
+            # full of backslashes and re.sub would read them as escapes.
+            content = re.sub(rf"^([ \t]*{key}[ \t]*:[ \t]*){re.escape(value)}[ \t]*$",
+                             lambda match, settled=found: match.group(1) + settled,
+                             content, count=1, flags=re.M)
+    return content, missing
+
+
 def check_diar_assets(model, token):
     """Pre-flight check, run before the long transcription starts.
 
@@ -61,70 +158,128 @@ def check_diar_assets(model, token):
     except ImportError:
         sys.exit(t("diarize.missing"))
 
-    if not os.path.exists(model):
+    config = config_in(model)
+    if not os.path.exists(config):
         if looks_like_path(model):
-            print(t("diarize.local_config_missing", path=model))
+            print(t("diarize.local_config_missing", path=config))
         if not token:
             sys.exit(t("diarize.no_config_no_token"))
-        print(t("diarize.online_ok"))
+        print(t("diarize.online_ok", model=model))
         return
 
     try:
-        with open(model, encoding="utf-8") as handle:
+        with open(config, encoding="utf-8") as handle:
             content = handle.read()
     except OSError as exc:
-        sys.exit(t("diarize.config_unreadable", path=model, error=exc))
+        sys.exit(t("diarize.config_unreadable", path=config, error=exc))
 
-    references = re.findall(r"^\s*(embedding|segmentation)\s*:\s*(.+?)\s*$",
-                            content, re.M)
-    base = os.path.dirname(os.path.abspath(model))
-    missing, relative = [], []
-    for key, value in references:
-        value = value.strip().strip('"').strip("'")
-        if not looks_like_path(value):
-            continue  # a repo id: pyannote will fetch it, token already checked
-        if os.path.exists(value):
-            continue
-        if os.path.exists(os.path.join(base, value)):
-            relative.append((key, value))
-            continue
-        missing.append((key, value))
-
+    _text, missing = localise(content, os.path.dirname(os.path.abspath(config)))
     if missing:
         listed = "\n".join(f"    - {key}: {value}" for key, value in missing)
-        sys.exit(t("diarize.missing_files", files=listed, path=model))
-    for key, value in relative:
-        print(t("diarize.relative_path_warning", key=key, value=value))
-    print(t("diarize.preflight_ok", path=model))
+        sys.exit(t("diarize.missing_files", files=listed, path=config))
+    print(t("diarize.preflight_ok", path=config))
+
+
+def reads_itself(content, base):
+    """Whether every model path in a config resolves inside its own folder.
+
+    That is what a repository cloned from the hub looks like — the pipeline
+    and its weights in one directory — and pyannote 4 resolves those on its
+    own. Such a folder is handed over untouched, because it may refer to more
+    than the two keys read here."""
+    references = [value for _key, value in config_references(content)
+                  if looks_like_path(value)]
+    return bool(references) and all(os.path.exists(os.path.join(base, value))
+                                    for value in references)
+
+
+def localised_config(model):
+    """What to hand pyannote for a local model: the path, or a settled copy.
+
+    A cloned repository is handed over as it is. A ``config.yaml`` whose paths
+    are relative is copied into the cache with those paths made absolute,
+    because pyannote would otherwise read them against the working directory
+    and find nothing. The copy is written rather than the original edited: the
+    folder is the user's, and a program that rewrites what it was pointed at
+    is a program nobody points anywhere twice."""
+    config = config_in(model)
+    try:
+        with open(config, encoding="utf-8") as handle:
+            content = handle.read()
+    except OSError:
+        return model                    # pyannote will say what it makes of it
+    base = os.path.dirname(os.path.abspath(config))
+    if os.path.isdir(model) and reads_itself(content, base):
+        return model
+    settled, missing = localise(content, base)
+    if missing or settled == content:
+        return model
+    from . import paths
+
+    copy = os.path.join(paths.ensure(os.path.join(paths.cache_dir(), "diarization")),
+                        CONFIG_NAME)
+    with open(copy, "w", encoding="utf-8") as handle:
+        handle.write(settled)
+    print(t("diarize.config_settled", path=config))
+    return copy
+
+
+def resolve_model(model):
+    """The model that will really be used, decided without loading anything.
+
+    A local file or folder stands. A path that is not there falls back to the
+    default pipeline, and says so, because a silent substitution is how one
+    ends up wondering which model produced a result. A repo id stands too: it
+    is not a file that has gone missing."""
+    if os.path.exists(model):
+        return model
+    if looks_like_path(model):
+        print(t("diarize.config_fallback", path=model, fallback=DEFAULT_PIPELINE))
+        return DEFAULT_PIPELINE
+    return model
+
+
+def load_pipeline(model, token):
+    """The pyannote pipeline, from local files or from the hub.
+
+    A hub failure is turned into one sentence rather than a page of traceback,
+    because there are only two things it is ever about: conditions not
+    accepted for that repository, or a fine-grained token without access to
+    public gated repositories. Neither is visible in an HTTP 403."""
+    from pyannote.audio import Pipeline
+
+    if os.path.exists(model):
+        return Pipeline.from_pretrained(localised_config(model))  # no token
+    try:
+        try:
+            return Pipeline.from_pretrained(model, use_auth_token=token)
+        except TypeError:               # newer pyannote renamed the argument
+            return Pipeline.from_pretrained(model, token=token)
+    except SystemExit:
+        raise
+    except Exception as exc:
+        sys.exit(t("diarize.online_failed", model=model, error=exc))
 
 
 def diarize(audio, token, num_speakers, model=DEFAULT_PIPELINE,
             sample_rate=SAMPLE_RATE):
     """Return speech turns as a list of ``(start, end, speaker_label)``.
 
-    ``model`` is either a Hugging Face id (downloaded, needs a token) or the
-    path of a local ``config.yaml`` (offline, no token)."""
+    ``model`` is a Hugging Face id (downloaded, needs a token), the path of a
+    local ``config.yaml``, or the directory of a cloned pipeline repository —
+    the last two offline, with no token."""
     try:
         import torch
-        from pyannote.audio import Pipeline
+        from pyannote.audio import Pipeline  # noqa: F401
     except ImportError:
         sys.exit(t("diarize.missing"))
 
-    is_local = os.path.exists(model)
-    if not is_local and looks_like_path(model):
-        print(t("diarize.config_fallback", path=model, fallback=DEFAULT_PIPELINE))
-        model = DEFAULT_PIPELINE
-    if not is_local and not token:
+    model = resolve_model(model)
+    if not os.path.exists(model) and not token:
         sys.exit(t("diarize.token_required"))
 
     print(t("diarize.loading", model=model))
-    if is_local:
-        pipeline = Pipeline.from_pretrained(model)  # local config: no token
-    else:
-        try:
-            pipeline = Pipeline.from_pretrained(model, use_auth_token=token)
-        except TypeError:  # newer pyannote renamed the argument
-            pipeline = Pipeline.from_pretrained(model, token=token)
+    pipeline = load_pipeline(model, token)
     if pipeline is None:
         sys.exit(t("diarize.not_initialised"))
 

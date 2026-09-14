@@ -118,14 +118,26 @@ MESSAGES = {
             "Diarization: neither a local config nor a Hugging Face token was found.\n"
             "  Provide offline model files (pyannote-diar/config.yaml) or set HF_TOKEN\n"
             "  with the 'Read access to public gated repos' permission.",
-        "diarize.online_ok": "  Pre-flight: using the online HF repo, token present.",
+        "diarize.online_ok":
+            "  Pre-flight: no local files in use; the HF repo {model} will be "
+            "downloaded, token present.",
         "diarize.config_unreadable": "Diarization: cannot read the config {path}: {error}",
         "diarize.missing_files":
             "Diarization: the config references local files that do not exist:\n{files}\n"
             "  Check the paths in {path}",
-        "diarize.relative_path_warning":
-            "  WARNING: '{key}' ({value}) exists relative to the config but pyannote resolves it\n"
-            "  against the working directory: run from that folder or use an absolute path.",
+        "diarize.config_settled":
+            "  (the paths in {path} are relative: using a copy of it with them resolved,\n"
+            "  so the folder is found wherever the program was started from)",
+        "diarize.online_failed":
+            "Diarization: {model} could not be loaded from Hugging Face.\n"
+            "  {error}\n"
+            "  Two things it is ever about:\n"
+            "  - the conditions of that repository have not been accepted with this\n"
+            "    account: open huggingface.co/{model} and accept them;\n"
+            "  - a fine-grained token needs 'Read access to the contents of all public\n"
+            "    gated repos you can access' ticked; a classic read token already has it.\n"
+            "  Or work offline: point --diar-model at a local config.yaml, or at the\n"
+            "  directory of a pipeline repository cloned from the hub.",
         "diarize.preflight_ok":
             "  Diarization pre-flight OK: local config and models are in place ({path}).",
         "diarize.config_fallback":
@@ -832,14 +844,26 @@ MESSAGES = {
             "Diarizzazione: manca sia un config locale sia un token Hugging Face.\n"
             "  Metti i file offline (pyannote-diar/config.yaml) oppure imposta HF_TOKEN\n"
             "  con il permesso 'Read access to public gated repos'.",
-        "diarize.online_ok": "  Pre-flight: uso online (repo HF) con token presente.",
+        "diarize.online_ok":
+            "  Pre-flight: nessun file locale in uso; scarichero' il repo HF {model}, "
+            "token presente.",
         "diarize.config_unreadable": "Diarizzazione: impossibile leggere il config {path}: {error}",
         "diarize.missing_files":
             "Diarizzazione: nel config mancano file locali (non trovati):\n{files}\n"
             "  Controlla i percorsi in {path}",
-        "diarize.relative_path_warning":
-            "  ATTENZIONE: '{key}' ({value}) esiste relativo al config ma pyannote lo risolve\n"
-            "  rispetto alla cartella di lancio: lancia dallo stesso folder o usa un percorso assoluto.",
+        "diarize.config_settled":
+            "  (i percorsi in {path} sono relativi: uso una copia con i percorsi risolti,\n"
+            "  cosi' la cartella si trova da qualunque directory si sia lanciato il programma)",
+        "diarize.online_failed":
+            "Diarizzazione: non riesco a caricare {model} da Hugging Face.\n"
+            "  {error}\n"
+            "  Le cause sono sempre due:\n"
+            "  - le condizioni di quel repository non sono state accettate con questo\n"
+            "    account: apri huggingface.co/{model} e accettale;\n"
+            "  - un token fine-grained vuole la spunta 'Read access to the contents of all\n"
+            "    public gated repos you can access'; un token classico read ce l'ha gia'.\n"
+            "  Oppure lavora offline: punta --diar-model a un config.yaml locale, o alla\n"
+            "  cartella di un repository di pipeline clonato dall'hub.",
         "diarize.preflight_ok":
             "  Pre-flight diarizzazione OK: config e modelli locali presenti ({path}).",
         "diarize.config_fallback":

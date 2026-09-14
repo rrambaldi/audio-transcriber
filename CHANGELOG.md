@@ -139,6 +139,40 @@ All notable changes to this project are documented here. The format follows
 
 ### Fixed
 
+- **A local pyannote folder is found wherever the program was started from,
+  and a repo id asked for by name is the one loaded.** Three things stood
+  between a hand-downloaded set of diarization models and being used.
+
+  The paths inside a `config.yaml` are resolved by pyannote against the
+  *working directory*, not against the config, so a folder that is plainly
+  there is invisible to a window launched from the desktop or a service with a
+  `WorkingDirectory` of its own — the pre-flight only warned about it. They are
+  now settled before the config is handed over, looked for beside the config
+  and one level up as well, and pyannote gets a copy with absolute paths in it.
+  The file you pointed at is never rewritten; the copy goes in the cache.
+
+  `--diar-model` (and `model` under `[diarization]`) now accepts the
+  **directory** of a pipeline repository cloned from the hub, which is the
+  layout pyannote 4 documents for offline use — `config.yaml` and the weights
+  in one folder. Before, a directory was read as if it were the config file
+  and the run stopped on "cannot read the config".
+
+  And a repo id is no longer mistaken for a missing file: `owner/name` has a
+  slash in it, which was enough to have
+  `--diar-model pyannote/speaker-diarization-community-1` reported as a missing
+  path and **silently replaced by the default pipeline**, so the model that ran
+  was not the model that was asked for.
+
+- **A refused download says which of the two settings it is about.** A gated
+  repository answers `403 Forbidden: Please enable access to public gated
+  repositories in your fine-grained token settings`, and then a page of
+  traceback. It is always one of two things — the repository's conditions not
+  accepted with that account, or a fine-grained token without *Read access to
+  the contents of all public gated repos* — so that is what is printed, with
+  the offline alternative next to it, instead of the stack. The pre-flight line
+  now also names the repository it is about to download, which is the fastest
+  way to notice that the model in use is not the one you meant.
+
 - **The window was still drawing the wrong cut of the serif, on Windows.**
   Twice now the axis was the answer and twice it was ignored, so this time the
   axis is gone: Qt does not apply a variable axis itself, it asks the
