@@ -81,6 +81,18 @@ long transcription on an engine that reports no progress of its own, and
 "transcribing" next to a motionless bar is the difference between waiting and
 wondering.
 
+**Above the list, what the machine itself is doing.** Two meters — the CPU and
+the memory — and a line naming the engine a transcription would use and the
+device it would use it on. Two figures because they answer different questions:
+on a two-core server the CPU sits at 100% for the whole of a run and tells you
+nothing, while the memory left is what decides whether the next job survives,
+and it turns red below a tenth free. They are read every two and a half seconds
+and not at all while the tab is in the background. There is deliberately no GPU
+*percentage*: OpenVINO exposes no such counter, so what can honestly be shown
+is the device, not an invented number. Whatever this system does not report —
+a container with no `/proc/stat`, say — is left undrawn rather than shown as
+zero.
+
 **A job can be taken back.** *Take out of the queue* drops one that has not
 started: nothing happened to it, so it leaves no row behind. *Stop* asks first
 and then interrupts the one running — a transcription here is measured in
@@ -201,6 +213,7 @@ using it directly. `GET /api/docs` serves the generated schema.
 | endpoint | what it does |
 |---|---|
 | `GET /api/status` | version, interface language, models, defaults, limits |
+| `GET /api/machine` | how busy this machine is now: CPU, memory, run queue, and the engine and device a job would use |
 | `GET /api/about` | version, the licence — whole, not by name — and what is bundled |
 | `GET /api/vocabularies` | the installed keyword sets, with their text |
 | `GET /api/vocabularies/{name}` | one of them |

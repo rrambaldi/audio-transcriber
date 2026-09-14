@@ -120,6 +120,14 @@ const I18N = {
     busy_note_summary: "A summary is being written: everything else is off until it finishes, or you stop it.",
     busy_why: "Not while a transcription is running.",
     no_jobs: "Nothing running.",
+    cpu: "CPU",
+    ram: "RAM",
+    cpu_reading: "{percent}% of {cores} cores",
+    cpu_reading_load: "{percent}% of {cores} cores \u00b7 run queue {load}",
+    ram_reading: "{used} GiB of {total} in use",
+    engine_on: "Engine: {engine} \u00b7 device: {device}",
+    engine_only: "Engine: {engine}",
+    engine_missing: "No transcription engine is installed on this machine.",
     library: "Library",
     library_empty: "No recording has been transcribed yet.",
     search_placeholder: "search the transcripts",
@@ -314,6 +322,14 @@ const I18N = {
     busy_note_summary: "Si sta scrivendo un riassunto: tutto il resto \u00e8 sospeso finch\u00e9 non finisce, o finch\u00e9 non lo interrompi.",
     busy_why: "Non mentre una trascrizione \u00e8 in corso.",
     no_jobs: "Niente in corso.",
+    cpu: "CPU",
+    ram: "RAM",
+    cpu_reading: "{percent}% di {cores} core",
+    cpu_reading_load: "{percent}% di {cores} core \u00b7 coda {load}",
+    ram_reading: "{used} GiB usati su {total}",
+    engine_on: "Motore: {engine} \u00b7 dispositivo: {device}",
+    engine_only: "Motore: {engine}",
+    engine_missing: "Su questa macchina non \u00e8 installato nessun motore di trascrizione.",
     library: "Libreria",
     library_empty: "Nessuna registrazione trascritta finora.",
     search_placeholder: "cerca nelle trascrizioni",
@@ -1202,6 +1218,70 @@ async function refreshJobs() {
   }
 }
 
+/* --- what the machine is doing ----------------------------------------- */
+
+/* The meters under the job list, on their own timer: slower than the job
+   poll, and stopped while the page is not on screen. This server has two
+   cores and a tab left open in the background must not spend them answering
+   how busy they are. */
+
+const MACHINE_MS = 2500;
+let machineTimer = null;
+
+/* A figure in GiB the way this language writes it: "1,6" and not "1.6" in
+   Italian, which is the difference between a number and a typo. */
+const gib = (value) => value.toLocaleString(lang, { maximumFractionDigits: 1 });
+
+function drawMeter(name, percent, text) {
+  const line = $(`${name}-meter`);
+  line.hidden = percent === null;
+  if (percent === null) return;     // nothing measured: no bar, not a zero
+  const bar = $(`${name}-level`);
+  bar.firstElementChild.style.width = `${Math.min(100, percent)}%`;
+  bar.setAttribute("aria-valuenow", Math.round(percent));
+  $(`${name}-note`).textContent = text;
+}
+
+async function refreshMachine() {
+  let data;
+  try {
+    data = await fetch(api("machine")).then((r) => r.json());
+  } catch (error) {
+    /* Silent on purpose: refreshJobs() owns the offline banner, and a second
+       one shouting the same thing every two seconds helps nobody. */
+    $("machine").hidden = true;
+    return;
+  }
+  const cpu = typeof data.cpu_percent === "number" ? data.cpu_percent : null;
+  const ram = typeof data.ram_percent === "number" ? data.ram_percent : null;
+  drawMeter("cpu", cpu, cpu === null ? "" : t(
+    data.load ? "cpu_reading_load" : "cpu_reading",
+    { percent: Math.round(cpu), cores: data.cores, load: data.load?.[0] }));
+  drawMeter("ram", ram, ram === null ? "" : t("ram_reading", {
+    used: gib(data.ram_used_gb), total: gib(data.ram_total_gb) }));
+  /* The percentage says how hard something is working, never at what: on a
+     machine with an iGPU that is the whole question. */
+  $("machine-engine").textContent = data.engine
+    ? t(data.device ? "engine_on" : "engine_only",
+        { engine: data.engine, device: data.device })
+    : t("engine_missing");
+  // A machine that measures neither shows no panel rather than two empty rows.
+  $("machine").hidden = cpu === null && ram === null;
+  // Memory is the figure worth a colour here: a full disk is an error
+  // message, a full memory is a job killed halfway through.
+  $("ram-level").classList.toggle("tight", ram !== null && ram >= 90);
+}
+
+function watchMachine() {
+  clearInterval(machineTimer);
+  machineTimer = null;
+  if (document.hidden) return;
+  refreshMachine();
+  machineTimer = setInterval(refreshMachine, MACHINE_MS);
+}
+
+document.addEventListener("visibilitychange", watchMachine);
+
 /* --- the library ------------------------------------------------------- */
 
 let searchTimer = null;
@@ -1710,6 +1790,7 @@ async function start() {
   await loadSummaryEngines();
   refreshJobs();
   refreshLibrary();
+  watchMachine();
 }
 
 start();

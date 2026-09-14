@@ -10,6 +10,7 @@ here imports a heavy dependency either, unless the answer requires it, so
 import ctypes
 import os
 import sys
+import time
 
 from .i18n import t
 
@@ -167,6 +168,145 @@ def available_ram_gb():
         pass
     return None
 
+
+# --- how busy it is right now ---------------------------------------------
+
+
+def _linux_cpu_ticks():
+    """Busy and total jiffies, from the first line of ``/proc/stat``."""
+    with open("/proc/stat", encoding="ascii") as handle:
+        fields = [int(value) for value in handle.readline().split()[1:9]]
+    # user nice system idle iowait irq softirq steal. Waiting for a disk is
+    # not work, so iowait is counted as idle rather than as load.
+    return sum(fields) - (fields[3] + fields[4]), sum(fields)
+
+
+def _windows_cpu_ticks():
+    """Busy and total 100ns ticks, from ``GetSystemTimes``."""
+    idle, kernel, user = (ctypes.c_ulonglong() for _ in range(3))
+    if not ctypes.windll.kernel32.GetSystemTimes(
+            ctypes.byref(idle), ctypes.byref(kernel), ctypes.byref(user)):
+        return None
+    total = kernel.value + user.value   # the kernel figure includes the idle one
+    return total - idle.value, total
+
+
+def cpu_ticks():
+    """``(busy, total)`` CPU time since boot, or None where it cannot be read.
+
+    The unit does not matter and differs between systems: only the ratio
+    between two samples is ever used. Done by hand rather than with psutil for
+    the same reason as :func:`available_ram_gb`."""
+    try:
+        if sys.platform.startswith("linux"):
+            return _linux_cpu_ticks()
+        if sys.platform == "win32":
+            return _windows_cpu_ticks()
+    except Exception:
+        pass
+    return None
+
+
+def cpu_percent_between(before, after):
+    """How busy the CPU was between two :func:`cpu_ticks` samples.
+
+    None when a sample is missing or when no time passed between the two: one
+    sample on its own is the average since boot, which on a machine that has
+    been up for a month says nothing about what it is doing now."""
+    if not before or not after:
+        return None
+    busy, total = after[0] - before[0], after[1] - before[1]
+    if total <= 0:
+        return None
+    return max(0.0, min(100.0, 100.0 * busy / total))
+
+
+def load_average():
+    """The 1/5/15 minute run queue, or None on a system without one.
+
+    Worth having next to the percentage: a CPU is at 100% whether one
+    transcription is using it or three processes are fighting over it, and
+    only the run queue tells those apart."""
+    try:
+        return [round(value, 2) for value in os.getloadavg()]
+    except (AttributeError, OSError):   # Windows has no such number
+        return None
+
+
+def engine_in_use(settings=None):
+    """``(engine, device)`` a transcription would run on right now.
+
+    Either may be None: no engine installed, or one that cannot say. A bar at
+    100% does not say *what* is working, and on a machine with an Intel iGPU
+    that is the whole question — so the load is shown next to this."""
+    # Imported here rather than at the top: backends imports this module.
+    from . import backends
+
+    settings = dict(settings or {})
+    requested = settings.get("device") or "auto"
+    try:
+        engine = backends.resolve_backend(settings.get("backend") or "auto", requested)
+    except SystemExit:           # nothing installed: the page says so instead
+        return None, None
+    try:
+        device = backends.load(engine).resolve_device(requested)
+    except (Exception, SystemExit):
+        return engine, None
+    return engine, (device.upper() if device else None)
+
+
+class Meter:
+    """Repeated readings of how busy this machine is.
+
+    An object rather than a function because a CPU percentage is a difference
+    between two moments: the first sample is taken when the meter is built, so
+    the first reading a page or a window asks for already covers a real
+    interval.
+
+    Every figure may be None, and a caller must draw nothing rather than a
+    zero when it is: a bar built on a number this module had to invent would
+    be worse than no bar."""
+
+    #: A sample older than this is thrown away rather than used. Nobody polls
+    #: a meter they are not looking at, so the sample waiting for the first
+    #: reading after an idle spell can be an hour old, and the percentage
+    #: between the two would be that hour's average rather than what the
+    #: machine is doing now.
+    STALE_AFTER = 15.0
+
+    def __init__(self):
+        self._ticks = cpu_ticks()
+        self._taken = time.monotonic()
+        self._percent = None
+        #: Whether this system reports CPU time at all. A reading of None is
+        #: "not yet" on a machine where this is true and "never" where it is
+        #: false, and only the caller can say which of the two to draw.
+        self.measurable = self._ticks is not None
+
+    def read(self):
+        """One reading, as plain numbers the page and the window both draw."""
+        ticks, now = cpu_ticks(), time.monotonic()
+        stale = now - self._taken > self.STALE_AFTER
+        percent = None if stale else cpu_percent_between(self._ticks, ticks)
+        if percent is not None or stale:
+            # Two readings in the same millisecond have nothing between them
+            # to measure; there the last real answer stands rather than a
+            # zero, which would draw an idle machine in the middle of a job.
+            # A stale one is dropped instead: it has no answer yet, and says
+            # so, rather than reporting the average of the last hour.
+            self._ticks, self._taken, self._percent = ticks, now, percent
+        free, total = available_ram_gb(), total_ram_gb()
+        used = None if free is None or total is None else total - free
+        return {
+            "cpu_percent": None if self._percent is None else round(self._percent, 1),
+            "cores": cpu_count(),
+            "load": load_average(),
+            "ram_free_gb": None if free is None else round(free, 2),
+            "ram_used_gb": None if used is None else round(used, 2),
+            "ram_total_gb": None if total is None else round(total, 2),
+            "ram_percent": None if not total or used is None
+                           else round(100.0 * used / total, 1),
+        }
 
 def summary():
     """One line describing the machine, for diagnostics."""

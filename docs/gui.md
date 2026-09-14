@@ -153,6 +153,15 @@ the CPU and memory found, the engine and model `auto` would pick, whether
 diarization is available, and every directory in use — with a button that opens
 `config.toml` and one that opens the library folder.
 
+It also answers the question the command line cannot: *is it working now, and
+on what*. Two meters, the CPU and the memory, read every two seconds while the
+tab is on screen and never while it is not, with a line underneath naming the
+engine and the device a transcription would run on. The memory meter turns to
+the alarm colour below a tenth free, which is the reading worth a colour: a CPU
+at 100% is a CPU doing its job, a memory at 100% is a job killed halfway
+through. There is no GPU percentage — OpenVINO reports no such figure, and the
+device name is the honest answer instead.
+
 ## Recording
 
 The window records straight from the machine's own devices, which is the one

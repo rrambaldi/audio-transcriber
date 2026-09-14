@@ -128,6 +128,41 @@ def test_an_unavailable_option_explains_itself(page, script):
     assert 'diarize_not_installed' in script and 'diarize_no_model' in script
 
 
+def test_the_machine_meters_are_named_and_quiet(page, script):
+    """Two bars that change every two seconds. Each needs a name (WCAG 4.1.2)
+    and neither may announce itself: a live region here would read the CPU
+    percentage out loud all through an hour-long transcription (4.1.3)."""
+    for name in ("cpu", "ram"):
+        bar = re.search(rf'<span class="level" id="{name}-level"[^>]*>', page).group(0)
+        assert f'aria-labelledby="{name}-name"' in bar
+        assert 'aria-live="off"' in bar
+        assert f'id="{name}-name" data-t="{name}"' in page
+
+
+def test_a_reading_the_machine_cannot_give_is_not_drawn(script):
+    """A zero percent would read as an idle machine, which is exactly what a
+    server without /proc/stat is not."""
+    body = script.split("function drawMeter(", 1)[1].split("\n}", 1)[0]
+    assert "if (percent === null) return;" in body
+    assert 'line.hidden = percent === null' in body
+
+
+def test_the_meters_stop_while_the_page_is_not_on_screen(script):
+    """Two cores, and a tab left open in the background: a meter must not
+    spend the cores it is measuring."""
+    assert 'document.addEventListener("visibilitychange", watchMachine)' in script
+    body = script.split("function watchMachine(", 1)[1].split("\n}", 1)[0]
+    assert "if (document.hidden) return;" in body
+    assert "clearInterval(machineTimer)" in body
+
+
+def test_the_meters_say_what_is_working_and_not_only_how_hard(page, script):
+    """A percentage never says on what. On a machine with an iGPU that is the
+    whole question."""
+    assert 'id="machine-engine"' in page
+    assert '"engine_on"' in script and '"engine_missing"' in script
+
+
 # --- the message catalogue ------------------------------------------------
 
 def catalogues(script):

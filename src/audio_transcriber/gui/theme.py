@@ -431,6 +431,9 @@ QFrame#drop[over="true"] {{ border-color: {token['signal']};
 QProgressBar {{ border: none; background: {token['line']}; height: 4px;
                 color: {token['muted']}; text-align: right; }}
 QProgressBar::chunk {{ background: {token['signal']}; }}
+/* The memory meter on the 'this machine' tab, once little is left: a job
+   that runs out of it dies halfway through. */
+QProgressBar[tight="true"]::chunk {{ background: {token['clay']}; }}
 
 /* --- scrollbars: a rule that thickens into a handle --------------------- */
 QScrollBar:vertical, QScrollBar:horizontal {{ background: transparent;

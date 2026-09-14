@@ -178,6 +178,48 @@ def test_status_describes_the_installation(client):
     assert data["max_prompt_chars"] > 0
 
 
+def test_the_machine_says_how_busy_it_is(client):
+    """The meters beside the job list. Every figure may be null - the page
+    draws nothing rather than an invented zero - but the keys are always
+    there, and a percentage is a percentage."""
+    data = client.get("/api/machine").json()
+    for key in ("cpu_percent", "ram_percent", "ram_used_gb", "ram_total_gb",
+                "cores", "load", "engine", "device"):
+        assert key in data
+    for key in ("cpu_percent", "ram_percent"):
+        assert data[key] is None or 0 <= data[key] <= 100
+
+
+def test_the_engine_is_worked_out_once_and_remembered(client, monkeypatch):
+    """Asking OpenVINO which devices it has costs an import; nothing about
+    the answer can change while the process runs."""
+    from audio_transcriber import hardware
+
+    calls = []
+
+    def counted(settings=None):
+        calls.append(settings)
+        return ("faster-whisper", "CPU")
+
+    monkeypatch.setattr(hardware, "engine_in_use", counted)
+    first = client.get("/api/machine").json()
+    client.get("/api/machine")
+    assert first["engine"] == "faster-whisper" and first["device"] == "CPU"
+    assert len(calls) == 1
+
+
+def test_a_machine_that_reports_no_load_still_answers(client, monkeypatch):
+    """A system with no /proc/stat and no GetSystemTimes: the page hides the
+    bar, so the endpoint must say null rather than fail."""
+    from audio_transcriber import hardware
+
+    monkeypatch.setattr(hardware, "cpu_ticks", lambda: None)
+    monkeypatch.setattr(hardware, "available_ram_gb", lambda: None)
+    monkeypatch.setattr(hardware, "total_ram_gb", lambda: None)
+    data = client.get("/api/machine").json()
+    assert data["cpu_percent"] is None and data["ram_percent"] is None
+
+
 def test_the_installed_sets_are_listed_with_their_text(client):
     data = client.get("/api/vocabularies").json()
     names = [item["name"] for item in data["vocabularies"]]

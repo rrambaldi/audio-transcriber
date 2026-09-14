@@ -132,7 +132,7 @@ body {
   margin-top: 0.15rem;
 }
 .masthead .titles { min-width: 0; }
-.eyebrow, .tab, .button, label, legend, .meta, th {
+.eyebrow, .tab, .button, label, legend, .meta, th, .meter-name {
   font-family: var(--sans);
   text-transform: uppercase;
   letter-spacing: 0.14em;
@@ -434,6 +434,21 @@ audio { width: 100%; margin-top: 1rem; }
 /* Inside the viewer the player sits right on top of the tabs: hold it off
    them with a band of empty border. */
 audio#viewer-audio { border-bottom: 2rem solid transparent; }
+
+/* --- how busy the machine is -------------------------------------------- */
+
+/* Two lines above the job list, in the same meter the recorder uses: the same
+   question - is anything happening - asked of the machine instead of the
+   microphone. Kept quiet on purpose, because it is context for the list
+   underneath and not the thing you came to read. */
+.machine { margin: 0 0 1.4rem; }
+.meter { display: flex; align-items: center; gap: 0.8rem; flex-wrap: wrap; margin: 0 0 0.5rem; }
+/* Wide enough for "RAM" and "CPU" to line their bars up under each other. */
+.meter-name { flex: none; min-width: 2.6rem; color: var(--muted); }
+.meter .note { font-variant-numeric: tabular-nums; }
+/* Memory filling up is the one reading here worth an alarm: a job that runs
+   out of it dies halfway through, and the bar is the only warning. */
+.level.tight > span { background: var(--clay); }
 
 /* --- keyword sets ------------------------------------------------------ */
 

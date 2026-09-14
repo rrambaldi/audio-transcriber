@@ -8,6 +8,25 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- **How busy the machine is, on the page and in the window.** Two meters above
+  the job list and a group on the *This machine* tab: the CPU, the memory, and
+  a line saying which engine would run a transcription and on what device.
+  Two figures rather than one, because they answer different questions — on a
+  two-core server the CPU sits at 100% for the whole of a transcription and
+  says nothing, while the memory left is what decides whether the next job
+  survives; below a tenth free that bar turns to the alarm colour. And a
+  percentage never says *what* is working, which on a machine with an Intel
+  iGPU is the whole question, so the device is named next to it.
+
+  No new dependency: the CPU share comes from `/proc/stat` on Linux and
+  `GetSystemTimes` on Windows, read the same way the memory figures already
+  were, and a system that reports neither gets no bar rather than a zero that
+  would read as an idle machine. The page polls `/api/machine` every two and a
+  half seconds and stops while the tab is not on screen; the window samples
+  only while its tab is visible. A GPU *percentage* is deliberately not
+  offered: OpenVINO exposes no such counter, and the honest answer is the
+  device, not a number that would have to be invented.
+
 - **Two launchers, `run.cmd` and `run.sh`.** They do what everybody was doing
   by hand: get into the environment — the conda one named by `AT_ENV`,
   `srt-ov2` by default on Windows, the active one or the checkout's virtualenv

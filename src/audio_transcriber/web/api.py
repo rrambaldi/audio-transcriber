@@ -19,7 +19,16 @@ from fastapi import Body, FastAPI, File, Form, HTTPException, Request, UploadFil
 from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 
-from .. import __version__, about, branding, i18n, pipeline, subtitles, vocabularies
+from .. import (
+    __version__,
+    about,
+    branding,
+    hardware,
+    i18n,
+    pipeline,
+    subtitles,
+    vocabularies,
+)
 from ..backends import BACKENDS
 from ..config import OUTPUTS, output_of
 from ..diarization import availability as diarization_availability
@@ -64,6 +73,9 @@ def create_app(settings=None, queue=None):
                   docs_url="/api/docs", redoc_url=None)
     app.state.settings = settings
     app.state.queue = queue or JobQueue(settings)
+    # Built here, not at the first request: a CPU percentage is the difference
+    # between two samples, and this is the earlier of the two.
+    app.state.meter = hardware.Meter()
     app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
     app.mount("/brand", StaticFiles(directory=BRAND_DIR), name="brand")
     register_routes(app)
@@ -162,6 +174,26 @@ def register_routes(app):
             "max_custom_vocabulary": MAX_CUSTOM_VOCABULARY,
             "max_prompt_chars": vocabularies.MAX_PROMPT_CHARS,
         }
+
+    @app.get("/api/machine")
+    def machine(request: Request):
+        """How busy this machine is, for the meters beside the job list.
+
+        Its own endpoint rather than another field of ``/api/status``: that
+        one describes the installation and is fetched once, this one changes
+        every second. The engine and the device it would use are worked out
+        once and remembered, because they cannot change while the process
+        runs and asking OpenVINO costs an import.
+
+        Anything this machine cannot measure comes back as null, and the page
+        draws no meter for it rather than an invented zero."""
+        state = request.app.state
+        if not hasattr(state, "engine_in_use"):
+            state.engine_in_use = hardware.engine_in_use(state.settings)
+        engine, device = state.engine_in_use
+        reading = state.meter.read()
+        reading.update(engine=engine, device=device)
+        return reading
 
     # --- keyword sets installed on this machine ---------------------------
 

@@ -24,7 +24,15 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 try:
     from PySide6.QtCore import Qt
-    from PySide6.QtGui import QColor, QFont, QKeySequence, QPalette, QShortcut
+    from PySide6.QtGui import (
+        QColor,
+        QFont,
+        QHideEvent,
+        QKeySequence,
+        QPalette,
+        QShortcut,
+        QShowEvent,
+    )
     from PySide6.QtWidgets import QApplication, QLabel, QMessageBox
 except ImportError as exc:      # pragma: no cover - depends on the machine
     # PySide6 is installed but will not load: a partial install, or a Linux box
@@ -140,6 +148,41 @@ def test_the_window_has_the_three_tabs(window):
 
 def test_this_machine_tab_reports_hardware_and_paths(window):
     assert window.system.hardware_form.rowCount() >= 2
+
+
+def test_this_machine_tab_meters_the_load(window):
+    """Two bars for the background a job runs against. What cannot be
+    measured leaves its bar empty and says so, rather than showing a zero
+    that reads as an idle machine."""
+    panel = window.system
+    panel.read_meters()
+    assert panel.ram_bar.isEnabled()
+    assert 0 <= panel.ram_bar.value() <= 100
+    assert "GiB" in panel.ram_reading.text()
+    assert panel.cpu_bar.accessibleName() and panel.ram_bar.accessibleName()
+    # and the line under them says what would run, and where
+    assert panel.load_note.text()
+
+
+def test_the_meters_are_read_only_while_the_tab_is_visible(window):
+    """A window minimised for an hour must not spend the cores it measures."""
+    panel = window.system
+    panel.showEvent(QShowEvent())
+    assert panel.sampler.isActive()
+    panel.hideEvent(QHideEvent())
+    assert not panel.sampler.isActive()
+
+
+def test_a_machine_that_reports_no_load_is_not_drawn_as_idle(window, monkeypatch):
+    from audio_transcriber import hardware
+
+    monkeypatch.setattr(hardware, "cpu_ticks", lambda: None)
+    panel = window.system
+    panel.meter = hardware.Meter()
+    panel.read_meters()
+    assert not panel.cpu_bar.isEnabled()
+    assert panel.cpu_bar.value() == 0
+    assert panel.cpu_reading.text() == "this system does not report it"
 
 
 def test_the_window_wears_the_icon(window):

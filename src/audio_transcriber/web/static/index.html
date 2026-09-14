@@ -188,6 +188,28 @@
       <p class="note" data-t="jobs_note">One transcription at a time. Leaving this page does not stop anything.</p>
     </div>
     <div class="fields">
+      <!-- What the machine is doing underneath. Two meters rather than one
+           number, because on a two-core server the CPU sits at 100% for the
+           whole of a transcription and says nothing, while the memory left is
+           the figure that decides whether the next job survives. A meter this
+           system cannot measure is not drawn at all: see /api/machine. -->
+      <div class="machine" id="machine" hidden>
+        <p class="meter" id="cpu-meter">
+          <span class="meter-name" id="cpu-name" data-t="cpu">CPU</span>
+          <span class="level" id="cpu-level" role="progressbar" aria-labelledby="cpu-name"
+                aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"
+                aria-live="off"><span></span></span>
+          <span class="note" id="cpu-note"></span>
+        </p>
+        <p class="meter" id="ram-meter">
+          <span class="meter-name" id="ram-name" data-t="ram">RAM</span>
+          <span class="level" id="ram-level" role="progressbar" aria-labelledby="ram-name"
+                aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"
+                aria-live="off"><span></span></span>
+          <span class="note" id="ram-note"></span>
+        </p>
+        <p class="note" id="machine-engine"></p>
+      </div>
       <p class="note" id="jobs-status" aria-live="polite"></p>
       <div id="jobs"><p class="note" data-t="no_jobs">Nothing running.</p></div>
     </div>
