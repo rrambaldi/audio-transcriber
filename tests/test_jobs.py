@@ -631,3 +631,18 @@ def test_a_recording_ffmpeg_cannot_read_says_nothing_rather_than_zero(queue,
     source = tmp_path / "broken.wav"
     source.write_bytes(b"x")
     assert queue.submit(str(source), start=False).audio_duration is None
+
+
+def test_a_row_written_before_the_duration_was_recorded_fills_it_in(queue,
+                                                                    tmp_path,
+                                                                    monkeypatch):
+    """A queue.json from an older version has no length in it, and the row
+    would otherwise stay blank for the rest of its life."""
+    monkeypatch.setattr(jobs_module.audio, "probe_seconds", lambda path: None)
+    source = tmp_path / "old.wav"
+    source.write_bytes(b"x")
+    job = queue.submit(str(source), start=False)
+    assert job.audio_duration is None
+
+    monkeypatch.setattr(jobs_module.audio, "probe_seconds", lambda path: 3600.0)
+    assert restarted().get(job.id).audio_duration == 3600.0

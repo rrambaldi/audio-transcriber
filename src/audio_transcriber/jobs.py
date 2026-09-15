@@ -317,6 +317,12 @@ class JobQueue:
                     else:
                         job.status = QUEUED
                         job.started_at = None
+                if job.audio_duration is None and job.status not in FINISHED:
+                    # Written down by a version that did not record it, or by
+                    # one that could not read it then. The file is still here,
+                    # so the row can say how long it is rather than staying
+                    # blank for the rest of its life.
+                    job.audio_duration = audio.probe_seconds(job.source)
                 if job.status == QUEUED:
                     resume.append(job.id)
                 self._jobs[job.id] = job

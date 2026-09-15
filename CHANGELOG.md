@@ -31,7 +31,9 @@ All notable changes to this project are documented here. The format follows
   when the job is made, which costs milliseconds and no decoding, so a
   recording waiting its turn can already say it is fifty minutes long. A failed
   row carries the same three facts and then the reason, rather than the reason
-  alone: it is still the file it was.
+  alone: it is still the file it was. A row written down by an older version,
+  which recorded none of the three, has them filled in when the queue is read
+  back rather than staying blank for the rest of its life.
 
 ### Fixed
 
