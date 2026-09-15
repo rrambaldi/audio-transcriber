@@ -221,6 +221,8 @@ const I18N = {
     uploading: "Uploading...",
     terms: "{n} terms",
     words: "{n} words",
+    row_summary_title: "Summary: {title}",
+    row_summary_of: "summary of the transcript",
     upload_failed: "Upload failed: {error}",
     server_unreachable: "The server is not answering. Nothing is lost: this page reconnects on its own.",
     retry_now: "try again now",
@@ -429,6 +431,8 @@ const I18N = {
     uploading: "Caricamento...",
     terms: "{n} termini",
     words: "{n} parole",
+    row_summary_title: "Riassunto: {title}",
+    row_summary_of: "riassunto della trascrizione",
     upload_failed: "Caricamento fallito: {error}",
     server_unreachable: "Il server non risponde. Non si perde niente: la pagina si ricollega da sola.",
     retry_now: "riprova adesso",
@@ -1179,8 +1183,13 @@ function renderJobs(jobs) {
   for (const job of jobs) {
     /* What the recording is, before anything has been done to it - how big,
        and when it was made - because a queue of a dozen files named by date
-       is told apart by those two before it is told apart by anything else. */
-    const facts = [duration(job.audio_duration), bytes(job.size_bytes),
+       is told apart by those two before it is told apart by anything else.
+       A summary has none of them: no recording of its own, and the title of
+       the entry it reads, which made it the twin of the transcription that
+       produced that entry. It says what it is instead. */
+    const isSummary = job.kind === "summary";
+    const facts = [isSummary ? t("row_summary_of") : "",
+      duration(job.audio_duration), bytes(job.size_bytes),
       when(job.source_created_at), job.model, job.language,
       job.vocabularies.join(", "),
       job.words ? t("words", { n: job.words }) : "",
@@ -1193,7 +1202,10 @@ function renderJobs(jobs) {
     const actions = el("div", { className: "actions" });
     const row = el("div", { className: "row" }, [
       el("div", {}, [
-        el("div", { className: "title", textContent: job.title }),
+        el("div", { className: "title",
+                    textContent: isSummary
+                      ? t("row_summary_title", { title: job.title })
+                      : job.title }),
         meta,
         job.error ? el("div", { className: "error", textContent: job.error }) : null,
       ]),

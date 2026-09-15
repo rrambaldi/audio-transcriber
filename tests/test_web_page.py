@@ -178,6 +178,15 @@ def test_a_queue_row_carries_the_size_and_the_date_of_the_recording(script):
     assert "function bytes(" in script and "function when(" in script
 
 
+def test_a_summary_row_does_not_look_like_the_recording_it_reads(script):
+    """It is named after the entry it reads and has no length, size or date
+    of its own, so without this it was the twin of the transcription that
+    produced that entry."""
+    assert 'job.kind === "summary"' in script
+    assert 't("row_summary_title", { title: job.title })' in script
+    assert 't("row_summary_of")' in script
+
+
 # --- the message catalogue ------------------------------------------------
 
 def catalogues(script):

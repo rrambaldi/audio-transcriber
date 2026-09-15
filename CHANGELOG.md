@@ -37,6 +37,14 @@ All notable changes to this project are documented here. The format follows
 
 ### Fixed
 
+- **A summary in the queue looked like a recording nobody could identify.** A
+  summary job is made with the title of the library entry it reads, and has no
+  audio of its own — no length, no size, no date — so on the list it was the
+  twin of the transcription that produced that entry, and four retries of one
+  summary read as four unknown files with nothing under them. The row says
+  *Summary: <entry>* now, over *summary of the transcript*, in the window and
+  on the page.
+
 - **The About box showed the licence as it was on the day the program was
   installed.** An editable install copies the licence into its own metadata
   once and never looks at it again, and that copy was preferred over the file

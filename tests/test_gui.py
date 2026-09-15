@@ -233,6 +233,24 @@ def test_a_finished_job_does_not_still_show_a_stage():
     assert row["status"] == "done"
 
 
+def test_a_summary_row_says_it_is_a_summary_and_not_the_recording():
+    """A summary is made with the title of the entry it reads and has no
+    recording of its own, so five retries of one summary read as five files
+    with an unknown name and no length, size or date under them."""
+    job = jobs.Job(kind=jobs.SUMMARY, entry_id="2026-09-15_1742_x",
+                   title="Untitled", settings={"summary_engine": "auto"})
+    row = options.job_row(job)
+
+    assert row["title"] == "Summary: Untitled"
+    assert "summary of the transcript" in row["details"]
+    # And it does not pretend to be a file: there is nothing to measure.
+    assert "MiB" not in row["details"]
+
+
+def test_a_recording_row_is_still_just_its_name():
+    assert options.job_row(make_job(title="verbale"))["title"] == "verbale"
+
+
 def test_a_failed_job_says_why_on_one_line():
     row = options.job_row(make_job(status=jobs.FAILED,
                                    error="ffmpeg failed\nsecond line"))

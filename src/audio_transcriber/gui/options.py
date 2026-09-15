@@ -368,11 +368,24 @@ def job_details(job):
     return "  ·  ".join(str(part) for part in parts if part)
 
 
+def row_title(job):
+    """The name at the top of a queue row.
+
+    A summary has no recording of its own: it is made with the title of the
+    entry it reads, so on the list it looked exactly like the transcription
+    that produced that entry — same name, and no length or size under it,
+    because a summary has neither. Five retries of one summary read as five
+    mystery files. Saying what the row *is* costs one word."""
+    if job.kind == SUMMARY:
+        return t("gui.row_summary_title", title=job.title)
+    return job.title
+
+
 def job_row(job):
     """One row of the queue table, as strings plus the progress percentage."""
     return {
         "id": job.id,
-        "title": job.title,
+        "title": row_title(job),
         "details": job_details(job),
         "status": status_text(job),
         "progress": int(job.progress or 0),
