@@ -8,6 +8,17 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- **`diarize check` tries the Hugging Face token instead of noting that it
+  exists.** With no local files the models are downloaded, so the download is
+  what the check has to test — and it asks about the pipeline *and every model
+  its config names*, because those are separate gated repositories whose
+  conditions are accepted one at a time. That is how a run downloads the
+  pipeline and is then refused its segmentation model, an hour in. Each
+  repository is printed with OK or the refusal, and a refusal is followed by
+  the two things that have to be true: the conditions accepted with that
+  account, and a token allowed to read gated repositories — the checkbox a
+  fine-grained token does not have by default. Two seconds, no weights.
+
 - **`audio-transcriber diarize init` writes the `config.yaml` a folder of
   downloaded models does not come with**, filled in with the model files it
   finds there — the right keys, the published thresholds, and paths relative to

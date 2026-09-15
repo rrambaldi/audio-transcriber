@@ -257,6 +257,56 @@ def write_config(directory, embedding, segmentation, overwrite=False):
     return path
 
 
+def hub_repo(model):
+    """The repository a run downloads when ``model`` is not on this disk.
+
+    The same decision :func:`resolve_model` makes, without the announcement:
+    a path that leads nowhere falls back to the default pipeline, and it is
+    that pipeline — not the path somebody typed — whose conditions have to be
+    accepted."""
+    return DEFAULT_PIPELINE if looks_like_path(model) else model
+
+
+def hub_check(model, token):
+    """Ask the hub whether this token may actually read this pipeline.
+
+    ``[(repo, error or None)]``, the pipeline first and then every model its
+    config names — because they are separate gated repositories and the
+    conditions are accepted one at a time, which is how somebody ends up with
+    the pipeline downloaded and its segmentation model refused.
+
+    Two seconds, and no model weights: the alternative is finding out an hour
+    into a transcription. Nothing here raises; a hub that cannot be reached at
+    all is reported like any other refusal."""
+    try:
+        from huggingface_hub import HfApi, hf_hub_download
+    except ImportError as exc:
+        return [(model, exc)]
+
+    api = HfApi()
+    try:
+        api.model_info(model, token=token)
+    except Exception as exc:       # noqa: BLE001 - every failure is the answer
+        return [(model, exc)]
+
+    checked = [(model, None)]
+    try:
+        path = hf_hub_download(model, CONFIG_NAME, token=token)
+        with open(path, encoding="utf-8") as handle:
+            content = handle.read()
+    except Exception:              # noqa: BLE001 - the pipeline alone, then
+        return checked
+    for _key, value in config_references(content):
+        if looks_like_path(value):
+            continue               # a file in the repo, not a repo of its own
+        try:
+            api.model_info(value, token=token)
+            checked.append((value, None))
+        except Exception as exc:   # noqa: BLE001
+            checked.append((value, exc))
+    return checked
+
+
 def check_diar_assets(model, token):
     """Pre-flight check, run before the long transcription starts.
 
@@ -274,7 +324,7 @@ def check_diar_assets(model, token):
             print(t("diarize.local_config_missing", path=config))
         if not token:
             sys.exit(t("diarize.no_config_no_token"))
-        print(t("diarize.online_ok", model=model))
+        print(t("diarize.online_ok", model=hub_repo(model)))
         return
 
     try:

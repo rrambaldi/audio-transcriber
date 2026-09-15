@@ -333,6 +333,7 @@ Two options to configure diarization:
    - [pyannote/wespeaker-voxceleb-resnet34-LM](https://huggingface.co/pyannote/wespeaker-voxceleb-resnet34-LM)
 2. Generate an access token with **Read** permissions at [huggingface.co/settings/tokens](https://huggingface.co/settings/tokens). A *fine-grained* token also needs **"Read access to the contents of all public gated repos you can access"** ticked — without it the download stops with `403 Forbidden: Please enable access to public gated repositories in your fine-grained token settings`, even though the conditions were accepted. A classic **Read** token has that access already.
 3. Set `HUGGINGFACE_TOKEN=hf_...` (or `HF_TOKEN`) in a `.env` file in your working directory (or in the user config directory), or as an environment variable.
+4. Check it before you need it: `audio-transcriber diarize check` asks the hub whether that token may really read the pipeline **and every model its config names** — they are separate gated repositories, accepted one at a time, which is how a run gets the pipeline and is then refused its segmentation model an hour in. Two seconds, no weights downloaded.
 
 ### 2. Offline / Manual download
 

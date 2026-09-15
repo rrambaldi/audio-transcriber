@@ -713,6 +713,22 @@ def command_diarize(args, settings):
              or os.environ.get("HF_TOKEN"))
     print(t("diarize.using", path=model))
     diarization.check_diar_assets(model, token)   # exits saying what is wrong
+    if os.path.exists(diarization.config_in(model)):
+        return 0                                  # local files: no hub to ask
+
+    # The download is what will happen, so it is what gets tested: without
+    # this the check said "the token is there" and the token being there was
+    # never the question.
+    repo = diarization.hub_repo(model)
+    refused = 0
+    for name, error in diarization.hub_check(repo, token):
+        if error is None:
+            print(t("diarize.hub_ok", repo=name))
+        else:
+            refused += 1
+            print(t("diarize.hub_denied", repo=name, error=error))
+    if refused:
+        sys.exit(t("diarize.hub_help"))
     return 0
 
 

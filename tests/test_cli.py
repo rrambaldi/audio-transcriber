@@ -117,6 +117,35 @@ def test_diarize_init_defaults_to_the_folder_the_program_looks_in(tmp_path, caps
     assert (managed / "config.yaml").exists()
 
 
+def test_diarize_check_tries_the_token_instead_of_noting_that_it_exists(
+        tmp_path, capsys, monkeypatch):
+    """With no local files the models are downloaded, so the download is what
+    the check has to test: "a token is set" was never the question."""
+    import sys
+    import types
+
+    monkeypatch.setenv("AUDIO_TRANSCRIBER_LANG", "en")
+    monkeypatch.setenv("HUGGINGFACE_TOKEN", "hf_xxx")
+    from audio_transcriber import diarization
+
+    monkeypatch.setattr(diarization, "module_available", lambda name: True)
+    monkeypatch.setitem(sys.modules, "pyannote", types.ModuleType("pyannote"))
+    monkeypatch.setitem(sys.modules, "pyannote.audio",
+                        types.ModuleType("pyannote.audio"))
+    monkeypatch.setattr(diarization, "hub_check", lambda repo, token: [
+        (repo, None),
+        ("pyannote/segmentation-3.0", RuntimeError("403 Forbidden: gated")),
+    ])
+
+    with pytest.raises(SystemExit) as stopped:
+        cli.main(["diarize", "check"])
+
+    printed = capsys.readouterr().out
+    assert "OK  pyannote/speaker-diarization-3.1" in printed
+    assert "NO  pyannote/segmentation-3.0" in printed
+    assert "gated repos" in str(stopped.value)     # and which setting it is
+
+
 def test_hardware_reports_the_machine(capsys, monkeypatch):
     from audio_transcriber import backends
 

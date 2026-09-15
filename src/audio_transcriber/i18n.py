@@ -135,6 +135,19 @@ MESSAGES = {
             "  Either correct the paths in the config, or rename the files to match.",
         "diarize.nothing_nearby": "    (none: the models are not in that folder at all)",
         "diarize.using": "Diarization would use: {path}",
+        "diarize.hub_ok": "  OK  {repo}",
+        "diarize.hub_denied": "  NO  {repo}\n      {error}",
+        "diarize.hub_help":
+            "The hub refused at least one of those repositories. Both of these have\n"
+            "  to be true, and the second is the one that is usually missed:\n"
+            "  - the conditions are accepted, with this account, on the page of\n"
+            "    every repository listed above (each is accepted separately);\n"
+            "  - the token may read gated repositories: a fine-grained token needs\n"
+            "    'Read access to the contents of all public gated repos you can\n"
+            "    access' ticked, a classic 'Read' token has it already.\n"
+            "  The token is read from HUGGINGFACE_TOKEN or HF_TOKEN, in the\n"
+            "  environment or in a .env file; 'audio-transcriber paths' says where\n"
+            "  that file is looked for.",
         "diarize.init_written":
             "Written: {path}\n"
             "  embedding:    {embedding}\n"
@@ -901,6 +914,18 @@ MESSAGES = {
             "  O correggi i percorsi nel config, o rinomina i file perche' combacino.",
         "diarize.nothing_nearby": "    (nessuno: i modelli non sono affatto in quella cartella)",
         "diarize.using": "La diarizzazione userebbe: {path}",
+        "diarize.hub_ok": "  OK  {repo}",
+        "diarize.hub_denied": "  NO  {repo}\n      {error}",
+        "diarize.hub_help":
+            "L'hub ha rifiutato almeno uno di quei repository. Devono essere vere\n"
+            "  tutte e due queste cose, e la seconda e' quella che sfugge:\n"
+            "  - le condizioni sono accettate, con questo account, sulla pagina di\n"
+            "    ogni repository elencato sopra (si accettano uno per uno);\n"
+            "  - il token puo' leggere i repository gated: a un token fine-grained\n"
+            "    serve la spunta 'Read access to the contents of all public gated\n"
+            "    repos you can access', un token classico 'Read' ce l'ha gia'.\n"
+            "  Il token si legge da HUGGINGFACE_TOKEN o HF_TOKEN, nell'ambiente o in\n"
+            "  un file .env; 'audio-transcriber paths' dice dove viene cercato.",
         "diarize.init_written":
             "Scritto: {path}\n"
             "  embedding:    {embedding}\n"

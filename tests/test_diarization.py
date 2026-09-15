@@ -490,3 +490,78 @@ def test_the_token_is_still_the_answer_when_there_are_no_local_files(tmp_path,
     state, detail = diarization.availability(str(tmp_path / "nothing.yaml"),
                                              token="hf_xxx")
     assert (state, detail) == (diarization.READY, "token")
+
+
+# --- asking the hub whether the token really opens the door ----------------
+
+@pytest.fixture
+def hub(monkeypatch, tmp_path):
+    """A huggingface_hub that answers what a test tells it to."""
+    state = {"denied": set(), "config": "", "asked": [], "tokens": []}
+
+    class HfApi:
+        def model_info(self, repo, token=None):
+            state["asked"].append(repo)
+            state["tokens"].append(token)
+            if repo in state["denied"]:
+                raise RuntimeError(f"403 Forbidden: {repo} is gated")
+            return {"id": repo}
+
+    def hf_hub_download(repo, filename, token=None):
+        path = tmp_path / f"{repo.replace('/', '_')}_{filename}"
+        path.write_text(state["config"], encoding="utf-8")
+        return str(path)
+
+    module = types.ModuleType("huggingface_hub")
+    module.HfApi = HfApi
+    module.hf_hub_download = hf_hub_download
+    monkeypatch.setitem(sys.modules, "huggingface_hub", module)
+    return state
+
+
+def test_the_pipeline_and_every_model_it_names_are_checked(hub):
+    """They are separate gated repositories, accepted one at a time - which
+    is how somebody ends up with the pipeline downloaded and its segmentation
+    model refused, an hour into a transcription."""
+    hub["config"] = ("    embedding: pyannote/wespeaker-voxceleb-resnet34-LM\n"
+                     "    segmentation: pyannote/segmentation-3.0\n")
+
+    checked = diarization.hub_check("pyannote/speaker-diarization-3.1", "hf_xxx")
+
+    assert [repo for repo, _error in checked] == [
+        "pyannote/speaker-diarization-3.1",
+        "pyannote/wespeaker-voxceleb-resnet34-LM",
+        "pyannote/segmentation-3.0"]
+    assert all(error is None for _repo, error in checked)
+    assert hub["tokens"] == ["hf_xxx"] * 3       # and with the token, every time
+
+
+def test_a_refusal_names_the_repository_that_refused(hub):
+    hub["config"] = "    segmentation: pyannote/segmentation-3.0\n"
+    hub["denied"] = {"pyannote/segmentation-3.0"}
+
+    checked = dict(diarization.hub_check("pyannote/speaker-diarization-3.1", "hf_x"))
+    assert checked["pyannote/speaker-diarization-3.1"] is None
+    assert "403" in str(checked["pyannote/segmentation-3.0"])
+
+
+def test_a_pipeline_that_is_refused_is_the_whole_answer(hub):
+    """Nothing below it can be asked about: its config is what names them."""
+    hub["denied"] = {"pyannote/speaker-diarization-community-1"}
+    checked = diarization.hub_check("pyannote/speaker-diarization-community-1", "hf_x")
+
+    assert len(checked) == 1 and "403" in str(checked[0][1])
+
+
+def test_a_file_in_the_repo_is_not_a_repository_to_ask_about(hub):
+    """A config that names its own files - 'embedding/pytorch_model.bin' -
+    is naming paths inside the download, not gated repos."""
+    hub["config"] = "    embedding: embedding/pytorch_model.bin\n"
+    checked = diarization.hub_check("pyannote/speaker-diarization-community-1", "hf_x")
+    assert [repo for repo, _ in checked] == ["pyannote/speaker-diarization-community-1"]
+
+
+def test_without_the_hub_library_the_check_says_so_rather_than_raising(monkeypatch):
+    monkeypatch.setitem(sys.modules, "huggingface_hub", None)
+    checked = diarization.hub_check("pyannote/speaker-diarization-3.1", "hf_x")
+    assert len(checked) == 1 and checked[0][1] is not None
