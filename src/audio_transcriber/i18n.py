@@ -874,8 +874,20 @@ MESSAGES = {
             "  NOTE: this runtime offers no way to turn the model's reasoning off,\n"
             "  so every answer pays for it and some come back empty.",
         "summary.model_said_nothing":
-            "{model} returned nothing usable. Try another model, or "
+            "{model} returned nothing usable: {detail}\n"
+            "  Try another model, a larger token allowance, or "
             "'--engine extractive'.",
+        "summary.nothing_at_all": "it produced no text at all",
+        "summary.all_thinking":
+            "all {chars} characters of it were the model narrating its own "
+            "reasoning, with nothing after it - a thinking model cut off before "
+            "it began the answer",
+        "summary.unusable_answer":
+            "{chars} characters came back, and none of it is about the "
+            "recording: \"{first}\"",
+        "summary.model_failed_note":
+            "The model was asked first and gave nothing usable ({error}) - so "
+            "these are sentences taken from the transcript instead.",
         "cli.paths_configured": "(from config.toml)",
         "cli.unknown_language": "Unknown interface language '{lang}'; using {fallback}.",
     },
@@ -1733,8 +1745,20 @@ MESSAGES = {
             "  NOTA: questo runtime non permette di spegnere il ragionamento del\n"
             "  modello, quindi ogni risposta lo paga e qualcuna torna vuota.",
         "summary.model_said_nothing":
-            "{model} non ha restituito niente di utilizzabile. Prova un altro modello, "
-            "oppure '--engine extractive'.",
+            "{model} non ha restituito niente di utilizzabile: {detail}\n"
+            "  Prova un altro modello, piu' token a disposizione, oppure "
+            "'--engine extractive'.",
+        "summary.nothing_at_all": "non ha prodotto nessun testo",
+        "summary.all_thinking":
+            "tutti i suoi {chars} caratteri sono il modello che racconta il proprio "
+            "ragionamento, e dopo non c'e' niente - un modello \"thinking\" tagliato "
+            "prima di cominciare la risposta",
+        "summary.unusable_answer":
+            "sono tornati {chars} caratteri, e nessuno parla della registrazione: "
+            "\"{first}\"",
+        "summary.model_failed_note":
+            "Prima e' stato chiesto al modello, che non ha dato niente di utilizzabile "
+            "({error}): queste sono frasi prese dalla trascrizione.",
         "cli.paths_configured": "(da config.toml)",
         "cli.unknown_language": "Lingua dell'interfaccia '{lang}' sconosciuta; uso {fallback}.",
     },

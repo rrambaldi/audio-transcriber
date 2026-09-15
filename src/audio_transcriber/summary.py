@@ -643,6 +643,19 @@ def summarize(material, settings=None, progress=None):
         sections, note = engine.summarize(material, settings, progress=progress)
         note = " ".join(part for part in (_refusal_note(material, refused),
                                           note) if part)
+    except SummaryError as failed:
+        # The model ran and gave back nothing a summary can be made of: it
+        # spent its allowance thinking, or repeated the question. After
+        # minutes of work an error is the one outcome with nothing to show
+        # for it, so the quoted sentences are written instead, with the
+        # reason at the top of the page.
+        if name == EXTRACTIVE:
+            raise
+        name = EXTRACTIVE
+        engine = load(name)
+        sections, note = engine.summarize(material, settings, progress=progress)
+        note = " ".join(part for part in (t("summary.model_failed_note",
+                                            error=failed), note) if part)
     import sys
     sys.stderr.write(f"[TRACE] calling render()...\n")
     sys.stderr.flush()

@@ -274,6 +274,22 @@ All notable changes to this project are documented here. The format follows
 
 ### Fixed
 
+- **A model that gives nothing back no longer costs the summary.** "`{model}`
+  returned nothing usable" was the end of the road after minutes of a model
+  reading an hour of transcript — and it is true of three different failures
+  that are not fixed the same way. The message now says which one it was: no
+  text at all, an answer that is *all* the model narrating its own reasoning
+  (a thinking model cut off before it began, which is what a small MiniCPM
+  does with a tight token allowance), or an answer that is about something
+  other than the recording, quoted back so it can be recognised.
+
+  And the page gets written either way: a model engine that fails now falls
+  back to the quoted sentences, with the reason at the top — the same
+  treatment a model that will not fit in memory already got. An error with
+  nothing to show for it is the one outcome worth avoiding after a wait that
+  long. The extractive engine failing is still a failure: there is nothing
+  under it to fall back to.
+
 - **A diarization with pyannote 4 crashed at the last step, and took the
   whole transcription with it.** pyannote 3 returns the annotation; pyannote 4
   returns a structured object with the annotation inside it, beside the

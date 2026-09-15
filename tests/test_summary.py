@@ -357,6 +357,66 @@ def test_material_is_read_out_of_an_entry_with_its_timestamps(entry):
     assert material.sentences[0].start == 0.0
 
 
+def test_a_model_that_says_nothing_usable_still_leaves_a_page(monkeypatch):
+    """Minutes of a model reading an hour of transcript, and an error with
+    nothing to show for it, is the one outcome worth avoiding: the quoted
+    sentences are written instead, with the reason at the top."""
+    from audio_transcriber import summarizers
+
+    class Mumbling:
+        NAME = "openvino"
+
+        @staticmethod
+        def label(settings=None):
+            return "OpenVINO GenAI"
+
+        @staticmethod
+        def summarize(material, settings=None, progress=None):
+            raise summary.SummaryError("MiniCPM5-1B returned nothing usable")
+
+    real_load = summarizers.load
+    monkeypatch.setattr(summarizers, "resolve_summarizer",
+                        lambda engine=None: "openvino")
+    monkeypatch.setattr(summarizers, "load",
+                        lambda name: Mumbling if name == "openvino"
+                        else real_load(name))
+
+    material = summary.Material(title="Riunione ISO",
+                                sentences=summary.sentences_of(SEGMENTS),
+                                language="it", duration=70)
+    result = summary.summarize(material, {})
+
+    assert result.engine == EXTRACTIVE
+    assert "MiniCPM5-1B" in result.text          # what was tried, and failed
+    assert result.sections.points                # and there is a summary
+
+
+def test_an_extractive_summary_that_fails_is_still_a_failure(monkeypatch):
+    """There is nothing further to fall back to, and pretending otherwise
+    would hide a broken install."""
+    from audio_transcriber import summarizers
+
+    class Broken:
+        NAME = EXTRACTIVE
+
+        @staticmethod
+        def label(settings=None):
+            return "extractive"
+
+        @staticmethod
+        def summarize(material, settings=None, progress=None):
+            raise summary.SummaryError("nothing to quote")
+
+    monkeypatch.setattr(summarizers, "resolve_summarizer",
+                        lambda engine=None: EXTRACTIVE)
+    monkeypatch.setattr(summarizers, "load", lambda name: Broken)
+
+    material = summary.Material(title="x", sentences=summary.sentences_of(SEGMENTS),
+                                language="it", duration=70)
+    with pytest.raises(summary.SummaryError):
+        summary.summarize(material, {})
+
+
 def test_an_entry_without_segments_falls_back_to_the_plain_transcript(entry):
     os.remove(entry.segments_path)
     material = summary.material_from_entry(entry)

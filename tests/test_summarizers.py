@@ -826,3 +826,32 @@ def test_a_template_that_cannot_be_read_is_not_a_failure(monkeypatch):
     module.LLMPipeline = lambda path, device: Awkward(REASONING_TEMPLATE)
     pipeline = engine.Pipeline("/models/mine", "GPU")
     assert pipeline.speaks_thinking is False
+
+
+# --- why an answer is not a summary ---------------------------------------
+
+def test_an_answer_that_is_all_thinking_says_so():
+    """A reasoning model cut off before it began the answer. "Returned
+    nothing usable" sent people looking for a bigger model when what they
+    needed was room, or no thinking."""
+    from audio_transcriber.summarizers import reading
+
+    detail = reading.why_nothing("<think>Let me consider the structure of")
+    assert "thinking" in detail.lower()
+    assert str(len("<think>Let me consider the structure of")) in detail
+
+
+def test_an_empty_answer_says_that_instead():
+    from audio_transcriber.summarizers import reading
+
+    assert "no text" in reading.why_nothing("")
+    assert "no text" in reading.why_nothing(None)
+
+
+def test_an_answer_about_something_else_is_quoted_back():
+    """Which is what a model repeating its instructions looks like, and the
+    quickest way to recognise it is to read it."""
+    from audio_transcriber.summarizers import reading
+
+    detail = reading.why_nothing("Write one paragraph of three or four lines.")
+    assert "Write one paragraph" in detail

@@ -284,5 +284,23 @@ def summarize_with(open_pipeline, chosen, material, settings=None,
     if not (sections.abstract or sections.points or sections.decisions
             or sections.actions):
         raise SummaryError(t("summary.model_said_nothing",
-                             model=model_name or chosen.model.name))
+                             model=model_name or chosen.model.name,
+                             detail=why_nothing(answer)))
     return sections, note
+
+
+def why_nothing(answer):
+    """Why what came back is not a summary, in one clause.
+
+    "Returned nothing usable" is true of three different failures, and they
+    are not fixed the same way: an empty answer is a model that produced
+    nothing at all, an answer that is all narration is a thinking model cut
+    off before it began, and anything else is a model repeating its
+    instructions. What it actually said is worth a line of it."""
+    text = str(answer or "").strip()
+    if not text:
+        return t("summary.nothing_at_all")
+    if not prompting.without_thinking(text):
+        return t("summary.all_thinking", chars=len(text))
+    first = " ".join(prompting.without_thinking(text).split())[:120]
+    return t("summary.unusable_answer", chars=len(text), first=first)
