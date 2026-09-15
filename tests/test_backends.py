@@ -269,3 +269,33 @@ def test_the_long_form_guards_are_off_by_default_nowhere():
     assert ov.DECODING_GUARDS["condition_on_prev_tokens"] is False
     assert ov.DECODING_GUARDS["temperature"][0] == 0.0
     assert len(ov.DECODING_GUARDS["temperature"]) > 1
+
+
+# --- installed, and yet not there -----------------------------------------
+
+def test_a_package_that_is_there_but_will_not_load_says_so(monkeypatch):
+    """The Windows classic: ctranslate2 without its runtime, or an OpenVINO
+    whose DLLs lost their place in the search path. "The package is not
+    installed" sends somebody to install what they have just installed."""
+    monkeypatch.setattr(backends, "module_available", lambda name: name == "ctranslate2")
+    broken = ImportError("DLL load failed while importing translator")
+    broken.name = "ctranslate2"
+
+    message = backends.import_failure("faster_whisper.missing", broken)
+    assert "ctranslate2" in message
+    assert "DLL load failed" in message          # the real reason, not ours
+    assert "pip install" not in message          # it is installed already
+
+
+def test_a_package_that_really_is_missing_says_how_to_install_it(monkeypatch):
+    monkeypatch.setattr(backends, "module_available", lambda name: False)
+    absent = ImportError("No module named 'faster_whisper'")
+    absent.name = "faster_whisper"
+
+    message = backends.import_failure("faster_whisper.missing", absent)
+    assert "pip install" in message
+
+
+def test_an_error_that_names_nothing_falls_back_to_the_install_message():
+    assert "pip install" in backends.import_failure("openvino.missing",
+                                                    ImportError("something"))

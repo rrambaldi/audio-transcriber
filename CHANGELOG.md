@@ -192,6 +192,16 @@ All notable changes to this project are documented here. The format follows
 
 ### Fixed
 
+- **"The package is not installed" is no longer said about a package that is
+  installed.** An engine that will not import was always reported as missing,
+  which sends somebody to install what they have just installed — the Windows
+  classic being a `faster_whisper` whose `ctranslate2` cannot load its DLLs, or
+  an OpenVINO that lost its place in the search path. The failing module names
+  itself in the exception, so the two cases are now told apart: a package that
+  is genuinely absent still gets the `pip install` line, and one that is there
+  and will not load says so, with the real error underneath and a reminder to
+  check which environment the program is running from.
+
 - **A mixed recording kept only a tenth of its second source.** "Together
   with" — a microphone plus the loopback of the speakers, which is the only
   way to record both halves of a call — read the second device once per block

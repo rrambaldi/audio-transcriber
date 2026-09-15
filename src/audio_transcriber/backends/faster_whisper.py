@@ -70,8 +70,10 @@ def transcribe(audio, model_name, language, device, model_dir, prompt,
     asked for only when something needs it."""
     try:
         from faster_whisper import WhisperModel
-    except ImportError:
-        sys.exit(t("faster_whisper.missing"))
+    except ImportError as exc:
+        from . import import_failure
+
+        sys.exit(import_failure("faster_whisper.missing", exc))
 
     name = resolve_model(model_name)
     device = resolve_device(device)

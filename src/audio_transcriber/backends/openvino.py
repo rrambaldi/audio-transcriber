@@ -186,8 +186,10 @@ def transcribe(audio, model_name, language, device, model_dir, prompt,
     try:
         from optimum.intel import OVModelForSpeechSeq2Seq
         from transformers import AutoProcessor, pipeline
-    except ImportError:
-        sys.exit(t("openvino.missing"))
+    except ImportError as exc:
+        from . import import_failure
+
+        sys.exit(import_failure("openvino.missing", exc))
 
     device = resolve_device(device)
     hf_id = MODEL_MAP.get(model_name, model_name)

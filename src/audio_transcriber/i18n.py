@@ -43,6 +43,12 @@ MESSAGES = {
 
         # --- backend selection ----------------------------------------------
         "backend.unknown": "Unknown backend: {name}. Valid values: {valid}",
+        "backend.will_not_load":
+            "Backend: '{module}' is installed here but will not load.\n"
+            "  {error}\n"
+            "  That is a broken install rather than a missing one, so installing it\n"
+            "  again is worth a try - in the environment you are actually running\n"
+            "  from, which 'audio-transcriber hardware' reports.",
         "backend.none_installed":
             "No transcription backend is installed.\n"
             "  Server or machine without a GPU:  pip install \"audio-transcriber-ov[cpu]\"\n"
@@ -803,6 +809,12 @@ MESSAGES = {
 
         # --- backend selection ----------------------------------------------
         "backend.unknown": "Backend sconosciuto: {name}. Valori validi: {valid}",
+        "backend.will_not_load":
+            "Motore: '{module}' e' installato ma non si carica.\n"
+            "  {error}\n"
+            "  E' un'installazione rotta, non mancante: vale la pena reinstallarlo -\n"
+            "  nell'ambiente da cui stai davvero lanciando, che 'audio-transcriber\n"
+            "  hardware' ti dice qual e'.",
         "backend.none_installed":
             "Nessun backend di trascrizione installato.\n"
             "  Server o macchina senza GPU:  pip install \"audio-transcriber-ov[cpu]\"\n"

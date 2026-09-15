@@ -73,6 +73,21 @@ def resolve_backend(backend, device):
     sys.exit(t("backend.none_installed"))
 
 
+def import_failure(message_key, error):
+    """What to say when an engine will not import, which is two things.
+
+    A package that is not there is an install away. One that *is* there and
+    will not load is a broken install — a ctranslate2 without its runtime, an
+    OpenVINO whose DLLs lost their place in the search path — and telling
+    somebody to install what they have just installed is how an afternoon
+    goes. The failing module names itself in the exception, so which of the
+    two it is can be established rather than guessed."""
+    culprit = getattr(error, "name", None) or ""
+    if culprit and module_available(culprit.split(".")[0]):
+        return t("backend.will_not_load", module=culprit, error=error)
+    return t(message_key)
+
+
 def load(name):
     """Import and return the module implementing ``name``."""
     if name == OPENVINO:
