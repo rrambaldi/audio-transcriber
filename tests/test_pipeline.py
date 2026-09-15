@@ -83,6 +83,38 @@ def test_the_engines_progress_lands_inside_its_own_band(engine):
     assert middle == pytest.approx(low + (high - low) * 0.10, abs=1)
 
 
+def test_a_diarization_that_falls_over_still_leaves_the_transcript(engine,
+                                                                  monkeypatch,
+                                                                  capsys):
+    """An hour of transcription is not thrown away because the half that runs
+    second met a pyannote that returns a shape this version does not know."""
+    monkeypatch.setattr(pipeline, "diarization_assets",
+                        lambda settings: (None, None))
+
+    def explode(*args, **kwargs):
+        raise AttributeError("'DiarizeOutput' object has no attribute 'itertracks'")
+
+    monkeypatch.setattr(pipeline, "diarize", explode)
+    result, _reported = collect(diarize=True)
+
+    assert result.text.strip()                    # the words are there
+    assert result.diarized is False               # without the speakers
+    assert "itertracks" in capsys.readouterr().err   # and the reason is said
+
+
+def test_a_cancelled_job_is_not_turned_into_a_plain_transcript(engine, monkeypatch):
+    """Stop means stop: nothing is filed for a job somebody interrupted."""
+    monkeypatch.setattr(pipeline, "diarization_assets",
+                        lambda settings: (None, None))
+
+    def stop(*args, **kwargs):
+        raise pipeline.Cancelled("job-1")
+
+    monkeypatch.setattr(pipeline, "diarize", stop)
+    with pytest.raises(pipeline.Cancelled):
+        collect(diarize=True)
+
+
 def test_diarization_gets_a_band_of_its_own(engine, monkeypatch):
     """It runs after the transcription and takes about as long again, so the
     engine cannot be allowed to fill the whole bar first."""

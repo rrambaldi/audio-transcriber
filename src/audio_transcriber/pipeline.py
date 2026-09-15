@@ -8,6 +8,7 @@ decides where the text goes afterwards.
 """
 import inspect
 import os
+import sys
 import time
 from collections import namedtuple
 from datetime import datetime
@@ -56,6 +57,15 @@ STAGE_DIARIZING = "stage.diarizing"
 ENGINE_BAND = (5, 95)
 ENGINE_BAND_WITH_DIARIZATION = (5, 60)
 DIARIZATION_BAND = (60, 95)
+
+class Cancelled(Exception):
+    """Raised inside a running job that has been asked to stop.
+
+    It lives here rather than with the queue because both sides need to name
+    it: the queue raises it from the progress callback, and this module has to
+    let it through the one place where every other failure is caught and
+    turned into a plain transcript."""
+
 
 #: What one run produces. ``info`` is the backend/device/model record, and
 #: ``reference`` is what a given text corrected, on the runs that were handed
@@ -291,8 +301,19 @@ def run(source, settings, prompt=None, progress=None):
     text, diarized = None, False
     if diarizing:
         report(DIARIZATION_BAND[0], STAGE_DIARIZING)
-        turns = diarize(audio, token, settings.get("speakers"), diar_model,
-                        progress=scale(DIARIZATION_BAND, report, STAGE_DIARIZING))
+        try:
+            turns = diarize(audio, token, settings.get("speakers"), diar_model,
+                            progress=scale(DIARIZATION_BAND, report, STAGE_DIARIZING))
+        except Cancelled:
+            raise                     # asked for: the job ends, nothing filed
+        except (Exception, SystemExit) as exc:
+            # An hour of transcription is not thrown away because the half
+            # that runs second fell over — a pyannote that returns a shape
+            # this version does not know, a model that will not load. The
+            # text is written plain and the reason is said out loud.
+            print(t("diarize.failed_keeping_text", error=str(exc) or
+                    exc.__class__.__name__), file=sys.stderr)
+            turns = []
         if segments and turns:
             segments = assign_speakers(segments, turns)
             text = format_dialogue(segments) + "\n"

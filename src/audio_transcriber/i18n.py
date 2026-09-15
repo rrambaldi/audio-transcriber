@@ -244,6 +244,11 @@ MESSAGES = {
             "  - A classic 'Read' token needs neither of those two steps.\n"
             "  'audio-transcriber diarize check' says whether it really works.",
         "diarize.loading": "Loading the pyannote diarization pipeline (CPU) from: {model}",
+        "diarize.no_annotation":
+            "Diarization: this pyannote returned a '{kind}', and the speech turns\n"
+            "  are not in it anywhere this version of audio-transcriber knows to\n"
+            "  look. The transcript is not lost - run it again without --diarize -\n"
+            "  but the pipeline and the program need to be a matching pair.",
         "diarize.not_initialised":
             "Diarization was not initialised: invalid token, or the model terms were not accepted.",
         "diarize.running": "Diarizing (this can take a few minutes)...",
@@ -251,6 +256,10 @@ MESSAGES = {
             "  (this pyannote reports no progress: the bar stands still until it "
             "finishes)",
         "diarize.result": "   turns detected: {turns} | speakers: {speakers}",
+        "diarize.failed_keeping_text":
+            "  WARNING: working out who said what failed, so the transcript is\n"
+            "  written as plain text. The audio was transcribed and nothing of that\n"
+            "  is lost. What went wrong:\n  {error}",
         "diarize.no_turns":
             "  WARNING: diarization produced no turns or no segments: writing plain text instead.",
 
@@ -1091,6 +1100,11 @@ MESSAGES = {
             "  - Un token classico 'Read' non ha bisogno di questi due passi.\n"
             "  'audio-transcriber diarize check' dice se funziona davvero.",
         "diarize.loading": "Carico la pipeline di diarizzazione pyannote (CPU) da: {model}",
+        "diarize.no_annotation":
+            "Diarizzazione: questo pyannote ha restituito un '{kind}', e i turni di\n"
+            "  parlato non stanno in nessuno dei posti in cui questa versione di\n"
+            "  audio-transcriber sa guardare. La trascrizione non e' persa - rifalla\n"
+            "  senza --diarize - ma pipeline e programma devono essere una coppia.",
         "diarize.not_initialised":
             "Diarizzazione non inizializzata: token non valido o condizioni dei modelli non accettate.",
         "diarize.running": "Diarizzazione in corso (puo' richiedere qualche minuto)...",
@@ -1098,6 +1112,10 @@ MESSAGES = {
             "  (questo pyannote non riporta avanzamento: la barra sta ferma finche' "
             "non finisce)",
         "diarize.result": "   turni rilevati: {turns} | speaker: {speakers}",
+        "diarize.failed_keeping_text":
+            "  ATTENZIONE: ricostruire chi ha detto cosa e' fallito, quindi la\n"
+            "  trascrizione viene scritta come testo semplice. L'audio e' stato\n"
+            "  trascritto e di quello non si perde niente. Cosa e' andato storto:\n  {error}",
         "diarize.no_turns":
             "  ATTENZIONE: diarizzazione senza turni o senza segmenti: scrivo il testo semplice.",
 

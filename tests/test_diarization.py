@@ -778,3 +778,49 @@ def test_a_cancelled_job_stops_the_diarization_too():
 
     with pytest.raises(Cancelled):
         diarization.progress_hook(refuse)("segmentation", None, total=1, completed=0)
+
+
+# --- what the pipeline hands back ------------------------------------------
+
+class FakeAnnotation:
+    """What pyannote 3 returns, and what is inside what pyannote 4 returns."""
+
+    def __init__(self, turns):
+        self._turns = turns
+
+    def itertracks(self, yield_label=False):
+        for start, end, label in self._turns:
+            segment = types.SimpleNamespace(start=start, end=end)
+            yield (segment, None, label) if yield_label else (segment, None)
+
+
+def test_the_turns_are_read_straight_out_of_a_pyannote_3_annotation():
+    annotation = FakeAnnotation([(0.0, 1.5, "SPEAKER_00"), (1.5, 3.0, "SPEAKER_01")])
+    assert diarization.turns_from(annotation) == [(0.0, 1.5, "SPEAKER_00"),
+                                                  (1.5, 3.0, "SPEAKER_01")]
+
+
+def test_the_turns_are_found_inside_a_pyannote_4_output():
+    """It returns a structured object - the diarization, the version with the
+    overlaps taken out, the confidence scores - and reading .itertracks off it
+    is an AttributeError after an hour of work."""
+    output = types.SimpleNamespace(
+        exclusive_speaker_diarization=FakeAnnotation([(0.0, 9.0, "ONLY")]),
+        speaker_diarization=FakeAnnotation([(0.0, 1.0, "SPEAKER_00")]),
+        confidence=object())
+
+    assert diarization.turns_from(output) == [(0.0, 1.0, "SPEAKER_00")]
+
+
+def test_an_output_that_renames_the_field_is_still_searched():
+    """A version that moves it should cost a line of hunting, not a crash."""
+    output = types.SimpleNamespace(something_new=FakeAnnotation([(1.0, 2.0, "A")]))
+    assert diarization.turns_from(output) == [(1.0, 2.0, "A")]
+
+
+def test_an_output_with_no_turns_in_it_at_all_says_what_it_got():
+    output = types.SimpleNamespace(confidence=0.5)
+    with pytest.raises(SystemExit) as stopped:
+        diarization.turns_from(output)
+    assert "SimpleNamespace" in str(stopped.value)
+    assert "--diarize" in str(stopped.value)

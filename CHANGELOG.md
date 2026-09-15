@@ -261,6 +261,23 @@ All notable changes to this project are documented here. The format follows
 
 ### Fixed
 
+- **A diarization with pyannote 4 crashed at the last step, and took the
+  whole transcription with it.** pyannote 3 returns the annotation; pyannote 4
+  returns a structured object with the annotation inside it, beside the
+  overlap-free variant and the confidence scores — so reading `.itertracks`
+  off it raised `AttributeError: 'DiarizeOutput' object has no attribute
+  'itertracks'`, after the audio had been transcribed and the speakers worked
+  out. Both shapes are now read, by the names the annotation is known to go
+  under and, failing those, by looking for the one field that can be iterated
+  as turns: a version that renames it should cost a line of hunting, not an
+  hour of work.
+
+  And it no longer costs the transcript either way. A diarization that falls
+  over — for any reason short of being cancelled — now leaves the text written
+  plain, with a warning saying what went wrong, exactly as a diarization that
+  produces no turns already did. The audio was transcribed; that part is not
+  thrown away because the half that runs second failed.
+
 - **The token advice now says the step that actually unblocks it.** Every
   message about a refused download talked about accepting the conditions and
   ticking the gated-repos box, and stopped there — but a *fine-grained* token

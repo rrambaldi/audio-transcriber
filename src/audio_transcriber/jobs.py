@@ -85,11 +85,9 @@ def safe_filename(name, fallback="recording"):
     return name[:120] or fallback
 
 
-class Cancelled(Exception):
-    """Raised inside a running transcription that has been asked to stop.
-
-    It travels out through the progress callback, which is the only place the
-    engines hand control back often enough to notice."""
+#: Raised inside a running job that has been asked to stop; defined next to
+#: the pipeline, which has to let it through where it catches everything else.
+Cancelled = pipeline.Cancelled
 
 
 class Job:

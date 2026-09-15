@@ -645,11 +645,49 @@ def diarize(audio, token, num_speakers, model=DEFAULT_PIPELINE,
         options.pop("hook")
         annotation = pipeline({"waveform": waveform, "sample_rate": sample_rate},
                               **options)
-    turns = [(segment.start, segment.end, label)
-             for segment, _, label in annotation.itertracks(yield_label=True)]
+    turns = turns_from(annotation)
     print(t("diarize.result", turns=len(turns),
             speakers=len({label for _, _, label in turns})))
     return turns
+
+
+#: Where the speech turns live in what a pipeline hands back, best first.
+#: pyannote 4 returns a structured output — the diarization, the version with
+#: the overlaps taken out, the confidence scores — instead of the annotation
+#: itself, and the plain one is what a transcript's segments are matched
+#: against, as they always were.
+ANNOTATION_FIELDS = ("speaker_diarization", "diarization", "annotation",
+                     "exclusive_speaker_diarization")
+
+
+def annotation_in(result):
+    """The thing with the turns in it, out of whatever the pipeline returned.
+
+    pyannote 3 returns the annotation. pyannote 4 returns an object with it
+    inside, so it has to be found rather than assumed — by the names it is
+    known to go under, and failing that by looking for the one thing that can
+    be iterated as turns. A version that renames the field again should cost
+    a line of hunting, not a crash after an hour of work."""
+    if result is None or hasattr(result, "itertracks"):
+        return result
+    for name in ANNOTATION_FIELDS:
+        found = getattr(result, name, None)
+        if hasattr(found, "itertracks"):
+            return found
+    for name in sorted(vars(result) if hasattr(result, "__dict__") else ()):
+        found = getattr(result, name, None)
+        if hasattr(found, "itertracks"):
+            return found
+    return None
+
+
+def turns_from(result):
+    """``[(start, end, speaker)]`` from whatever the pipeline handed back."""
+    annotation = annotation_in(result)
+    if annotation is None:
+        sys.exit(t("diarize.no_annotation", kind=type(result).__name__))
+    return [(segment.start, segment.end, label)
+            for segment, _, label in annotation.itertracks(yield_label=True)]
 
 
 def assign_speakers(segments, turns):
