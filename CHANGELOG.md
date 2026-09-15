@@ -37,6 +37,14 @@ All notable changes to this project are documented here. The format follows
 
 ### Fixed
 
+- **transformers lectured the console about an option nobody chose.** When
+  the long-form loop is unavailable and the OpenVINO backend falls back to
+  fixed windows, transformers printed a paragraph about `chunk_length_s`
+  being experimental on seq2seq models — over a transcription that was
+  running, after the fallback had already said in its own words what it gave
+  up. The remedy the warning itself names (`ignore_warning=True`) is sent
+  now, and only to an installation whose pipeline knows the keyword.
+
 - **A summary in the queue looked like a recording nobody could identify.** A
   summary job is made with the title of the library entry it reads, and has no
   audio of its own — no length, no size, no date — so on the list it was the

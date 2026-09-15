@@ -118,6 +118,33 @@ def test_openvino_passes_the_request_through_when_it_cannot_enumerate(monkeypatc
     assert ov.resolve_device("GPU") == "GPU"
 
 
+# --- the fixed-window fallback --------------------------------------------
+
+def test_the_fallback_does_not_make_transformers_lecture_the_user(monkeypatch):
+    """Fixed windows are experimental on a seq2seq model and transformers
+    says so at length. The fallback has already said it in its own words, and
+    the paragraph reads like a fault in a transcription that is running."""
+    monkeypatch.setattr(ov, "takes_ignore_warning", lambda: True)
+    settings = ov.windowing()
+
+    assert settings["chunk_length_s"] == ov.FALLBACK_WINDOW_S
+    assert settings["stride_length_s"] == ov.FALLBACK_OVERLAP_S
+    assert settings["ignore_warning"] is True
+
+
+def test_a_keyword_this_installation_does_not_know_is_not_sent(monkeypatch):
+    """An unrecognised keyword is not ignored: the pipeline hands it to
+    generate(), which refuses it and takes the fallback down with it."""
+    monkeypatch.setattr(ov, "takes_ignore_warning", lambda: False)
+    assert "ignore_warning" not in ov.windowing()
+
+
+def test_the_keyword_is_looked_for_in_the_pipeline_that_is_installed():
+    """Answered from the signature, not from a version number - and False,
+    not an exception, when transformers is not installed at all."""
+    assert ov.takes_ignore_warning() in (True, False)
+
+
 # --- faster-whisper devices and precision ---------------------------------
 
 def test_faster_whisper_auto_is_cpu_without_cuda(monkeypatch):

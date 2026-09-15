@@ -22,6 +22,7 @@ implement Whisper's long-form loop, which the model class here only does in
 recent enough versions, so a failure falls back to fixed windows and says so
 rather than stopping.
 """
+import inspect
 import os
 import re
 import sys
@@ -57,6 +58,40 @@ WINDOW_S = 30
 #: overlap, which is what the pipeline needs to stitch two windows together.
 FALLBACK_WINDOW_S = WINDOW_S
 FALLBACK_OVERLAP_S = 5
+
+
+def windowing():
+    """What to hand the pipeline for the fixed-window fallback.
+
+    transformers warns, at length, that fixed windows on a seq2seq model give
+    results with caveats. It is right, and that weakness is the whole reason
+    the long-form loop is asked for first — but this path is only taken when
+    that loop is unavailable, the fallback has just said so in its own words,
+    and a paragraph of upstream prose about an experimental option nobody
+    chose reads like a fault in a transcription that is running fine.
+
+    ``ignore_warning`` is the remedy the warning itself names. It is only sent
+    to an installation that knows the keyword: an unrecognised one is not
+    ignored here, it is forwarded to ``generate()``, which refuses it and
+    takes the fallback down with it."""
+    settings = {"chunk_length_s": FALLBACK_WINDOW_S,
+                "stride_length_s": FALLBACK_OVERLAP_S}
+    if takes_ignore_warning():
+        settings["ignore_warning"] = True
+    return settings
+
+
+def takes_ignore_warning():
+    """Whether the installed speech pipeline accepts ``ignore_warning``."""
+    try:
+        from transformers.pipelines.automatic_speech_recognition import (
+            AutomaticSpeechRecognitionPipeline,
+        )
+        parameters = inspect.signature(
+            AutomaticSpeechRecognitionPipeline._sanitize_parameters).parameters
+    except Exception:
+        return False
+    return "ignore_warning" in parameters
 
 #: Short model names mapped to Hugging Face ids.
 MODEL_MAP = {
@@ -235,9 +270,7 @@ def transcribe(audio, model_name, language, device, model_dir, prompt,
         pipe = pipeline("automatic-speech-recognition", model=model,
                         tokenizer=processor.tokenizer,
                         feature_extractor=processor.feature_extractor,
-                        **({"chunk_length_s": FALLBACK_WINDOW_S,
-                            "stride_length_s": FALLBACK_OVERLAP_S}
-                           if windowed else {}))
+                        **(windowing() if windowed else {}))
         generate_kwargs = {"task": "transcribe"}
         if language:
             generate_kwargs["language"] = language
