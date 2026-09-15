@@ -726,3 +726,55 @@ def test_a_hub_out_of_reach_is_not_a_hub_that_refused():
         "cannot find the requested files in the local cache. Please check your "
         "Internet connection"))
     assert not diarization.looks_unreachable(RuntimeError("403 Forbidden: gated"))
+
+
+# --- saying that something is happening ------------------------------------
+
+def test_the_bar_moves_through_the_steps_pyannote_announces():
+    """It used to stand at the start of the diarization band for the whole of
+    it, which on a long recording is the longer half of the wait, and the only
+    sign of life was the fan."""
+    seen = []
+    hook = diarization.progress_hook(lambda percent, stage: seen.append((percent, stage)))
+
+    hook("segmentation", None, total=10, completed=0)
+    hook("segmentation", None, total=10, completed=5)
+    hook("embeddings", None, total=4, completed=2)
+    hook("clustering", None)
+
+    percents = [round(percent) for percent, _stage in seen]
+    assert percents == sorted(percents)          # it never goes backwards
+    assert percents[0] == 0 and percents[-1] < 100
+    assert [stage for _percent, stage in seen] == [
+        "stage.diar_segmentation", "stage.diar_segmentation",
+        "stage.diar_embeddings", "stage.diar_clustering"]
+
+
+def test_a_step_nobody_has_a_name_for_is_still_the_diarization():
+    """The names have changed between versions and will again."""
+    assert diarization.stage_for("speaker_counting") == "stage.diar_counting"
+    assert diarization.stage_for("something_new") == "stage.diarizing"
+    assert diarization.stage_for(None) == "stage.diarizing"
+
+
+def test_more_steps_than_expected_land_in_the_last_slot_not_past_the_end():
+    seen = []
+    hook = diarization.progress_hook(lambda percent, stage: seen.append(percent))
+    for step in ("one", "two", "three", "four", "five", "six"):
+        hook(step, None, total=1, completed=1)
+
+    assert max(seen) < 100
+    assert seen == sorted(seen)
+
+
+def test_a_cancelled_job_stops_the_diarization_too():
+    """The callback raising is how a run is interrupted everywhere else; the
+    hook is the one place a diarization can hear it."""
+    class Cancelled(Exception):
+        pass
+
+    def refuse(percent, stage):
+        raise Cancelled()
+
+    with pytest.raises(Cancelled):
+        diarization.progress_hook(refuse)("segmentation", None, total=1, completed=0)

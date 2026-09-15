@@ -161,6 +161,22 @@ class Job:
             job.progress = 100 if job.status == DONE else job.progress
         return job
 
+    @property
+    def running_seconds(self):
+        """How long this job has been running, or None if it is not.
+
+        A row has to prove it is alive even when nothing else moves: an
+        engine that reports no progress, or a diarization step that takes
+        twenty minutes, leaves the bar exactly where it was, and a clock that
+        goes up is the difference between waiting and wondering."""
+        if self.status != RUNNING or not self.started_at:
+            return None
+        try:
+            started = datetime.fromisoformat(self.started_at)
+        except ValueError:
+            return None
+        return max(0.0, (datetime.now().astimezone() - started).total_seconds())
+
     def as_dict(self):
         return {
             "id": self.id,
@@ -182,6 +198,7 @@ class Job:
             "started_at": self.started_at,
             "finished_at": self.finished_at,
             "elapsed_seconds": self.elapsed,
+            "running_seconds": self.running_seconds,
             "audio_duration": self.audio_duration,
         }
 

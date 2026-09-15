@@ -971,7 +971,10 @@ def test_the_table_shows_the_stage_of_the_job_that_is_running(window, tmp_path, 
     window.transcribe.start_queue()
     assert wait_for(lambda: queue.jobs()[0].stage == "stage.loading_model")
     window.transcribe.refresh()
-    assert window.transcribe.table.item(0, 1).text() == "running: loading the model"
+    # ...with the clock that proves it is alive while the bar stands still
+    status = window.transcribe.table.item(0, 1).text()
+    assert status.startswith("running: loading the model")
+    assert status != "running: loading the model"
     blocked.set()
 
 

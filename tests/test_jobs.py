@@ -567,3 +567,20 @@ def test_a_queue_that_cannot_be_written_down_still_runs(queue, tmp_path, monkeyp
     monkeypatch.undo()
 
     assert queue.get(job.id) is not None
+
+
+def test_a_running_job_says_how_long_it_has_been_running(queue, tmp_path):
+    """A diarization step can take twenty minutes, and inside one the bar does
+    not move: something on the row has to be going up."""
+    source = tmp_path / "a.wav"
+    source.write_bytes(b"x")
+    job = queue.submit(str(source), start=False)
+
+    assert job.running_seconds is None            # not started: no clock
+    job.status = jobs_module.RUNNING
+    job.started_at = jobs_module.now()
+    assert 0 <= job.running_seconds < 5
+    assert job.as_dict()["running_seconds"] is not None
+
+    job.status = jobs_module.DONE
+    assert job.running_seconds is None            # finished: elapsed says it

@@ -1029,7 +1029,13 @@ function stageLabel(stage) {
 
 function stateText(job) {
   const stage = job.status === "running" ? stageLabel(job.stage) : "";
-  return stage ? `${t(job.status)}: ${stage}` : t(job.status);
+  const label = stage ? `${t(job.status)}: ${stage}` : t(job.status);
+  /* And how long it has been at it. A diarization step can take twenty
+     minutes, and inside one the bar does not move at all: something on the
+     row has to be going up, or a job that is working looks like a job that
+     has hung. */
+  const running = job.status === "running" ? duration(job.running_seconds) : "";
+  return running ? `${label} · ${running}` : label;
 }
 
 async function cancelJob(job) {

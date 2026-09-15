@@ -544,13 +544,72 @@ def load_pipeline(model, token):
         sys.exit(t("diarize.online_failed", model=model, error=exc))
 
 
+#: What pyannote calls its steps, and what we call them. Matched on a
+#: fragment because the names have changed between versions and will again;
+#: anything unrecognised is still "working out who said what", which is true.
+STEP_STAGES = (
+    ("segmentation", "stage.diar_segmentation"),
+    ("embedding", "stage.diar_embeddings"),
+    ("speaker_counting", "stage.diar_counting"),
+    ("clustering", "stage.diar_clustering"),
+    ("discrete", "stage.diar_clustering"),
+)
+
+#: How many steps a diarization is assumed to take, for want of being told.
+#: Only the shape of the bar depends on it: an extra step lands in the last
+#: slot rather than past the end.
+DIARIZATION_STEPS = 4
+
+
+def stage_for(step):
+    """The message key for one of pyannote's steps."""
+    name = str(step or "").lower()
+    for fragment, key in STEP_STAGES:
+        if fragment in name:
+            return key
+    return "stage.diarizing"
+
+
+def progress_hook(progress):
+    """A pyannote hook that moves our bar and can stop the pipeline.
+
+    pyannote announces each step it starts and, inside a step, how far through
+    it is. Without this the bar stood at the start of the diarization band for
+    the whole of it — which on a long recording is the longer half of the wait
+    — and the only sign of life was the fan.
+
+    It is also the one place a running diarization can be interrupted: the
+    callback raises when the job has been cancelled, and the exception travels
+    out through pyannote the same way it does out of a transcription."""
+    seen = []
+
+    def hook(step_name=None, step_artifact=None, file=None, total=None,
+             completed=None, **_unused):
+        if step_name is None:
+            return
+        if step_name not in seen:
+            seen.append(step_name)
+        index = seen.index(step_name)
+        within = 0.0
+        if total:
+            within = max(0.0, min(1.0, float(completed or 0) / float(total)))
+        steps = max(DIARIZATION_STEPS, len(seen))
+        percent = 100.0 * (index + within) / steps
+        progress(min(99.0, percent), stage_for(step_name))
+
+    return hook
+
+
 def diarize(audio, token, num_speakers, model=DEFAULT_PIPELINE,
-            sample_rate=SAMPLE_RATE):
+            sample_rate=SAMPLE_RATE, progress=None):
     """Return speech turns as a list of ``(start, end, speaker_label)``.
 
     ``model`` is a Hugging Face id (downloaded, needs a token), the path of a
     local ``config.yaml``, or the directory of a cloned pipeline repository —
-    the last two offline, with no token."""
+    the last two offline, with no token.
+
+    ``progress(percent, stage)`` is called as the pipeline works through its
+    steps, where pyannote is new enough to report them."""
     try:
         import torch
         from pyannote.audio import Pipeline  # noqa: F401
@@ -571,7 +630,21 @@ def diarize(audio, token, num_speakers, model=DEFAULT_PIPELINE,
     options = {"num_speakers": num_speakers} if num_speakers else {}
 
     print(t("diarize.running"))
-    annotation = pipeline({"waveform": waveform, "sample_rate": sample_rate}, **options)
+    if progress is not None:
+        options["hook"] = progress_hook(progress)
+    try:
+        annotation = pipeline({"waveform": waveform, "sample_rate": sample_rate},
+                              **options)
+    except TypeError as exc:
+        # An older pyannote takes no hook. Said once, and then run without it:
+        # a diarization that works with a still bar beats one that does not
+        # run at all.
+        if "hook" not in options or "hook" not in str(exc):
+            raise
+        print(t("diarize.no_hook"))
+        options.pop("hook")
+        annotation = pipeline({"waveform": waveform, "sample_rate": sample_rate},
+                              **options)
     turns = [(segment.start, segment.end, label)
              for segment, _, label in annotation.itertracks(yield_label=True)]
     print(t("diarize.result", turns=len(turns),

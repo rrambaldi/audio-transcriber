@@ -84,6 +84,14 @@ long transcription on an engine that reports no progress of its own, and
 "transcribing" next to a motionless bar is the difference between waiting and
 wondering.
 
+Working out who said what reports its own steps too — finding the speech,
+measuring the voices, counting the speakers, telling them apart — each with a
+share of the bar. On a long recording that phase is the longer half of the
+wait, and until pyannote was asked for its progress the bar simply stood at
+60% for all of it. Next to the stage is **how long the job has been running**,
+which is what proves a job is alive when the bar cannot: inside one step
+nothing else moves.
+
 **Above the list, what the machine itself is doing.** Two meters — the CPU and
 the memory — and a line naming the engine a transcription would use and the
 device it would use it on. Two figures because they answer different questions:

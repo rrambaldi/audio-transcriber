@@ -178,6 +178,18 @@ def test_status_describes_the_installation(client):
     assert data["max_prompt_chars"] > 0
 
 
+def test_a_job_reports_how_long_it_has_been_running(client, queue, tmp_path):
+    """The page draws a clock from it, because the bar stands still inside a
+    step that reports nothing."""
+    response = client.post("/api/jobs", files={"file": ("a.wav", b"x")})
+    job = queue.get(response.json()["id"])
+    wait_for(queue, job.id)
+
+    payload = client.get(f"/api/jobs/{job.id}").json()
+    assert "running_seconds" in payload
+    assert payload["running_seconds"] is None        # it has finished
+
+
 def test_the_machine_says_how_busy_it_is(client):
     """The meters beside the job list. Every figure may be null - the page
     draws nothing rather than an invented zero - but the keys are always

@@ -8,6 +8,25 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- **Working out who said what now reports its own progress, and every running
+  job carries a clock.** Diarization was one blocking call: the bar jumped to
+  the start of its band and stood there for the whole phase — which on a long
+  recording is the longer half of the wait — with nothing to say whether it
+  was working or hung. pyannote announces each step it starts and how far
+  through it is, so the bar now moves across that band and the row says which
+  step it is on: *finding the speech*, *measuring the voices*, *counting the
+  speakers*, *telling them apart*. A pyannote too old to report anything says
+  so once and runs as before.
+
+  Because a single step can still take twenty minutes, the row also shows how
+  long the job has been running, in the page and in the window. A bar that
+  does not move next to a clock that does is a job working; the same bar with
+  nothing beside it is a job you start to doubt.
+
+  The hook is also the first place a *running* diarization can be
+  interrupted: *Stop* now reaches it, where before it could only be asked and
+  had to run to the end.
+
 - **The load meters are in the window's footer as well.** CPU, memory and the
   engine-and-device a run would use, at the right-hand end of the status line,
   where they can be watched while a transcription runs — a meter that lives in

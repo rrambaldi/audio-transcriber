@@ -291,7 +291,8 @@ def run(source, settings, prompt=None, progress=None):
     text, diarized = None, False
     if diarizing:
         report(DIARIZATION_BAND[0], STAGE_DIARIZING)
-        turns = diarize(audio, token, settings.get("speakers"), diar_model)
+        turns = diarize(audio, token, settings.get("speakers"), diar_model,
+                        progress=scale(DIARIZATION_BAND, report, STAGE_DIARIZING))
         if segments and turns:
             segments = assign_speakers(segments, turns)
             text = format_dialogue(segments) + "\n"

@@ -103,6 +103,21 @@ def test_subtitles_and_diarization_together_are_the_fourth_answer():
     assert defaults["output"] == "subtitles_speakers"
 
 
+def test_a_running_row_carries_a_clock_as_well_as_a_stage():
+    """On a step that reports nothing the bar stands still for twenty
+    minutes; the row must not look hung while it works."""
+    from audio_transcriber.jobs import RUNNING, Job, now
+
+    job = Job(source="a.wav", settings={"model": "small"})
+    job.status = RUNNING
+    job.stage = "stage.diar_embeddings"
+    job.started_at = now()
+
+    text = options.status_text(job)
+    assert "who said what" in text                # the step, in words
+    assert text.rstrip().endswith("s") or "m" in text    # and a clock
+
+
 def test_an_unset_option_does_not_override_the_configuration():
     """The queue treats None as "not chosen here", which is how config.toml
     keeps deciding what the window did not."""

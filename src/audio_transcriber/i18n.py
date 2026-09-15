@@ -247,6 +247,9 @@ MESSAGES = {
         "diarize.not_initialised":
             "Diarization was not initialised: invalid token, or the model terms were not accepted.",
         "diarize.running": "Diarizing (this can take a few minutes)...",
+        "diarize.no_hook":
+            "  (this pyannote reports no progress: the bar stands still until it "
+            "finishes)",
         "diarize.result": "   turns detected: {turns} | speakers: {speakers}",
         "diarize.no_turns":
             "  WARNING: diarization produced no turns or no segments: writing plain text instead.",
@@ -293,6 +296,10 @@ MESSAGES = {
         "stage.compiling_model": "compiling for the device",
         "stage.transcribing": "transcribing",
         "stage.diarizing": "working out who said what",
+        "stage.diar_segmentation": "who said what: finding the speech",
+        "stage.diar_embeddings": "who said what: measuring the voices",
+        "stage.diar_counting": "who said what: counting the speakers",
+        "stage.diar_clustering": "who said what: telling them apart",
         "stage.laying_out": "laying out the text",
         "stage.summary_selecting": "choosing what matters",
         "stage.summary_reading": "reading the transcript",
@@ -1087,6 +1094,9 @@ MESSAGES = {
         "diarize.not_initialised":
             "Diarizzazione non inizializzata: token non valido o condizioni dei modelli non accettate.",
         "diarize.running": "Diarizzazione in corso (puo' richiedere qualche minuto)...",
+        "diarize.no_hook":
+            "  (questo pyannote non riporta avanzamento: la barra sta ferma finche' "
+            "non finisce)",
         "diarize.result": "   turni rilevati: {turns} | speaker: {speakers}",
         "diarize.no_turns":
             "  ATTENZIONE: diarizzazione senza turni o senza segmenti: scrivo il testo semplice.",
@@ -1133,6 +1143,10 @@ MESSAGES = {
         "stage.compiling_model": "compilazione per il dispositivo",
         "stage.transcribing": "trascrizione",
         "stage.diarizing": "chi ha detto cosa",
+        "stage.diar_segmentation": "chi dice cosa: trovo il parlato",
+        "stage.diar_embeddings": "chi dice cosa: misuro le voci",
+        "stage.diar_counting": "chi dice cosa: conto gli interlocutori",
+        "stage.diar_clustering": "chi dice cosa: le distinguo",
         "stage.laying_out": "impaginazione del testo",
         "stage.summary_selecting": "scelta di cosa conta",
         "stage.summary_reading": "lettura della trascrizione",

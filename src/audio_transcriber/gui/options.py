@@ -325,9 +325,14 @@ def status_text(job):
     difference between waiting and wondering."""
     label = t(_STATUS_KEYS.get(job.status, "gui.status_queued"))
     stage = getattr(job, "stage", None)
-    if job.status == RUNNING and stage:
-        return f"{label}: {t(stage)}"
-    return label
+    if job.status != RUNNING:
+        return label
+    if stage:
+        label = f"{label}: {t(stage)}"
+    # And the clock, because a step can take twenty minutes and the bar does
+    # not move inside one: something on the row has to be going up.
+    running = getattr(job, "running_seconds", None)
+    return f"{label}  ·  {format_duration(running)}" if running else label
 
 
 def job_details(job):

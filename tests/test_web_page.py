@@ -163,6 +163,13 @@ def test_the_meters_say_what_is_working_and_not_only_how_hard(page, script):
     assert '"engine_on"' in script and '"engine_missing"' in script
 
 
+def test_a_running_job_shows_a_clock_beside_its_stage(script):
+    """The bar does not move inside a step that takes twenty minutes: a job
+    that is working must not look like a job that has hung."""
+    body = script.split("function stateText(", 1)[1].split("\n}", 1)[0]
+    assert "duration(job.running_seconds)" in body
+
+
 # --- the message catalogue ------------------------------------------------
 
 def catalogues(script):
