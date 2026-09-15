@@ -233,6 +233,17 @@ All notable changes to this project are documented here. The format follows
 
 ### Fixed
 
+- **`diarize check` asked the hub for metadata and called it access.** A
+  gated repository hands its card to anybody and refuses its *files* to a
+  token without the scope for them — which is the exact failure the check
+  exists to catch, and which `model_info` reports as fine. Worse, the one call
+  that did fetch a file had its failure swallowed, so a token that could not
+  download a byte was given a clean bill of health while the run it was
+  checked for died on `resolve/.../config.yaml`. The check now really fetches
+  a file from the pipeline and from every repository its config names; "no
+  such file" from a repository that let us in still counts as access, because
+  it is an answer.
+
 - **A hub that cannot be reached is no longer reported as a licence
   problem.** Every failure to get the models printed the same wall of text
   about accepting conditions and ticking a token scope — including "we cannot

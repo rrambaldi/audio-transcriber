@@ -363,6 +363,11 @@ def fetch(model, destination, token=None, download=None):
     return config, fetched
 
 
+def _file_missing(error):
+    """Whether the hub said "no such file" rather than "not for you"."""
+    return type(error).__name__ in ("EntryNotFoundError", "FileNotFoundError")
+
+
 def hub_repo(model):
     """The repository a run downloads when ``model`` is not on this disk.
 
@@ -395,21 +400,28 @@ def hub_check(model, token):
     except Exception as exc:       # noqa: BLE001 - every failure is the answer
         return [(model, exc)]
 
-    checked = [(model, None)]
+    # Metadata is not content. A gated repository hands its card to anybody
+    # and refuses its *files* to a token without the right scope — which is
+    # exactly the failure this exists to catch, and which asking for metadata
+    # reports as fine. So a file is really fetched, the smallest one there is.
     try:
         path = hf_hub_download(model, CONFIG_NAME, token=token)
         with open(path, encoding="utf-8") as handle:
             content = handle.read()
-    except Exception:              # noqa: BLE001 - the pipeline alone, then
-        return checked
+    except Exception as exc:       # noqa: BLE001
+        return [(model, exc)]
+
+    checked = [(model, None)]
     for _key, value in config_references(content):
         if looks_like_path(value):
             continue               # a file in the repo, not a repo of its own
         try:
-            api.model_info(value, token=token)
+            hf_hub_download(value, CONFIG_NAME, token=token)
             checked.append((value, None))
         except Exception as exc:   # noqa: BLE001
-            checked.append((value, exc))
+            # A repository that answers "no such file" has answered: it let us
+            # in, and this one simply keeps its config under another name.
+            checked.append((value, None if _file_missing(exc) else exc))
     return checked
 
 

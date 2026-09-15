@@ -497,17 +497,27 @@ def test_the_token_is_still_the_answer_when_there_are_no_local_files(tmp_path,
 @pytest.fixture
 def hub(monkeypatch, tmp_path):
     """A huggingface_hub that answers what a test tells it to."""
-    state = {"denied": set(), "config": "", "asked": [], "tokens": []}
+    state = {"denied": set(), "hidden": set(), "no_config": set(),
+             "config": "", "asked": [], "tokens": []}
+
+    class EntryNotFoundError(Exception):
+        pass
 
     class HfApi:
         def model_info(self, repo, token=None):
             state["asked"].append(repo)
             state["tokens"].append(token)
-            if repo in state["denied"]:
-                raise RuntimeError(f"403 Forbidden: {repo} is gated")
+            if repo in state["hidden"]:
+                raise RuntimeError(f"404: {repo} does not exist")
             return {"id": repo}
 
     def hf_hub_download(repo, filename, token=None):
+        state["asked"].append(repo)
+        state["tokens"].append(token)
+        if repo in state["denied"]:
+            raise RuntimeError(f"403 Forbidden: {repo} is gated")
+        if repo in state["no_config"]:
+            raise EntryNotFoundError(f"{filename} is not in {repo}")
         path = tmp_path / f"{repo.replace('/', '_')}_{filename}"
         path.write_text(state["config"], encoding="utf-8")
         return str(path)
@@ -533,7 +543,7 @@ def test_the_pipeline_and_every_model_it_names_are_checked(hub):
         "pyannote/wespeaker-voxceleb-resnet34-LM",
         "pyannote/segmentation-3.0"]
     assert all(error is None for _repo, error in checked)
-    assert hub["tokens"] == ["hf_xxx"] * 3       # and with the token, every time
+    assert set(hub["tokens"]) == {"hf_xxx"}      # and with the token, every time
 
 
 def test_a_refusal_names_the_repository_that_refused(hub):
@@ -545,12 +555,33 @@ def test_a_refusal_names_the_repository_that_refused(hub):
     assert "403" in str(checked["pyannote/segmentation-3.0"])
 
 
-def test_a_pipeline_that_is_refused_is_the_whole_answer(hub):
-    """Nothing below it can be asked about: its config is what names them."""
+def test_reading_the_card_is_not_reading_the_files(hub):
+    """The one that gave a clean bill of health to a token that could not
+    download a thing: a gated repository shows its card to anybody and
+    refuses its files to a token without the scope for them."""
     hub["denied"] = {"pyannote/speaker-diarization-community-1"}
+
     checked = diarization.hub_check("pyannote/speaker-diarization-community-1", "hf_x")
 
-    assert len(checked) == 1 and "403" in str(checked[0][1])
+    assert len(checked) == 1
+    assert "403" in str(checked[0][1])
+
+
+def test_a_repository_that_keeps_its_config_elsewhere_is_not_a_refusal(hub):
+    """"No such file" is an answer from a repository that let us in."""
+    hub["config"] = "    segmentation: pyannote/segmentation-3.0\n"
+    hub["no_config"] = {"pyannote/segmentation-3.0"}
+
+    checked = dict(diarization.hub_check("pyannote/speaker-diarization-3.1", "hf_x"))
+    assert checked["pyannote/segmentation-3.0"] is None
+
+
+def test_a_pipeline_that_is_refused_is_the_whole_answer(hub):
+    """Nothing below it can be asked about: its config is what names them."""
+    hub["hidden"] = {"pyannote/speaker-diarization-community-1"}
+    checked = diarization.hub_check("pyannote/speaker-diarization-community-1", "hf_x")
+
+    assert len(checked) == 1 and "404" in str(checked[0][1])
 
 
 def test_a_file_in_the_repo_is_not_a_repository_to_ask_about(hub):
