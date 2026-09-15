@@ -8,6 +8,33 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- **Four answers to "what do you want out of it?", and who said what is one of
+  them.** It was three answers and a tick box: *just the text*, *the text with
+  who said what*, *subtitles* — and, down in the subtitle section, a *who said
+  what* box that meant nothing beside two of the three and made the third two
+  different runs wearing one name. The menu now asks the question once:
+
+  1. just the text
+  2. the text, with who said what
+  3. subtitles
+  4. subtitles, with who said what
+
+  **How many voices there are is asked on the line that asks who they were**,
+  beside the second answer, which is the one detail those two answers have and
+  was previously a spin box two sections below, next to that tick box. It is
+  greyed out rather than hidden while another answer is chosen, so picking one
+  does not move the rest of the list out from under the pointer, and it is the
+  same number for both answers that ask.
+
+  The same four in the window, on the page and on the command line
+  (`--output subtitles_speakers`, `output = "subtitles_speakers"` in
+  `config.toml`), because they are one decision made in one place: every answer
+  now settles diarization, instead of leaving it to a box elsewhere. Settings
+  written before this — `--diarize` with subtitles, or the flags in a
+  `config.toml` — are read back as the answer they describe, so nothing has to
+  be rewritten. A machine without pyannote offers neither of the two answers
+  that ask who was speaking, with the reason on both.
+
 - **How busy the machine is, on the page and in the window.** Two meters above
   the job list and a group on the *This machine* tab: the CPU, the memory, and
   a line saying which engine would run a transcription and on what device.

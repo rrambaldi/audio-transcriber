@@ -16,13 +16,18 @@ from .paths import config_file, dotenv_candidates
 # Built-in defaults. The CLI reads them from here so that "no option given"
 # means the same thing whether or not a config file exists.
 #: What the person at the interface actually wants out of a run. It is the
-#: choice they arrive with - text, who said what, or subtitles - and it settles
-#: the individual flags below, which are the mechanism rather than the
-#: decision. ``None`` means nobody chose, and the flags stand on their own.
-OUTPUTS = ("text", "speakers", "subtitles")
+#: choice they arrive with - text or subtitles, each of them with or without
+#: who said what - and it settles the individual flags below, which are the
+#: mechanism rather than the decision. ``None`` means nobody chose, and the
+#: flags stand on their own.
+#:
+#: Diarization used to be a tick box beside the choice rather than part of it,
+#: which made "subtitles" two answers wearing one name and left the box
+#: sitting there, meaning nothing, for the other answers.
+OUTPUTS = ("text", "speakers", "subtitles", "subtitles_speakers")
 
 DEFAULTS = {
-    "output": None,               # text | speakers | subtitles
+    "output": None,               # text | speakers | subtitles | subtitles_speakers
     "interface_language": None,   # None: environment, then system locale
     "language": "it",
     "backend": "auto",
@@ -203,7 +208,7 @@ def read_prompt(prompt, prompt_file, vocabulary=None, vocab_dir=None):
 
 
 def output_of(settings):
-    """Which of the three outputs a set of settings amounts to.
+    """Which of the four outputs a set of settings amounts to.
 
     The reverse of :func:`resolve_output`, and the reader every front end
     uses: older settings say it in flags rather than by name — a
@@ -215,7 +220,7 @@ def output_of(settings):
     if output in OUTPUTS:
         return output
     if settings.get("subtitles"):
-        return "subtitles"
+        return "subtitles_speakers" if settings.get("diarize") else "subtitles"
     if settings.get("diarize"):
         return "speakers"
     return "text"
@@ -229,9 +234,8 @@ def resolve_output(settings):
     changes nothing: the individual flags are then the whole story, which is
     how a ``config.toml`` written before this existed keeps working.
 
-    Diarization is implied by "who said what" and forbidden by "text"; with
-    subtitles it stays optional, because marking the speakers in them is a
-    separate decision."""
+    Each answer settles diarization, because each answer says whether it was
+    asked for: it is half of two of the four and absent from the other two."""
     output = str(settings.get("output") or "").strip().lower()
     if output not in OUTPUTS:
         return settings
@@ -244,6 +248,7 @@ def resolve_output(settings):
         settled["diarize"] = True
         settled["subtitles"] = None
     else:
+        settled["diarize"] = output == "subtitles_speakers"
         # Subtitles that are not saved anywhere are not an output, so a format
         # is assumed rather than silently producing nothing.
         settled["subtitles"] = settings.get("subtitles") or "srt"

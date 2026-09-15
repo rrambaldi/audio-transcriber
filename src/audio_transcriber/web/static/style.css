@@ -305,6 +305,22 @@ fieldset.outputs, fieldset.subs {
   margin: 1.8rem 0 0;
 }
 fieldset.outputs .field.checkbox { margin-top: 0.5rem; }
+/* One answer carries its only detail on the same line: how many voices there
+   are. A third column rather than a row of its own, so the answers stay a
+   list you read down. */
+.field.checkbox.with-beside { grid-template-columns: auto auto 1fr; }
+.beside { display: flex; align-items: baseline; gap: 0.5rem; }
+.beside input[type="number"] { width: 4.5rem; }
+/* Greyed with the control it labels: the number belongs to the answers that
+   ask who was speaking, and says nothing beside the others. */
+.beside.unavailable label, .beside.unavailable input { color: var(--muted); }
+.beside.unavailable input { border-bottom-color: var(--rule); }
+/* Narrow: the answer and its number are more than a phone is wide, so the
+   number drops under the answer instead of pushing the page sideways. */
+@media (max-width: 40rem) {
+  .field.checkbox.with-beside { grid-template-columns: auto 1fr; }
+  .beside { grid-column: 2 / -1; }
+}
 fieldset.outputs .note { margin: 0.8rem 0 0; max-width: 46rem; }
 fieldset.subs .grid { margin-top: 0.6rem; }
 

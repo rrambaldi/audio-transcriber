@@ -138,13 +138,25 @@ def test_the_chosen_output_settles_the_flags_that_produce_it():
     assert subs["subtitles"] == "srt"        # an unsaved subtitle is not an output
 
 
-def test_marking_the_speakers_stays_optional_in_subtitles():
-    """It is a second decision, not part of choosing subtitles."""
-    plain = config.resolve_output({"output": "subtitles", "diarize": False})
-    marked = config.resolve_output({"output": "subtitles", "diarize": True,
+def test_marking_the_speakers_is_an_answer_of_its_own():
+    """It used to be a tick box beside the choice, which made "subtitles" two
+    answers wearing one name; each is now its own answer, and every answer
+    settles diarization rather than leaving it to a box elsewhere."""
+    plain = config.resolve_output({"output": "subtitles", "diarize": True})
+    marked = config.resolve_output({"output": "subtitles_speakers",
                                     "subtitles": "srt,vtt"})
-    assert plain["diarize"] is False
+    assert plain["diarize"] is False          # asked for subtitles, not for who
     assert marked["diarize"] is True and marked["subtitles"] == "srt,vtt"
+    assert config.resolve_output({"output": "subtitles_speakers"})["subtitles"] == "srt"
+
+
+def test_flags_from_before_the_choice_existed_are_read_as_one():
+    """A config.toml with --diarize and subtitles is the fourth answer,
+    written in the only way there was to write it."""
+    assert config.output_of({"diarize": True, "subtitles": "srt"}) == "subtitles_speakers"
+    assert config.output_of({"subtitles": "srt"}) == "subtitles"
+    assert config.output_of({"diarize": True}) == "speakers"
+    assert config.output_of({}) == "text"
 
 
 def test_no_output_chosen_leaves_every_flag_alone():

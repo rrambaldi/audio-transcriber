@@ -68,21 +68,36 @@
 
       <!-- The first thing to decide, and the one thing the form never asked:
            what the run is for. Everything below is a detail of one of these
-           three, and the details of the other two are put away. -->
+           four, and the details of the others are put away.
+
+           Who said what is one of the answers rather than a tick box beside
+           them: as a box it sat in the subtitle section, meaning nothing for
+           the other two answers, and made "subtitles" two answers wearing one
+           name. How many voices there are is the one detail those answers
+           have, so it is asked on the line that asks the question. -->
       <fieldset class="outputs" id="outputs">
         <legend data-t="output_legend">What do you want out of it?</legend>
         <div class="field checkbox">
           <input type="radio" id="output-text" name="output" value="text" checked>
           <label for="output-text" data-t="output_text">Just the text</label>
         </div>
-        <div class="field checkbox">
+        <div class="field checkbox with-beside">
           <input type="radio" id="output-speakers" name="output" value="speakers"
                  aria-describedby="diarize-note">
           <label for="output-speakers" data-t="output_speakers">The text, with who said what</label>
+          <span class="beside" id="speakers-field">
+            <label for="speakers" data-t="speakers">Speakers, if known</label>
+            <input type="number" id="speakers" name="speakers" min="1" max="20" disabled>
+          </span>
         </div>
         <div class="field checkbox">
           <input type="radio" id="output-subtitles" name="output" value="subtitles">
           <label for="output-subtitles" data-t="output_subtitles">Subtitles</label>
+        </div>
+        <div class="field checkbox">
+          <input type="radio" id="output-subtitles-speakers" name="output"
+                 value="subtitles_speakers" aria-describedby="diarize-note">
+          <label for="output-subtitles-speakers" data-t="output_subtitles_speakers">Subtitles, with who said what</label>
         </div>
         <p class="note" id="output-note" aria-live="polite"></p>
         <p class="note" id="diarize-note" hidden></p>
@@ -101,10 +116,6 @@
           <label for="language" data-t="language">Spoken language</label>
           <select id="language" name="language" autocomplete="off"></select>
         </div>
-        <div class="field" id="speakers-field" hidden>
-          <label for="speakers" data-t="speakers">Speakers, if known</label>
-          <input type="number" id="speakers" name="speakers" min="1" max="20">
-        </div>
       </div>
 
       <!-- How the cues are cut: a detail of the third answer, so it appears
@@ -112,10 +123,6 @@
       <fieldset class="subs" id="subtitle-fields" hidden>
         <legend data-t="sub_legend">How the subtitles are cut</legend>
         <div class="grid">
-          <div class="field checkbox">
-            <input type="checkbox" id="diarize" name="diarize">
-            <label for="diarize" data-t="diarize">Who said what</label>
-          </div>
           <div class="field">
             <label for="subtitle-preset" data-t="sub_preset">Subtitles</label>
             <select id="subtitle-preset" name="subtitle_preset" autocomplete="off"

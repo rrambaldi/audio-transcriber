@@ -76,14 +76,15 @@ const I18N = {
     language: "Spoken language",
     auto: "detect it",
     auto_model: "automatic ({model})",
-    diarize: "Who said what",
     output_legend: "What do you want out of it?",
     output_text: "Just the text",
     output_text_note: "Paragraphs, broken where the speech pauses. No timestamps, nobody named: the transcript to read or to paste somewhere.",
     output_speakers: "The text, with who said what",
     output_speakers_note: "The same text arranged as a dialogue, one block per turn. Needs diarization, which runs on the CPU and takes a while.",
     output_subtitles: "Subtitles",
-    output_subtitles_note: "Cues with times, cut to be readable, saved with the entry as .srt or .vtt. Tick \"who said what\" as well and a change of voice is marked in them.",
+    output_subtitles_note: "Cues with times, cut to be readable, saved with the entry as .srt or .vtt. Nobody named: the speech, in the order it was spoken.",
+    output_subtitles_speakers: "Subtitles, with who said what",
+    output_subtitles_speakers_note: "The same cues, with a change of voice marked in them. Needs diarization, which runs on the CPU and takes a while.",
     sub_legend: "How the subtitles are cut",
     sub_preset: "Subtitles",
     sub_note: "How subtitles are cut, if you want them. The cues exist either way: an entry can be downloaded as .srt or .vtt later, with other numbers.",
@@ -278,14 +279,15 @@ const I18N = {
     language: "Lingua parlata",
     auto: "rilevala",
     auto_model: "automatico ({model})",
-    diarize: "Chi dice cosa",
     output_legend: "Cosa vuoi ottenere?",
     output_text: "Solo il testo",
     output_text_note: "Paragrafi, spezzati dove il parlato si interrompe. Nessun timestamp, nessun nome: la trascrizione da leggere o da incollare altrove.",
     output_speakers: "Il testo, con chi dice cosa",
     output_speakers_note: "Lo stesso testo disposto come un dialogo, un blocco per battuta. Richiede la diarizzazione, che gira su CPU e ci mette un po'.",
     output_subtitles: "Sottotitoli",
-    output_subtitles_note: "Battute con i tempi, tagliate per essere leggibili, salvate con la voce in .srt o .vtt. Spunta anche \"chi dice cosa\" e il cambio di voce viene segnato dentro.",
+    output_subtitles_note: "Battute con i tempi, tagliate per essere leggibili, salvate con la voce in .srt o .vtt. Nessun nome: il parlato, nell'ordine in cui \u00e8 stato detto.",
+    output_subtitles_speakers: "Sottotitoli, con chi dice cosa",
+    output_subtitles_speakers_note: "Le stesse battute, con il cambio di voce segnato dentro. Richiede la diarizzazione, che gira su CPU e ci mette un po'.",
     sub_legend: "Come vengono tagliati i sottotitoli",
     sub_preset: "Sottotitoli",
     sub_note: "Come vengono tagliati i sottotitoli, se li vuoi. Le battute ci sono comunque: una voce si puo' scaricare in .srt o .vtt anche dopo, con altri numeri.",
@@ -816,7 +818,6 @@ function chooseFile(file, note) {
 }
 
 $("file").addEventListener("change", (event) => chooseFile(event.target.files[0]));
-$("diarize").addEventListener("change", () => applyOutput());
 
 /* --- what the run is for ---------------------------------------------- */
 
@@ -828,21 +829,30 @@ function chosenOutput() {
 /* Put away the controls the chosen answer does not use: a subtitle preset
    next to "just the text" is a control that does nothing, and a control that
    does nothing is a question the form cannot answer. */
+/* The two answers that ask who was speaking. They are what the count of
+   voices belongs to, and what a machine without pyannote cannot offer. */
+const DIARIZING = ["speakers", "subtitles_speakers"];
+const SUBTITLING = ["subtitles", "subtitles_speakers"];
+
 function applyOutput() {
   const output = chosenOutput();
-  const diarizing = output === "speakers"
-    || (output === "subtitles" && $("diarize").checked);
+  const subtitling = SUBTITLING.includes(output);
   $("output-note").textContent = t(`output_${output}_note`);
-  $("subtitle-fields").hidden = output !== "subtitles";
-  $("speakers-field").hidden = !diarizing;
-  if (output === "subtitles" && !$("save-srt").checked && !$("save-vtt").checked) {
+  $("subtitle-fields").hidden = !subtitling;
+  /* Disabled, not hidden: it sits on the line of the answer it belongs to,
+     and a line that appears and disappears moves the answers underneath it
+     out from under the pointer. */
+  const asked = DIARIZING.includes(output) && !$("output-speakers").disabled;
+  $("speakers").disabled = !asked;
+  $("speakers-field").classList.toggle("unavailable", !asked);
+  if (subtitling && !$("save-srt").checked && !$("save-vtt").checked) {
     // The chosen output is the files, so one is written either way: showing
     // it ticked is more honest than saving an .srt behind an empty box.
     $("save-srt").checked = true;
   }
 }
 
-for (const name of ["text", "speakers", "subtitles"]) {
+for (const name of ["text", "speakers", "subtitles", "subtitles-speakers"]) {
   $(`output-${name}`).addEventListener("change", () => applyOutput());
 }
 
@@ -1081,6 +1091,10 @@ function applyBusy() {
   // handler refuses.
   $("drop").classList.toggle("blocked", pageBusy);
   $("busy-note").hidden = !pageBusy;
+  // The controls that belong to an answer rather than to the queue go back
+  // to what the answer says, not to enabled: the count of voices is asked by
+  // two of the four answers and by none of the others.
+  if (!pageBusy) applyOutput();
   for (const id of ["summary-run", "summary-delete", "notes-save",
                     "viewer-rename", "viewer-delete"]) {
     $(id).disabled = pageBusy;
@@ -1618,13 +1632,11 @@ $("job-form").addEventListener("submit", async (event) => {
   body.append("title", $("title").value);
   body.append("model", $("model").value);
   body.append("language", $("language").value);
-  const output = chosenOutput();
-  body.append("output", output);
-  /* The server settles what the answer implies (config.resolve_output), so
-     the form sends the choice and only the extra it leaves open. */
-  body.append("diarize", output === "subtitles" && $("diarize").checked
-    ? "true" : "false");
-  if ($("speakers").value && !$("speakers-field").hidden) {
+  /* The answer, and nothing it implies: diarization and the subtitle format
+     are settled by the server (config.resolve_output), in the one place all
+     three interfaces go through. */
+  body.append("output", chosenOutput());
+  if ($("speakers").value && !$("speakers").disabled) {
     body.append("speakers", $("speakers").value);
   }
   const formats = [];
@@ -1762,23 +1774,20 @@ async function start() {
   presets.value = subtitle.default || "";
   $("save-srt").checked = subtitle.save.includes("srt");
   $("save-vtt").checked = subtitle.save.includes("vtt");
-  $("diarize").checked = diarization.available && status.defaults.diarize;
-  const chosen = $(`output-${status.defaults.output || "text"}`);
+  const chosen = $(`output-${(status.defaults.output || "text").replace(/_/g, "-")}`);
   if (chosen) chosen.checked = true;
   if (!diarization.available) {
-    // An output this machine cannot produce is not offered: a job that fails
+    // An answer this machine cannot produce is not offered: a job that fails
     // after the wait is a worse way to find that out.
-    $("diarize").checked = false;
-    for (const id of ["diarize", "output-speakers"]) {
+    for (const output of DIARIZING) {
+      const id = `output-${output.replace(/_/g, "-")}`;
       $(id).disabled = true;
       $(id).dataset.locked = "1";
+      $(id).closest(".field").classList.add("unavailable");
+      if ($(id).checked) $("output-text").checked = true;
     }
-    if ($("output-speakers").checked) $("output-text").checked = true;
     $("diarize-note").textContent = t(`diarize_${diarization.reason}`);
     $("diarize-note").hidden = false;
-    for (const id of ["diarize", "output-speakers"]) {
-      $(id).closest(".field").classList.add("unavailable");
-    }
   }
   applyOutput();
 

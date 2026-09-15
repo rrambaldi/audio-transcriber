@@ -371,23 +371,41 @@ def test_the_form_offers_the_subtitle_numbers(page, script):
 
 
 def test_the_form_asks_what_the_run_is_for(page, script):
-    """The same three-way choice the window makes, in the same words: it is
+    """The same four-way choice the window makes, in the same words: it is
     the first thing to decide and everything else is a detail of it."""
-    for name in ("text", "speakers", "subtitles"):
+    for name in ("text", "speakers", "subtitles", "subtitles-speakers"):
         assert f'id="output-{name}"' in page
-        assert f"output_{name}_note:" in script
-    assert 'body.append("output", output)' in script
-    # The other two answers' controls are put away, not left doing nothing.
+        assert f"output_{name.replace('-', '_')}_note:" in script
+    assert 'body.append("output", chosenOutput())' in script
+    # The other answers' controls are put away, not left doing nothing.
     assert 'function applyOutput(' in script
-    assert '$("subtitle-fields").hidden = output !== "subtitles"' in script
+    assert '$("subtitle-fields").hidden = !subtitling' in script
+
+
+def test_who_said_what_is_an_answer_and_not_a_box_beside_one(page, script):
+    """As a tick box it sat in the subtitle section, meaning nothing for two
+    of the three answers, and made the third two answers wearing one name."""
+    assert 'id="diarize"' not in page
+    assert 'name="diarize"' not in page
+    assert 'body.append("diarize"' not in script
+
+
+def test_how_many_voices_is_asked_on_the_line_that_asks_who(page, script):
+    """The one detail those answers have, on the line of the answer - and
+    disabled rather than hidden, so choosing does not move the list."""
+    outputs = page.split('<fieldset class="outputs"', 1)[1].split("</fieldset>", 1)[0]
+    assert 'id="speakers"' in outputs and 'for="speakers"' in outputs
+    assert '$("speakers").disabled = !asked' in script
+    assert 'DIARIZING = ["speakers", "subtitles_speakers"]' in script
 
 
 def test_an_output_the_machine_cannot_produce_is_not_offered(page, script):
     """Without diarization "who said what" is a job that fails after the
-    wait, which is a worse way to find out than a disabled button."""
-    assert 'for (const id of ["diarize", "output-speakers"]) {' in script
+    wait, which is a worse way to find out than a disabled button - and it is
+    both of the answers that ask it, not just the one."""
+    assert "for (const output of DIARIZING) {" in script
     assert '$(id).disabled = true;' in script
-    assert 'if ($("output-speakers").checked) $("output-text").checked = true' in script
+    assert 'if ($(id).checked) $("output-text").checked = true;' in script
 
 
 def test_it_stays_off_when_a_transcription_ends(script):
@@ -396,6 +414,9 @@ def test_it_stays_off_when_a_transcription_ends(script):
     it."""
     assert '$(id).dataset.locked = "1"' in script
     assert 'if (control.dataset.locked) continue;' in script
+    # ...and a control that belongs to an answer goes back to what the answer
+    # says, rather than to enabled.
+    assert "if (!pageBusy) applyOutput();" in script
 
 
 def test_an_entry_can_be_downloaded_as_subtitles(page, script):

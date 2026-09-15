@@ -300,12 +300,19 @@ MESSAGES = {
             "diarization, which runs on the CPU and takes a while.",
         "gui.output_subtitles": "Subtitles",
         "gui.output_subtitles_note":
-            "Cues with times, cut to be readable, saved as .srt or .vtt. Tick "
-            "\"who said what\" as well and a change of voice is marked in them.",
+            "Cues with times, cut to be readable, saved as .srt or .vtt. "
+            "Nobody named: the speech, in the order it was spoken.",
+        "gui.output_subtitles_speakers": "Subtitles, with who said what",
+        "gui.output_subtitles_speakers_note":
+            "The same cues, with a change of voice marked in them. Needs "
+            "diarization, which runs on the CPU and takes a while.",
         "gui.label_model": "Model",
         "gui.label_language": "Spoken language",
         "gui.label_backend": "Engine",
         "gui.label_speakers": "Speakers",
+        "gui.speakers_tip":
+            "How many voices there are, when you know. It improves the result a "
+            "lot; left at \"unknown\" they are counted.",
         "gui.group_subtitles": "Subtitles",
         "gui.label_sub_preset": "Preset",
         "gui.label_sub_chars": "Characters per line",
@@ -419,7 +426,7 @@ MESSAGES = {
         "gui.start_many": "Transcribe {count} recordings",
         "gui.step_output": "What do you want out of it?",
         "gui.step_options": "How to transcribe it",
-        "gui.only_with_subtitles": "only with \"{answer}\"",
+        "gui.only_with_subtitles": "only with one of the subtitle answers",
         "gui.sub_chars_short": "{count} characters",
         "gui.sub_words_short": "{count} words",
         "gui.sub_saved_none": "no file kept",
@@ -1020,12 +1027,18 @@ MESSAGES = {
         "gui.output_subtitles": "Sottotitoli",
         "gui.output_subtitles_note":
             "Battute con i tempi, tagliate per essere leggibili, salvate in .srt o "
-            ".vtt. Spunta anche \"chi ha detto cosa\" e il cambio di voce viene "
-            "segnato dentro.",
+            ".vtt. Nessun nome: il parlato, nell'ordine in cui e' stato detto.",
+        "gui.output_subtitles_speakers": "Sottotitoli, con chi dice cosa",
+        "gui.output_subtitles_speakers_note":
+            "Le stesse battute, con il cambio di voce segnato dentro. Richiede "
+            "la diarizzazione, che gira su CPU e ci mette un po'.",
         "gui.label_model": "Modello",
         "gui.label_language": "Lingua parlata",
         "gui.label_backend": "Motore",
         "gui.label_speakers": "Interlocutori",
+        "gui.speakers_tip":
+            "Quante voci ci sono, quando lo sai. Migliora molto il risultato; "
+            "lasciato su \"non so\" vengono contate.",
         "gui.group_subtitles": "Sottotitoli",
         "gui.label_sub_preset": "Preset",
         "gui.label_sub_chars": "Caratteri per riga",
@@ -1136,7 +1149,7 @@ MESSAGES = {
         "gui.start_many": "Trascrivi {count} registrazioni",
         "gui.step_output": "Cosa vuoi ottenere?",
         "gui.step_options": "Come trascriverla",
-        "gui.only_with_subtitles": "solo con \"{answer}\"",
+        "gui.only_with_subtitles": "solo con una delle risposte sui sottotitoli",
         "gui.sub_chars_short": "{count} caratteri",
         "gui.sub_words_short": "{count} parole",
         "gui.sub_saved_none": "nessun file salvato",
@@ -1538,8 +1551,9 @@ HELP = {
         "help.keep_fillers": "do NOT drop the phrases Whisper hallucinates over silence",
         "help.output":
             "what the run is for: text (just the words), speakers (who said "
-            "what) or subtitles (cues, saved as .srt unless --vtt says "
-            "otherwise). It settles the flags below it.",
+            "what), subtitles (cues, saved as .srt unless --vtt says "
+            "otherwise) or subtitles_speakers (both). It settles the flags "
+            "below it.",
         "help.diarize": "work out who said what (pyannote, on CPU)",
         "help.speakers": "number of speakers, if known (improves the result a lot)",
         "help.hf_token": "Hugging Face token for pyannote (or the HUGGINGFACE_TOKEN variable)",
@@ -1657,8 +1671,9 @@ HELP = {
         "help.keep_fillers": "NON rimuovere le frasi che Whisper alluccina sul silenzio",
         "help.output":
             "a cosa serve la trascrizione: text (solo le parole), speakers "
-            "(chi dice cosa) o subtitles (battute, salvate in .srt se non si "
-            "dice --vtt). Decide le opzioni qui sotto.",
+            "(chi dice cosa), subtitles (battute, salvate in .srt se non si "
+            "dice --vtt) o subtitles_speakers (tutti e due). Decide le opzioni "
+            "qui sotto.",
         "help.diarize": "ricostruisci chi dice cosa (pyannote, su CPU)",
         "help.speakers": "numero di speaker, se noto (migliora molto la resa)",
         "help.hf_token": "token Hugging Face per pyannote (o la variabile HUGGINGFACE_TOKEN)",

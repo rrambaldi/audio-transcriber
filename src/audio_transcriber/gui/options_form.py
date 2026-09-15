@@ -56,7 +56,7 @@ class OptionsForm(QWidget):
 
         # The first thing to decide, and until now the one thing the window
         # never asked: what is wanted out of the run. Everything below is a
-        # detail of one of these three.
+        # detail of one of these four.
         self.outputs = QButtonGroup(self)
         self.output_buttons = {}
         for label, note, value in options.output_choices():
@@ -96,29 +96,30 @@ class OptionsForm(QWidget):
         for box in (self.model, self.language, self.backend):
             box.currentIndexChanged.connect(lambda _index: self.update_summaries())
 
-        self.diarize = QCheckBox(t("gui.diarize"))
-        self.diarize.setChecked(defaults["diarize"])
+        # How many voices, asked beside the answer that asks who they are:
+        # it is the one detail of that answer, and a number that used to sit
+        # in the options below, next to a tick box, two sections away from
+        # the question it belongs to.
+        self.speakers_label = QLabel(t("gui.label_speakers"))
+        style.note(self.speakers_label)
         self.speakers = QSpinBox()
         self.speakers.setRange(0, 20)
         self.speakers.setSpecialValueText(t("gui.speakers_unknown"))
+        self.speakers.setToolTip(t("gui.speakers_tip"))
         self.speakers.setValue(defaults["speakers"])
         state, detail = diarization_availability(self.settings.get("diar_model"))
         self._diarization_ready = state == "ready"
         if state != "ready":
-            # Offering a checkbox this machine cannot honour only produces a
-            # job that fails after the wait, which is a worse way to find out.
-            self.diarize.setChecked(False)
-            self.diarize.setEnabled(False)
+            # An answer this machine cannot produce is not offered: it is
+            # refused here, with the reason on the button, rather than by a
+            # job that fails after an hour of waiting.
             self.speakers.setEnabled(False)
-            self.diarize.setToolTip(t("gui.diarize_unavailable", detail=detail))
-            # And "who said what" is then not an output this machine can
-            # produce at all: the answer is refused here, with the reason on
-            # the button, rather than by a job that fails after the wait.
-            unavailable = self.output_buttons["speakers"]
-            unavailable.setEnabled(False)
-            unavailable.setToolTip(t("gui.diarize_unavailable", detail=detail))
-            if unavailable.isChecked():
-                self.output_buttons["text"].setChecked(True)
+            for value in options.DIARIZING:
+                unavailable = self.output_buttons[value]
+                unavailable.setEnabled(False)
+                unavailable.setToolTip(t("gui.diarize_unavailable", detail=detail))
+                if unavailable.isChecked():
+                    self.output_buttons["text"].setChecked(True)
             # Written on screen, and written as something to do about it: the
             # tooltip's "pyannote.audio" is the name of a module, which is not
             # what somebody who wanted a dialogue needs to read.
@@ -182,7 +183,20 @@ class OptionsForm(QWidget):
         output_layout = QVBoxLayout(output_page)
         output_layout.setContentsMargins(0, 0, 0, 0)
         for _label, _note, value in options.output_choices():
-            output_layout.addWidget(self.output_buttons[value])
+            if value == "speakers":
+                # Beside the answer, not under it: the number belongs to this
+                # line, and the two answers that ask who was speaking share it.
+                line = QHBoxLayout()
+                # No margins of its own: a wrapped row is still a row, and
+                # nine pixels of padding indents this answer below the others.
+                line.setContentsMargins(0, 0, 0, 0)
+                line.addWidget(self.output_buttons[value])
+                line.addWidget(self.speakers_label)
+                line.addWidget(self.speakers)
+                line.addStretch(1)
+                output_layout.addWidget(_wrap(line))
+            else:
+                output_layout.addWidget(self.output_buttons[value])
         # One note, for the answer that is chosen. Three notes at once is a
         # paragraph to read before the first click.
         output_layout.addWidget(self.output_note)
@@ -198,13 +212,6 @@ class OptionsForm(QWidget):
         self.form.addRow(t("gui.label_model"), self.model)
         self.form.addRow(t("gui.label_language"), self.language)
         self.form.addRow(t("gui.label_backend"), self.backend)
-        speakers_row = QHBoxLayout()
-        speakers_row.addWidget(self.diarize)
-        speakers_row.addWidget(QLabel(t("gui.label_speakers")))
-        speakers_row.addWidget(self.speakers)
-        speakers_row.addStretch(1)
-        self.form.addRow("", _wrap(speakers_row))
-        self._speakers_row = self.form.rowCount() - 1
         self.step_options = widgets.Disclosure(t("gui.step_options"),
                                                options_page, key="options")
 
@@ -264,7 +271,7 @@ class OptionsForm(QWidget):
     # --- what the answers do to each other ---------------------------------
 
     def chosen_output(self):
-        """Which of the three the radio buttons say."""
+        """Which of the four the radio buttons say."""
         for value, button in self.output_buttons.items():
             if button.isChecked():
                 return value
@@ -281,15 +288,18 @@ class OptionsForm(QWidget):
         chosen = self.chosen_output()
         self.output_note.setText(options.output_note(chosen))
         enables = options.output_enables(chosen)
-        self.diarize.setEnabled(enables["diarize"] and self._diarization_ready)
-        self.speakers.setEnabled(enables["speakers"] and self._diarization_ready)
-        self.form.setRowVisible(self._speakers_row, enables["speakers"])
+        # Left in place rather than hidden: it is on the same line as the
+        # answer it belongs to, and a line that grows and shrinks under the
+        # pointer is how you click the answer below the one you meant.
+        asked = enables["speakers"] and self._diarization_ready
+        self.speakers.setEnabled(asked)
+        self.speakers_label.setEnabled(asked)
         for widget in (self.subtitle_preset, self.subtitle_chars,
                        self.subtitle_words, self.save_srt, self.save_vtt):
             widget.setEnabled(enables["subtitles"])
-        self.step_subtitles.set_available(
-            enables["subtitles"],
-            t("gui.only_with_subtitles", answer=t("gui.output_subtitles")))
+        self.step_subtitles.set_available(enables["subtitles"],
+                                          t("gui.only_with_subtitles"))
+
         if enables["subtitles"] and not (self.save_srt.isChecked()
                                          or self.save_vtt.isChecked()):
             # The chosen output is the files, so one is written either way:
@@ -357,7 +367,6 @@ class OptionsForm(QWidget):
             "language": self.language.currentData(),
             "backend": self.backend.currentData(),
             "output": self.chosen_output(),
-            "diarize": self.diarize.isChecked(),
             "speakers": self.speakers.value(),
             "subtitle_preset": self.subtitle_preset.currentData(),
             "subtitle_chars": self.subtitle_chars.value(),
@@ -375,8 +384,6 @@ class OptionsForm(QWidget):
         button = self.output_buttons.get(choices.get("output"))
         if button is not None and button.isEnabled():
             button.setChecked(True)
-        if self._diarization_ready:
-            self.diarize.setChecked(bool(choices.get("diarize")))
         self.speakers.setValue(int(choices.get("speakers") or 0))
         _select(self.subtitle_preset, choices.get("subtitle_preset"))
         self.subtitle_chars.setValue(int(choices.get("subtitle_chars") or 0))

@@ -52,16 +52,27 @@ LANGUAGE_NAMES = {"it": "Italiano", "en": "English", "fr": "Français",
 # --------------------------------------------------------------------------
 
 def output_choices():
-    """``(label, note, value)`` for the three things a run can be for.
+    """``(label, note, value)`` for the four things a run can be for.
 
-    The choice people arrive with — "I want the text", "I want to know who
-    said what", "I want subtitles" — said in those words. Everything else in
-    the options box is a detail of one of these three."""
+    The choice people arrive with — "I want the text", "I want subtitles",
+    each of them with or without who said what — said in those words.
+    Everything else in the options box is a detail of one of these four.
+
+    Who said what is one of the four answers rather than a tick box beside
+    them: as a box it sat there meaning nothing for two of the three, and
+    made the third two answers wearing one name."""
     return [
         (t("gui.output_text"), t("gui.output_text_note"), "text"),
         (t("gui.output_speakers"), t("gui.output_speakers_note"), "speakers"),
         (t("gui.output_subtitles"), t("gui.output_subtitles_note"), "subtitles"),
+        (t("gui.output_subtitles_speakers"), t("gui.output_subtitles_speakers_note"),
+         "subtitles_speakers"),
     ]
+
+
+#: The answers that ask who was speaking: they enable the count of speakers,
+#: and they are the ones a machine without pyannote cannot offer at all.
+DIARIZING = ("speakers", "subtitles_speakers")
 
 
 def output_label(output):
@@ -104,9 +115,8 @@ def output_enables(output):
     plain text, and "how many speakers" means nothing when nobody asked who
     they were."""
     return {
-        "speakers": output in ("speakers", "subtitles"),
-        "diarize": output == "subtitles",       # implied by "speakers", optional here
-        "subtitles": output == "subtitles",
+        "speakers": output in DIARIZING,
+        "subtitles": output in ("subtitles", "subtitles_speakers"),
     }
 
 
@@ -164,14 +174,12 @@ def vocabulary_items(vocab_dir=None):
 
 
 def output_settings(choices):
-    """The output part of what the window is asking for."""
-    output = choices.get("output") or "text"
-    settled = {"output": output}
-    if output == "subtitles":
-        # "Who said what" is the optional extra here, and it is what marks the
-        # speakers in the cues.
-        settled["diarize"] = bool(choices.get("diarize")) or None
-    return settled
+    """The output part of what the window is asking for.
+
+    The name of the answer and nothing else: what it implies — diarization,
+    a subtitle format — is settled by :func:`config.resolve_output`, in the
+    one place all three interfaces go through."""
+    return {"output": choices.get("output") or "text"}
 
 
 def defaults_from(settings):
@@ -203,7 +211,8 @@ def overrides_from(choices):
         "model": choices.get("model") or None,
         "language": choices.get("language") if choices.get("language") is not None else None,
         "backend": choices.get("backend") or None,
-        "diarize": True if choices.get("diarize") else None,
+        # Not "diarize": the chosen answer says whether anybody asked who was
+        # speaking, and resolve_output turns that into the flag.
         "speakers": choices.get("speakers") or None,
     }
 

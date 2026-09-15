@@ -72,17 +72,38 @@ def test_the_configuration_decides_what_is_preselected():
     assert defaults["model"] == "medium"
     assert defaults["language"] == ""
     assert defaults["diarize"] is True
+    assert defaults["output"] == "speakers"     # the flag, read as the answer
     assert defaults["vocabulary"] == ["a", "b"]
+
+
+def test_subtitles_and_diarization_together_are_the_fourth_answer():
+    """Configured before the answer existed, in the only way there was."""
+    defaults = options.defaults_from({"diarize": True, "subtitles": "srt"})
+    assert defaults["output"] == "subtitles_speakers"
 
 
 def test_an_unset_option_does_not_override_the_configuration():
     """The queue treats None as "not chosen here", which is how config.toml
     keeps deciding what the window did not."""
     overrides = options.overrides_from({"model": "auto", "language": "",
-                                        "diarize": False, "speakers": 0})
+                                        "speakers": 0})
     assert overrides["model"] == "auto"
-    assert overrides["diarize"] is None
     assert overrides["speakers"] is None
+    # Not sent at all: the chosen answer says whether anybody asked who was
+    # speaking, and resolve_output turns that into the flag.
+    assert "diarize" not in overrides
+
+
+def test_each_answer_says_for_itself_whether_anybody_asked_who_was_speaking():
+    """It used to be a tick box that meant nothing next to two of the three
+    answers, and made the third two answers wearing one name."""
+    from audio_transcriber.config import resolve_output
+
+    for output, diarized in (("text", False), ("speakers", True),
+                             ("subtitles", False), ("subtitles_speakers", True)):
+        settled = resolve_output(options.output_settings({"output": output}))
+        assert settled["diarize"] is diarized, output
+        assert options.output_enables(output)["speakers"] is diarized
 
 
 def test_detecting_the_language_is_a_real_choice_not_an_absent_one():

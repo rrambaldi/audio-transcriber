@@ -127,7 +127,6 @@ def test_the_engine_and_its_device_are_named_together(monkeypatch):
     """A bar at 100% does not say what is working: on a machine with an iGPU
     that is the whole question."""
     from audio_transcriber import backends
-
     from audio_transcriber.backends import faster_whisper
 
     monkeypatch.setattr(backends, "resolve_backend", lambda *a: backends.FASTER_WHISPER)

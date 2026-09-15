@@ -113,12 +113,22 @@ transcription runs to the end and its result is discarded instead. Either way
 nothing reaches the library, and the recording stays where it is, so it can be
 queued again.
 
+**What the run is for** is the first question and the one everything else
+hangs off: *just the text*, *the text with who said what*, *subtitles*, or
+*subtitles with who said what*. Who said what is an answer rather than a tick
+box beside one — as a box it sat in the subtitle section meaning nothing for
+the other answers, and made "subtitles" two answers wearing one name. *Speakers*
+sits on the line of the second answer, greyed out until one of the two that
+ask who was speaking is chosen, and both of those are disabled with the reason
+on them when this machine cannot diarize.
+
 **Subtitles**, when they are the answer, get their own box: a preset (netflix,
 bbc, ebu_broadcast, fcc_verbatim, social_vertical, social_karaoke,
 kids_accessible), characters per line, words per subtitle, and whether to keep
 an `.srt`, a `.vtt` or both with the entry — one of them is written either way,
 so choosing subtitles ticks `.srt` rather than saving a file behind an empty
-box. The cues exist even for the other two answers: *Export the subtitles* in
+box. The cues exist even for the answers that are not subtitles: *Export the
+subtitles* in
 the library cuts an old entry with today's numbers. See
 [subtitles.md](subtitles.md).
 

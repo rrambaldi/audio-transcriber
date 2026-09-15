@@ -51,6 +51,20 @@ def form(application):
     return OptionsForm(SETTINGS)
 
 
+@pytest.fixture
+def diarizing_form(application, monkeypatch):
+    """A form on a machine that can work out who said what.
+
+    pyannote is a two-gigabyte extra that CI does not install and this server
+    does not have, and the answers that need it are half the menu: without
+    this they would be checked nowhere."""
+    from audio_transcriber.gui import options_form as module
+
+    monkeypatch.setattr(module, "diarization_availability",
+                        lambda *args, **kwargs: ("ready", "token"))
+    return OptionsForm(SETTINGS)
+
+
 def settings_of(form):
     """What the queue would make of these answers."""
     chosen = form.choices()
@@ -67,7 +81,8 @@ def test_it_asks_the_four_questions_and_no_more(form):
     assert [section.button.text().split(" — ")[0] for section in form.sections] == [
         "What do you want out of it?", "How to transcribe it",
         "Subtitles", "Keyword sets"]
-    assert set(form.output_buttons) == {"text", "speakers", "subtitles"}
+    assert set(form.output_buttons) == {"text", "speakers", "subtitles",
+                                        "subtitles_speakers"}
 
 
 def test_the_installed_keyword_sets_are_offered(form):
@@ -114,6 +129,33 @@ def test_the_controls_of_the_other_answers_are_greyed_out(form):
     form.output_buttons["subtitles"].setChecked(True)
     assert form.subtitle_preset.isEnabled() is True
     assert form.save_srt.isEnabled() is True
+    assert form.speakers.isEnabled() is False   # nobody asked who was speaking
+
+
+def test_how_many_voices_is_asked_by_both_answers_that_ask_who(diarizing_form):
+    """The number belongs to the question "who said what", and that question
+    is now asked of the text and of the subtitles alike."""
+    form = diarizing_form
+    for value in ("text", "subtitles"):
+        form.output_buttons[value].setChecked(True)
+        assert form.speakers.isEnabled() is False, value
+    for value in options.DIARIZING:
+        form.output_buttons[value].setChecked(True)
+        assert form.speakers.isEnabled() is True, value
+        assert form.speakers_label.isEnabled() is True, value
+
+
+def test_subtitles_with_who_said_what_is_one_answer(diarizing_form):
+    """It used to be subtitles plus a tick box two sections below."""
+    form = diarizing_form
+    form.output_buttons["subtitles_speakers"].setChecked(True)
+
+    settings = settings_of(form)
+    assert settings["output"] == "subtitles_speakers"
+    assert settings["diarize"] is True
+    assert settings["subtitles"]                 # a format, so a file is written
+    assert form.subtitle_preset.isEnabled() is True
+    assert form.step_subtitles.is_available() is True
 
 
 def test_the_subtitle_section_waits_for_the_answer_that_needs_it(form):
@@ -155,10 +197,11 @@ def test_who_said_what_is_refused_when_the_machine_cannot_diarize(form):
     from audio_transcriber.diarization import availability
 
     ready = availability(None)[0] == "ready"
-    assert form.output_buttons["speakers"].isEnabled() is ready
-    assert form.diarize.isEnabled() is (ready and form.chosen_output() == "subtitles")
+    for value in options.DIARIZING:
+        assert form.output_buttons[value].isEnabled() is ready, value
     if not ready:
-        assert form.chosen_output() != "speakers"
+        assert form.chosen_output() not in options.DIARIZING
+        assert form.speakers.isEnabled() is False
         assert form.output_unavailable.text()
 
 

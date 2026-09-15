@@ -32,9 +32,11 @@ audio-transcriber meeting.mp4        # -> meeting.txt
 - **Readable output.** Whisper's silence hallucinations ("Thanks for
   watching...") and chunk-overlap duplicates are removed, and the text is
   grouped into paragraphs on the pauses in speech.
-- **One choice up front**: text, text with who said what, or subtitles.
-  `--output` on the command line, three buttons in the window and in the
-  browser; it settles the options that belong to the other two answers.
+- **One choice up front**: text or subtitles, each of them with or without who
+  said what. `--output` on the command line, four buttons in the window and in
+  the browser; it settles the options that belong to the other answers, and
+  the two that ask who was speaking ask how many voices there are on the same
+  line.
 - **Optional diarization** with pyannote, including a fully **offline** mode.
 - **A library**, if you want one: each transcription filed as a self-contained
   folder with the recording, the transcript, timestamps and your notes.
@@ -134,8 +136,10 @@ audio-transcriber meeting.wav
 
 # say what the run is for, and it settles the rest:
 #   text (just the words) | speakers (who said what) | subtitles (cues, .srt)
+#   | subtitles_speakers (the cues, with the change of voice marked in them)
 audio-transcriber meeting.wav --output speakers --speakers 3
 audio-transcriber talk.mp4 --output subtitles --subtitle-preset netflix
+audio-transcriber panel.mp4 --output subtitles_speakers --speakers 4
 
 # or set the flags yourself: who said what, with 3 known speakers
 audio-transcriber meeting.wav --diarize --speakers 3

@@ -37,7 +37,8 @@ CONFIG_TEMPLATE = '''\
 # Spoken language of the recordings; "" auto-detects it.
 language = "it"
 # What a run is for, and what settles the options below: "text" (just the
-# words), "speakers" (who said what) or "subtitles" (cues, saved as .srt).
+# words), "speakers" (who said what), "subtitles" (cues, saved as .srt) or
+# "subtitles_speakers" (the cues, with the change of voice marked in them).
 # Omit it and the individual flags are the whole story.
 # output = "text"
 

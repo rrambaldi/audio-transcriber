@@ -343,6 +343,26 @@ def test_asking_who_said_what_turns_diarization_on(client, queue):
     assert job.settings["subtitles"] is None
 
 
+def test_subtitles_with_who_said_what_is_one_answer(client, queue):
+    """The fourth answer. It used to be "subtitles" plus a tick box, which
+    made one name mean two different runs."""
+    response = client.post("/api/jobs", files={"file": ("a.wav", b"x")},
+                           data={"output": "subtitles_speakers"})
+    assert response.status_code == 202
+    job = queue.get(response.json()["id"])
+    assert job.settings["diarize"] is True
+    assert job.settings["subtitles"] == "srt"
+
+
+def test_plain_subtitles_do_not_diarize_because_a_box_was_left_ticked(client, queue):
+    """The answer decides, not a flag left over from a config.toml or from
+    the answer chosen before it."""
+    response = client.post("/api/jobs", files={"file": ("a.wav", b"x")},
+                           data={"output": "subtitles", "diarize": "true"})
+    assert response.status_code == 202
+    assert queue.get(response.json()["id"]).settings["diarize"] is False
+
+
 def test_asking_for_subtitles_writes_a_file_even_with_no_format_ticked(client, queue):
     """Subtitles that are saved nowhere are not an output, so a format is
     assumed rather than silently producing nothing."""

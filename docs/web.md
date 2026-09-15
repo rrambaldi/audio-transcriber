@@ -15,13 +15,16 @@ because a transcription that takes an hour is easier to watch than to wait for.
 - **Two ways in.** Drop a recording on the page (or pick one), or record
   straight from the browser with the *Record* tab.
 - **Say what the run is for, first**: *just the text*, *the text with who said
-  what*, or *subtitles*. A note under the three says what the chosen one
-  produces, and the controls belonging to the other two are put away — no
-  subtitle preset next to plain text, and the subtitle numbers (with the
-  optional "who said what") appear only when subtitles are the answer. *Who
-  said what* is disabled outright, with the reason on it, when this machine
-  cannot diarize. Same three answers as the window and as `--output`;
-  `[general] output` decides which one is preselected.
+  what*, *subtitles*, or *subtitles with who said what*. A note under the four
+  says what the chosen one produces, and the controls belonging to the others
+  are put away — no subtitle preset next to plain text, and the subtitle
+  numbers only when subtitles are the answer. The two answers that ask who was
+  speaking carry the one detail they have, *speakers, if known*, on their own
+  line: it is greyed out rather than hidden for the other two, so choosing does
+  not move the list under the pointer. Both are disabled outright, with the
+  reason on them, when this machine cannot diarize. Same four answers as the
+  window and as `--output`; `[general] output` decides which one is
+  preselected.
 - Choose the model, the spoken language, and the keyword sets — the installed
   ones, your own, or both. See [vocabularies.md](vocabularies.md).
 - Watch the job: queued, transcribing with a progress bar **and the stage it is
