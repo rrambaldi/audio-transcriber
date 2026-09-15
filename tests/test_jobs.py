@@ -439,3 +439,131 @@ def test_a_summary_that_fails_is_reported_like_any_other_job(queue, filed):
     job = wait_for(queue, queue.summarize(filed.id).id)
     assert job.status == "failed"
     assert job.error
+
+
+# --- the queue outlives the process ---------------------------------------
+
+def restarted(runner=None):
+    """The queue as the next launch of the program finds it."""
+    return jobs_module.JobQueue(SETTINGS, runner=runner or (lambda job: None))
+
+
+def test_a_queue_of_held_jobs_is_still_there_next_time(queue, tmp_path):
+    """The window fills the queue and starts it when told to; closing the
+    window in between used to lose the lot - the files, the titles, and the
+    answers about what each one was for."""
+    source = tmp_path / "meeting.wav"
+    source.write_bytes(b"not really audio")
+    queue.submit(str(source), title="Weekly", start=False,
+                 overrides={"model": "medium", "output": "speakers"},
+                 vocabularies=["iso27001-it"])
+
+    later = restarted()
+    kept = later.jobs()
+
+    assert [job.title for job in kept] == ["Weekly"]
+    assert kept[0].status == jobs_module.HELD
+    assert kept[0].settings["model"] == "medium"
+    assert kept[0].settings["diarize"] is True      # the answer, not just its name
+    assert kept[0].vocabularies == ["iso27001-it"]
+    assert kept[0].source == str(source)
+
+
+def test_what_was_finished_is_still_listed_and_not_run_again(queue, tmp_path):
+    source = tmp_path / "done.wav"
+    source.write_bytes(b"x")
+    job = queue.submit(str(source))
+    wait_for(queue, job.id)
+
+    ran = []
+    later = restarted(runner=ran.append)
+    kept = later.get(job.id)
+
+    assert kept is not None and kept.status == "done"
+    assert kept.entry_id == job.entry_id and kept.words == 3
+    time.sleep(0.05)
+    assert ran == []                       # history, not work to redo
+
+
+def test_what_was_running_goes_back_in_the_queue(queue, tmp_path):
+    """A service restarted mid-transcription, a laptop out of battery: the
+    recording is still there and nobody has the transcript."""
+    source = tmp_path / "interrupted.wav"
+    source.write_bytes(b"x")
+    job = queue.submit(str(source), start=False)
+    queue.get(job.id).status = jobs_module.RUNNING
+    queue._persist()
+
+    ran = []
+    later = restarted(runner=lambda job: ran.append(job.id))
+    assert wait_for(later, job.id, statuses=("done",))
+    assert ran == [job.id]
+    assert later.get(job.id).restarts == 1
+
+
+def test_a_recording_that_keeps_killing_the_program_is_left_alone(queue, tmp_path):
+    """Out of memory on a small server: without a count, every restart would
+    pick the same file up again and fall over on it again."""
+    source = tmp_path / "heavy.wav"
+    source.write_bytes(b"x")
+    job = queue.submit(str(source), start=False)
+    queue.get(job.id).status = jobs_module.RUNNING
+    queue.get(job.id).restarts = jobs_module.MAX_RESTARTS
+    queue._persist()
+
+    ran = []
+    later = restarted(runner=ran.append)
+    kept = later.get(job.id)
+
+    assert kept.status == "failed"
+    assert str(jobs_module.MAX_RESTARTS + 1) in kept.error
+    time.sleep(0.05)
+    assert ran == []
+
+
+def test_a_job_whose_recording_has_gone_is_dropped(queue, tmp_path):
+    """Nothing left to run: a row that can only ever fail is worse than no
+    row at all."""
+    source = tmp_path / "vanishing.wav"
+    source.write_bytes(b"x")
+    job = queue.submit(str(source), start=False)
+    source.unlink()
+
+    assert restarted().get(job.id) is None
+
+
+def test_an_upload_nobody_claims_is_still_offered(queue, tmp_path):
+    """The file is in the uploads folder and no job points at it - from
+    before this was written down, or from a lost entry. It appears as not
+    started: nothing is transcribed by surprise, nothing is thrown away."""
+    orphan = pathlib.Path(queue.upload_dir()) / "orphan.wav"
+    orphan.write_bytes(b"x")
+
+    kept = restarted().jobs()
+    assert [job.filename for job in kept] == ["orphan.wav"]
+    assert kept[0].status == jobs_module.HELD
+
+
+def test_a_restored_job_is_not_offered_twice(queue, tmp_path):
+    """Its file is in the uploads folder, and the upload scan must not add a
+    second row for the job that already owns it."""
+    upload = pathlib.Path(queue.upload_dir()) / "meeting.wav"
+    upload.write_bytes(b"x")
+    queue.submit(str(upload), title="Weekly", start=False)
+
+    kept = restarted().jobs()
+    assert [job.title for job in kept] == ["Weekly"]
+
+
+def test_a_queue_that_cannot_be_written_down_still_runs(queue, tmp_path, monkeypatch):
+    """A full disk must not take a transcription with it."""
+    def refuse(*args, **kwargs):
+        raise OSError("no space left on device")
+
+    monkeypatch.setattr("builtins.open", refuse)
+    source = tmp_path / "a.wav"
+    source.write_bytes(b"x")
+    job = queue.submit(str(source), start=False)
+    monkeypatch.undo()
+
+    assert queue.get(job.id) is not None

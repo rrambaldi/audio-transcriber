@@ -8,6 +8,23 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- **The queue survives a restart.** It lived in memory: closing the window or
+  restarting the service threw away everything that had not run yet — the
+  files, the titles, and the answers about what each recording was for — and a
+  transcription interrupted at minute fifty had to be set up and started again
+  from nothing.
+
+  It is now written down beside the uploads (`queue.json` in the cache
+  directory) after every change, and read back at startup. What was waiting is
+  still waiting, with its settings and keyword sets; what was *running* goes
+  back in the queue and starts again, because the recording is still there and
+  nobody has its transcript. A job interrupted three times is marked failed and
+  left alone instead — that is what a recording which takes the process down
+  with it looks like from here, and without the count every restart would pick
+  it up again. A job whose upload has gone is dropped; an upload with no job
+  pointing at it still appears as *not started*, which is the behaviour that
+  was already there and is now kept without duplicating the restored rows.
+
 - **`diarize check` tries the Hugging Face token instead of noting that it
   exists.** With no local files the models are downloaded, so the download is
   what the check has to test — and it asks about the pipeline *and every model

@@ -205,6 +205,9 @@ MESSAGES = {
             "  WARNING: diarization produced no turns or no segments: writing plain text instead.",
 
         # --- library --------------------------------------------------------
+        "jobs.interrupted_again":
+            "Interrupted by a restart {count} times: left alone rather than "
+            "started again. Use 'retry' to put it back in the queue.",
         "library.created": "Library entry created: {path}",
         "library.not_found": "No library entry matches '{query}'.",
         "library.ambiguous": "'{query}' matches several entries: {matches}",
@@ -990,6 +993,9 @@ MESSAGES = {
             "  ATTENZIONE: diarizzazione senza turni o senza segmenti: scrivo il testo semplice.",
 
         # --- library --------------------------------------------------------
+        "jobs.interrupted_again":
+            "Interrotta da un riavvio {count} volte: la lascio stare invece di "
+            "riprovarci. Usa 'riprova' per rimetterla in coda.",
         "library.created": "Voce di libreria creata: {path}",
         "library.not_found": "Nessuna voce di libreria corrisponde a '{query}'.",
         "library.ambiguous": "'{query}' corrisponde a piu' voci: {matches}",

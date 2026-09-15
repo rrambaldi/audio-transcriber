@@ -107,10 +107,22 @@ has finished the file, runs to the end and has its result discarded. Nothing
 cancelled reaches the library, and the uploaded file stays on the server, so it
 can be queued again.
 
-The queue lives in memory. Restarting the server forgets the queue — every
-finished transcription is already in the library, and an interrupted one has to
-be uploaded again. Uploads wait in the cache directory and are *moved* into the
-library entry when the job succeeds; the copy of a job that failed is deleted.
+**The queue outlives the process.** It is written down beside the uploads
+(`queue.json` in the cache directory) after every change and read back at
+startup, so a service restarted — updated, rebooted, killed — comes back with
+the same list: what was waiting is still waiting, with the title and the
+options it was given, and what was *running* goes back in the queue and starts
+again, since the recording is still there and nobody has its transcript. Only
+twice, though: a recording that takes the process down with it — an
+out-of-memory kill on a small server is the usual way — would otherwise be
+picked up again by every restart, for ever, so the third time it is marked
+failed and left alone. *Retry* puts it back.
+
+A job whose upload has gone is dropped rather than restored: there is nothing
+left to run. An upload in the cache with no job pointing at it appears as *not
+started*, so nothing is transcribed by surprise and nothing is thrown away.
+Uploads are *moved* into the library entry when the job succeeds; the copy of a
+job that failed is deleted.
 
 ## Security
 

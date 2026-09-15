@@ -14,9 +14,16 @@ transcription needs, and running both at once would make each slower without
 finishing either sooner. One queue means the machine is never asked to do two
 heavy things at the same time.
 
-State lives in memory: restarting the server forgets the queue, while every
-finished transcription is already safe in the library.
+The queue outlives the process. A transcription is hours and a machine is
+restarted — a service updated, a window closed by mistake, a laptop that ran
+out of battery — so the list is written down beside the uploads after every
+change and read back at startup: what was waiting is still waiting, with the
+title and the options it was given, and what was running when the lights went
+out goes back in the queue. Only twice, though: a job that takes the process
+down with it, which on a small machine means an out-of-memory kill, would
+otherwise be started again by every restart for ever.
 """
+import json
 import os
 import queue
 import re
@@ -27,6 +34,7 @@ from datetime import datetime
 
 from . import paths, pipeline
 from .config import read_prompt, resolve_output
+from .i18n import t
 from .library import STORE_MODES, STORE_MOVE, Library
 
 #: What a job is. Both kinds go through the same queue, the same statuses and
@@ -56,6 +64,14 @@ MAX_UPLOAD_BYTES = 2 * 1024 * 1024 * 1024
 
 #: Keep at most this many finished jobs in the list shown by the page.
 MAX_HISTORY = 50
+
+#: Where the queue is written down, next to the uploads it points at.
+STATE_FILENAME = "queue.json"
+
+#: How many times a restart may put a job back in the queue. A recording that
+#: takes the process down with it — an out-of-memory kill on a small server —
+#: would otherwise be picked up again by every restart, for ever.
+MAX_RESTARTS = 2
 
 
 def now():
@@ -109,6 +125,41 @@ class Job:
         self.finished_at = None
         self.elapsed = None
         self.audio_duration = None
+        #: How many restarts have found this job running. See MAX_RESTARTS.
+        self.restarts = 0
+
+    #: What a restart has to bring back: everything needed to run the job, and
+    #: everything the list already showed about it. Deliberately not the
+    #: progress or the stage, which belong to a run that is over.
+    STATE_FIELDS = ("id", "kind", "source", "filename", "title", "settings",
+                    "prompt", "vocabularies", "store", "status", "entry_id",
+                    "words", "error", "created_at", "started_at", "finished_at",
+                    "elapsed", "audio_duration", "restarts")
+
+    def to_state(self):
+        return {name: getattr(self, name) for name in self.STATE_FIELDS}
+
+    @classmethod
+    def from_state(cls, state):
+        """The job a previous run wrote down, or None if it makes no sense."""
+        if not isinstance(state, dict) or not state.get("id"):
+            return None
+        job = cls(source=state.get("source"), title=state.get("title"),
+                  filename=state.get("filename"),
+                  settings=state.get("settings") or {},
+                  prompt=state.get("prompt") or "",
+                  vocabularies=state.get("vocabularies"),
+                  store=state.get("store") or STORE_MOVE,
+                  kind=state.get("kind") or TRANSCRIPTION,
+                  entry_id=state.get("entry_id"))
+        for name in ("id", "status", "words", "error", "created_at",
+                     "started_at", "finished_at", "elapsed", "audio_duration"):
+            if state.get(name) is not None:
+                setattr(job, name, state[name])
+        job.restarts = int(state.get("restarts") or 0)
+        if job.status in FINISHED:
+            job.progress = 100 if job.status == DONE else job.progress
+        return job
 
     def as_dict(self):
         return {
@@ -146,15 +197,97 @@ class JobQueue:
         self._pending = queue.Queue()
         self._jobs = {}
         self._order = []
-        self._lock = threading.Lock()
+        # Re-entrant: every change is written down before the lock is let go,
+        # and the writing walks the same list.
+        self._lock = threading.RLock()
         self._worker = None
+        self._restore()
         self._restore_uploads()
 
-    def _restore_uploads(self):
-        """Scan the uploads directory and restore any cached files as jobs.
+    # --- what a restart finds -------------------------------------------
 
-        Files are added with HELD status, so they appear in the queue but do not
-        start until explicitly requested. This preserves them across server restarts."""
+    def state_path(self):
+        """The file the queue is written down in, beside the uploads."""
+        root = self.settings.get("cache_dir") or paths.cache_dir()
+        return os.path.join(paths.ensure(os.path.expanduser(root)), STATE_FILENAME)
+
+    def _save(self):
+        """Write the queue down. Called with the lock held, after a change.
+
+        Failure is ignored on purpose: a queue that cannot be written down
+        still runs, and a full disk must not take a transcription with it."""
+        path = self.state_path()
+        payload = {"version": 1,
+                   "jobs": [self._jobs[known].to_state() for known in self._order
+                            if known in self._jobs]}
+        temporary = path + ".tmp"
+        try:
+            with open(temporary, "w", encoding="utf-8") as handle:
+                json.dump(payload, handle, ensure_ascii=False, indent=1)
+            os.replace(temporary, path)     # atomic: never a half-written list
+        except (OSError, TypeError, ValueError):
+            try:
+                os.unlink(temporary)
+            except OSError:
+                pass
+
+    def _read_state(self):
+        """The jobs a previous run left behind, or nothing at all."""
+        try:
+            with open(self.state_path(), encoding="utf-8") as handle:
+                payload = json.load(handle)
+        except (OSError, ValueError):
+            return []
+        jobs = payload.get("jobs") if isinstance(payload, dict) else None
+        return jobs if isinstance(jobs, list) else []
+
+    def _restore(self):
+        """Bring back the queue the last run was in the middle of.
+
+        A job that was waiting is still waiting. One that was running was
+        interrupted rather than finished, so it goes back in the queue — the
+        page will show it running again in a moment — unless it has already
+        been interrupted twice, which is what a recording that kills the
+        process looks like from here. A job whose file has gone is dropped:
+        there is nothing left to run."""
+        resume = []
+        with self._lock:
+            for state in self._read_state():
+                job = Job.from_state(state)
+                if job is None or job.id in self._jobs:
+                    continue
+                unrunnable = not job.source or not os.path.isfile(job.source)
+                if (job.status not in FINISHED and job.kind == TRANSCRIPTION
+                        and unrunnable):
+                    continue                # nothing left to run: drop the row
+                if job.status == RUNNING:
+                    job.restarts += 1
+                    job.progress, job.stage = 0, None
+                    if job.restarts > MAX_RESTARTS:
+                        job.status = FAILED
+                        job.error = t("jobs.interrupted_again", count=job.restarts)
+                        job.finished_at = now()
+                    else:
+                        job.status = QUEUED
+                        job.started_at = None
+                if job.status == QUEUED:
+                    resume.append(job.id)
+                self._jobs[job.id] = job
+                self._order.append(job.id)
+            self._forget_old()
+            self._save()
+        for known in resume:
+            self._pending.put(known)
+        if resume:
+            self._ensure_worker()
+
+    def _restore_uploads(self):
+        """Add any upload no restored job accounts for.
+
+        A file in the uploads directory with nothing pointing at it is a job
+        from before the queue was written down, or one whose entry was lost:
+        it appears as not started, so nothing is transcribed by surprise and
+        nothing is silently thrown away either."""
         uploads = self.upload_dir()
         if not os.path.isdir(uploads):
             return
@@ -162,16 +295,20 @@ class JobQueue:
             files = sorted(os.listdir(uploads))
         except OSError:
             return
-        for filename in files:
-            path = os.path.join(uploads, filename)
-            if not os.path.isfile(path):
-                continue
-            title = safe_filename(filename)
-            job = Job(path, title=title, filename=filename, settings=self.settings)
-            job.status = HELD
-            with self._lock:
+        with self._lock:
+            claimed = {os.path.abspath(job.source) for job in self._jobs.values()
+                       if job.source}
+            for filename in files:
+                path = os.path.join(uploads, filename)
+                if not os.path.isfile(path) or os.path.abspath(path) in claimed:
+                    continue
+                title = safe_filename(filename)
+                job = Job(path, title=title, filename=filename,
+                          settings=self.settings)
+                job.status = HELD
                 self._jobs[job.id] = job
                 self._order.append(job.id)
+            self._save()
 
     # --- public API -------------------------------------------------------
 
@@ -221,6 +358,7 @@ class JobQueue:
             self._jobs[job.id] = job
             self._order.append(job.id)
             self._forget_old()
+            self._save()
         if start:
             self._pending.put(job.id)
             self._ensure_worker()
@@ -250,6 +388,7 @@ class JobQueue:
             self._jobs[job.id] = job
             self._order.append(job.id)
             self._forget_old()
+            self._save()
         if start:
             self._pending.put(job.id)
             self._ensure_worker()
@@ -271,6 +410,8 @@ class JobQueue:
                         if self._jobs[known].status == HELD]
             for known in held:
                 self._jobs[known].status = QUEUED
+            if held:
+                self._save()
         for known in held:
             self._pending.put(known)
         if held:
@@ -293,6 +434,7 @@ class JobQueue:
             job.error = None
             job.cancel_requested = False
             job.started_at = job.finished_at = None
+            self._save()
         return True
 
     def reconfigure(self, job_id, overrides=None, vocabularies=None,
@@ -318,6 +460,7 @@ class JobQueue:
             job.settings = settings
             job.vocabularies = names
             job.prompt = build_prompt(settings, names, custom_vocabulary)
+            self._save()
         return True
 
     def held_count(self):
@@ -357,6 +500,7 @@ class JobQueue:
                 # can no longer find.
                 del self._jobs[job_id]
                 self._order.remove(job_id)
+            self._save()
             return True
 
     def pending_count(self):
@@ -377,6 +521,7 @@ class JobQueue:
                 return False
             del self._jobs[job_id]
             self._order.remove(job_id)
+            self._save()
             return True
 
     # --- internals --------------------------------------------------------
@@ -388,6 +533,11 @@ class JobQueue:
         for job_id in finished[:max(0, len(self._order) - MAX_HISTORY)]:
             del self._jobs[job_id]
             self._order.remove(job_id)
+
+    def _persist(self):
+        """Write the queue down from outside the lock-holding methods."""
+        with self._lock:
+            self._save()
 
     def _ensure_worker(self):
         with self._lock:
@@ -414,6 +564,7 @@ class JobQueue:
                 if job.status in NOT_STARTED:
                     job.status = CANCELLED
                     job.finished_at = now()
+                    self._persist()
                 continue
             self._run(job)
 
@@ -428,6 +579,9 @@ class JobQueue:
         good error message."""
         job.status = RUNNING
         job.started_at = now()
+        # Written down now, so a restart in the middle of this knows the job
+        # was under way rather than waiting.
+        self._persist()
         outcome, error = DONE, None
         try:
             (self._summariser if job.kind == SUMMARY else self._runner)(job)
@@ -447,6 +601,7 @@ class JobQueue:
         # Last, so that a page which sees the final status also sees everything
         # that goes with it.
         job.status = outcome
+        self._persist()
 
     def _discard_upload(self, job):
         """Delete the copy we made of a failed job's file.
