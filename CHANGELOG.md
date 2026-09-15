@@ -8,6 +8,16 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- **The queue says how big each recording is and when it was made.** In the
+  window's rows and on the page, beside the model and the language: a queue of
+  a dozen files named by date is told apart by those two before it is told
+  apart by anything else. Both are read from the file when the job is made,
+  not when the row is drawn — a finished transcription moves its upload into
+  the library entry, and a queue read back after a restart would have nothing
+  left to ask. "When it was made" is as close as each platform gets: the
+  creation time on Windows and macOS, the modification time on Linux, which
+  has no creation time to offer.
+
 - **A summary can be asked for with the transcription, and it says where it
   has got to.** *Write a summary as well, when it is done* — a tick box beside
   the four answers, in the window and on the page (`[summary]
@@ -273,6 +283,15 @@ All notable changes to this project are documented here. The format follows
   before it is read, and the page says what share arrived.
 
 ### Fixed
+
+- **The caveat about a model that failed was written in the wrong language,
+  and at the wrong length.** It went through the interface's catalogue, so an
+  Italian summary carried an English explanation of why it was quoted rather
+  than written — while the caveat next to it, from the same page, was in
+  Italian. Every note on a summary is in the language that was *spoken*; this
+  one is now too. And what the model or its runtime said is cut to a line: a
+  failed OpenVINO export is three hundred characters of stack-adjacent prose,
+  and this is a caveat on a page somebody is reading, not a log.
 
 - **A model that gives nothing back no longer costs the summary.** "`{model}`
   returned nothing usable" was the end of the road after minutes of a model

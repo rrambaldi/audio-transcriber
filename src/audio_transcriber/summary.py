@@ -177,6 +177,9 @@ HEADINGS = {
         "no_model_note":
             "No model fits in this machine's memory ({needed} GB needed, "
             "{free} GB free), so nobody wrote this page.",
+        "model_failed_note":
+            "The model was asked first and gave nothing usable, so nobody "
+            "wrote this page. What it said: {error}",
         "reduced_note":
             "Summarised from {kept}% of the transcript, chosen by weight: "
             "the whole of it does not fit in this machine's model.",
@@ -197,6 +200,10 @@ HEADINGS = {
             "Nessun modello entra nella memoria di questa macchina ({needed} "
             "GB richiesti, {free} GB liberi): questa pagina non l'ha scritta "
             "nessuno.",
+        "model_failed_note":
+            "Prima e' stato chiesto al modello, che non ha dato niente di "
+            "utilizzabile: questa pagina non l'ha scritta nessuno. Cosa ha "
+            "risposto: {error}",
         "reduced_note":
             "Riassunto da una selezione del {kept}% della trascrizione, "
             "scelta per peso: l'intera trascrizione non entra nel modello di "
@@ -607,6 +614,26 @@ def _refusal_note(material, refused):
         free="?" if refused.free is None else f"{refused.free:.1f}")
 
 
+#: How much of what went wrong fits in a caveat before it stops being one.
+MAX_NOTE_ERROR = 180
+
+
+def _failure_note(material, failed):
+    """Why the model's page is not here, in the language that was spoken.
+
+    Like every other caveat: a note under an Italian summary has to be in
+    Italian, whatever language the desktop of the person running it is in —
+    which is why this is not one of the interface's messages."""
+    words = HEADINGS.get(language_of(material.language), HEADINGS["en"])
+    # One line of it, and not a long one: what the model or its runtime said
+    # can be three hundred characters of stack-adjacent prose, and this is a
+    # caveat on a page somebody is reading, not a log.
+    said = " ".join(str(failed).split())
+    if len(said) > MAX_NOTE_ERROR:
+        said = said[:MAX_NOTE_ERROR].rstrip() + "..."
+    return words["model_failed_note"].format(error=said or "-")
+
+
 def summarize(material, settings=None, progress=None):
     """Summarise ``material`` with whichever engine the settings ask for.
 
@@ -654,8 +681,8 @@ def summarize(material, settings=None, progress=None):
         name = EXTRACTIVE
         engine = load(name)
         sections, note = engine.summarize(material, settings, progress=progress)
-        note = " ".join(part for part in (t("summary.model_failed_note",
-                                            error=failed), note) if part)
+        note = " ".join(part for part in (_failure_note(material, failed),
+                                          note) if part)
     import sys
     sys.stderr.write(f"[TRACE] calling render()...\n")
     sys.stderr.flush()

@@ -103,6 +103,20 @@ def test_subtitles_and_diarization_together_are_the_fourth_answer():
     assert defaults["output"] == "subtitles_speakers"
 
 
+def test_a_queue_row_says_how_big_the_recording_is_and_when_it_was_made(tmp_path):
+    """A queue of a dozen files named by date is told apart by those two
+    before it is told apart by anything else."""
+    from audio_transcriber.jobs import Job
+
+    source = tmp_path / "2026-09-15_1830.wav"
+    source.write_bytes(b"x" * (3 * 1024 * 1024))
+    job = Job(source=str(source), settings={"model": "small"})
+
+    details = options.job_details(job)
+    assert "3.0 MiB" in details
+    assert job.source_created_at[:10] in details        # the date, not the ISO
+
+
 def test_a_running_row_carries_a_clock_as_well_as_a_stage():
     """On a step that reports nothing the bar stands still for twenty
     minutes; the row must not look hung while it works."""

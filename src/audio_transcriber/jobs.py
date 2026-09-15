@@ -27,6 +27,7 @@ import json
 import os
 import queue
 import re
+import sys
 import threading
 import traceback
 import uuid
@@ -78,6 +79,30 @@ def now():
     return datetime.now().astimezone().isoformat(timespec="seconds")
 
 
+def file_facts(path):
+    """``(size in bytes, when it was made)`` for a recording, or ``(None, None)``.
+
+    Taken when the job is made, because the file does not stay put: a finished
+    transcription moves its upload into the library entry, and a queue read
+    back after a restart would have nothing left to ask.
+
+    "When it was made" is as close as each platform gets. Windows records a
+    creation time and Python reports it as ``st_ctime``; macOS and the BSDs
+    have ``st_birthtime``; Linux has neither — its ``st_ctime`` is when the
+    inode last changed, which copying resets — so there the modification time
+    is the honest answer, and for a recording it is the moment the recorder
+    stopped writing."""
+    try:
+        stats = os.stat(path)
+    except (OSError, TypeError, ValueError):
+        return None, None
+    made = getattr(stats, "st_birthtime", None)
+    if made is None:
+        made = stats.st_ctime if sys.platform == "win32" else stats.st_mtime
+    when = datetime.fromtimestamp(made).astimezone().isoformat(timespec="seconds")
+    return stats.st_size, when
+
+
 def safe_filename(name, fallback="recording"):
     """A file name that is only a file name: no directories, no surprises."""
     name = os.path.basename(str(name or "")).strip().replace("\x00", "")
@@ -123,6 +148,9 @@ class Job:
         self.finished_at = None
         self.elapsed = None
         self.audio_duration = None
+        #: The recording as the disk describes it: how big, and when it was
+        #: made. Read now, while the file is still where it was handed over.
+        self.size_bytes, self.source_created_at = file_facts(source)
         #: How many restarts have found this job running. See MAX_RESTARTS.
         self.restarts = 0
 
@@ -132,7 +160,8 @@ class Job:
     STATE_FIELDS = ("id", "kind", "source", "filename", "title", "settings",
                     "prompt", "vocabularies", "store", "status", "entry_id",
                     "words", "error", "created_at", "started_at", "finished_at",
-                    "elapsed", "audio_duration", "restarts")
+                    "elapsed", "audio_duration", "restarts",
+                    "size_bytes", "source_created_at")
 
     def to_state(self):
         return {name: getattr(self, name) for name in self.STATE_FIELDS}
@@ -151,7 +180,8 @@ class Job:
                   kind=state.get("kind") or TRANSCRIPTION,
                   entry_id=state.get("entry_id"))
         for name in ("id", "status", "words", "error", "created_at",
-                     "started_at", "finished_at", "elapsed", "audio_duration"):
+                     "started_at", "finished_at", "elapsed", "audio_duration",
+                     "size_bytes", "source_created_at"):
             if state.get(name) is not None:
                 setattr(job, name, state[name])
         job.restarts = int(state.get("restarts") or 0)
@@ -198,6 +228,8 @@ class Job:
             "elapsed_seconds": self.elapsed,
             "running_seconds": self.running_seconds,
             "audio_duration": self.audio_duration,
+            "size_bytes": self.size_bytes,
+            "source_created_at": self.source_created_at,
         }
 
 

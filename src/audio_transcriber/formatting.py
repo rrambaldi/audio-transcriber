@@ -39,6 +39,19 @@ def format_clock(seconds):
     return f"{minutes}:{secs:02d}"
 
 
+def format_when(when):
+    """A timestamp as a person reads it: ``2026-09-14 18:22``.
+
+    The stored form is ISO with a zone, which is right for a file and wrong
+    for a row in a table: the seconds and the offset are noise next to a
+    dozen recordings that have to be told apart at a glance. Anything that is
+    not a timestamp comes back empty rather than mangled."""
+    text = str(when or "").strip()
+    if len(text) < 16 or text[10] not in ("T", " "):
+        return ""
+    return text[:16].replace("T", " ")
+
+
 def format_bytes(size):
     """A file size in the largest unit that keeps it readable."""
     size = float(size or 0)

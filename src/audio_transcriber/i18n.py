@@ -885,9 +885,6 @@ MESSAGES = {
         "summary.unusable_answer":
             "{chars} characters came back, and none of it is about the "
             "recording: \"{first}\"",
-        "summary.model_failed_note":
-            "The model was asked first and gave nothing usable ({error}) - so "
-            "these are sentences taken from the transcript instead.",
         "cli.paths_configured": "(from config.toml)",
         "cli.unknown_language": "Unknown interface language '{lang}'; using {fallback}.",
     },
@@ -1756,9 +1753,6 @@ MESSAGES = {
         "summary.unusable_answer":
             "sono tornati {chars} caratteri, e nessuno parla della registrazione: "
             "\"{first}\"",
-        "summary.model_failed_note":
-            "Prima e' stato chiesto al modello, che non ha dato niente di utilizzabile "
-            "({error}): queste sono frasi prese dalla trascrizione.",
         "cli.paths_configured": "(da config.toml)",
         "cli.unknown_language": "Lingua dell'interfaccia '{lang}' sconosciuta; uso {fallback}.",
     },

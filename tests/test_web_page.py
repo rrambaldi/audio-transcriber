@@ -170,6 +170,14 @@ def test_a_running_job_shows_a_clock_beside_its_stage(script):
     assert "duration(job.running_seconds)" in body
 
 
+def test_a_queue_row_carries_the_size_and_the_date_of_the_recording(script):
+    """The same two the window shows: a dozen files named by date are told
+    apart by those before anything else."""
+    assert "bytes(job.size_bytes)" in script
+    assert "when(job.source_created_at)" in script
+    assert "function bytes(" in script and "function when(" in script
+
+
 # --- the message catalogue ------------------------------------------------
 
 def catalogues(script):

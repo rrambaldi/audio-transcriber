@@ -16,7 +16,7 @@ from datetime import datetime
 from .. import recording, subtitles, vocabularies
 from ..backends import BACKENDS
 from ..config import output_of
-from ..formatting import format_bytes, format_clock, format_duration
+from ..formatting import format_bytes, format_clock, format_duration, format_when
 from ..i18n import t
 from ..jobs import (
     CANCELLED,
@@ -355,6 +355,14 @@ def job_details(job):
     parts = [job.settings.get("model") or AUTO]
     if job.audio_duration:
         parts.append(format_duration(job.audio_duration))
+    # What the file is, before anything has been done to it: how big, and
+    # when it was made. On a queue of a dozen recordings named by date those
+    # two are how one is told from another.
+    if getattr(job, "size_bytes", None):
+        parts.append(format_bytes(job.size_bytes))
+    made = format_when(getattr(job, "source_created_at", None))
+    if made:
+        parts.append(made)
     if job.words:
         parts.append(t("gui.n_words", count=job.words))
     return "  ·  ".join(str(part) for part in parts if part)

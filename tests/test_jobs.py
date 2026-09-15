@@ -584,3 +584,27 @@ def test_a_running_job_says_how_long_it_has_been_running(queue, tmp_path):
 
     job.status = jobs_module.DONE
     assert job.running_seconds is None            # finished: elapsed says it
+
+
+def test_a_job_remembers_how_big_the_recording_is_and_when_it_was_made(queue,
+                                                                      tmp_path):
+    """Read when the job is made, because the file does not stay put: a
+    finished transcription moves its upload into the library entry."""
+    source = tmp_path / "meeting.wav"
+    source.write_bytes(b"x" * 4096)
+    job = queue.submit(str(source), start=False)
+
+    assert job.size_bytes == 4096
+    assert job.source_created_at and job.source_created_at[4] == "-"
+    assert job.as_dict()["size_bytes"] == 4096
+
+    # and both survive the restart, when the file may be gone from there
+    assert restarted().get(job.id).size_bytes == 4096
+
+
+def test_a_job_without_a_file_has_neither(queue, tmp_path):
+    """A summary job has no recording of its own: the entry it points at
+    already has one, and inventing a size for it would be a lie."""
+    missing = jobs_module.Job(source=str(tmp_path / "gone.wav"))
+    assert missing.size_bytes is None and missing.source_created_at is None
+    assert jobs_module.Job(kind=jobs_module.SUMMARY).size_bytes is None

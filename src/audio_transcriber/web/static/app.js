@@ -555,6 +555,29 @@ function duration(seconds) {
   return `${total}s`;
 }
 
+/* The same two the window shows in its queue, formatted the same way. */
+const UNITS = ["B", "KiB", "MiB", "GiB", "TiB"];
+
+function bytes(size) {
+  if (!size) return "";
+  let value = Number(size);
+  for (const unit of UNITS) {
+    if (value < 1024 || unit === UNITS[UNITS.length - 1]) {
+      return unit === "B" ? `${Math.round(value)} ${unit}`
+                          : `${value.toFixed(1)} ${unit}`;
+    }
+    value /= 1024;
+  }
+  return "";
+}
+
+function when(timestamp) {
+  /* ISO with a zone is right for a file and wrong for a row: the seconds and
+     the offset are noise next to a dozen recordings to tell apart. */
+  const text = String(timestamp || "");
+  return text.length >= 16 ? text.slice(0, 16).replace("T", " ") : "";
+}
+
 function clock(seconds) {
   const total = Math.max(0, Math.round(seconds || 0));
   const minutes = Math.floor(total / 60);
@@ -1148,7 +1171,11 @@ function renderJobs(jobs) {
     box.append(el("p", { className: "meta" }, [clear]));
   }
   for (const job of jobs) {
+    /* What the recording is, before anything has been done to it - how big,
+       and when it was made - because a queue of a dozen files named by date
+       is told apart by those two before it is told apart by anything else. */
     const facts = [job.model, job.language, job.vocabularies.join(", "),
+      bytes(job.size_bytes), when(job.source_created_at),
       job.words ? t("words", { n: job.words }) : "",
       job.elapsed_seconds ? duration(job.elapsed_seconds) : ""].filter(Boolean).join(" · ");
     const state = el("span", { className: `state${job.status === "failed" ? " failed" : ""}`,

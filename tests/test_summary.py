@@ -389,6 +389,49 @@ def test_a_model_that_says_nothing_usable_still_leaves_a_page(monkeypatch):
     assert result.engine == EXTRACTIVE
     assert "MiniCPM5-1B" in result.text          # what was tried, and failed
     assert result.sections.points                # and there is a summary
+    # ...and the caveat is in the language that was spoken, like every other
+    # note on the page: the desktop's language has nothing to do with it.
+    assert "Prima e' stato chiesto al modello" in result.text
+    assert "The model was asked" not in result.text
+
+
+def test_a_runtime_that_writes_an_essay_is_cut_down_to_a_caveat(monkeypatch):
+    """What a failed model export says can be three hundred characters of
+    stack-adjacent prose, and this is a page somebody is reading."""
+    from audio_transcriber import summarizers
+
+    essay = ("Could not convert Qwen/Qwen3.5-4B: Asked to export a qwen3_5 model "
+             "for the task text-generation-with-past, but the Optimum OpenVINO "
+             "exporter only supports the tasks image-text-to-text for qwen3_5. "
+             "Please use a supported task. Please open an issue at "
+             "https://github.com/huggingface/optimum-intel/issues if you would "
+             "like the task to be supported.")
+
+    class Failing:
+        NAME = "openvino"
+
+        @staticmethod
+        def label(settings=None):
+            return "OpenVINO GenAI"
+
+        @staticmethod
+        def summarize(material, settings=None, progress=None):
+            raise summary.SummaryError(essay)
+
+    real_load = summarizers.load
+    monkeypatch.setattr(summarizers, "resolve_summarizer",
+                        lambda engine=None: "openvino")
+    monkeypatch.setattr(summarizers, "load",
+                        lambda name: Failing if name == "openvino"
+                        else real_load(name))
+
+    material = summary.Material(title="x", sentences=summary.sentences_of(SEGMENTS),
+                                language="it", duration=70)
+    note = summary.summarize(material, {}).note
+
+    assert "Qwen/Qwen3.5-4B" in note              # enough to recognise it
+    assert "open an issue" not in note            # and not the whole essay
+    assert note.count("...") == 1
 
 
 def test_an_extractive_summary_that_fails_is_still_a_failure(monkeypatch):
