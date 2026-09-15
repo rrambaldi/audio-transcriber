@@ -21,6 +21,7 @@ from .audio import SAMPLE_RATE
 from .cleaning import clean_text
 from .hardware import module_available
 from .i18n import t
+from .quiet import hush_pooling_deviation
 
 DEFAULT_PIPELINE = "pyannote/speaker-diarization-3.1"
 
@@ -630,6 +631,9 @@ def diarize(audio, token, num_speakers, model=DEFAULT_PIPELINE,
     options = {"num_speakers": num_speakers} if num_speakers else {}
 
     print(t("diarize.running"))
+    # torch, from C++, about a speaker turn too short to have a deviation.
+    # See audio_transcriber.quiet.
+    hush_pooling_deviation()
     if progress is not None:
         options["hook"] = progress_hook(progress)
     try:

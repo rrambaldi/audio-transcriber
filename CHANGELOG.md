@@ -49,6 +49,17 @@ All notable changes to this project are documented here. The format follows
 
 ### Fixed
 
+- **Two upstream warnings printed over every run are no longer repeated.**
+  transformers said, twice per transcription, that a token-suppression
+  processor had been passed to `generate()` as well as created inside it —
+  about an argument optimum-intel passes itself, which nobody running a
+  transcription can change. torch said, from C++, that a speaker turn one
+  frame long has no standard deviation, which happens on ordinary recordings
+  and whose embedding pyannote discards anyway. Both are matched on the exact
+  wording of the line and dropped in `audio_transcriber.quiet`, which is where
+  anything else of the sort goes and where each one has to say why: a changed
+  or new message from either library comes through as it should.
+
 - **A fallback to fixed windows now says how to get out of it.** When
   `optimum-intel` and `transformers` disagree, Whisper's own long-form loop
   cannot run and the OpenVINO backend drops to thirty-second windows, where

@@ -35,6 +35,7 @@ from ..cleaning import segments_from_words
 from ..formatting import format_duration
 from ..hardware import openvino_devices
 from ..i18n import t
+from ..quiet import hush_duplicate_logits_processors
 
 #: Whisper's own guards against inventing text over silence, and against
 #: getting stuck repeating itself. Only the long-form loop applies them, which
@@ -387,6 +388,9 @@ def transcribe(audio, model_name, language, device, model_dir, prompt,
 
     report(30, "stage.transcribing")
     print(t("transcribe.running"))
+    # Said twice on every run, about processors optimum-intel passed to
+    # generate() itself. See audio_transcriber.quiet.
+    hush_duplicate_logits_processors()
     # Of what the model is about to see, which is what decides whether there
     # is more than one window to loop over.
     long_form = (len(audio) / float(SAMPLE_RATE) if len(audio) else 0.0) > WINDOW_S
