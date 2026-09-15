@@ -81,10 +81,13 @@ MESSAGES = {
         "openvino.compiling": "Compiling for device '{device}'...",
         "openvino.compile_warning": "  (compile: {error})",
         "openvino.no_vad":
-            "  NOTE: this backend has no voice-activity filter, so over a long silence\n"
-            "  Whisper can invent a phrase ('Thanks for watching'). Obvious ones are\n"
-            "  removed from the transcript afterwards. The faster-whisper backend cuts\n"
-            "  the silences out before the model sees them: --backend faster-whisper.",
+            "  NOTE: the silence filter is Silero, and it arrives with faster-whisper,\n"
+            "  which is not installed here - so the silences go to Whisper as they are,\n"
+            "  and over a long one it can invent a phrase ('Thanks for watching').\n"
+            "  Obvious ones are removed from the transcript afterwards. Installing\n"
+            "  faster-whisper gives this backend the filter as well.",
+        "openvino.vad_trimmed":
+            "  Silence cut before the model: {cut} of {whole} - it transcribes {kept}.",
         "openvino.falling_back_to_long_form":
             "  (single-word timings were refused by this model: {error}\n"
             "   retrying for segment timings - subtitle cuts will be interpolated)",
@@ -92,7 +95,12 @@ MESSAGES = {
             "  (this optimum-intel cannot run Whisper's own long-form loop: {error}\n"
             "   falling back to fixed 30 s windows. Where two windows overlap the words\n"
             "   can come out twice; the duplicates are cut from the transcript afterwards,\n"
-            "   and the keyword prompt is dropped because it makes the overlap worse.)",
+            "   and the keyword prompt is dropped because it makes the overlap worse.\n"
+            "   This is optimum-intel and transformers disagreeing, not anything about\n"
+            "   this recording. Usually settled by:\n"
+            "     pip install -U \"optimum-intel[openvino]\" transformers\n"
+            "   Until then --backend faster-whisper has the long-form loop and the\n"
+            "   silence filter, on the processor.)",
         "openvino.transcription_failed":
             "Backend 'openvino': the transcription did not run.\n  {error}",
 
@@ -964,10 +972,13 @@ MESSAGES = {
         "openvino.compiling": "Compilazione per il device '{device}'...",
         "openvino.compile_warning": "  (compile: {error})",
         "openvino.no_vad":
-            "  NOTA: questo backend non ha un filtro di attivita' vocale, quindi su un\n"
-            "  silenzio lungo Whisper puo' inventare una frase ('Grazie a tutti'). Quelle\n"
-            "  evidenti vengono tolte dalla trascrizione dopo. Il backend faster-whisper\n"
-            "  taglia i silenzi prima che il modello li veda: --backend faster-whisper.",
+            "  NOTA: il filtro del silenzio e' Silero e arriva con faster-whisper, che\n"
+            "  qui non e' installato - quindi i silenzi arrivano a Whisper come sono, e\n"
+            "  su uno lungo puo' inventare una frase ('Grazie a tutti'). Quelle evidenti\n"
+            "  vengono tolte dalla trascrizione dopo. Installando faster-whisper anche\n"
+            "  questo backend ha il filtro.",
+        "openvino.vad_trimmed":
+            "  Silenzio tagliato prima del modello: {cut} su {whole} - ne trascrive {kept}.",
         "openvino.falling_back_to_long_form":
             "  (questo modello ha rifiutato i tempi per singola parola: {error}\n"
             "   riprovo con i tempi dei segmenti - i tagli dei sottotitoli saranno interpolati)",
@@ -975,7 +986,12 @@ MESSAGES = {
             "  (questo optimum-intel non sa eseguire il ciclo long-form di Whisper: {error}\n"
             "   torno a finestre fisse da 30 s. Dove due finestre si sovrappongono le parole\n"
             "   possono uscire due volte; i doppioni vengono tagliati dalla trascrizione dopo,\n"
-            "   e il prompt di parole chiave viene lasciato cadere perche' peggiora la cosa.)",
+            "   e il prompt di parole chiave viene lasciato cadere perche' peggiora la cosa.\n"
+            "   E' optimum-intel e transformers che non vanno d'accordo, non qualcosa di\n"
+            "   questa registrazione. Di solito si sistema con:\n"
+            "     pip install -U \"optimum-intel[openvino]\" transformers\n"
+            "   Nel frattempo --backend faster-whisper ha il ciclo long-form e il filtro\n"
+            "   del silenzio, sul processore.)",
         "openvino.transcription_failed":
             "Backend 'openvino': la trascrizione non e' partita.\n  {error}",
 
@@ -1841,7 +1857,7 @@ HELP = {
         "help.device": "auto (default) | CPU | GPU (Intel iGPU) | NPU | CUDA",
         "help.compute_type": "faster-whisper only: int8 (CPU default), int8_float16, float16 (CUDA default), float32",
         "help.threads": "faster-whisper only: CPU threads (default: every available core)",
-        "help.no_vad": "faster-whisper only: do NOT filter silence with the VAD (the filter cuts hallucinations a lot)",
+        "help.no_vad": "do NOT filter silence with the VAD (the filter cuts hallucinations a lot)",
         "help.model_dir": "model directory (default: the managed one, see 'audio-transcriber paths')",
         "help.prompt": "domain vocabulary that keeps technical terms from being mangled",
         "help.prompt_file": "read the domain vocabulary from a text file",
@@ -1972,7 +1988,7 @@ HELP = {
         "help.device": "auto (default) | CPU | GPU (iGPU Intel) | NPU | CUDA",
         "help.compute_type": "solo faster-whisper: int8 (default su CPU), int8_float16, float16 (default su CUDA), float32",
         "help.threads": "solo faster-whisper: thread CPU (default: tutti i core disponibili)",
-        "help.no_vad": "solo faster-whisper: NON filtrare il silenzio col VAD (il filtro riduce molto le allucinazioni)",
+        "help.no_vad": "NON filtrare il silenzio col VAD (il filtro riduce molto le allucinazioni)",
         "help.model_dir": "cartella dei modelli (default: quella gestita, vedi 'audio-transcriber paths')",
         "help.prompt": "vocabolario di dominio che evita che i termini tecnici vengano storpiati",
         "help.prompt_file": "leggi il vocabolario di dominio da un file di testo",

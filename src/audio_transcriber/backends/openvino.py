@@ -22,12 +22,17 @@ implement Whisper's long-form loop, which the model class here only does in
 recent enough versions, so a failure falls back to fixed windows and says so
 rather than stopping.
 """
+import bisect
 import inspect
 import os
 import re
 import sys
 
+import numpy as np
+
+from ..audio import SAMPLE_RATE
 from ..cleaning import segments_from_words
+from ..formatting import format_duration
 from ..hardware import openvino_devices
 from ..i18n import t
 
@@ -186,14 +191,76 @@ def words_of(chunks):
     return words
 
 
-def warn_about_vad(vad):
-    """Say, once, that this backend has no voice-activity filter.
+def speech_in(audio, sampling_rate=SAMPLE_RATE):
+    """Where the voice is, as ``[{"start": sample, "end": sample}, ...]``.
 
-    faster-whisper has one and uses it to cut the silences out before the
-    model ever sees them, which is the surest way not to have a phrase
-    invented over one. There is no equivalent here, and silently accepting
-    ``vad=True`` would be a promise this backend cannot keep — so it says so,
-    and points at the backend that can."""
+    Silero's voice-activity detector, borrowed from faster-whisper: the model
+    is an ONNX file inside that package, run by onnxruntime, so this needs no
+    download, no token and no torch — but it does need the package, which is
+    only one of the two backends. ``None`` means this installation cannot
+    look, which is not an error: the recording is transcribed whole, silences
+    and all, exactly as it was before."""
+    try:
+        from faster_whisper.vad import get_speech_timestamps
+    except Exception:
+        return None
+    try:
+        # The audio is already at 16 kHz, which is this function's default,
+        # so it is not passed: older releases did not take it.
+        return get_speech_timestamps(audio) or None
+    except Exception:
+        return None
+
+
+def keep_speech(audio, speech):
+    """The recording with the silences taken out, as one run of samples."""
+    return np.concatenate([audio[part["start"]:part["end"]] for part in speech])
+
+
+def original_clock(speech, sampling_rate=SAMPLE_RATE):
+    """A function putting a time in the trimmed audio back on the real clock.
+
+    The model is handed speech with the silences removed, so every timestamp
+    it reports is short by whatever silence came before it. Subtitles land on
+    the wrong second and diarization matches the wrong speaker unless each one
+    is moved back out — so the gaps are added up and given back here."""
+    ends, shifts, elapsed = [], [], 0.0
+    for part in speech:
+        shifts.append(part["start"] / sampling_rate - elapsed)
+        elapsed += (part["end"] - part["start"]) / sampling_rate
+        ends.append(elapsed)
+
+    def original(seconds):
+        # The end of a run belongs to that run, not to the next: bisect_left,
+        # so a timestamp landing exactly on a boundary is not pushed across
+        # the silence that follows it.
+        where = min(bisect.bisect_left(ends, seconds), len(ends) - 1)
+        return round(seconds + shifts[where], 3)
+
+    return original
+
+
+def restore_times(chunks, speech):
+    """Put the pipeline's timings back on the recording's own clock.
+
+    Done to the chunks, before anything is built out of them, so that the
+    segments, the words inside them and the length of the whole thing are all
+    read off one clock — the recording's."""
+    original = original_clock(speech)
+    for chunk in chunks or []:
+        start, end = chunk.get("timestamp") or (None, None)
+        chunk["timestamp"] = (None if start is None else original(start),
+                              None if end is None else original(end))
+    return chunks
+
+
+def warn_about_vad(vad):
+    """Say, once, that the silences are going to the model as they are.
+
+    The filter is Silero, and it arrives with faster-whisper. When that
+    package is not installed there is nothing here to cut the silence with,
+    and silently accepting ``vad=True`` would be a promise this backend
+    cannot keep — so it says so, and says what to install."""
     if vad:
         print(t("openvino.no_vad"), file=sys.stderr)
 
@@ -208,7 +275,10 @@ def transcribe(audio, model_name, language, device, model_dir, prompt,
     an exported model does not always expose, so a refusal is not fatal: it
     warns and settles for segment timings.
 
-    ``vad`` cannot be honoured here — see :func:`warn_about_vad`.
+    ``vad`` cuts the silences out before the model sees them, with Silero and
+    onnxruntime out of the faster-whisper package — see :func:`speech_in`. The
+    timings come back onto the recording's own clock afterwards, so nothing
+    downstream knows the gaps were ever closed up.
 
     ``progress`` is reported for the setup only. The transcription itself is a
     single call into the pipeline over the whole recording, which hands nothing
@@ -253,7 +323,18 @@ def transcribe(audio, model_name, language, device, model_dir, prompt,
     except Exception as exc:
         print(t("openvino.compile_warning", error=exc))
 
-    warn_about_vad(vad)
+    # The recording as it arrived, because every timestamp the model reports
+    # has to come back to this clock however much is cut out below.
+    audio_seconds = len(audio) / float(SAMPLE_RATE) if len(audio) else 0.0
+
+    speech = speech_in(audio) if vad else None
+    if speech:
+        audio = keep_speech(audio, speech)
+        kept = len(audio) / float(SAMPLE_RATE)
+        print(t("openvino.vad_trimmed", cut=format_duration(audio_seconds - kept),
+                kept=format_duration(kept), whole=format_duration(audio_seconds)))
+    elif vad:
+        warn_about_vad(vad)
 
     prompt_ids = None
     if prompt:
@@ -286,7 +367,7 @@ def transcribe(audio, model_name, language, device, model_dir, prompt,
         # {"raw", "sampling_rate"} and the pipeline attempts no decoding of its
         # own (no torchcodec). The pipeline pops the dict's keys, hence a fresh
         # dict on every call.
-        return pipe({"raw": audio, "sampling_rate": 16000},
+        return pipe({"raw": audio, "sampling_rate": SAMPLE_RATE},
                     return_timestamps=plan["timestamps"],
                     generate_kwargs=generate_kwargs)
 
@@ -306,8 +387,9 @@ def transcribe(audio, model_name, language, device, model_dir, prompt,
 
     report(30, "stage.transcribing")
     print(t("transcribe.running"))
-    audio_seconds = len(audio) / 16000.0 if len(audio) else 0.0
-    long_form = audio_seconds > WINDOW_S
+    # Of what the model is about to see, which is what decides whether there
+    # is more than one window to loop over.
+    long_form = (len(audio) / float(SAMPLE_RATE) if len(audio) else 0.0) > WINDOW_S
     result, ran, failure = None, None, None
     for plan in plans:
         if failure is not None:
@@ -323,6 +405,11 @@ def transcribe(audio, model_name, language, device, model_dir, prompt,
 
     report(100, "stage.laying_out")
     chunks = result.get("chunks") or []
+    if speech:
+        # Before anything is built out of them: the segments, the words inside
+        # them and the length used to close an open last chunk then all read
+        # off the recording's clock rather than the trimmed one.
+        chunks = restore_times(chunks, speech)
     segments = (segments_from_words(words_of(chunks)) if ran == "long_form_words"
                 else segments_of(chunks, audio_seconds or None))
     return segments, (result.get("text") or ""), device

@@ -1,4 +1,6 @@
 """Backend, device and precision selection: pure logic, no engine installed."""
+import os
+
 import pytest
 
 from audio_transcriber import backends, transcription
@@ -116,6 +118,108 @@ def test_openvino_passes_the_request_through_when_it_cannot_enumerate(monkeypatc
     monkeypatch.setattr(ov, "openvino_devices", lambda: [])
     assert ov.resolve_device("auto") == "CPU"
     assert ov.resolve_device("GPU") == "GPU"
+
+
+# --- cutting the silence out before the model sees it ---------------------
+
+def test_the_silences_are_taken_out_in_one_run(monkeypatch):
+    """Whisper invents phrases over silence, and silence it never sees costs
+    nothing to transcribe."""
+    import numpy as np
+
+    audio = np.arange(16000 * 10, dtype=np.float32)      # ten seconds
+    speech = [{"start": 0, "end": 16000}, {"start": 16000 * 8, "end": 16000 * 10}]
+
+    kept = ov.keep_speech(audio, speech)
+
+    assert len(kept) == 16000 * 3                        # one second plus two
+    assert kept[0] == 0 and kept[16000] == 16000 * 8     # and in order
+
+
+def test_a_timestamp_comes_back_to_the_clock_of_the_recording():
+    """The model is handed speech with the gaps closed up, so everything it
+    reports is early by whatever silence came before it. A subtitle on the
+    wrong second is the whole recording out of step."""
+    # Speech at 0-1 s and at 8-10 s: the second run starts seven seconds
+    # later on the real clock than it does on the trimmed one.
+    original = ov.original_clock([{"start": 0, "end": 16000},
+                                  {"start": 16000 * 8, "end": 16000 * 10}])
+
+    assert original(0.0) == 0.0
+    assert original(0.5) == 0.5
+    assert original(1.0) == 1.0          # the end of a run stays in that run
+    assert original(1.5) == 8.5          # the next word, after the silence
+    assert original(3.0) == 10.0
+
+
+def test_the_words_and_the_segments_are_moved_together():
+    """Restoring the chunks rather than the segments built from them is what
+    keeps the words inside a segment on the same clock as the segment."""
+    speech = [{"start": 0, "end": 16000}, {"start": 16000 * 8, "end": 16000 * 10}]
+    chunks = [{"text": "one", "timestamp": (0.0, 1.0)},
+              {"text": "two", "timestamp": (1.2, 2.0)},
+              {"text": "cut off", "timestamp": (2.5, None)}]
+
+    restored = ov.restore_times(chunks, speech)
+
+    assert restored[0]["timestamp"] == (0.0, 1.0)
+    assert restored[1]["timestamp"] == (8.2, 9.0)
+    # An open end is left open: it is closed later, with the length of the
+    # recording, and that length is the real one.
+    assert restored[2]["timestamp"] == (9.5, None)
+
+
+def test_an_installation_without_the_filter_transcribes_the_whole_recording(monkeypatch):
+    """The Silero model arrives with faster-whisper, which is only one of the
+    two backends. Not having it is not an error."""
+    import builtins
+
+    real_import = builtins.__import__
+
+    def refuse(name, *args, **kwargs):
+        if name.startswith("faster_whisper"):
+            raise ImportError("no faster-whisper here")
+        return real_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", refuse)
+    assert ov.speech_in([0.0, 0.0, 0.0]) is None
+
+
+def fake_vad(monkeypatch, answer):
+    """Stand in for faster-whisper's Silero module, which is not installed
+    wherever the tests run."""
+    import sys
+    import types
+
+    package = types.ModuleType("faster_whisper")
+    module = types.ModuleType("faster_whisper.vad")
+    module.get_speech_timestamps = answer
+    package.vad = module
+    monkeypatch.setitem(sys.modules, "faster_whisper", package)
+    monkeypatch.setitem(sys.modules, "faster_whisper.vad", module)
+
+
+def test_a_recording_the_filter_hears_no_speech_in_is_left_alone(monkeypatch):
+    """An empty answer must not become an empty recording: nothing is cut and
+    the model gets what it was given, silences and all."""
+    fake_vad(monkeypatch, lambda audio: [])
+    assert ov.speech_in([1.0, 2.0]) is None
+
+
+def test_a_filter_that_throws_does_not_take_the_transcription_with_it(monkeypatch):
+    """It is a saving, not a requirement: a recording transcribed whole is a
+    worse transcription, not a failed one."""
+    def explode(audio):
+        raise RuntimeError("onnxruntime is not installed")
+
+    fake_vad(monkeypatch, explode)
+    assert ov.speech_in([1.0, 2.0]) is None
+
+
+def test_the_speech_the_filter_found_is_what_comes_back(monkeypatch):
+    found = [{"start": 0, "end": 16000}]
+    fake_vad(monkeypatch, lambda audio: found)
+    assert ov.speech_in([1.0, 2.0]) == found
 
 
 # --- the fixed-window fallback --------------------------------------------
@@ -350,3 +454,111 @@ def test_a_package_that_really_is_missing_says_how_to_install_it(monkeypatch):
 def test_an_error_that_names_nothing_falls_back_to_the_install_message():
     assert "pip install" in backends.import_failure("openvino.missing",
                                                     ImportError("something"))
+
+
+# --- the whole OpenVINO path, with no OpenVINO -----------------------------
+
+def fake_intel_stack(monkeypatch, chunks):
+    """optimum-intel and transformers, as far as this backend touches them.
+
+    Neither is installed wherever the tests run, and neither can be: they
+    bring a runtime and a converted model with them. What is being checked
+    here is this module's own wiring — what it hands the pipeline, and what it
+    makes of what comes back."""
+    import sys
+    import types
+
+    seen = {}
+
+    class Model:
+        @classmethod
+        def from_pretrained(cls, *args, **kwargs):
+            return cls()
+
+        def to(self, device):
+            return self
+
+        def compile(self):
+            pass
+
+        def save_pretrained(self, path):
+            os.makedirs(path, exist_ok=True)
+
+    class Processor:
+        tokenizer = object()
+        feature_extractor = object()
+
+        @classmethod
+        def from_pretrained(cls, *args, **kwargs):
+            return cls()
+
+        def save_pretrained(self, path):
+            os.makedirs(path, exist_ok=True)
+
+    def pipeline(task, **kwargs):
+        seen["built"] = kwargs
+
+        def run(inputs, **call_kwargs):
+            seen["samples"] = len(inputs["raw"])
+            return {"text": "one two", "chunks": chunks}
+
+        return run
+
+    optimum = types.ModuleType("optimum")
+    intel = types.ModuleType("optimum.intel")
+    intel.OVModelForSpeechSeq2Seq = Model
+    optimum.intel = intel
+    transformers = types.ModuleType("transformers")
+    transformers.AutoProcessor = Processor
+    transformers.pipeline = pipeline
+    for name, module in (("optimum", optimum), ("optimum.intel", intel),
+                         ("transformers", transformers)):
+        monkeypatch.setitem(sys.modules, name, module)
+    return seen
+
+
+def test_the_model_never_sees_the_silence_and_the_subtitles_never_know(tmp_path,
+                                                                       monkeypatch):
+    """End to end: the silence is cut before the pipeline is called, and the
+    segments that come back are on the recording's clock, not the trimmed one.
+
+    This is the pair that has to hold together. Cutting without restoring
+    would put every subtitle of a long interview seconds early."""
+    import numpy as np
+
+    monkeypatch.setattr(ov, "openvino_devices", lambda: ["CPU"])
+    # Ten seconds: a second of speech, seven of silence, two more of speech.
+    fake_vad(monkeypatch, lambda audio: [{"start": 0, "end": 16000},
+                                         {"start": 16000 * 8, "end": 16000 * 10}])
+    seen = fake_intel_stack(monkeypatch, [
+        {"text": "one", "timestamp": (0.0, 1.0)},
+        {"text": "two", "timestamp": (1.2, 3.0)},
+    ])
+
+    segments, text, device = ov.transcribe(
+        np.zeros(16000 * 10, dtype=np.float32), "small", "it", "auto",
+        str(tmp_path / "models"), "")
+
+    # Three seconds went to the model, not ten.
+    assert seen["samples"] == 16000 * 3
+    assert text == "one two" and device == "CPU"
+    # And the second segment is back where it was said, after the silence.
+    assert segments[0]["start"] == 0.0 and segments[0]["end"] == 1.0
+    assert segments[1]["start"] == 8.2 and segments[1]["end"] == 10.0
+
+
+def test_the_long_form_loop_is_asked_for_before_fixed_windows(tmp_path, monkeypatch):
+    """Fixed windows are the fallback, and the fallback stitches overlapping
+    text back together - which is where a phrase comes out twice."""
+    import numpy as np
+
+    monkeypatch.setattr(ov, "openvino_devices", lambda: ["CPU"])
+    fake_vad(monkeypatch, lambda audio: None)
+    seen = fake_intel_stack(monkeypatch, [{"text": "one", "timestamp": (0.0, 1.0)}])
+
+    ov.transcribe(np.zeros(16000 * 120, dtype=np.float32), "small", "it", "auto",
+                  str(tmp_path / "models"), "")
+
+    # No windowing on the first attempt: the model does its own.
+    assert "chunk_length_s" not in seen["built"]
+    assert seen["samples"] == 16000 * 120

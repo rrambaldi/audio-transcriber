@@ -35,7 +35,27 @@ All notable changes to this project are documented here. The format follows
   which recorded none of the three, has them filled in when the queue is read
   back rather than staying blank for the rest of its life.
 
+### Added
+
+- **The silence filter works on the OpenVINO backend too.** It used to be
+  faster-whisper's alone, and the OpenVINO run said so and handed Whisper the
+  silences as they were — which is exactly what Whisper invents phrases over.
+  The detector is Silero, shipped inside the faster-whisper package and run by
+  onnxruntime: no download, no token, no torch, so installing both engines is
+  all it takes. The timings come back onto the recording's own clock
+  afterwards, so subtitles and speaker turns land where the words were said.
+  An interview with long pauses is also quicker to transcribe, because the
+  model is never given the pauses.
+
 ### Fixed
+
+- **A fallback to fixed windows now says how to get out of it.** When
+  `optimum-intel` and `transformers` disagree, Whisper's own long-form loop
+  cannot run and the OpenVINO backend drops to thirty-second windows, where
+  overlapping text can come out twice. It said what it had given up but not
+  what to do about it; it now names the cause — a version mismatch, not the
+  recording — prints the `pip install -U` line that settles it, and points at
+  `--backend faster-whisper` for the meantime.
 
 - **transformers lectured the console about an option nobody chose.** When
   the long-form loop is unavailable and the OpenVINO backend falls back to

@@ -48,10 +48,18 @@ silence or two people talking at once, **the overlap comes out twice**. Both
 copies are then cut from the transcript by the cleaning pass, but a passage
 that was doubled and cut is not as good as one that was never doubled: if a
 transcript comes back with sentences said twice, that fallback is what
-happened, and the run says so on stderr. There is no voice-activity filter on
-this backend.
+happened, and the run says so on stderr — with the version mismatch that
+caused it, which `pip install -U "optimum-intel[openvino]" transformers`
+usually settles.
 
-On a machine with no Intel accelerator, prefer faster-whisper for both reasons.
+The voice-activity filter works on this backend too. The Silero model arrives
+inside the faster-whisper package and runs on onnxruntime, so having both
+engines installed — which the `all` extra does — means the OpenVINO path cuts
+the silences as well. Without faster-whisper, it says so and transcribes the
+recording whole.
+
+On a machine with no Intel accelerator, prefer faster-whisper anyway: it runs
+Whisper's loop natively, and quantises to int8.
 
 ## Precision, with faster-whisper
 
@@ -81,10 +89,18 @@ than the recording itself.
 
 ## The VAD filter
 
-faster-whisper runs voice-activity detection before transcribing, which cuts
-silence out of the input. This matters more than it sounds: silence is exactly
-what Whisper hallucinates over, inventing "Thanks for watching" and its
-relatives. It is on by default; `--no-vad` turns it off.
+Voice-activity detection runs before transcribing and cuts the silence out of
+the input. This matters more than it sounds: silence is exactly what Whisper
+hallucinates over, inventing "Thanks for watching" and its relatives. It also
+costs nothing to transcribe silence that the model never sees, which on an
+interview with long pauses is time as well as accuracy. It is on by default;
+`--no-vad` turns it off.
+
+Both backends use the same detector — Silero, shipped inside the faster-whisper
+package and run by onnxruntime: no download, no token, no torch. On the
+OpenVINO path the timings are then moved back onto the recording's own clock,
+so subtitles and speaker turns land where the words were actually said and
+nothing downstream knows the gaps were closed up.
 
 `condition_on_previous_text` is disabled, which prevents the model from getting
 stuck repeating a phrase for minutes at a time.
