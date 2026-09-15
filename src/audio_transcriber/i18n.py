@@ -161,6 +161,19 @@ MESSAGES = {
             "  Accepting the conditions on the model pages is the other half.",
         "diarize.hub_ok": "  OK  {repo}",
         "diarize.hub_denied": "  NO  {repo}\n      {error}",
+        "diarize.hub_offline":
+            "The hub was not contacted at all: {variable} is set, which tells\n"
+            "  huggingface_hub to use nothing but what is already downloaded.\n"
+            "  Unset it for this download - in PowerShell:\n"
+            "      Remove-Item Env:{variable}\n"
+            "  and remove the line from the .env file if it is in one:\n"
+            "      {files}\n"
+            "  Set it again afterwards if you want runs to stay off the network.",
+        "diarize.hub_unreachable":
+            "The hub could not be reached. This one is a network rather than a\n"
+            "  licence: a connection that is down, a proxy that needs configuring,\n"
+            "  or huggingface.co blocked. Nothing about the token has been\n"
+            "  established either way - try again when the connection is back.",
         "diarize.hub_help":
             "The hub refused at least one of those repositories. Both of these have\n"
             "  to be true, and the second is the one that is usually missed:\n"
@@ -968,6 +981,19 @@ MESSAGES = {
             "  L'altra meta' e' accettare le condizioni sulle pagine dei modelli.",
         "diarize.hub_ok": "  OK  {repo}",
         "diarize.hub_denied": "  NO  {repo}\n      {error}",
+        "diarize.hub_offline":
+            "L'hub non e' stato contattato affatto: {variable} e' impostata, e dice\n"
+            "  a huggingface_hub di usare solo quello che e' gia' scaricato.\n"
+            "  Toglila per questo download - in PowerShell:\n"
+            "      Remove-Item Env:{variable}\n"
+            "  e togli la riga dal file .env se sta li' dentro:\n"
+            "      {files}\n"
+            "  Rimettila dopo, se vuoi che le trascrizioni restino senza rete.",
+        "diarize.hub_unreachable":
+            "Non riesco a raggiungere l'hub. Questo e' un problema di rete, non di\n"
+            "  licenza: connessione giu', un proxy da configurare, o huggingface.co\n"
+            "  bloccato. Sul token non si e' stabilito niente, ne' in un senso ne'\n"
+            "  nell'altro: riprova quando la connessione c'e'.",
         "diarize.hub_help":
             "L'hub ha rifiutato almeno uno di quei repository. Devono essere vere\n"
             "  tutte e due queste cose, e la seconda e' quella che sfugge:\n"

@@ -667,3 +667,31 @@ def test_a_repository_that_is_not_a_pipeline_says_so(tmp_path):
         diarization.fetch("pyannote/segmentation-3.0", str(tmp_path / "d"),
                           "hf_x", download)
     assert "config.yaml" in str(stopped.value)
+
+
+# --- refused, or out of reach ---------------------------------------------
+
+def test_offline_mode_is_recognised_wherever_it_was_set(monkeypatch):
+    """It is the thing one turns on to get past a refused file, and then
+    forgets - and afterwards nothing downloads at all."""
+    for name in diarization.OFFLINE_VARIABLES:
+        monkeypatch.delenv(name, raising=False)
+    assert diarization.offline_mode() is None
+
+    monkeypatch.setenv("HF_HUB_OFFLINE", "1")
+    assert diarization.offline_mode() == "HF_HUB_OFFLINE"
+    monkeypatch.setenv("HF_HUB_OFFLINE", "0")
+    assert diarization.offline_mode() is None      # set to off is not set
+
+
+def test_a_hub_out_of_reach_is_not_a_hub_that_refused():
+    """The advice for one is no use for the other."""
+    class LocalEntryNotFoundError(Exception):
+        pass
+
+    assert diarization.looks_unreachable(LocalEntryNotFoundError("no cache"))
+    assert diarization.looks_unreachable(OSError(
+        "An error happened while trying to locate the file on the Hub and we "
+        "cannot find the requested files in the local cache. Please check your "
+        "Internet connection"))
+    assert not diarization.looks_unreachable(RuntimeError("403 Forbidden: gated"))

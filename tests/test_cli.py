@@ -146,6 +146,26 @@ def test_diarize_check_tries_the_token_instead_of_noting_that_it_exists(
     assert "gated repos" in str(stopped.value)     # and which setting it is
 
 
+def test_a_hub_that_cannot_be_reached_is_not_reported_as_a_licence(monkeypatch):
+    """Offline mode is what one sets to get past a refused file; a wall of
+    text about accepting licences is then exactly the wrong page to read."""
+    monkeypatch.setenv("AUDIO_TRANSCRIBER_LANG", "en")
+    monkeypatch.setenv("HF_HUB_OFFLINE", "1")
+
+    help_text = cli.hub_failure_help(OSError(
+        "we cannot find the requested files in the local cache"))
+
+    assert "HF_HUB_OFFLINE" in help_text
+    assert ".env" in help_text                     # where it was probably set
+    assert "gated repos" not in help_text
+
+
+def test_a_refusal_is_still_reported_as_one(monkeypatch):
+    monkeypatch.setenv("AUDIO_TRANSCRIBER_LANG", "en")
+    monkeypatch.delenv("HF_HUB_OFFLINE", raising=False)
+    assert "gated repos" in cli.hub_failure_help(RuntimeError("403 Forbidden"))
+
+
 def test_hardware_reports_the_machine(capsys, monkeypatch):
     from audio_transcriber import backends
 

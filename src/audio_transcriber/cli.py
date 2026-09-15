@@ -730,16 +730,34 @@ def command_diarize(args, settings):
     # this the check said "the token is there" and the token being there was
     # never the question.
     repo = diarization.hub_repo(model)
-    refused = 0
+    refused = []
     for name, error in diarization.hub_check(repo, token):
         if error is None:
             print(t("diarize.hub_ok", repo=name))
         else:
-            refused += 1
+            refused.append(error)
             print(t("diarize.hub_denied", repo=name, error=error))
     if refused:
-        sys.exit(t("diarize.hub_help"))
+        sys.exit(hub_failure_help(refused[0]))
     return 0
+
+
+def hub_failure_help(error):
+    """What to do about a hub that would not hand the models over.
+
+    Two different failures wear one wall of text otherwise: a repository that
+    refuses (a licence, a token) and a hub that cannot be reached at all (no
+    network, a proxy, or offline mode — which is a thing one turns on to get
+    past the first failure and then forgets)."""
+    from . import diarization
+
+    if not diarization.looks_unreachable(error):
+        return t("diarize.hub_help")
+    variable = diarization.offline_mode()
+    if variable:
+        return t("diarize.hub_offline", variable=variable,
+                 files=", ".join(paths.dotenv_candidates()))
+    return t("diarize.hub_unreachable")
 
 
 def command_diarize_fetch(args, settings):
@@ -762,7 +780,7 @@ def command_diarize_fetch(args, settings):
         config, fetched = diarization.fetch(repo, directory, token)
     except diarization.DiarizationError as exc:
         print(str(exc), file=sys.stderr)
-        sys.exit(t("diarize.hub_help"))
+        sys.exit(hub_failure_help(exc.__cause__ or exc))
     for name in fetched:
         print(t("diarize.fetch_got", repo=name))
     print(t("diarize.fetch_done", path=config))

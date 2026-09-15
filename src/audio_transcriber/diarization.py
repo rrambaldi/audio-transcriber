@@ -263,6 +263,39 @@ def write_config(directory, embedding, segmentation, overwrite=False):
     return path
 
 
+#: Variables that tell huggingface_hub not to use the network at all. Worth
+#: naming, because the way past one refused file is to set one of these, and
+#: the next thing anybody does is wonder why nothing downloads any more.
+OFFLINE_VARIABLES = ("HF_HUB_OFFLINE", "TRANSFORMERS_OFFLINE", "HF_DATASETS_OFFLINE")
+
+
+def offline_mode():
+    """The variable that has switched the network off, if one has."""
+    for name in OFFLINE_VARIABLES:
+        value = (os.environ.get(name) or "").strip().lower()
+        if value and value not in ("0", "false", "no", "off"):
+            return name
+    return None
+
+
+def looks_unreachable(error):
+    """Whether the hub was out of reach, rather than shut in our face.
+
+    A refusal is a token or a licence; being unable to reach the hub at all
+    is a network, a proxy, or offline mode — and the advice for one is no use
+    for the other. huggingface_hub says so in the type where it can, and in
+    the text where the type is a plain ``OSError``."""
+    if type(error).__name__ in ("LocalEntryNotFoundError", "OfflineModeIsEnabled",
+                                "ConnectionError", "HfHubOfflineError",
+                                "ReadTimeout", "ConnectTimeout"):
+        return True
+    text = str(error).lower()
+    return any(mark in text for mark in
+               ("internet connection", "cannot find the requested files",
+                "offline mode", "connection error", "max retries",
+                "failed to establish a new connection"))
+
+
 class DiarizationError(Exception):
     """Something that stops the models from being fetched or used."""
 

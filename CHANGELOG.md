@@ -233,6 +233,17 @@ All notable changes to this project are documented here. The format follows
 
 ### Fixed
 
+- **A hub that cannot be reached is no longer reported as a licence
+  problem.** Every failure to get the models printed the same wall of text
+  about accepting conditions and ticking a token scope — including "we cannot
+  find the requested files in the local cache", which is what
+  `HF_HUB_OFFLINE=1` produces. That variable is precisely what somebody sets
+  to work around a refused file, so the message arrived at the worst possible
+  moment and pointed at the wrong thing. The two are now told apart: a
+  refusal still gets the licence and token advice; a hub out of reach says so,
+  and when offline mode is what silenced it, it names the variable, the
+  command to unset it and the `.env` files it may be written in.
+
 - **An engine the machine does not have can no longer be chosen, or
   remembered.** The window offered all of them and remembered the last one in
   `gui.ini`, which outlives an environment: a `faster-whisper` chosen once —
