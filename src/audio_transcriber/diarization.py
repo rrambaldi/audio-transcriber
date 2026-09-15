@@ -96,15 +96,47 @@ def resolve_reference(value, base):
     Tried in the order that keeps an existing setup working: as pyannote
     itself would read it (against the working directory), then beside the
     config, then one level up — which is where a config that names its own
-    folder, ``pyannote-diar/segmentation/...``, expects to be read from."""
+    folder, ``pyannote-diar/segmentation/...``, expects to be read from.
+
+    Then, and only then, the same path with its leading folders dropped one
+    at a time, looked for under the config's own folder. That is for the
+    folder that has been moved or renamed since its config was written —
+    dropped into the managed ``diarization/`` directory, say, while the
+    config still calls it ``pyannote-diar``. The tail has to match exactly,
+    so this finds the file that was meant or nothing at all."""
     if os.path.isabs(value):
         return value if os.path.exists(value) else None
-    for candidate in (value,
-                      os.path.join(base, value),
-                      os.path.join(os.path.dirname(base), value)):
+    parts = value.replace("\\", "/").split("/")
+    candidates = [value,
+                  os.path.join(base, value),
+                  os.path.join(os.path.dirname(base), value)]
+    candidates += [os.path.join(base, *parts[cut:])
+                   for cut in range(1, len(parts))]
+    for candidate in candidates:
         if os.path.exists(candidate):
             return os.path.abspath(candidate)
     return None
+
+
+def weights_near(base, limit=12):
+    """Model files found under ``base``, as written for a person to read.
+
+    What turns "the config references files that do not exist" from a dead
+    end into something to do: the names that *are* there, next to the ones
+    that are not. Two levels deep, because that is how these folders are
+    shaped — one directory per model, the weights inside."""
+    found = []
+    base = os.path.abspath(base)
+    for root, _dirs, files in os.walk(base):
+        depth = root[len(base):].count(os.sep)
+        for name in sorted(files):
+            if name.lower().endswith(_WEIGHT_SUFFIXES):
+                found.append(os.path.relpath(os.path.join(root, name), base))
+                if len(found) >= limit:
+                    return found
+        if depth >= 2:
+            _dirs[:] = []
+    return found
 
 
 def config_references(content):
@@ -173,10 +205,15 @@ def check_diar_assets(model, token):
     except OSError as exc:
         sys.exit(t("diarize.config_unreadable", path=config, error=exc))
 
-    _text, missing = localise(content, os.path.dirname(os.path.abspath(config)))
+    base = os.path.dirname(os.path.abspath(config))
+    _text, missing = localise(content, base)
     if missing:
         listed = "\n".join(f"    - {key}: {value}" for key, value in missing)
-        sys.exit(t("diarize.missing_files", files=listed, path=config))
+        nearby = weights_near(base)
+        found = ("\n".join(f"    - {name}" for name in nearby) if nearby
+                 else t("diarize.nothing_nearby"))
+        sys.exit(t("diarize.missing_files", files=listed, path=config,
+                   folder=base, found=found))
     print(t("diarize.preflight_ok", path=config))
 
 

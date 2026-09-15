@@ -124,7 +124,10 @@ MESSAGES = {
         "diarize.config_unreadable": "Diarization: cannot read the config {path}: {error}",
         "diarize.missing_files":
             "Diarization: the config references local files that do not exist:\n{files}\n"
-            "  Check the paths in {path}",
+            "  Looked for them as written, beside {path}, and one folder up.\n"
+            "  Model files actually in {folder}:\n{found}\n"
+            "  Either correct the paths in the config, or rename the files to match.",
+        "diarize.nothing_nearby": "    (none: the models are not in that folder at all)",
         "diarize.config_settled":
             "  (the paths in {path} are relative: using a copy of it with them resolved,\n"
             "  so the folder is found wherever the program was started from)",
@@ -862,7 +865,10 @@ MESSAGES = {
         "diarize.config_unreadable": "Diarizzazione: impossibile leggere il config {path}: {error}",
         "diarize.missing_files":
             "Diarizzazione: nel config mancano file locali (non trovati):\n{files}\n"
-            "  Controlla i percorsi in {path}",
+            "  Cercati come sono scritti, accanto a {path} e una cartella sopra.\n"
+            "  File di modello che ci sono davvero in {folder}:\n{found}\n"
+            "  O correggi i percorsi nel config, o rinomina i file perche' combacino.",
+        "diarize.nothing_nearby": "    (nessuno: i modelli non sono affatto in quella cartella)",
         "diarize.config_settled":
             "  (i percorsi in {path} sono relativi: uso una copia con i percorsi risolti,\n"
             "  cosi' la cartella si trova da qualunque directory si sia lanciato il programma)",

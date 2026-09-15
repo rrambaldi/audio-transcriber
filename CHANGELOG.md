@@ -234,6 +234,22 @@ All notable changes to this project are documented here. The format follows
   `diarization` line naming the exact file being looked for, which is the
   question — where do these files go? — that neither of them answered.
 
+- **A folder of models that has been moved or renamed is still found, and a
+  file that really is missing is named next to the files that are there.** The
+  paths inside a hand-written `config.yaml` usually start with the folder's own
+  name (`pyannote-diar/segmentation-3.0/pytorch_model.bin`), which stops being
+  true the moment the folder is dropped into the managed `diarization/`
+  directory. Those leading folders are now peeled off one at a time and the
+  rest looked for under the config's own folder, so what identifies the file is
+  its tail; nothing is guessed at, the tail has to match exactly.
+
+  And when a file genuinely is not there, "the config references local files
+  that do not exist" was a dead end. The message now also lists the model files
+  that *are* in that folder — which is usually the whole answer, because the
+  two sets of pyannote weights are named differently (`segmentation-3.0/` in a
+  3.1 setup, `segmentation/` in a community-1 clone) and one config was written
+  for the other set.
+
 - **A refused download says which of the two settings it is about.** A gated
   repository answers `403 Forbidden: Please enable access to public gated
   repositories in your fine-grained token settings`, and then a page of

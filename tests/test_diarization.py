@@ -336,3 +336,59 @@ def test_a_folder_whose_config_points_elsewhere_is_settled(tmp_path, pyannote, m
     handed = diarization.localised_config(str(folder))
     assert handed != str(folder)
     assert str(folder / "segmentation-3.0" / "pytorch_model.bin") in read(handed)
+
+
+# --- a folder that has been moved or renamed ------------------------------
+
+def test_a_folder_renamed_since_its_config_was_written_still_resolves(tmp_path):
+    """Dropped into the managed 'diarization' directory, say, while the
+    config still calls it 'pyannote-diar'. The tail is what identifies the
+    file; the folders in front of it are where it used to live."""
+    folder = tmp_path / "diarization"
+    weights(str(folder), "segmentation-3.0/pytorch_model.bin")
+    found = diarization.resolve_reference(
+        "pyannote-diar/segmentation-3.0/pytorch_model.bin", str(folder))
+    assert found == os.path.abspath(
+        str(folder / "segmentation-3.0" / "pytorch_model.bin"))
+
+
+def test_a_windows_path_in_a_config_read_on_linux_is_still_a_path(tmp_path):
+    folder = tmp_path / "diarization"
+    weights(str(folder), "embedding/pytorch_model.bin")
+    found = diarization.resolve_reference(
+        "pyannote-diar\\embedding\\pytorch_model.bin", str(folder))
+    assert found == os.path.abspath(str(folder / "embedding" / "pytorch_model.bin"))
+
+
+def test_the_tail_has_to_match_and_is_not_guessed_at(tmp_path):
+    """A file that was meant, or nothing: never the nearest thing to hand."""
+    folder = tmp_path / "diarization"
+    weights(str(folder), "segmentation-3.0/pytorch_model.bin")
+    assert diarization.resolve_reference(
+        "pyannote-diar/segmentation-3.0/model.safetensors", str(folder)) is None
+
+
+def test_what_is_missing_is_named_next_to_what_is_there(tmp_path, pyannote):
+    """"The config references files that do not exist" is a dead end on its
+    own: the names that *are* in that folder are the half that says what to
+    do about it."""
+    folder = tmp_path / "diar"
+    weights(str(folder), "segmentation/pytorch_model.bin")
+    config = write_config(str(folder), "elsewhere/embedding.bin",
+                          "elsewhere/segmentation.bin")
+
+    with pytest.raises(SystemExit) as stopped:
+        diarization.check_diar_assets(config, token=None)
+
+    message = str(stopped.value)
+    assert "elsewhere/embedding.bin" in message           # what it asked for
+    assert os.path.join("segmentation", "pytorch_model.bin") in message   # what is there
+
+
+def test_a_folder_with_no_models_in_it_says_that_much(tmp_path, pyannote):
+    folder = tmp_path / "diar"
+    config = write_config(str(folder), "a/b.bin", "c/d.bin")
+
+    with pytest.raises(SystemExit) as stopped:
+        diarization.check_diar_assets(config, token=None)
+    assert "not in that folder at all" in str(stopped.value)
