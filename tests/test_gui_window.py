@@ -590,6 +590,46 @@ def test_a_silent_recording_is_flagged_even_though_it_was_filed(tmp_path, applic
     recorder.deleteLater()
 
 
+def test_the_recorder_can_show_the_file_it_just_made(tmp_path, application, monkeypatch):
+    """A recording is a file, and the first thing wanted of it is often not a
+    transcription: send it to somebody, keep it, play it elsewhere. The window
+    recorded into a folder it never named."""
+    from audio_transcriber.gui import widgets as widgets_module
+
+    shown = []
+
+    def note(path):
+        shown.append(path)
+        return path              # what the real one returns: what it opened
+
+    monkeypatch.setattr(widgets_module, "reveal", note)
+    recorder, _ = make_device_recorder(tmp_path, application)
+
+    # Before anything is recorded: the folder the next one will be written to.
+    recorder.open_folder()
+    assert shown == [str(tmp_path / "uploads")]
+    assert os.path.isdir(shown[0])           # made, not just named
+
+    recorder.start()
+    assert wait_for(lambda: recorder._session.frames > 0)
+    recorder.stop()
+    recorder.open_folder()
+
+    assert shown[-1].endswith(".wav")
+    assert os.path.dirname(shown[-1]) == str(tmp_path / "uploads")
+    recorder.deleteLater()
+
+
+def test_the_folder_button_is_there_without_the_audio_libraries(tmp_path, application):
+    """The plain Qt recorder is what a machine without the extras gets, and
+    the same errand is wanted there."""
+    from audio_transcriber.gui.qt_recorder import QtRecorder
+
+    recorder = QtRecorder(str(tmp_path / "uploads"))
+    assert recorder.folder_button.isEnabled()
+    recorder.deleteLater()
+
+
 def test_the_audio_test_opens_the_device_without_recording(tmp_path, application):
     """"Test audio" answers "is anything arriving" before an hour of meeting
     depends on the answer, and must leave nothing behind."""

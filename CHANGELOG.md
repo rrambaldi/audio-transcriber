@@ -8,6 +8,17 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- **"Open the folder", next to the record button.** A recording is a file
+  before it is a transcription, and the first thing wanted of it is often to
+  keep it, send it, or play it in something else — but the window wrote into a
+  folder it never named. The button shows the recording just made in the
+  system's file manager, with the file *selected* where the platform can do
+  that (Explorer, the Finder), and opens the folder around it everywhere else.
+  Once a recording has been filed by its transcription it lives with its
+  library entry, which the Library tab opens; the button then shows the folder
+  the next recording will be written to. It is on both recorders, including
+  the plain Qt one a machine without the audio extras gets.
+
 - **Four answers to "what do you want out of it?", and who said what is one of
   them.** It was three answers and a tick box: *just the text*, *the text with
   who said what*, *subtitles* — and, down in the subtitle section, a *who said

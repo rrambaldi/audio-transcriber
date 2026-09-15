@@ -158,3 +158,73 @@ def test_the_row_buttons_do_not_steal_the_default(application):
     buttons = widgets.JobActions("abc")
     assert [button.autoDefault() for button in
             (buttons.run, buttons.listen, buttons.drop)] == [False] * 3
+
+
+# --- showing a file where the system shows files ---------------------------
+
+@pytest.fixture
+def file_manager(monkeypatch):
+    """What reveal() asks of the system, without asking the system."""
+    calls = {"commands": [], "urls": []}
+
+    class Desktop:
+        @staticmethod
+        def openUrl(url):
+            calls["urls"].append(url.toLocalFile())
+            return True
+
+    monkeypatch.setattr(widgets, "QDesktopServices", Desktop)
+    monkeypatch.setattr(widgets.subprocess, "run",
+                        lambda command, **kwargs: calls["commands"].append(command))
+    return calls
+
+
+def test_windows_is_asked_to_select_the_file_not_only_its_folder(
+        tmp_path, file_manager, monkeypatch):
+    """A folder of recordings named by date, opened after the tenth one, is
+    a folder you then have to search."""
+    monkeypatch.setattr(widgets.sys, "platform", "win32")
+    recording = tmp_path / "2026-09-15_1010_colloquio.wav"
+    recording.write_bytes(b"RIFF")
+
+    assert widgets.reveal(str(recording)) == str(recording)
+    assert file_manager["commands"] == [["explorer", f"/select,{recording}"]]
+    assert file_manager["urls"] == []
+
+
+def test_macos_reveals_it_in_the_finder(tmp_path, file_manager, monkeypatch):
+    monkeypatch.setattr(widgets.sys, "platform", "darwin")
+    recording = tmp_path / "a.wav"
+    recording.write_bytes(b"RIFF")
+
+    widgets.reveal(str(recording))
+    assert file_manager["commands"] == [["open", "-R", str(recording)]]
+
+
+def test_elsewhere_the_folder_around_it_is_opened(tmp_path, file_manager, monkeypatch):
+    """No portable way to ask for the file to be selected, and a folder that
+    opens is worth more than a feature that does not."""
+    monkeypatch.setattr(widgets.sys, "platform", "linux")
+    recording = tmp_path / "a.wav"
+    recording.write_bytes(b"RIFF")
+
+    assert widgets.reveal(str(recording)) == str(tmp_path)
+    assert file_manager["urls"] == [str(tmp_path)]
+    assert file_manager["commands"] == []
+
+
+def test_a_recording_that_has_moved_on_opens_the_folder_it_was_in(
+        tmp_path, file_manager, monkeypatch):
+    """Which is what a recording does the moment its transcription files it."""
+    monkeypatch.setattr(widgets.sys, "platform", "win32")
+    gone = tmp_path / "filed-elsewhere.wav"
+
+    assert widgets.reveal(str(gone)) == str(tmp_path)
+    assert file_manager["commands"] == []          # nothing to select
+    assert file_manager["urls"] == [str(tmp_path)]
+
+
+def test_nothing_at_all_opens_nothing(tmp_path, file_manager):
+    assert widgets.reveal(str(tmp_path / "no" / "such" / "file.wav")) is None
+    assert widgets.reveal("") is None
+    assert file_manager["urls"] == []

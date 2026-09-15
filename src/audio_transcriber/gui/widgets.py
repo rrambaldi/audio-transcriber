@@ -1,4 +1,4 @@
-"""Two small widgets the window needs and Qt does not have.
+"""Two small widgets the window needs and Qt does not have, and one errand.
 
 Both come out of the same finding: the tab asked everything at once. A
 :class:`Disclosure` puts what is rarely changed away without hiding that it
@@ -9,8 +9,12 @@ instead of in four columns that are empty for most of a job's life.
 They live here rather than in the panel because the library tab wants the
 same two things, and a second copy is how two lists start looking different.
 """
-from PySide6.QtCore import QSize, Qt, Signal
-from PySide6.QtGui import QFont, QFontMetrics, QPalette
+import os
+import subprocess
+import sys
+
+from PySide6.QtCore import QSize, Qt, QUrl, Signal
+from PySide6.QtGui import QDesktopServices, QFont, QFontMetrics, QPalette
 from PySide6.QtWidgets import (
     QApplication,
     QFrame,
@@ -29,6 +33,42 @@ from . import style, theme
 
 #: Where the second line of a queue row is kept.
 DETAILS_ROLE = Qt.ItemDataRole.UserRole + 1
+
+
+def reveal(path):
+    """Show a file in the system's file manager, folder open around it.
+
+    Opening the folder is the part every platform can do; *selecting* the file
+    in it is what makes the difference between "here is a folder of
+    recordings" and "here is the one you just made", and only Windows and
+    macOS have a way to ask for it. Elsewhere — and whenever the file has
+    moved on, which a recording does the moment its transcription files it —
+    the folder alone is the honest answer.
+
+    Returns the path actually opened, or None when there was nothing to open.
+    """
+    if not str(path or "").strip():
+        # abspath("") is the working directory, which is nobody's recording.
+        return None
+    path = os.path.abspath(str(path))
+    folder = path if os.path.isdir(path) else os.path.dirname(path)
+    if os.path.isfile(path):
+        try:
+            if sys.platform == "win32":
+                # Explorer wants this exact spelling: no space after the
+                # comma, and the path is not quoted by us because the list
+                # form of subprocess does not go through a shell.
+                subprocess.run(["explorer", f"/select,{path}"], check=False)
+                return path
+            if sys.platform == "darwin":
+                subprocess.run(["open", "-R", path], check=False)
+                return path
+        except OSError:
+            pass                    # no file manager: the folder still opens
+    if not os.path.isdir(folder):
+        return None
+    QDesktopServices.openUrl(QUrl.fromLocalFile(folder))
+    return folder
 
 
 def separator():

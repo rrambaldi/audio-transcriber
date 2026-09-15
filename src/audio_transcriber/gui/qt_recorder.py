@@ -25,9 +25,10 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from .. import paths
 from ..formatting import format_clock
 from ..i18n import t
-from . import multimedia, options
+from . import multimedia, options, widgets
 
 
 class QtRecorder(QWidget):
@@ -48,6 +49,9 @@ class QtRecorder(QWidget):
         self._audio_input = None
         self._watcher = None
         self._target = None
+        #: The file the last recording of this session went into; see
+        #: :meth:`open_folder`.
+        self._last_path = None
         #: Standing hint, restored whenever a transient message is cleared.
         self._note = ""
 
@@ -66,6 +70,9 @@ class QtRecorder(QWidget):
         self.pause_button = QPushButton(t("gui.rec_pause"))
         self.pause_button.clicked.connect(self.toggle_pause)
         self.pause_button.setEnabled(False)
+        self.folder_button = QPushButton(t("gui.open_folder"))
+        self.folder_button.setToolTip(t("gui.rec_open_folder_tip"))
+        self.folder_button.clicked.connect(self.open_folder)
         self.elapsed = QLabel(format_clock(0))
         self.message = QLabel("")
         self.message.setWordWrap(True)
@@ -219,7 +226,21 @@ class QtRecorder(QWidget):
         path = self._finished_file()
         self._target = None
         if path:
+            self._last_path = path
             self.recorded.emit(path)
+
+    def open_folder(self):
+        """Show the last recording in the file manager, or the folder itself.
+
+        A recording moves into its library entry when the transcription files
+        it, so the file is not always where it was written. Then the folder it
+        was written to is what opens: it is where the *next* one will be."""
+        folder = paths.ensure(self._target_dir)
+        opened = widgets.reveal(self._last_path) if self._last_path else None
+        if opened is None:
+            opened = widgets.reveal(folder)
+        if opened is None:
+            self.message.setText(t("gui.rec_no_folder", path=folder))
 
     def _finished_file(self):
         """The recording Qt actually wrote, once it is worth transcribing.

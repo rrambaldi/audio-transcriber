@@ -523,6 +523,11 @@ MESSAGES = {
             "source before trusting the next one - the file is in the queue anyway.",
         "gui.rec_test": "Test audio",
         "gui.rec_test_stop": "Stop the test",
+        "gui.rec_open_folder_tip":
+            "Show the last recording of this session in the file manager. Once "
+            "it has been transcribed it lives with its library entry, and this "
+            "opens the folder the next one will be written to.",
+        "gui.rec_no_folder": "There is no folder to open yet: {path}",
         "gui.rec_test_tip":
             "Open the chosen source without recording anything: the level bars move, "
             "and after a second and a half this says whether what is arriving behaves "
@@ -1248,6 +1253,11 @@ MESSAGES = {
             "livello e la sorgente prima di fidarti della prossima: il file e' comunque in coda.",
         "gui.rec_test": "Prova audio",
         "gui.rec_test_stop": "Ferma la prova",
+        "gui.rec_open_folder_tip":
+            "Mostra nel gestore file l'ultima registrazione di questa sessione. "
+            "Dopo la trascrizione la registrazione sta con la sua voce di "
+            "libreria, e questo apre la cartella dove finira' la prossima.",
+        "gui.rec_no_folder": "Non c'e' ancora nessuna cartella da aprire: {path}",
         "gui.rec_test_tip":
             "Apre la sorgente scelta senza registrare niente: le barre del livello si "
             "muovono e dopo un secondo e mezzo qui viene detto se quello che arriva si "

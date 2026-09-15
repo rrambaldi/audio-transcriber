@@ -37,10 +37,10 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from .. import recording
+from .. import paths, recording
 from ..formatting import format_clock
 from ..i18n import t
-from . import options
+from . import options, widgets
 from .qt_recorder import QtRecorder
 
 #: How often the elapsed time, the levels and the engine's health are re-read.
@@ -81,6 +81,9 @@ class DeviceRecorder(QWidget):
         self._monitor = None
         self._test_started = 0.0
         self._sources = []
+        #: The file the last recording of this session went into, so the
+        #: folder button can point at it rather than at a folder of dates.
+        self._last_path = None
 
         self.host_apis = QComboBox()
         self.host_apis.setToolTip(t("gui.rec_host_api_tip"))
@@ -108,6 +111,13 @@ class DeviceRecorder(QWidget):
         self.test_button = QPushButton(t("gui.rec_test"))
         self.test_button.setToolTip(t("gui.rec_test_tip"))
         self.test_button.clicked.connect(self.toggle_test)
+        # A recording is a file, and the first thing wanted of a file is
+        # often not a transcription: send it to somebody, keep it, play it in
+        # something else. Until now the window recorded into a folder it
+        # never named.
+        self.folder_button = QPushButton(t("gui.open_folder"))
+        self.folder_button.setToolTip(t("gui.rec_open_folder_tip"))
+        self.folder_button.clicked.connect(self.open_folder)
         self.verdict = QLabel("")
         self.verdict.setWordWrap(True)
         _reserve_two_lines(self.verdict)
@@ -151,6 +161,7 @@ class DeviceRecorder(QWidget):
         buttons.addWidget(self.button)
         buttons.addWidget(self.pause_button)
         buttons.addWidget(self.test_button)
+        buttons.addWidget(self.folder_button)
         buttons.addStretch(1)
         buttons.addWidget(self.elapsed)
         layout.addLayout(buttons)
@@ -349,10 +360,25 @@ class DeviceRecorder(QWidget):
             self.message.setText(session.error)
             self.failed.emit(session.error)
         if path:
+            self._last_path = path
             self.recorded.emit(path)
         elif not session.error:
             self.message.setText(t("gui.rec_empty"))
             self.failed.emit(t("gui.rec_empty"))
+
+    def open_folder(self):
+        """Show the last recording in the file manager, or the folder itself.
+
+        A recording moves into its library entry when the transcription files
+        it, so the file is not always where it was written. Then the folder
+        it was written to is what opens: it is where the *next* one will be,
+        and the library tab is where the filed one lives."""
+        folder = paths.ensure(self._target_dir)
+        opened = widgets.reveal(self._last_path) if self._last_path else None
+        if opened is None:
+            opened = widgets.reveal(folder)
+        if opened is None:
+            self.message.setText(t("gui.rec_no_folder", path=folder))
 
     def toggle_pause(self):
         if not self.recording:

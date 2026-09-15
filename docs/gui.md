@@ -218,6 +218,15 @@ gap, and audio more than half a second ahead is dropped rather than allowed to
 slide further and further behind. For a transcript that is invisible; for
 music it would not be good enough.
 
+**Apri la cartella** — *Open the folder* — shows the recording just made in
+the system's file manager, with the file selected where the platform can do
+that (Explorer and the Finder can; elsewhere the folder opens around it). A
+recording is a file before it is a transcription, and wanting to keep it, send
+it or play it somewhere else is the ordinary case; until now the window wrote
+into a folder it never named. Once a recording has been transcribed it lives
+with its library entry — the *Library* tab opens that one — and this button
+then opens the folder the next recording will be written to.
+
 **Test audio** opens the chosen source without recording anything: the meters
 move, and after a second and a half the window says whether what is arriving
 behaves like somebody talking. It stops itself after thirty seconds, because it
