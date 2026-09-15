@@ -166,6 +166,28 @@ All notable changes to this project are documented here. The format follows
 
 ### Fixed
 
+- **A mixed recording kept only a tenth of its second source.** "Together
+  with" — a microphone plus the loopback of the speakers, which is the only
+  way to record both halves of a call — read the second device once per block
+  of the first, asking for "whatever has arrived since". Both audio libraries
+  answer that question with a *single packet*, and on Windows a packet is the
+  device period: ten milliseconds out of every hundred. The rest never reached
+  the file, and the driver said so on the console, hundreds of times, as
+  `SoundcardRuntimeWarning: data discontinuity in recording`. The far end of a
+  meeting came out chopped.
+
+  Each source now has a reader thread of its own and is drained continuously,
+  so the mix is both halves in full. What arrives while the mixing loop is
+  elsewhere is held (capped at thirty seconds, oldest first, so a paused
+  recording cannot grow it without end), and a second device that dies no
+  longer ends the recording: the microphone keeps writing and the reason is
+  kept for afterwards.
+
+  The platform's own API is also asked to hold **half a second** instead of
+  the one device period it holds by default, so a thread that is momentarily
+  late — a garbage collection, a transcription running on the same two cores —
+  loses nothing. The warning now means what it says, and is rare.
+
 - **A local pyannote folder is found wherever the program was started from,
   and a repo id asked for by name is the one loaded.** Three things stood
   between a hand-downloaded set of diarization models and being used.

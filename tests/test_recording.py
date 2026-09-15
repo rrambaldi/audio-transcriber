@@ -129,6 +129,36 @@ def test_macos_is_offered_no_loopback_at_all(monkeypatch):
     assert module.asked == []          # not even asked, so no warning is raised
 
 
+def test_the_platform_api_is_asked_to_hold_half_a_second(monkeypatch):
+    """Left to itself it holds one device period — ten milliseconds on
+    Windows — and the moment a thread is late the rest is thrown away, which
+    is what "data discontinuity in recording" on the console means."""
+    class Recorder:
+        def __enter__(self):
+            return self
+
+    class Microphone(FakeMicrophone):
+        def __init__(self):
+            super().__init__("Speakers", True)
+            self.asked = None
+
+        def recorder(self, **kwargs):
+            self.asked = kwargs
+            return Recorder()
+
+    microphone = Microphone()
+
+    class Module(FakeSoundcard):
+        def get_microphone(self, handle, include_loopback=False):
+            return microphone
+
+    engine = recording.SystemEngine(module=Module([microphone]))
+    engine.open(source(kind=recording.LOOPBACK, engine=recording.SYSTEM), 2, 48000)
+
+    assert microphone.asked["blocksize"] == int(48000 * recording.SYSTEM_BUFFER_SECONDS)
+    assert recording.SYSTEM_BUFFER_SECONDS >= 0.2     # a stalled thread survives it
+
+
 def test_the_loopback_group_is_named_after_the_platform():
     """"Windows WASAPI" on a Linux box would be a group that does not exist -
     and on Windows the name matches PortAudio's, so the loopbacks join that
@@ -435,7 +465,7 @@ def test_the_two_sources_of_a_mix_are_both_opened_at_the_primarys_rate(tmp_path)
     portaudio = FakeEngine(recording.PORTAUDIO, [mic],
                            stream=FakeStream([np.full((10, 1), 0.25, dtype=np.float32)]))
     wasapi = FakeEngine(recording.SYSTEM, [speakers],
-                        stream=FakeStream(ready=[np.full((10, 2), 0.25, dtype=np.float32)]))
+                        stream=FakeStream(fill=0.25, channels=2))
     session = recording.Recording(str(tmp_path / "mix.wav"), mic, mix_with=speakers,
                                   backends=(portaudio, wasapi), block_seconds=10 / 44100)
     session.start()
@@ -447,6 +477,77 @@ def test_the_two_sources_of_a_mix_are_both_opened_at_the_primarys_rate(tmp_path)
     assert read_wav(tmp_path / "mix.wav")["samples"][0] == int(0.5 * 32767)
 
 
+def test_the_second_source_is_recorded_whole_and_not_sampled(tmp_path):
+    """The one that made a meeting's far end unusable.
+
+    The second source used to be read once per block of the first — whatever
+    had arrived since. Both libraries answer that with a single packet, ten
+    milliseconds of a hundred on Windows, so nine tenths of the other side of
+    the call was dropped by the driver (and said so, on the console, as "data
+    discontinuity in recording"). Both halves must be all the way through the
+    file, not just at the start of every block."""
+    mic = source(samplerate=1000)
+    speakers = source(key="wasapi:loopback:S", kind=recording.LOOPBACK,
+                      engine=recording.SYSTEM, channels=2, samplerate=1000)
+    session = recording.Recording(
+        str(tmp_path / "mix.wav"), mic, mix_with=speakers,
+        backends=(FakeEngine(recording.PORTAUDIO, [mic],
+                             stream=FakeStream(fill=0.25, pace=0.02)),
+                  FakeEngine(recording.SYSTEM, [speakers],
+                             stream=FakeStream(fill=0.25, channels=2, pace=0.002))),
+        block_seconds=0.1)
+    session.start()
+    wait_until(lambda: session.frames >= 300)
+    path = session.stop()
+
+    samples = read_wav(path)["samples"]
+    both = int(0.5 * 32767)
+    # Every sample carries both sources, give or take the first block, where
+    # the second device has not delivered anything yet.
+    assert samples[-1] == pytest.approx(both, abs=2)
+    mixed = sum(1 for value in samples[100:] if abs(value - both) <= 2)
+    assert mixed > 0.9 * len(samples[100:])
+
+
+def test_the_second_source_does_not_pile_up_while_nobody_takes_it(tmp_path):
+    """A paused recording, or a stalled disk: the queue is capped, and what
+    goes is the oldest, so what is kept is what just happened."""
+    stream = FakeStream(fill=0.25, pace=0.001)
+    pump = recording._Pump(stream, block=100, samplerate=1000,
+                           capacity_seconds=0.5)
+    pump.start()
+    try:
+        wait_until(lambda: pump._held >= 500)
+        time.sleep(0.2)                      # and it keeps reading, past the cap
+        held = pump.take()
+    finally:
+        pump.stop()
+    assert held is not None
+    assert len(held) <= 600                  # the cap, plus the block in hand
+
+
+def test_a_second_source_that_dies_does_not_take_the_recording_with_it(tmp_path):
+    """Half a call recorded beats a recording that ends when a device does."""
+    class Dying(FakeStream):
+        def read(self, frames):
+            raise OSError("the loopback went away")
+
+    mic = source(samplerate=1000)
+    speakers = source(key="wasapi:loopback:S", kind=recording.LOOPBACK,
+                      engine=recording.SYSTEM, channels=2, samplerate=1000)
+    session = recording.Recording(
+        str(tmp_path / "mix.wav"), mic, mix_with=speakers,
+        backends=(FakeEngine(recording.PORTAUDIO, [mic], stream=FakeStream(fill=0.25)),
+                  FakeEngine(recording.SYSTEM, [speakers], stream=Dying())),
+        block_seconds=0.05)
+    session.start()
+    wait_until(lambda: session.frames >= 100)
+    path = session.stop()
+
+    assert path is not None                  # the microphone was recorded
+    assert "went away" in session.error      # and the reason is not swallowed
+
+
 def test_the_levels_are_measured_per_source(tmp_path):
     """One level per source, not one for the mix: a loopback that gives
     nothing has to be visible next to a microphone that works."""
@@ -454,7 +555,7 @@ def test_the_levels_are_measured_per_source(tmp_path):
     speakers = source(key="wasapi:loopback:S", kind=recording.LOOPBACK,
                       engine=recording.SYSTEM, channels=2, samplerate=1000)
     loud = FakeStream(fill=0.5)
-    quiet = FakeStream(ready=[np.zeros((100, 2), dtype=np.float32)] * 50)
+    quiet = FakeStream(fill=0.0, channels=2)
     session = recording.Recording(
         str(tmp_path / "a.wav"), mic, mix_with=speakers,
         backends=(FakeEngine(recording.PORTAUDIO, [mic], stream=loud),

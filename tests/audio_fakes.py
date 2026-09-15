@@ -18,21 +18,18 @@ class FakeStream:
     loop into a busy wait that writes hundreds of megabytes of WAV before the
     test gets around to stopping it."""
 
-    def __init__(self, blocks=None, ready=None, pace=0.005, fill=0.25):
+    def __init__(self, blocks=None, pace=0.005, fill=0.25, channels=1):
         self.blocks = list(blocks or [])
-        self.ready = list(ready or [])
         self.closed = False
         self._pace = pace
         self._fill = fill
+        self._channels = channels
 
     def read(self, frames):
         time.sleep(self._pace)
         if self.blocks:
             return self.blocks.pop(0)
-        return np.full((frames, 1), self._fill, dtype=np.float32)
-
-    def read_ready(self):
-        return self.ready.pop(0) if self.ready else None
+        return np.full((frames, self._channels), self._fill, dtype=np.float32)
 
     def close(self):
         self.closed = True
@@ -67,9 +64,14 @@ def audio_source(key="portaudio:0:Mic", host_api="MME", kind=recording.INPUT,
                             samplerate=samplerate, engine=engine, handle=0)
 
 
-def two_engines(inputs=(), loopbacks=(), stream=None, available=True):
-    """The pair of engines :mod:`audio_transcriber.recording` expects."""
+def two_engines(inputs=(), loopbacks=(), stream=None, available=True,
+                system_stream=None):
+    """The pair of engines :mod:`audio_transcriber.recording` expects.
+
+    ``system_stream`` gives the loopback engine a stream of its own, which is
+    how a test says "this device delivers nothing" while the microphone
+    works — the one case two level meters exist for."""
     return (FakeEngine(recording.PORTAUDIO, inputs, stream=stream,
                        available=available),
-            FakeEngine(recording.SYSTEM, loopbacks, stream=stream,
-                       available=available))
+            FakeEngine(recording.SYSTEM, loopbacks,
+                       stream=system_stream or stream, available=available))

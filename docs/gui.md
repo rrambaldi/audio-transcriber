@@ -200,9 +200,20 @@ your voice and everyone else's. Without it a loopback recording has the others
 and not you, and a microphone recording has you and, if you are lucky and
 wearing no headphones, a thin echo of the others.
 
+Each source is read by a thread of its own. That is not an implementation
+detail: a device left undrained for as long as one block throws away what its
+buffer could not hold, and Windows says so as
+`SoundcardRuntimeWarning: data discontinuity in recording` on the console —
+which used to mean nine tenths of the far end of a call was missing. The
+platform's own API is also asked to hold half a second, rather than the ten
+milliseconds it holds by default, so a stalled thread — a garbage collection, a
+transcription running at the same time on the same two cores — costs nothing.
+If that warning still appears, it is real: audio was dropped, and the machine
+was too busy at that moment to take it.
+
 The mix is honest about its one limitation. Two sound cards run on independent
 clocks and drift apart over an hour, so the first source sets the pace and the
-second is held alongside it: whatever it has arrived is used, silence fills a
+second is held alongside it: whatever has arrived is used, silence fills a
 gap, and audio more than half a second ahead is dropped rather than allowed to
 slide further and further behind. For a transcript that is invisible; for
 music it would not be good enough.

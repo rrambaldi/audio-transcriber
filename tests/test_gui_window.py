@@ -461,7 +461,7 @@ def test_without_qtmultimedia_the_player_says_why_on_the_page(
 
 def make_device_recorder(tmp_path, application, store=None):
     """The Audacity-style recorder, driven by devices that do not exist."""
-    from audio_fakes import audio_source, two_engines
+    from audio_fakes import FakeStream, audio_source, two_engines
     from audio_transcriber.gui.recorder import DeviceRecorder, make_recorder
     from audio_transcriber.recording import LOOPBACK, SYSTEM
 
@@ -473,7 +473,10 @@ def make_device_recorder(tmp_path, application, store=None):
     loopbacks = [audio_source(key="wasapi:loopback:Speakers",
                               host_api="Windows WASAPI", kind=LOOPBACK,
                               engine=SYSTEM, channels=2, label="Altoparlanti")]
-    backends = two_engines(inputs, loopbacks)
+    # The loopback delivers silence: a device that gives nothing next to a
+    # microphone that works is what the second meter is for.
+    backends = two_engines(inputs, loopbacks,
+                           system_stream=FakeStream(fill=0.0, channels=2))
     recorder = make_recorder(str(tmp_path / "uploads"), store=store,
                              backends=backends)
     assert isinstance(recorder, DeviceRecorder)

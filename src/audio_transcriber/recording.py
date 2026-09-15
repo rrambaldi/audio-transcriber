@@ -70,6 +70,20 @@ BLOCK_SECONDS = 0.1
 #: so is more use than filing it and finding out after the transcription.
 SILENCE_PEAK = 0.001
 
+#: How much audio the platform's own API is asked to hold for us. Left to
+#: itself it holds one device period — about ten milliseconds on Windows —
+#: which overflows the moment a thread is a little late, and what did not fit
+#: is gone: that is what "data discontinuity in recording" on the console
+#: means. Half a second survives a stalled thread, a garbage collection or a
+#: transcription hogging the cores, and costs half a second of memory.
+SYSTEM_BUFFER_SECONDS = 0.5
+
+#: How much of the second source is held while the mixing loop is elsewhere.
+#: Only a paused recording or a stalled disk ever gets near it; past it the
+#: oldest audio goes, because a buffer nobody drains is a memory leak with
+#: better manners.
+PUMP_CAPACITY_SECONDS = 30.0
+
 #: How far the second source of a mix may run ahead before frames are dropped.
 #: Two devices have two clocks: over an hour they drift, and something has to
 #: give. Dropping keeps the mix aligned with the primary source — the one whose
@@ -180,14 +194,6 @@ class _PortAudioStream:
         data, _overflowed = self._stream.read(frames)
         return np.asarray(data, dtype=np.float32)
 
-    def read_ready(self):
-        """Whatever is already there; never blocks."""
-        available = self._stream.read_available
-        if available < 1:
-            return None
-        data, _overflowed = self._stream.read(available)
-        return np.asarray(data, dtype=np.float32)
-
     def close(self):
         try:
             self._stream.stop()
@@ -253,7 +259,9 @@ class SystemEngine:
 
     def open(self, source, channels, samplerate):
         microphone = self.module.get_microphone(source.handle, include_loopback=True)
-        recorder = microphone.recorder(samplerate=samplerate, channels=channels)
+        recorder = microphone.recorder(
+            samplerate=samplerate, channels=channels,
+            blocksize=int(samplerate * SYSTEM_BUFFER_SECONDS))
         recorder.__enter__()
         return _SystemStream(recorder)
 
@@ -266,10 +274,6 @@ class _SystemStream:
 
     def read(self, frames):
         return np.asarray(self._recorder.record(numframes=frames), dtype=np.float32)
-
-    def read_ready(self):
-        data = np.asarray(self._recorder.record(numframes=None), dtype=np.float32)
-        return data if len(data) else None
 
     def close(self):
         self._recorder.__exit__(None, None, None)
@@ -542,6 +546,66 @@ class SpeechProbe:
 # capturing: recording to a file, or only listening
 # --------------------------------------------------------------------------
 
+class _Pump:
+    """A stream read continuously, in a thread of its own.
+
+    The second source of a mix used to be read once per block of the first —
+    "whatever has arrived since". Both libraries answer that question with
+    one packet, and on Windows a packet is the device period: ten
+    milliseconds, once every hundred. Nine tenths of the far end of a call
+    went missing that way, and the audio the driver's buffer could not hold
+    came back as "data discontinuity in recording" on the console. Read here
+    without waiting for anybody, it arrives whole.
+
+    What has arrived is kept until the mixing loop takes it, up to
+    :data:`PUMP_CAPACITY_SECONDS`, after which the oldest goes: a consumer
+    that has stopped taking — a paused recording, a stalled disk — must not
+    grow this without end."""
+
+    def __init__(self, stream, block, samplerate,
+                 capacity_seconds=PUMP_CAPACITY_SECONDS):
+        self._stream = stream
+        self._block = block
+        self._capacity = max(block, int(samplerate * capacity_seconds))
+        self._chunks = []
+        self._held = 0
+        self._lock = threading.Lock()
+        self._stop = threading.Event()
+        self._thread = threading.Thread(target=self._run, name="capture-second",
+                                        daemon=True)
+        #: Why it stopped, if it did. The primary carries on without it: half
+        #: a call recorded beats a recording that ends when a device does.
+        self.error = None
+
+    def start(self):
+        self._thread.start()
+        return self
+
+    def stop(self, timeout=2.0):
+        self._stop.set()
+        self._thread.join(timeout)
+
+    def take(self):
+        """Everything that has arrived since the last call, as one block."""
+        with self._lock:
+            chunks, self._chunks, self._held = self._chunks, [], 0
+        if not chunks:
+            return None
+        return np.concatenate(chunks) if len(chunks) > 1 else chunks[0]
+
+    def _run(self):
+        try:
+            while not self._stop.is_set():
+                block = to_mono(self._stream.read(self._block))
+                with self._lock:
+                    self._chunks.append(block)
+                    self._held += len(block)
+                    while self._held > self._capacity and len(self._chunks) > 1:
+                        self._held -= len(self._chunks.pop(0))
+        except Exception as exc:       # noqa: BLE001 - reported, not raised
+            self.error = str(exc) or exc.__class__.__name__
+
+
 class _Capture:
     """Devices held open and read in a worker thread.
 
@@ -563,6 +627,7 @@ class _Capture:
         self._backends = backends
         self._block = max(1, int(self.samplerate * block_seconds))
         self._streams = []
+        self._pump = None
         self._residual = np.zeros(0, dtype=np.float32)
         self._thread = None
         self._stop = threading.Event()
@@ -635,9 +700,18 @@ class _Capture:
             second = self._engine_for(self.mix_with).open(
                 self.mix_with, self.mix_with.channels, self.samplerate)
             self._streams.append(second)
+            # Read on its own thread, because the primary's read blocks for a
+            # whole block at a time and a device left undrained for that long
+            # throws away what it could not hold.
+            self._pump = _Pump(second, self._block, self.samplerate).start()
         self._prepare()
 
     def _close(self):
+        if self._pump is not None:
+            # Stopped before the stream it is reading is closed: a device
+            # taken away under a blocking read is how a library crashes.
+            self._pump.stop()
+            self._pump = None
         while self._streams:
             stream = self._streams.pop()
             try:
@@ -654,7 +728,7 @@ class _Capture:
         Any failure ends the capture with a message rather than a traceback
         nobody sees."""
         primary = self._streams[0]
-        secondary = self._streams[1] if len(self._streams) > 1 else None
+        secondary = self._pump
         try:
             while not self._stop.is_set():
                 block = to_mono(primary.read(self._block))
@@ -675,7 +749,7 @@ class _Capture:
         except Exception as exc:       # noqa: BLE001 - reported, not raised
             self.error = str(exc) or exc.__class__.__name__
 
-    def _from_secondary(self, stream, frames):
+    def _from_secondary(self, pump, frames):
         """The next ``frames`` of the second source, at the primary's rate.
 
         The second source is a queue, not a snapshot: whatever has arrived is
@@ -684,9 +758,13 @@ class _Capture:
         :data:`MAX_LAG_SECONDS` — two sound cards drifting, or a pause that
         let it fill — is the oldest audio dropped, which is the one way to
         catch up without letting the offset grow all afternoon."""
-        arrived = stream.read_ready()
+        if pump.error and self.error is None:
+            # It stopped; the primary carries on, and the reason is kept for
+            # whoever asks afterwards rather than ending the recording.
+            self.error = pump.error
+        arrived = pump.take()
         if arrived is not None and len(arrived):
-            self._residual = np.concatenate([self._residual, to_mono(arrived)])
+            self._residual = np.concatenate([self._residual, arrived])
         cap = int(self.samplerate * MAX_LAG_SECONDS) + frames
         if len(self._residual) > cap:
             self._residual = self._residual[-cap:]
