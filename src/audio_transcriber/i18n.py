@@ -127,9 +127,11 @@ MESSAGES = {
         "diarize.local_config_missing":
             "  Pre-flight: local config not found ({path}); the HF repo would be used instead.",
         "diarize.no_config_no_token":
-            "Diarization: neither a local config nor a Hugging Face token was found.\n"
-            "  Provide offline model files (pyannote-diar/config.yaml) or set HF_TOKEN\n"
-            "  with the 'Read access to public gated repos' permission.",
+            "Diarization: neither local models nor a Hugging Face token was found.\n"
+            "  Fetch them once with 'audio-transcriber diarize fetch', or set\n"
+            "  HUGGINGFACE_TOKEN - and give that token read access to the pyannote\n"
+            "  repositories by name, which a fine-grained one does not have by\n"
+            "  default. See 'audio-transcriber diarize check'.",
         "diarize.online_ok":
             "  Pre-flight: no local files in use; the HF repo {model} will be "
             "downloaded, token present.",
@@ -158,7 +160,9 @@ MESSAGES = {
         "diarize.fetch_no_token":
             "Downloading the models needs a Hugging Face token: pass --hf-token,\n"
             "  or set HUGGINGFACE_TOKEN in the environment or in a .env file.\n"
-            "  Accepting the conditions on the model pages is the other half.",
+            "  The other half is the token's own permissions: accept the conditions\n"
+            "  on each model page, then edit the token and give it read access to\n"
+            "  those pyannote repositories by name. Without that it is refused.",
         "diarize.hub_ok": "  OK  {repo}",
         "diarize.hub_denied": "  NO  {repo}\n      {error}",
         "diarize.hub_offline":
@@ -175,13 +179,20 @@ MESSAGES = {
             "  or huggingface.co blocked. Nothing about the token has been\n"
             "  established either way - try again when the connection is back.",
         "diarize.hub_help":
-            "The hub refused at least one of those repositories. Both of these have\n"
-            "  to be true, and the second is the one that is usually missed:\n"
-            "  - the conditions are accepted, with this account, on the page of\n"
-            "    every repository listed above (each is accepted separately);\n"
-            "  - the token may read gated repositories: a fine-grained token needs\n"
-            "    'Read access to the contents of all public gated repos you can\n"
-            "    access' ticked, a classic 'Read' token has it already.\n"
+            "The hub refused at least one of those repositories. Three things have\n"
+            "  to be true, and it is the token that is usually short of two of them:\n"
+            "  1. the conditions are accepted, with this account, on the page of\n"
+            "     every repository listed above - each is accepted separately;\n"
+            "  2. EDIT THE TOKEN at huggingface.co/settings/tokens and name those\n"
+            "     repositories in it: under 'Repository permissions', add each\n"
+            "     pyannote repository above and give it read access. A token that\n"
+            "     does not name them is refused even when everything else is right,\n"
+            "     and the refusal says nothing about which repository it wanted;\n"
+            "  3. in the same token, tick 'Read access to the contents of all\n"
+            "     public gated repos you can access'. Without it the hub hands out\n"
+            "     the model card and refuses the files, which looks like a bug.\n"
+            "  A classic 'Read' token is the short way round 2 and 3; the\n"
+            "  conditions still have to be accepted.\n"
             "  The token is read from HUGGINGFACE_TOKEN or HF_TOKEN, in the\n"
             "  environment or in a .env file; 'audio-transcriber paths' says where\n"
             "  that file is looked for.",
@@ -221,12 +232,17 @@ MESSAGES = {
         "diarize.config_fallback":
             "  (local config not found: {path} --> using the HF repo {fallback})",
         "diarize.token_required":
-            "--diarize needs a Hugging Face token (or a local config.yaml via --diar-model).\n"
+            "--diarize needs a Hugging Face token (or local models via --diar-model).\n"
             "  - Pass --hf-token TOKEN or set HUGGINGFACE_TOKEN.\n"
-            "  - The token needs the 'Read access to public gated repos' permission.\n"
-            "  - Accept the terms on huggingface.co for these models:\n"
+            "  - Accept the terms on huggingface.co for these models, one by one:\n"
             "      pyannote/speaker-diarization-3.1, pyannote/segmentation-3.0,\n"
-            "      pyannote/wespeaker-voxceleb-resnet34-LM",
+            "      pyannote/wespeaker-voxceleb-resnet34-LM\n"
+            "  - Then EDIT THE TOKEN and name those repositories in it, under\n"
+            "    'Repository permissions', with read access - a fine-grained token\n"
+            "    that does not name them is refused - and tick 'Read access to the\n"
+            "    contents of all public gated repos you can access'.\n"
+            "  - A classic 'Read' token needs neither of those two steps.\n"
+            "  'audio-transcriber diarize check' says whether it really works.",
         "diarize.loading": "Loading the pyannote diarization pipeline (CPU) from: {model}",
         "diarize.not_initialised":
             "Diarization was not initialised: invalid token, or the model terms were not accepted.",
@@ -947,9 +963,11 @@ MESSAGES = {
         "diarize.local_config_missing":
             "  Pre-flight: config locale non trovato ({path}); userei il repo HF.",
         "diarize.no_config_no_token":
-            "Diarizzazione: manca sia un config locale sia un token Hugging Face.\n"
-            "  Metti i file offline (pyannote-diar/config.yaml) oppure imposta HF_TOKEN\n"
-            "  con il permesso 'Read access to public gated repos'.",
+            "Diarizzazione: mancano sia i modelli locali sia un token Hugging Face.\n"
+            "  Scaricali una volta con 'audio-transcriber diarize fetch', oppure\n"
+            "  imposta HUGGINGFACE_TOKEN - e dai a quel token l'accesso in lettura ai\n"
+            "  repository pyannote nominandoli, cosa che un token fine-grained non ha\n"
+            "  per default. Vedi 'audio-transcriber diarize check'.",
         "diarize.online_ok":
             "  Pre-flight: nessun file locale in uso; scarichero' il repo HF {model}, "
             "token presente.",
@@ -978,7 +996,9 @@ MESSAGES = {
         "diarize.fetch_no_token":
             "Per scaricare i modelli serve un token Hugging Face: passa --hf-token,\n"
             "  o imposta HUGGINGFACE_TOKEN nell'ambiente o in un file .env.\n"
-            "  L'altra meta' e' accettare le condizioni sulle pagine dei modelli.",
+            "  L'altra meta' sono i permessi del token: accetta le condizioni su ogni\n"
+            "  pagina dei modelli, poi modifica il token e dagli accesso in lettura a\n"
+            "  quei repository pyannote nominandoli. Senza, viene rifiutato.",
         "diarize.hub_ok": "  OK  {repo}",
         "diarize.hub_denied": "  NO  {repo}\n      {error}",
         "diarize.hub_offline":
@@ -996,12 +1016,19 @@ MESSAGES = {
             "  nell'altro: riprova quando la connessione c'e'.",
         "diarize.hub_help":
             "L'hub ha rifiutato almeno uno di quei repository. Devono essere vere\n"
-            "  tutte e due queste cose, e la seconda e' quella che sfugge:\n"
-            "  - le condizioni sono accettate, con questo account, sulla pagina di\n"
-            "    ogni repository elencato sopra (si accettano uno per uno);\n"
-            "  - il token puo' leggere i repository gated: a un token fine-grained\n"
-            "    serve la spunta 'Read access to the contents of all public gated\n"
-            "    repos you can access', un token classico 'Read' ce l'ha gia'.\n"
+            "  tre cose, e di solito e' il token a mancarne due:\n"
+            "  1. le condizioni sono accettate, con questo account, sulla pagina di\n"
+            "     ogni repository elencato sopra - si accettano uno per uno;\n"
+            "  2. MODIFICA IL TOKEN su huggingface.co/settings/tokens e nominaci\n"
+            "     dentro quei repository: sotto 'Repository permissions' aggiungi\n"
+            "     ogni repository pyannote qui sopra e dagli accesso in lettura. Un\n"
+            "     token che non li nomina viene rifiutato anche se tutto il resto e'\n"
+            "     a posto, e il rifiuto non dice quale repository voleva;\n"
+            "  3. nello stesso token, spunta 'Read access to the contents of all\n"
+            "     public gated repos you can access'. Senza, l'hub ti da' la scheda\n"
+            "     del modello e ti nega i file, che sembra un bug.\n"
+            "  Un token classico 'Read' e' la scorciatoia per il 2 e il 3; le\n"
+            "  condizioni vanno accettate comunque.\n"
             "  Il token si legge da HUGGINGFACE_TOKEN o HF_TOKEN, nell'ambiente o in\n"
             "  un file .env; 'audio-transcriber paths' dice dove viene cercato.",
         "diarize.init_written":
@@ -1040,12 +1067,17 @@ MESSAGES = {
         "diarize.config_fallback":
             "  (config locale non trovato: {path} --> uso il repo HF {fallback})",
         "diarize.token_required":
-            "Per --diarize serve un token Hugging Face (o un config.yaml locale via --diar-model).\n"
+            "Per --diarize serve un token Hugging Face (o i modelli in locale con --diar-model).\n"
             "  - Passa --hf-token TOKEN oppure imposta HUGGINGFACE_TOKEN.\n"
-            "  - Il token deve avere il permesso 'Read access to public gated repos'.\n"
-            "  - Accetta le condizioni su huggingface.co dei modelli:\n"
+            "  - Accetta le condizioni su huggingface.co dei modelli, uno per uno:\n"
             "      pyannote/speaker-diarization-3.1, pyannote/segmentation-3.0,\n"
-            "      pyannote/wespeaker-voxceleb-resnet34-LM",
+            "      pyannote/wespeaker-voxceleb-resnet34-LM\n"
+            "  - Poi MODIFICA IL TOKEN e nominaci dentro quei repository, sotto\n"
+            "    'Repository permissions', con accesso in lettura - un token\n"
+            "    fine-grained che non li nomina viene rifiutato - e spunta 'Read\n"
+            "    access to the contents of all public gated repos you can access'.\n"
+            "  - Un token classico 'Read' non ha bisogno di questi due passi.\n"
+            "  'audio-transcriber diarize check' dice se funziona davvero.",
         "diarize.loading": "Carico la pipeline di diarizzazione pyannote (CPU) da: {model}",
         "diarize.not_initialised":
             "Diarizzazione non inizializzata: token non valido o condizioni dei modelli non accettate.",

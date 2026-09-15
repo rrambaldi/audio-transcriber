@@ -233,6 +233,17 @@ All notable changes to this project are documented here. The format follows
 
 ### Fixed
 
+- **The token advice now says the step that actually unblocks it.** Every
+  message about a refused download talked about accepting the conditions and
+  ticking the gated-repos box, and stopped there — but a *fine-grained* token
+  grants nothing it does not name: the pyannote repositories have to be added
+  to the token itself, under *Repository permissions*, with read access. That
+  is the step this was stuck on, and the hub's refusal does not mention it.
+  `diarize check`, `--diarize` without a token, `diarize fetch` and the README
+  now all say: accept the conditions, **edit the token and name those
+  repositories**, tick the gated-repos box — or use a classic *Read* token,
+  which needs neither of the last two.
+
 - **`diarize check` asked the hub for metadata and called it access.** A
   gated repository hands its card to anybody and refuses its *files* to a
   token without the scope for them — which is the exact failure the check

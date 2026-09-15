@@ -331,7 +331,11 @@ Two options to configure diarization:
    - [pyannote/speaker-diarization-community-1](https://huggingface.co/pyannote/speaker-diarization-community-1) (or [pyannote/speaker-diarization-3.1](https://huggingface.co/pyannote/speaker-diarization-3.1))
    - [pyannote/segmentation-3.0](https://huggingface.co/pyannote/segmentation-3.0)
    - [pyannote/wespeaker-voxceleb-resnet34-LM](https://huggingface.co/pyannote/wespeaker-voxceleb-resnet34-LM)
-2. Generate an access token with **Read** permissions at [huggingface.co/settings/tokens](https://huggingface.co/settings/tokens). A *fine-grained* token also needs **"Read access to the contents of all public gated repos you can access"** ticked — without it the download stops with `403 Forbidden: Please enable access to public gated repositories in your fine-grained token settings`, even though the conditions were accepted. A classic **Read** token has that access already.
+2. Generate an access token at [huggingface.co/settings/tokens](https://huggingface.co/settings/tokens). A **classic** token with the **Read** role is the short way: it can read gated repositories once their conditions are accepted, and nothing else has to be configured.
+
+   A **fine-grained** token needs two more things, and a token missing either is refused with `403 Forbidden: Please enable access to public gated repositories in your fine-grained token settings` however carefully the conditions were accepted:
+   - **edit the token and name those repositories in it** — under *Repository permissions*, add each pyannote repository from the list above and give it **read** access. A fine-grained token grants nothing it does not name, and the refusal does not say which repository it wanted;
+   - tick **"Read access to the contents of all public gated repos you can access"**. Without it the hub still hands out the model card and refuses the files, so metadata-based checks look fine while every download fails.
 3. Set `HUGGINGFACE_TOKEN=hf_...` (or `HF_TOKEN`) in a `.env` file in your working directory (or in the user config directory), or as an environment variable.
 4. Check it before you need it: `audio-transcriber diarize check` asks the hub whether that token may really read the pipeline **and every model its config names** — they are separate gated repositories, accepted one at a time, which is how a run gets the pipeline and is then refused its segmentation model an hour in. Two seconds, no weights downloaded.
 
