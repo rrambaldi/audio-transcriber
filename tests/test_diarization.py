@@ -456,3 +456,37 @@ def test_a_community_clone_is_recognised_by_its_plda(tmp_path):
     weights(str(folder), "plda/plda.npz")
     assert diarization.looks_like_community(str(folder)) is True
     assert diarization.looks_like_community(str(tmp_path)) is False
+
+
+# --- what the report says is what the run does -----------------------------
+
+def test_the_local_models_are_reported_when_both_are_there(tmp_path, monkeypatch):
+    """With a token *and* a folder of models the folder is what gets loaded,
+    so "available (token)" was the report of a network trip that never
+    happens."""
+    monkeypatch.setattr(diarization, "module_available", lambda name: True)
+    folder = tmp_path / "diarization"
+    weights(str(folder), "embedding/pytorch_model.bin")
+    config = write_config(str(folder), "embedding/pytorch_model.bin",
+                          "embedding/pytorch_model.bin")
+
+    state, detail = diarization.availability(config, token="hf_xxx")
+    assert (state, detail) == (diarization.READY, config)
+
+
+def test_a_folder_of_models_is_as_good_as_a_config_file(tmp_path, monkeypatch):
+    monkeypatch.setattr(diarization, "module_available", lambda name: True)
+    folder = tmp_path / "community-1"
+    weights(str(folder), "embedding/pytorch_model.bin")
+    write_config(str(folder), "embedding/pytorch_model.bin",
+                 "embedding/pytorch_model.bin")
+
+    assert diarization.availability(str(folder))[0] == diarization.READY
+
+
+def test_the_token_is_still_the_answer_when_there_are_no_local_files(tmp_path,
+                                                                    monkeypatch):
+    monkeypatch.setattr(diarization, "module_available", lambda name: True)
+    state, detail = diarization.availability(str(tmp_path / "nothing.yaml"),
+                                             token="hf_xxx")
+    assert (state, detail) == (diarization.READY, "token")

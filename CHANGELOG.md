@@ -192,6 +192,14 @@ All notable changes to this project are documented here. The format follows
 
 ### Fixed
 
+- **"Diarization: available (token)" on a machine that has the models on
+  disk.** The report looked at the token first and the local files second,
+  while the run does the opposite — with both, the folder is what gets loaded.
+  So `hardware`, the *This machine* tab and the web page all announced a
+  network trip that had not happened for weeks, and hid which config was in
+  use. They now name the file or folder when there is one, and fall back to
+  the token only when there is not.
+
 - **"The package is not installed" is no longer said about a package that is
   installed.** An engine that will not import was always reported as missing,
   which sends somebody to install what they have just installed — the Windows

@@ -60,14 +60,18 @@ def availability(model=None, token=None):
     going to fail. Imports nothing heavy: pyannote pulls in PyTorch."""
     if not module_available("pyannote.audio"):
         return NOT_INSTALLED, "pyannote.audio"
+    from . import paths
+
+    # Local files first, because that is the order the run itself uses: with
+    # both a token and a folder of models, the folder is what gets loaded.
+    # Reported the other way round, "available (token)" said the network would
+    # be used on a machine that had not needed it for weeks.
+    config = model or paths.diarization_config()
+    if os.path.exists(config_in(config)):
+        return READY, config
     token = token or os.environ.get("HUGGINGFACE_TOKEN") or os.environ.get("HF_TOKEN")
     if token:
         return READY, "token"
-    from . import paths
-
-    config = model or paths.diarization_config()
-    if os.path.exists(config):
-        return READY, config
     return NO_MODEL, config
 
 
