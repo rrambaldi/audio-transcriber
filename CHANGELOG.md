@@ -8,6 +8,21 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- **`audio-transcriber diarize init` writes the `config.yaml` a folder of
+  downloaded models does not come with**, filled in with the model files it
+  finds there — the right keys, the published thresholds, and paths relative to
+  the folder, so it keeps working wherever the folder is moved. Weights are
+  recognised by the names pyannote publishes them under, and a folder holding
+  both sets (which is what downloading twice, from two sets of instructions,
+  leaves behind) gets the 3.1 pair the written config is for; a `plda/` beside
+  them says the folder is a pyannote 4 clone and gets a note saying the
+  config written here ignores it.
+
+  **`audio-transcriber diarize check`** runs the pre-flight the transcription
+  runs — which config would be used, whether the files it names are there —
+  without transcribing anything, because an hour is a long time to wait to be
+  told that a file is missing.
+
 - **"Open the folder", next to the record button.** A recording is a file
   before it is a transcription, and the first thing wanted of it is often to
   keep it, send it, or play it in something else — but the window wrote into a

@@ -392,3 +392,67 @@ def test_a_folder_with_no_models_in_it_says_that_much(tmp_path, pyannote):
     with pytest.raises(SystemExit) as stopped:
         diarization.check_diar_assets(config, token=None)
     assert "not in that folder at all" in str(stopped.value)
+
+
+# --- writing the config a folder of weights does not come with -------------
+
+def test_the_two_models_are_recognised_by_the_names_they_are_published_under(tmp_path):
+    folder = tmp_path / "diarization"
+    weights(str(folder), "wespeaker-voxceleb-resnet34-LM/pytorch_model.bin",
+            "segmentation-3.0/pytorch_model.bin")
+
+    embedding, segmentation = diarization.guess_models(str(folder))
+    assert embedding.replace(os.sep, "/") == "wespeaker-voxceleb-resnet34-LM/pytorch_model.bin"
+    assert segmentation.replace(os.sep, "/") == "segmentation-3.0/pytorch_model.bin"
+
+
+def test_a_folder_holding_both_sets_gets_the_one_the_template_is_for(tmp_path):
+    """Downloading twice, from two sets of instructions, is the normal way to
+    end up here. The config written is the 3.1 pipeline, so the 3.1 weights
+    are the ones it must name."""
+    folder = tmp_path / "diarization"
+    weights(str(folder), "embedding/pytorch_model.bin",
+            "segmentation/pytorch_model.bin",
+            "wespeaker-voxceleb-resnet34-LM/pytorch_model.bin",
+            "segmentation-3.0/pytorch_model.bin")
+
+    embedding, segmentation = diarization.guess_models(str(folder))
+    assert "wespeaker" in embedding
+    assert "segmentation-3.0" in segmentation.replace(os.sep, "/")
+
+
+def test_a_folder_with_neither_names_neither(tmp_path):
+    folder = tmp_path / "diarization"
+    weights(str(folder), "notes/readme.bin")
+    assert diarization.guess_models(str(folder)) == (None, None)
+
+
+def test_the_written_config_is_read_back_by_the_pre_flight(tmp_path, pyannote, capsys):
+    """The two halves have to agree: what init writes is what check reads."""
+    folder = tmp_path / "diarization"
+    weights(str(folder), "wespeaker-voxceleb-resnet34-LM/pytorch_model.bin",
+            "segmentation-3.0/pytorch_model.bin")
+    embedding, segmentation = diarization.guess_models(str(folder))
+    written = diarization.write_config(str(folder), embedding, segmentation)
+
+    diarization.check_diar_assets(written, token=None)
+    assert "pre-flight ok" in capsys.readouterr().out.lower()
+    # and the paths inside are relative to the folder, so it can be moved
+    assert "embedding: wespeaker-voxceleb-resnet34-LM/pytorch_model.bin" in read(written)
+
+
+def test_a_config_already_there_is_not_written_over_by_accident(tmp_path):
+    folder = tmp_path / "diarization"
+    weights(str(folder), "a/pytorch_model.bin")
+    diarization.write_config(str(folder), "a/pytorch_model.bin", "a/pytorch_model.bin")
+
+    with pytest.raises(FileExistsError):
+        diarization.write_config(str(folder), "b.bin", "c.bin")
+    assert diarization.write_config(str(folder), "b.bin", "c.bin", overwrite=True)
+
+
+def test_a_community_clone_is_recognised_by_its_plda(tmp_path):
+    folder = tmp_path / "community-1"
+    weights(str(folder), "plda/plda.npz")
+    assert diarization.looks_like_community(str(folder)) is True
+    assert diarization.looks_like_community(str(tmp_path)) is False

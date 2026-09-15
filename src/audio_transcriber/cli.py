@@ -23,8 +23,8 @@ from .summary import LENGTHS as SUMMARY_LENGTHS
 from .transcription import BACKENDS
 from .vocabularies import MAX_PROMPT_CHARS, VocabularyError
 
-COMMANDS = ("transcribe", "summarize", "library", "vocab", "web", "gui",
-            "hardware", "paths", "config")
+COMMANDS = ("transcribe", "summarize", "library", "vocab", "diarize", "web",
+            "gui", "hardware", "paths", "config")
 
 CONFIG_TEMPLATE = '''\
 # audio-transcriber configuration.
@@ -357,6 +357,19 @@ def build_parser(defaults):
                          help=t("help.vocab_from"))
     voc_new.add_argument("--force", action="store_true", help=t("help.vocab_force"))
 
+    # --- diarize -----------------------------------------------------------
+    dia = subparsers.add_parser("diarize", help=t("help.cmd_diarize"),
+                                description=t("help.cmd_diarize"))
+    add_language_option(dia)
+    dia.add_argument("--diar-model", dest="diar_model", default=None,
+                     help=t("help.diar_model"))
+    dia_sub = dia.add_subparsers(dest="subcommand", metavar="SUBCOMMAND")
+    dia_sub.add_parser("check", help=t("help.diar_check"))
+    dia_init = dia_sub.add_parser("init", help=t("help.diar_init"))
+    dia_init.add_argument("directory", nargs="?", default=None,
+                          help=t("help.diar_dir"))
+    dia_init.add_argument("--force", action="store_true", help=t("help.diar_force"))
+
     # --- web ---------------------------------------------------------------
     web = subparsers.add_parser("web", help=t("help.cmd_web"),
                                 description=t("help.cmd_web"))
@@ -682,6 +695,51 @@ def command_library(args):
         print(t("library.removed", path=library.remove(entry)))
 
 
+def command_diarize(args, settings):
+    """Where the diarization models are, whether they work, and a config.
+
+    The pre-flight the transcription runs, on its own, because an hour is a
+    long time to wait to be told that a file is missing — and, since a folder
+    of weights downloaded by hand has no ``config.yaml`` in it and pyannote
+    will not start without one, a way to write that file from what is
+    actually in the folder."""
+    from . import diarization
+
+    if (getattr(args, "subcommand", None) or "check") == "init":
+        return command_diarize_init(args)
+
+    model = settings.get("diar_model") or paths.diarization_config()
+    token = (settings.get("hf_token") or os.environ.get("HUGGINGFACE_TOKEN")
+             or os.environ.get("HF_TOKEN"))
+    print(t("diarize.using", path=model))
+    diarization.check_diar_assets(model, token)   # exits saying what is wrong
+    return 0
+
+
+def command_diarize_init(args):
+    """Write a ``config.yaml`` for the weights sitting in a folder."""
+    from . import diarization
+
+    directory = args.directory or os.path.dirname(paths.diarization_config())
+    directory = os.path.abspath(os.path.expanduser(directory))
+    embedding, segmentation = diarization.guess_models(directory)
+    if not (embedding and segmentation):
+        found = diarization.weights_near(directory)
+        listed = ("\n".join(f"    - {name}" for name in found) if found
+                  else t("diarize.nothing_nearby"))
+        sys.exit(t("diarize.init_no_models", path=directory, found=listed))
+    try:
+        written = diarization.write_config(directory, embedding, segmentation,
+                                           overwrite=args.force)
+    except FileExistsError as exc:
+        sys.exit(t("diarize.init_exists", path=str(exc)))
+    print(t("diarize.init_written", path=written, embedding=embedding,
+            segmentation=segmentation))
+    if diarization.looks_like_community(directory):
+        print(t("diarize.init_community"))
+    return 0
+
+
 def command_vocab(args, settings):
     """List, inspect or create the named keyword sets."""
     from . import vocabularies
@@ -921,6 +979,8 @@ def main(argv=None):
         return command_paths(settings)
     if command == "vocab":
         return command_vocab(args, settings)
+    if command == "diarize":
+        return command_diarize(args, settings)
     if command == "web":
         return command_web(args, settings)
     if command == "gui":

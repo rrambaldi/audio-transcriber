@@ -128,6 +128,25 @@ MESSAGES = {
             "  Model files actually in {folder}:\n{found}\n"
             "  Either correct the paths in the config, or rename the files to match.",
         "diarize.nothing_nearby": "    (none: the models are not in that folder at all)",
+        "diarize.using": "Diarization would use: {path}",
+        "diarize.init_written":
+            "Written: {path}\n"
+            "  embedding:    {embedding}\n"
+            "  segmentation: {segmentation}\n"
+            "  Check it with: audio-transcriber diarize check",
+        "diarize.init_exists":
+            "There is already a config here: {path}\n"
+            "  Pass --force to write over it.",
+        "diarize.init_no_models":
+            "No pyannote model files found in {path}\n"
+            "  What is there:\n{found}\n"
+            "  Expected an embedding model (wespeaker...) and a segmentation one,\n"
+            "  each a 'pytorch_model.bin' in a folder of its own.",
+        "diarize.init_community":
+            "  NOTE: this folder also holds 'plda/', which belongs to the\n"
+            "  community-1 pipeline of pyannote 4. The config written here is the\n"
+            "  3.1 one and ignores it: for community-1, use that repository's own\n"
+            "  config.yaml and point --diar-model at the folder.",
         "diarize.config_settled":
             "  (the paths in {path} are relative: using a copy of it with them resolved,\n"
             "  so the folder is found wherever the program was started from)",
@@ -869,6 +888,25 @@ MESSAGES = {
             "  File di modello che ci sono davvero in {folder}:\n{found}\n"
             "  O correggi i percorsi nel config, o rinomina i file perche' combacino.",
         "diarize.nothing_nearby": "    (nessuno: i modelli non sono affatto in quella cartella)",
+        "diarize.using": "La diarizzazione userebbe: {path}",
+        "diarize.init_written":
+            "Scritto: {path}\n"
+            "  embedding:    {embedding}\n"
+            "  segmentation: {segmentation}\n"
+            "  Verificalo con: audio-transcriber diarize check",
+        "diarize.init_exists":
+            "Qui c'e' gia' un config: {path}\n"
+            "  Usa --force per sovrascriverlo.",
+        "diarize.init_no_models":
+            "Nessun file di modello pyannote trovato in {path}\n"
+            "  Quello che c'e':\n{found}\n"
+            "  Servono un modello di embedding (wespeaker...) e uno di segmentazione,\n"
+            "  ciascuno un 'pytorch_model.bin' nella sua cartella.",
+        "diarize.init_community":
+            "  NOTA: in questa cartella c'e' anche 'plda/', che appartiene alla\n"
+            "  pipeline community-1 di pyannote 4. Il config scritto qui e' quello\n"
+            "  3.1 e la ignora: per community-1 usa il config.yaml di quel\n"
+            "  repository e punta --diar-model alla cartella.",
         "diarize.config_settled":
             "  (i percorsi in {path} sono relativi: uso una copia con i percorsi risolti,\n"
             "  cosi' la cartella si trova da qualunque directory si sia lanciato il programma)",
@@ -1597,6 +1635,12 @@ HELP = {
         "help.lib_yes": "do not ask for confirmation",
         "help.lib_root": "use this library directory instead of the configured one",
         "help.cmd_vocab": "list, inspect and create the named keyword sets",
+        "help.cmd_diarize":
+            "check the diarization models, or write a config for the ones you have",
+        "help.diar_check": "say which config would be used and whether it works",
+        "help.diar_init": "write a config.yaml for the model files in a folder",
+        "help.diar_dir": "the folder holding them (default: the managed one)",
+        "help.diar_force": "write over an existing config.yaml",
         "help.cmd_web": "serve the local web interface",
         "help.cmd_gui": "open the desktop window",
         "help.vocab": "keyword set to use, by name (repeatable, or comma-separated); see 'vocab list'",
@@ -1718,6 +1762,12 @@ HELP = {
         "help.lib_yes": "non chiedere conferma",
         "help.lib_root": "usa questa cartella di libreria invece di quella configurata",
         "help.cmd_vocab": "elenca, ispeziona e crea i set di parole chiave",
+        "help.cmd_diarize":
+            "controlla i modelli di diarizzazione, o scrivi un config per quelli che hai",
+        "help.diar_check": "dice quale config userebbe e se funziona",
+        "help.diar_init": "scrive un config.yaml per i file di modello in una cartella",
+        "help.diar_dir": "la cartella che li contiene (default: quella gestita)",
+        "help.diar_force": "sovrascrive un config.yaml gia' presente",
         "help.cmd_web": "avvia l'interfaccia web locale",
         "help.cmd_gui": "apri la finestra desktop",
         "help.vocab": "set di parole chiave da usare, per nome (ripetibile, o separati da virgola); vedi 'vocab list'",

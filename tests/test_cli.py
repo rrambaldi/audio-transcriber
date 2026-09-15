@@ -72,6 +72,51 @@ def test_no_arguments_prints_help_and_fails():
     assert cli.main([]) == 1
 
 
+def test_diarize_init_writes_a_config_for_the_files_that_are_there(tmp_path, capsys,
+                                                                  monkeypatch):
+    """A folder of weights downloaded by hand has no config.yaml in it, and
+    pyannote will not start without one. Writing that file by hand — the right
+    keys, the published thresholds — is the step people give up at."""
+    monkeypatch.setenv("AUDIO_TRANSCRIBER_LANG", "en")
+    folder = tmp_path / "diarization"
+    for name in ("wespeaker-voxceleb-resnet34-LM/pytorch_model.bin",
+                 "segmentation-3.0/pytorch_model.bin"):
+        target = folder / name
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(b"weights")
+
+    assert cli.main(["diarize", "init", str(folder)]) == 0
+    written = (folder / "config.yaml").read_text(encoding="utf-8")
+    assert "wespeaker-voxceleb-resnet34-LM/pytorch_model.bin" in written
+    assert "SpeakerDiarization" in written
+    assert "Written" in capsys.readouterr().out
+
+
+def test_diarize_init_on_an_empty_folder_says_what_it_found(tmp_path, capsys,
+                                                            monkeypatch):
+    monkeypatch.setenv("AUDIO_TRANSCRIBER_LANG", "en")
+    folder = tmp_path / "diarization"
+    folder.mkdir()
+
+    with pytest.raises(SystemExit) as stopped:
+        cli.main(["diarize", "init", str(folder)])
+    assert "No pyannote model files" in str(stopped.value)
+
+
+def test_diarize_init_defaults_to_the_folder_the_program_looks_in(tmp_path, capsys,
+                                                                 monkeypatch):
+    """Which is the folder somebody was told to put the models in."""
+    monkeypatch.setenv("AUDIO_TRANSCRIBER_LANG", "en")
+    managed = tmp_path / "home" / "data" / "diarization"
+    for name in ("wespeaker/pytorch_model.bin", "segmentation/pytorch_model.bin"):
+        target = managed / name
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(b"weights")
+
+    assert cli.main(["diarize", "init"]) == 0
+    assert (managed / "config.yaml").exists()
+
+
 def test_hardware_reports_the_machine(capsys, monkeypatch):
     from audio_transcriber import backends
 

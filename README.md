@@ -342,6 +342,14 @@ Place the downloaded pyannote model files locally so no token or network is requ
 - **Anywhere else**: `--diar-model PATH`, or `model = "PATH"` under `[diarization]` in `config.toml`. `PATH` is either a `config.yaml` or — the shape pyannote 4 clones from the hub — the **directory** of a pipeline repository, with `config.yaml` and the weights beside it.
 - Run `audio-transcriber paths` to see all expected paths; its `diarization` line names the exact file being looked for, and the *This machine* tab of the window lists it too.
 
+A folder downloaded by hand has no `config.yaml` in it, and pyannote will not start without one. `audio-transcriber diarize init` writes it, filled in with the model files it actually finds in the folder (and `audio-transcriber diarize check` then runs the same pre-flight the transcription would, without transcribing anything):
+
+```bash
+audio-transcriber diarize init      # writes config.yaml in the managed folder
+audio-transcriber diarize init "C:/models/pyannote-diar"
+audio-transcriber diarize check     # which config it would use, and whether it works
+```
+
 Use one set of weights or the other, not halves of both: a 3.1 setup is `wespeaker-voxceleb-resnet34-LM/` plus `segmentation-3.0/` with a `config.yaml` naming them, and a community-1 clone is its own `config.yaml` with `embedding/`, `segmentation/` and `plda/` beside it — the two name their files differently, and a config written for one does not find the other's. If a file is missing, the pre-flight lists what it did find in that folder, which is usually the whole answer.
 
 The paths written inside a `config.yaml` are resolved by pyannote against the *working directory*, not against the config, which is why a folder that is plainly there stops being found the moment the program is started from somewhere else. They are settled here before the config is handed over — looked for beside the config and one level up as well — so a hand-made folder works from any directory. Your file is not modified: the resolved copy is written to the cache.

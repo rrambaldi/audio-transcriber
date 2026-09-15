@@ -179,6 +179,80 @@ def localise(content, base):
     return content, missing
 
 
+#: A pyannote 3.1 pipeline written against files on this disk. The numbers
+#: are the published ones for ``pyannote/speaker-diarization-3.1``; the two
+#: paths are filled in with what was actually found, relative to this file,
+#: which is what makes the folder movable.
+CONFIG_TEMPLATE = """\
+version: 3.1.0
+
+pipeline:
+  name: pyannote.audio.pipelines.SpeakerDiarization
+  params:
+    clustering: AgglomerativeClustering
+    embedding: {embedding}
+    embedding_batch_size: 32
+    embedding_exclude_overlap: true
+    segmentation: {segmentation}
+    segmentation_batch_size: 32
+
+params:
+  clustering:
+    method: centroid
+    min_cluster_size: 12
+    threshold: 0.7045654963945799
+  segmentation:
+    min_duration_off: 0.0
+"""
+
+#: What the two models are called, best first. A folder often holds both sets
+#: — somebody downloading twice, from two sets of instructions — and the
+#: template written here is the 3.1 pipeline, so its own weights win.
+_EMBEDDING_NAMES = ("wespeaker", "embedding")
+_SEGMENTATION_NAMES = ("segmentation-3.0", "segmentation")
+
+
+def guess_models(directory):
+    """``(embedding, segmentation)`` found in a folder, relative to it.
+
+    Either may be None. Nothing is downloaded and nothing is opened: the
+    files are recognised by the names pyannote publishes them under, which is
+    how somebody reading the folder recognises them too."""
+    found = weights_near(directory, limit=64)
+
+    def pick(names):
+        for wanted in names:
+            for name in found:
+                if wanted in name.lower().replace(os.sep, "/"):
+                    return name
+        return None
+
+    return pick(_EMBEDDING_NAMES), pick(_SEGMENTATION_NAMES)
+
+
+def looks_like_community(directory):
+    """Whether this folder is a pyannote 4 clone rather than a 3.1 set.
+
+    Its clustering is PLDA-based and reads two ``.npz`` files that the 3.1
+    pipeline knows nothing about: a config written here would ignore them,
+    and saying so beats writing one that quietly uses half the folder."""
+    return os.path.isdir(os.path.join(directory, "plda"))
+
+
+def write_config(directory, embedding, segmentation, overwrite=False):
+    """Write ``config.yaml`` into ``directory`` and return its path."""
+    path = os.path.join(directory, CONFIG_NAME)
+    if os.path.exists(path) and not overwrite:
+        raise FileExistsError(path)
+    os.makedirs(directory, exist_ok=True)
+    text = CONFIG_TEMPLATE.format(
+        embedding=embedding.replace(os.sep, "/"),
+        segmentation=segmentation.replace(os.sep, "/"))
+    with open(path, "w", encoding="utf-8") as handle:
+        handle.write(text)
+    return path
+
+
 def check_diar_assets(model, token):
     """Pre-flight check, run before the long transcription starts.
 
