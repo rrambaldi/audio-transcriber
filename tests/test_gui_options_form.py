@@ -85,6 +85,42 @@ def test_it_asks_the_four_questions_and_no_more(form):
                                         "subtitles_speakers"}
 
 
+def test_an_engine_that_is_not_installed_cannot_be_chosen(application, monkeypatch):
+    """Greyed out with the reason on it, like an output this machine cannot
+    produce — rather than a choice that fails once a job is running."""
+    from audio_transcriber import backends
+
+    monkeypatch.setattr(backends, "is_installed",
+                        lambda name: name == backends.OPENVINO)
+    form = OptionsForm(SETTINGS)
+    enabled = {}
+    for index in range(form.backend.count()):
+        item = form.backend.model().item(index)
+        enabled[form.backend.itemData(index)] = item.isEnabled()
+
+    assert enabled == {"auto": True, "faster-whisper": False, "openvino": True}
+    assert "not installed" in form.backend.itemData(
+        1, Qt.ItemDataRole.ToolTipRole)
+
+
+def test_an_engine_remembered_from_another_install_is_not_restored(application,
+                                                                   monkeypatch):
+    from PySide6.QtCore import QSettings
+
+    from audio_transcriber import backends
+
+    monkeypatch.setattr(backends, "is_installed",
+                        lambda name: name == backends.OPENVINO)
+    store = QSettings(QSettings.Format.IniFormat, QSettings.Scope.UserScope,
+                      "audio-transcriber-test", "remembered")
+    store.setValue("backend", "faster-whisper")
+    form = OptionsForm(SETTINGS)
+    form.load_state(store)
+
+    assert form.backend.currentData() == "auto"
+    store.clear()
+
+
 def test_the_installed_keyword_sets_are_offered(form):
     names = [form.vocabularies.item(row).data(Qt.ItemDataRole.UserRole)
              for row in range(form.vocabularies.count())]

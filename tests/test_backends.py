@@ -54,10 +54,34 @@ def test_explicit_backend_wins_over_hardware(monkeypatch):
     assert backends.resolve_backend("openvino", "CPU") == backends.OPENVINO
 
 
-def test_backend_aliases_are_accepted():
+def test_backend_aliases_are_accepted(monkeypatch):
+    monkeypatch.setattr(backends, "is_installed", lambda name: True)
     for alias in ("ct2", "faster_whisper", "CTranslate2"):
         assert backends.resolve_backend(alias, "auto") == backends.FASTER_WHISPER
     assert backends.resolve_backend("OV", "auto") == backends.OPENVINO
+
+
+def test_an_engine_asked_for_by_name_has_to_be_here(monkeypatch):
+    """It used to be taken at its word and found missing deep inside the run,
+    after the audio had been decoded: a queued job that had been "running" for
+    a while, and the reason in a log."""
+    monkeypatch.setattr(backends, "is_installed",
+                        lambda name: name == backends.OPENVINO)
+
+    with pytest.raises(SystemExit) as stopped:
+        backends.resolve_backend("faster-whisper", "auto")
+
+    message = str(stopped.value)
+    assert "faster-whisper" in message
+    assert "openvino" in message          # and what this machine does have
+    assert backends.resolve_backend("openvino", "auto") == backends.OPENVINO
+
+
+def test_the_engines_this_machine_has_are_listed_in_menu_order(monkeypatch):
+    monkeypatch.setattr(backends, "is_installed", lambda name: True)
+    assert backends.installed() == [backends.FASTER_WHISPER, backends.OPENVINO]
+    monkeypatch.setattr(backends, "is_installed", lambda name: False)
+    assert backends.installed() == []
 
 
 def test_unknown_backend_exits():

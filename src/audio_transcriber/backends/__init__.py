@@ -45,17 +45,31 @@ def is_installed(name):
     return False
 
 
+def installed():
+    """The engines this machine could actually run, in menu order."""
+    return [name for name in BACKENDS if name != "auto" and is_installed(name)]
+
+
 def resolve_backend(backend, device):
     """Pick the backend to use.
 
     With ``auto``: an explicitly requested Intel or CUDA device decides, then
     OpenVINO if it can see an Intel accelerator, then whatever is installed —
-    preferring faster-whisper, which is the better CPU engine."""
+    preferring faster-whisper, which is the better CPU engine.
+
+    An engine asked for by name has to be here. It used to be taken at its
+    word and only found missing deep inside the run, after the audio had been
+    decoded, by which time a queued job had been "running" for a while and the
+    reason was a line in a log. A choice this machine cannot honour is worth
+    one sentence before anything starts."""
     requested = (backend or "auto").strip().lower()
     if requested != "auto":
         name = _ALIASES.get(requested)
         if name is None:
             sys.exit(t("backend.unknown", name=backend, valid=", ".join(BACKENDS)))
+        if not is_installed(name):
+            here = ", ".join(installed()) or t("backend.none")
+            sys.exit(t("backend.not_installed", name=name, installed=here))
         return name
 
     wanted_device = (device or "auto").strip().upper()

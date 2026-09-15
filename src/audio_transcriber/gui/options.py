@@ -145,9 +145,29 @@ def language_choices():
 
 
 def backend_choices():
-    """``(label, value)`` for the engine menu."""
-    return [(t("gui.backend_auto"), "auto")] + [(name, name) for name in BACKENDS
-                                                if name != "auto"]
+    """``(label, value, available)`` for the engine menu.
+
+    An engine this machine does not have is still listed, greyed out: it is
+    part of what the program is, and seeing it with the reason attached beats
+    wondering why the machine down the hall has two. What it must not be is
+    choosable, because choosing it used to mean a job that failed after the
+    audio had been decoded."""
+    from ..backends import is_installed
+
+    return [(t("gui.backend_auto"), "auto", True)] + [
+        (name, name, is_installed(name)) for name in BACKENDS if name != "auto"]
+
+
+def usable_backend(name):
+    """The engine to start on: the one asked for, if this machine has it.
+
+    The window remembers the last engine chosen, and ``gui.ini`` outlives an
+    environment: a 'faster-whisper' remembered from one install turns every
+    job in another into the same failure, and nothing on screen says why."""
+    from ..backends import is_installed
+
+    name = (name or "auto").strip().lower()
+    return name if name == "auto" or is_installed(name) else "auto"
 
 
 def vocabulary_items(vocab_dir=None):

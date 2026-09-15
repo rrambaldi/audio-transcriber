@@ -88,11 +88,20 @@ class OptionsForm(QWidget):
         for label, value in options.language_choices():
             self.language.addItem(label, value)
         self.backend = QComboBox()
-        for label, value in options.backend_choices():
+        for label, value, ready in options.backend_choices():
             self.backend.addItem(label, value)
+            if not ready:
+                # Listed, with the reason on it, and not choosable: the same
+                # treatment as an output this machine cannot produce.
+                index = self.backend.count() - 1
+                self.backend.setItemData(index, t("gui.backend_missing", name=value),
+                                         Qt.ItemDataRole.ToolTipRole)
+                item = self.backend.model().item(index)
+                if item is not None:
+                    item.setEnabled(False)
         _select(self.model, defaults["model"])
         _select(self.language, defaults["language"])
-        _select(self.backend, defaults["backend"])
+        _select(self.backend, options.usable_backend(defaults["backend"]))
         for box in (self.model, self.language, self.backend):
             box.currentIndexChanged.connect(lambda _index: self.update_summaries())
 
@@ -434,6 +443,10 @@ class OptionsForm(QWidget):
         for name, widget in (("model", self.model), ("language", self.language),
                              ("backend", self.backend)):
             remembered = store.value(name, "", str)
+            if name == "backend":
+                # gui.ini outlives an environment; an engine that is not in
+                # this one is not restored, it is left on auto.
+                remembered = options.usable_backend(remembered) if remembered else ""
             if remembered:
                 _select(widget, remembered)
         remembered_output = store.value("output", "", str)

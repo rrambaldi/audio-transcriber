@@ -37,10 +37,31 @@ def test_the_language_menu_starts_with_detect_it():
     assert "Italiano (it)" in labels
 
 
-def test_the_engine_menu_offers_every_backend():
+def test_the_engine_menu_lists_every_backend_and_marks_the_ones_here(monkeypatch):
+    """Listed even when absent — it is part of what the program is — but the
+    menu says which of them this environment can actually run."""
+    from audio_transcriber import backends
     from audio_transcriber.backends import BACKENDS
 
-    assert [value for _, value in options.backend_choices()] == list(BACKENDS)
+    monkeypatch.setattr(backends, "is_installed",
+                        lambda name: name == backends.OPENVINO)
+    choices = options.backend_choices()
+
+    assert [value for _label, value, _ready in choices] == list(BACKENDS)
+    assert {value: ready for _label, value, ready in choices} == {
+        "auto": True, backends.FASTER_WHISPER: False, backends.OPENVINO: True}
+
+
+def test_an_engine_this_machine_does_not_have_is_not_preselected(monkeypatch):
+    """gui.ini outlives an environment, and a remembered 'faster-whisper' on a
+    machine without it turned every job into the same failure."""
+    from audio_transcriber import backends
+
+    monkeypatch.setattr(backends, "is_installed",
+                        lambda name: name == backends.OPENVINO)
+    assert options.usable_backend("faster-whisper") == "auto"
+    assert options.usable_backend("openvino") == "openvino"
+    assert options.usable_backend("") == "auto"
 
 
 def test_the_installed_keyword_sets_are_offered_by_name():

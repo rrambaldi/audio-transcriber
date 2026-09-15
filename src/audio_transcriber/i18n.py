@@ -49,6 +49,12 @@ MESSAGES = {
             "  That is a broken install rather than a missing one, so installing it\n"
             "  again is worth a try - in the environment you are actually running\n"
             "  from, which 'audio-transcriber hardware' reports.",
+        "backend.not_installed":
+            "Backend '{name}' is not installed in this environment.\n"
+            "  Installed here: {installed}\n"
+            "  Either install it, or leave the engine on 'auto' and let this\n"
+            "  machine pick: 'audio-transcriber hardware' says what it would pick.",
+        "backend.none": "none",
         "backend.none_installed":
             "No transcription backend is installed.\n"
             "  Server or machine without a GPU:  pip install \"audio-transcriber-ov[cpu]\"\n"
@@ -398,6 +404,7 @@ MESSAGES = {
         "gui.model_auto": "auto ({model} on this machine)",
         "gui.language_auto": "detect it",
         "gui.backend_auto": "auto",
+        "gui.backend_missing": "'{name}' is not installed in this environment.",
         "gui.diarize": "Who said what",
         "gui.output_speakers_missing":
             "Not on this machine: pyannote is missing. Install it with "
@@ -828,6 +835,12 @@ MESSAGES = {
             "  E' un'installazione rotta, non mancante: vale la pena reinstallarlo -\n"
             "  nell'ambiente da cui stai davvero lanciando, che 'audio-transcriber\n"
             "  hardware' ti dice qual e'.",
+        "backend.not_installed":
+            "Il motore '{name}' non e' installato in questo ambiente.\n"
+            "  Qui c'e': {installed}\n"
+            "  O lo installi, o lasci il motore su 'auto' e decide la macchina:\n"
+            "  'audio-transcriber hardware' dice cosa sceglierebbe.",
+        "backend.none": "nessuno",
         "backend.none_installed":
             "Nessun backend di trascrizione installato.\n"
             "  Server o macchina senza GPU:  pip install \"audio-transcriber-ov[cpu]\"\n"
@@ -1170,6 +1183,7 @@ MESSAGES = {
         "gui.model_auto": "auto ({model} su questa macchina)",
         "gui.language_auto": "riconoscila",
         "gui.backend_auto": "auto",
+        "gui.backend_missing": "'{name}' non e' installato in questo ambiente.",
         "gui.diarize": "Chi ha detto cosa",
         "gui.output_speakers_missing":
             "Non disponibile su questa macchina: manca pyannote. Si installa con "

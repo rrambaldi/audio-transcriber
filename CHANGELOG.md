@@ -203,6 +203,19 @@ All notable changes to this project are documented here. The format follows
 
 ### Fixed
 
+- **An engine the machine does not have can no longer be chosen, or
+  remembered.** The window offered all of them and remembered the last one in
+  `gui.ini`, which outlives an environment: a `faster-whisper` chosen once —
+  or carried over from another install — turned every job on a machine without
+  it into the same failure, raised deep inside the run, after the audio had
+  been decoded, with nothing on screen saying why. The menu now greys out what
+  is not installed, with the reason on it, and a remembered engine that is not
+  in this environment is left on `auto` instead of being restored.
+
+  `resolve_backend` refuses it too, before anything starts: an engine asked
+  for by name has to be here, and the message says what *is* here. That covers
+  the command line and the page as well as the window.
+
 - **"Diarization: available (token)" on a machine that has the models on
   disk.** The report looked at the token first and the local files second,
   while the run does the opposite — with both, the folder is what gets loaded.
