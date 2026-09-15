@@ -175,12 +175,18 @@ def localise(content, base):
             missing.append((key, value))
             continue
         if found != value:
-            # A function as the replacement, not a string: a Windows path is
-            # full of backslashes and re.sub would read them as escapes.
-            content = re.sub(rf"^([ \t]*{key}[ \t]*:[ \t]*){re.escape(value)}[ \t]*$",
-                             lambda match, settled=found: match.group(1) + settled,
-                             content, count=1, flags=re.M)
+            content = replace_reference(content, key, value, found)
     return content, missing
+
+
+def replace_reference(content, key, value, replacement):
+    """Point one key at something else, leaving the rest of the file alone.
+
+    A function as the replacement, not a string: a Windows path is full of
+    backslashes and :func:`re.sub` would read them as escapes."""
+    return re.sub(rf"^([ \t]*{key}[ \t]*:[ \t]*){re.escape(value)}[ \t]*$",
+                  lambda match, settled=replacement: match.group(1) + settled,
+                  content, count=1, flags=re.M)
 
 
 #: A pyannote 3.1 pipeline written against files on this disk. The numbers
@@ -255,6 +261,73 @@ def write_config(directory, embedding, segmentation, overwrite=False):
     with open(path, "w", encoding="utf-8") as handle:
         handle.write(text)
     return path
+
+
+class DiarizationError(Exception):
+    """Something that stops the models from being fetched or used."""
+
+
+def _snapshot(repo, destination, token):
+    """Every file of a repository, as plain files in a folder of your own.
+
+    ``local_dir`` rather than the hub cache on purpose: the cache is a tree of
+    commit hashes and symlinks that nobody can be asked to look after, and the
+    whole point here is a folder that can be copied to another machine, backed
+    up, or put on a stick."""
+    from huggingface_hub import snapshot_download
+
+    return snapshot_download(repo, local_dir=destination, token=token or None)
+
+
+def fetch(model, destination, token=None, download=None):
+    """Download a pipeline and everything it names into one folder.
+
+    A pipeline config points at other repositories — the segmentation model,
+    the embedding model — which are gated separately and, downloaded by
+    pyannote itself, end up in the hub cache. Here they are fetched into
+    subfolders of the same directory and the config is rewritten to point at
+    them, so what is left behind is one self-contained folder of ordinary
+    files that ``--diar-model`` can be handed.
+
+    Returns ``(config path, [repositories fetched])``."""
+    download = download or _snapshot
+    destination = os.path.abspath(os.path.expanduser(destination))
+    os.makedirs(destination, exist_ok=True)
+    fetched = [model]
+    try:
+        download(model, destination, token)
+    except Exception as exc:       # noqa: BLE001 - reported with the repo name
+        raise DiarizationError(t("diarize.fetch_failed", repo=model,
+                                 error=exc)) from exc
+
+    config = os.path.join(destination, CONFIG_NAME)
+    if not os.path.exists(config):
+        raise DiarizationError(t("diarize.fetch_no_config", repo=model,
+                                 path=destination))
+    with open(config, encoding="utf-8") as handle:
+        content = handle.read()
+
+    settled = content
+    for key, value in config_references(content):
+        if looks_like_path(value):
+            continue               # already a file inside what we just fetched
+        name = value.split("/")[-1]
+        folder = os.path.join(destination, name)
+        try:
+            download(value, folder, token)
+        except Exception as exc:   # noqa: BLE001
+            raise DiarizationError(t("diarize.fetch_failed", repo=value,
+                                     error=exc)) from exc
+        fetched.append(value)
+        found = weights_near(folder, limit=1)
+        if found:
+            settled = replace_reference(
+                settled, key, value,
+                f"{name}/{found[0]}".replace(os.sep, "/"))
+    if settled != content:
+        with open(config, "w", encoding="utf-8") as handle:
+            handle.write(settled)
+    return config, fetched
 
 
 def hub_repo(model):

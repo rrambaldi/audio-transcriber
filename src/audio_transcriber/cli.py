@@ -365,6 +365,13 @@ def build_parser(defaults):
                      help=t("help.diar_model"))
     dia_sub = dia.add_subparsers(dest="subcommand", metavar="SUBCOMMAND")
     dia_sub.add_parser("check", help=t("help.diar_check"))
+    dia_fetch = dia_sub.add_parser("fetch", help=t("help.diar_fetch"))
+    dia_fetch.add_argument("--to", dest="directory", default=None,
+                           help=t("help.diar_dir"))
+    dia_fetch.add_argument("--model", dest="repo", default=None,
+                           help=t("help.diar_repo"))
+    dia_fetch.add_argument("--hf-token", dest="hf_token", default=None,
+                           help=t("help.hf_token"))
     dia_init = dia_sub.add_parser("init", help=t("help.diar_init"))
     dia_init.add_argument("directory", nargs="?", default=None,
                           help=t("help.diar_dir"))
@@ -705,8 +712,11 @@ def command_diarize(args, settings):
     actually in the folder."""
     from . import diarization
 
-    if (getattr(args, "subcommand", None) or "check") == "init":
+    sub = getattr(args, "subcommand", None) or "check"
+    if sub == "init":
         return command_diarize_init(args)
+    if sub == "fetch":
+        return command_diarize_fetch(args, settings)
 
     model = settings.get("diar_model") or paths.diarization_config()
     token = (settings.get("hf_token") or os.environ.get("HUGGINGFACE_TOKEN")
@@ -729,6 +739,33 @@ def command_diarize(args, settings):
             print(t("diarize.hub_denied", repo=name, error=error))
     if refused:
         sys.exit(t("diarize.hub_help"))
+    return 0
+
+
+def command_diarize_fetch(args, settings):
+    """Download the models into a folder of ordinary files."""
+    from . import diarization
+
+    directory = (args.directory
+                 or os.path.dirname(paths.diarization_config())
+                 or os.path.join(paths.data_dir(), "diarization"))
+    directory = os.path.abspath(os.path.expanduser(directory))
+    repo = args.repo or diarization.hub_repo(
+        settings.get("diar_model") or paths.diarization_config())
+    token = (getattr(args, "hf_token", None) or settings.get("hf_token")
+             or os.environ.get("HUGGINGFACE_TOKEN") or os.environ.get("HF_TOKEN"))
+    if not token:
+        sys.exit(t("diarize.fetch_no_token"))
+
+    print(t("diarize.fetch_start", repo=repo, path=directory))
+    try:
+        config, fetched = diarization.fetch(repo, directory, token)
+    except diarization.DiarizationError as exc:
+        print(str(exc), file=sys.stderr)
+        sys.exit(t("diarize.hub_help"))
+    for name in fetched:
+        print(t("diarize.fetch_got", repo=name))
+    print(t("diarize.fetch_done", path=config))
     return 0
 
 

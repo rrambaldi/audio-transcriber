@@ -335,7 +335,25 @@ Two options to configure diarization:
 3. Set `HUGGINGFACE_TOKEN=hf_...` (or `HF_TOKEN`) in a `.env` file in your working directory (or in the user config directory), or as an environment variable.
 4. Check it before you need it: `audio-transcriber diarize check` asks the hub whether that token may really read the pipeline **and every model its config names** — they are separate gated repositories, accepted one at a time, which is how a run gets the pipeline and is then refused its segmentation model an hour in. Two seconds, no weights downloaded.
 
-### 2. Offline / Manual download
+### 2. Download once into a folder you can see (recommended)
+
+```bash
+audio-transcriber diarize fetch      # into the managed folder, with your token
+audio-transcriber diarize check      # and this says it worked
+```
+
+One command, and the models are **ordinary files in one folder** — the pipeline, the segmentation model and the embedding model, with the `config.yaml` rewritten to point at them. Left to itself, pyannote scatters them through the Hugging Face cache, a tree of commit hashes and symlinks that nobody can back up, copy to another machine, or describe in a README; and when one file of one repository is refused, the way out is editing that tree by hand.
+
+The folder is used automatically when it is the managed one. Anywhere else, name it:
+
+```bash
+audio-transcriber diarize fetch --to D:/models/pyannote --model pyannote/speaker-diarization-community-1
+audio-transcriber meeting.wav --diarize --diar-model D:/models/pyannote
+```
+
+After that the token is not needed at all: the folder can go on a stick, onto a machine with no network, or into a backup, and `--diar-model` points at it. It is also the fix for a download that dies on one file, because the whole repository is fetched in one go rather than file by file as the pipeline asks for them.
+
+### 3. Manual download
 
 Place the downloaded pyannote model files locally so no token or network is required at runtime:
 - **Project-local folder**: create `pyannote-diar/` in the working directory containing `config.yaml` and the model assets (`pytorch_model.bin`, `xvec_transform.npz`, etc.).

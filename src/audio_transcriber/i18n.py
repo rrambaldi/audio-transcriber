@@ -141,6 +141,24 @@ MESSAGES = {
             "  Either correct the paths in the config, or rename the files to match.",
         "diarize.nothing_nearby": "    (none: the models are not in that folder at all)",
         "diarize.using": "Diarization would use: {path}",
+        "diarize.fetch_start":
+            "Fetching {repo} into {path}\n"
+            "  (plain files, not the hub cache: this folder can be copied, backed\n"
+            "  up, or carried to a machine with no network.)",
+        "diarize.fetch_got": "  got {repo}",
+        "diarize.fetch_done":
+            "Done: {path}\n"
+            "  It is used from there automatically. To keep it somewhere else,\n"
+            "  pass --diar-model with that folder, or set it under [diarization]\n"
+            "  in config.toml. Check it with: audio-transcriber diarize check",
+        "diarize.fetch_failed": "Could not fetch {repo}:\n  {error}",
+        "diarize.fetch_no_config":
+            "{repo} was fetched into {path}, but it has no config.yaml: it is not\n"
+            "  a pipeline repository. Name the pipeline with --model.",
+        "diarize.fetch_no_token":
+            "Downloading the models needs a Hugging Face token: pass --hf-token,\n"
+            "  or set HUGGINGFACE_TOKEN in the environment or in a .env file.\n"
+            "  Accepting the conditions on the model pages is the other half.",
         "diarize.hub_ok": "  OK  {repo}",
         "diarize.hub_denied": "  NO  {repo}\n      {error}",
         "diarize.hub_help":
@@ -930,6 +948,24 @@ MESSAGES = {
             "  O correggi i percorsi nel config, o rinomina i file perche' combacino.",
         "diarize.nothing_nearby": "    (nessuno: i modelli non sono affatto in quella cartella)",
         "diarize.using": "La diarizzazione userebbe: {path}",
+        "diarize.fetch_start":
+            "Scarico {repo} in {path}\n"
+            "  (file normali, non la cache dell'hub: questa cartella si puo' copiare,\n"
+            "  salvare in un backup o portare su una macchina senza rete.)",
+        "diarize.fetch_got": "  preso {repo}",
+        "diarize.fetch_done":
+            "Fatto: {path}\n"
+            "  Da li' viene usata da sola. Per tenerla altrove, passa --diar-model con\n"
+            "  quella cartella, o impostala sotto [diarization] in config.toml.\n"
+            "  Verifica con: audio-transcriber diarize check",
+        "diarize.fetch_failed": "Non riesco a scaricare {repo}:\n  {error}",
+        "diarize.fetch_no_config":
+            "{repo} e' stato scaricato in {path}, ma non ha un config.yaml: non e'\n"
+            "  un repository di pipeline. Indica la pipeline con --model.",
+        "diarize.fetch_no_token":
+            "Per scaricare i modelli serve un token Hugging Face: passa --hf-token,\n"
+            "  o imposta HUGGINGFACE_TOKEN nell'ambiente o in un file .env.\n"
+            "  L'altra meta' e' accettare le condizioni sulle pagine dei modelli.",
         "diarize.hub_ok": "  OK  {repo}",
         "diarize.hub_denied": "  NO  {repo}\n      {error}",
         "diarize.hub_help":
@@ -1695,6 +1731,9 @@ HELP = {
         "help.cmd_diarize":
             "check the diarization models, or write a config for the ones you have",
         "help.diar_check": "say which config would be used and whether it works",
+        "help.diar_fetch":
+            "download the models into a folder of ordinary files, once",
+        "help.diar_repo": "which pipeline to fetch (default: the one a run would use)",
         "help.diar_init": "write a config.yaml for the model files in a folder",
         "help.diar_dir": "the folder holding them (default: the managed one)",
         "help.diar_force": "write over an existing config.yaml",
@@ -1822,6 +1861,9 @@ HELP = {
         "help.cmd_diarize":
             "controlla i modelli di diarizzazione, o scrivi un config per quelli che hai",
         "help.diar_check": "dice quale config userebbe e se funziona",
+        "help.diar_fetch":
+            "scarica i modelli in una cartella di file normali, una volta per tutte",
+        "help.diar_repo": "quale pipeline scaricare (default: quella che userebbe una corsa)",
         "help.diar_init": "scrive un config.yaml per i file di modello in una cartella",
         "help.diar_dir": "la cartella che li contiene (default: quella gestita)",
         "help.diar_force": "sovrascrive un config.yaml gia' presente",

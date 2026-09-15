@@ -8,6 +8,19 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- **`audio-transcriber diarize fetch` downloads the diarization models into
+  one folder of ordinary files.** Left to itself, pyannote scatters them
+  through the Hugging Face cache — a tree of commit hashes and symlinks that
+  cannot be backed up, copied to another machine, or described in a README,
+  and where the only fix for a refused file is editing that tree by hand.
+
+  The command fetches the pipeline *and the repositories its config names*
+  (they are gated separately) into subfolders of one directory, and rewrites
+  the config to point at them. What is left is self-contained: it works with
+  no token and no network, it can go on a stick or into a backup, and
+  `--diar-model` points at it. Into the managed folder by default, where it is
+  found automatically; `--to` puts it anywhere, `--model` chooses the pipeline.
+
 - **The queue survives a restart.** It lived in memory: closing the window or
   restarting the service threw away everything that had not run yet — the
   files, the titles, and the answers about what each recording was for — and a

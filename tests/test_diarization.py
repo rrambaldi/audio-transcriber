@@ -565,3 +565,105 @@ def test_without_the_hub_library_the_check_says_so_rather_than_raising(monkeypat
     monkeypatch.setitem(sys.modules, "huggingface_hub", None)
     checked = diarization.hub_check("pyannote/speaker-diarization-3.1", "hf_x")
     assert len(checked) == 1 and checked[0][1] is not None
+
+
+# --- fetching the models into a folder people can look after ---------------
+
+def fake_download(tmp_path, repos):
+    """A snapshot_download that writes what each repository holds."""
+    taken = []
+
+    def download(repo, destination, token=None):
+        taken.append((repo, destination, token))
+        os.makedirs(destination, exist_ok=True)
+        for name, content in repos.get(repo, {}).items():
+            target = os.path.join(destination, name)
+            os.makedirs(os.path.dirname(target), exist_ok=True)
+            with open(target, "w", encoding="utf-8") as handle:
+                handle.write(content)
+        return destination
+
+    download.taken = taken
+    return download
+
+
+def test_the_pipeline_and_the_models_it_names_land_in_one_folder(tmp_path):
+    """The hub cache is a tree of commit hashes and symlinks: not something
+    to ask somebody to look after, and not something to write in a README."""
+    download = fake_download(tmp_path, {
+        "pyannote/speaker-diarization-3.1": {
+            "config.yaml": ("pipeline:\n  params:\n"
+                            "    embedding: pyannote/wespeaker-voxceleb-resnet34-LM\n"
+                            "    segmentation: pyannote/segmentation-3.0\n")},
+        "pyannote/wespeaker-voxceleb-resnet34-LM": {"pytorch_model.bin": "w"},
+        "pyannote/segmentation-3.0": {"pytorch_model.bin": "s"},
+    })
+    folder = tmp_path / "diarization"
+
+    config, fetched = diarization.fetch("pyannote/speaker-diarization-3.1",
+                                        str(folder), token="hf_x", download=download)
+
+    assert fetched == ["pyannote/speaker-diarization-3.1",
+                       "pyannote/wespeaker-voxceleb-resnet34-LM",
+                       "pyannote/segmentation-3.0"]
+    settled = read(config)
+    assert "embedding: wespeaker-voxceleb-resnet34-LM/pytorch_model.bin" in settled
+    assert "segmentation: segmentation-3.0/pytorch_model.bin" in settled
+    assert "pyannote/" not in settled            # nothing left to download
+    assert os.path.isfile(str(folder / "segmentation-3.0" / "pytorch_model.bin"))
+
+
+def test_what_was_fetched_is_read_back_by_the_pre_flight(tmp_path, pyannote, capsys):
+    """The two halves have to agree, or the folder is a download nobody can
+    use."""
+    download = fake_download(tmp_path, {
+        "pyannote/speaker-diarization-3.1": {
+            "config.yaml": "pipeline:\n  params:\n    segmentation: pyannote/segmentation-3.0\n"},
+        "pyannote/segmentation-3.0": {"pytorch_model.bin": "s"},
+    })
+    config, _ = diarization.fetch("pyannote/speaker-diarization-3.1",
+                                  str(tmp_path / "diarization"), "hf_x", download)
+
+    diarization.check_diar_assets(config, token=None)
+    assert "pre-flight ok" in capsys.readouterr().out.lower()
+
+
+def test_a_self_contained_pipeline_needs_no_second_download(tmp_path):
+    """A community-1 clone holds its own weights: one repository, done."""
+    download = fake_download(tmp_path, {
+        "pyannote/speaker-diarization-community-1": {
+            "config.yaml": ("pipeline:\n  params:\n"
+                            "    embedding: embedding/pytorch_model.bin\n"
+                            "    segmentation: segmentation/pytorch_model.bin\n"),
+            "embedding/pytorch_model.bin": "e",
+            "segmentation/pytorch_model.bin": "s",
+            "plda/xvec_transform.npz": "p"},
+    })
+    folder = tmp_path / "diarization"
+
+    _config, fetched = diarization.fetch("pyannote/speaker-diarization-community-1",
+                                         str(folder), "hf_x", download)
+
+    assert fetched == ["pyannote/speaker-diarization-community-1"]
+    # including the file that the hub refused one at a time
+    assert os.path.isfile(str(folder / "plda" / "xvec_transform.npz"))
+
+
+def test_a_repository_that_refuses_says_which_one(tmp_path):
+    def refuse(repo, destination, token=None):
+        raise RuntimeError("403 Forbidden")
+
+    with pytest.raises(diarization.DiarizationError) as stopped:
+        diarization.fetch("pyannote/speaker-diarization-3.1",
+                          str(tmp_path / "d"), "hf_x", refuse)
+    assert "speaker-diarization-3.1" in str(stopped.value)
+    assert "403" in str(stopped.value)
+
+
+def test_a_repository_that_is_not_a_pipeline_says_so(tmp_path):
+    download = fake_download(tmp_path, {"pyannote/segmentation-3.0":
+                                        {"pytorch_model.bin": "s"}})
+    with pytest.raises(diarization.DiarizationError) as stopped:
+        diarization.fetch("pyannote/segmentation-3.0", str(tmp_path / "d"),
+                          "hf_x", download)
+    assert "config.yaml" in str(stopped.value)
