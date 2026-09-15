@@ -13,7 +13,7 @@ import time
 from collections import namedtuple
 from datetime import datetime
 
-from . import paths
+from . import paths, titles
 from .audio import duration_seconds, load_audio
 from .cleaning import clean_segments, paragraphs_from_blob, to_paragraphs
 from .config import read_prompt
@@ -333,7 +333,18 @@ def run(source, settings, prompt=None, progress=None):
 
 
 def file_in_library(library, source, result, settings, title=None, store="copy"):
-    """Create a library entry for ``result`` and return it."""
+    """Create a library entry for ``result`` and return it.
+
+    With ``auto_title`` the entry is named after what was said in it rather
+    than after the file it arrived as: a shelf of ``2026-09-15_1830`` is a
+    shelf nobody can look through, and the date is already in the row."""
+    if settings.get("auto_title"):
+        suggested = titles.suggest(text=result.text, segments=result.segments,
+                                   language=result.info.get("language")
+                                   or settings.get("language") or "")
+        if suggested:
+            print(t("library.titled", title=suggested))
+            title = suggested
     entry = library.create(source=source, title=title, store=store)
     entry.write_transcript(result.text, result.segments)
     entry.update(

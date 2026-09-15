@@ -6,6 +6,33 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- **A recording can be named after what was said in it.** *Name it after what
+  was said in it* — a tick box beside the four answers, in the window and on
+  the page, `--auto-title` on the command line, `[general] auto_title` in
+  `config.toml`. When the transcription is filed, the entry is titled from the
+  transcript instead of from the file it arrived as: a library of
+  `2026-09-15_1830` is a library nobody can look through, and the date is
+  already in the row.
+
+  No model is loaded and nothing is sent anywhere. The transcript is ranked
+  the way the extractive summary ranks it — TextRank over the sentences — and
+  the strongest sentence is trimmed into a label: the opening filler dropped
+  ("allora", "so", "dunque"), cut at a clause boundary rather than at a word
+  count, never left ending on a preposition or an article. Where a summary has
+  already been written, its first sentence is used instead, because a sentence
+  written about the whole recording beats the best sentence taken out of it.
+  A recording with nothing in it keeps its file name rather than being given a
+  title made of noise.
+
+- **Every queue row says how long the recording is, how big, and when it was
+  made — whatever state it is in.** The length is read from the file's header
+  when the job is made, which costs milliseconds and no decoding, so a
+  recording waiting its turn can already say it is fifty minutes long. A failed
+  row carries the same three facts and then the reason, rather than the reason
+  alone: it is still the file it was.
+
 ### Fixed
 
 - **The About box showed the licence as it was on the day the program was

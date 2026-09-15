@@ -25,6 +25,12 @@ because a transcription that takes an hour is easier to watch than to wait for.
   reason on them, when this machine cannot diarize. Same four answers as the
   window and as `--output`; `[general] output` decides which one is
   preselected.
+- **Name it after what was said in it**, if you like: the entry is titled from
+  the transcript when the job is done, instead of from the file it arrived as.
+  A library of `2026-09-15_1830` is a library nobody can look through, and the
+  date is already in the row. No model is loaded for it — the transcript is
+  ranked the way the extractive summary ranks it and the strongest sentence is
+  trimmed into a title.
 - Choose the model, the spoken language, and the keyword sets — the installed
   ones, your own, or both. See [vocabularies.md](vocabularies.md).
 - Watch the job: queued, transcribing with a progress bar **and the stage it is
@@ -91,6 +97,12 @@ wait, and until pyannote was asked for its progress the bar simply stood at
 60% for all of it. Next to the stage is **how long the job has been running**,
 which is what proves a job is alive when the bar cannot: inside one step
 nothing else moves.
+
+**Every row says what the recording is** — how long, how big, when it was made
+— from the moment it joins the queue and whatever state it is in. Those are
+read from the file when the job is made (the length from its header, which
+costs milliseconds and no decoding), because a queue of a dozen files named by
+date is told apart by them before it is told apart by anything else.
 
 **Above the list, what the machine itself is doing.** Two meters — the CPU and
 the memory — and a line naming the engine a transcription would use and the

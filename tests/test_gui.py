@@ -112,9 +112,26 @@ def test_a_queue_row_says_how_big_the_recording_is_and_when_it_was_made(tmp_path
     source.write_bytes(b"x" * (3 * 1024 * 1024))
     job = Job(source=str(source), settings={"model": "small"})
 
+    job.audio_duration = 492.5
     details = options.job_details(job)
     assert "3.0 MiB" in details
     assert job.source_created_at[:10] in details        # the date, not the ISO
+    assert "8m 12s" in details                          # and how long it is
+
+
+def test_those_facts_are_on_the_row_whatever_state_it_is_in(tmp_path):
+    """A failed row still has to say which recording it was."""
+    from audio_transcriber.jobs import FAILED, Job
+
+    source = tmp_path / "2026-09-15_1830.wav"
+    source.write_bytes(b"x" * 1024)
+    job = Job(source=str(source), settings={"model": "small"})
+    job.audio_duration = 61.0
+    job.status, job.error = FAILED, "ffmpeg failed to decode the audio"
+
+    details = options.job_details(job)
+    assert "1m 01s" in details and "1.0 KiB" in details
+    assert "ffmpeg failed" in details                   # and why, after them
 
 
 def test_a_running_row_carries_a_clock_as_well_as_a_stage():
@@ -223,7 +240,10 @@ def test_a_failed_job_says_why_on_one_line():
     # where it has the width of the column instead of a corner of the status
     # cell.
     assert row["status"] == "failed"
-    assert row["details"] == "ffmpeg failed"
+    # One line of it, after the facts about the recording, which the row still
+    # has to carry: a failed job is still the file it was.
+    assert row["details"].endswith("ffmpeg failed")
+    assert "second line" not in row["details"]
     assert row["failed"] is True
 
 

@@ -46,6 +46,9 @@ DEFAULTS = {
     #: Write the summary as soon as the transcription is filed, without
     #: anybody having to come back to the library and ask for it.
     "summary_after": False,
+    #: Name the recording after what was said in it, instead of after the
+    #: file it arrived as.
+    "auto_title": False,
     "subtitles": None,            # formats to save: "srt", "vtt", "srt,vtt"
     "subtitle_preset": None,      # None: the module's default (netflix)
     "subtitle_chars": None,       # characters per line
@@ -103,6 +106,7 @@ SCHEMA = {
     ("summary", "llama_server"): ("summary_llama_server", str),
     ("diarization", "enabled"): ("diarize", bool),
     ("summary", "with_transcription"): ("summary_after", bool),
+    ("general", "auto_title"): ("auto_title", bool),
     ("diarization", "speakers"): ("speakers", int),
     ("diarization", "model"): ("diar_model", str),
     ("paths", "models"): ("models_dir", str),

@@ -608,3 +608,26 @@ def test_a_job_without_a_file_has_neither(queue, tmp_path):
     missing = jobs_module.Job(source=str(tmp_path / "gone.wav"))
     assert missing.size_bytes is None and missing.source_created_at is None
     assert jobs_module.Job(kind=jobs_module.SUMMARY).size_bytes is None
+
+
+def test_a_queued_recording_already_says_how_long_it_is(queue, tmp_path,
+                                                        monkeypatch):
+    """Duration, size and date are what tell one row from another in a queue
+    of files named by date, and they must not wait for the transcription."""
+    monkeypatch.setattr(jobs_module.audio, "probe_seconds", lambda path: 492.5)
+    source = tmp_path / "2026-09-15_1830.wav"
+    source.write_bytes(b"x" * 2048)
+
+    job = queue.submit(str(source), start=False)
+    assert job.audio_duration == 492.5
+    assert job.status == jobs_module.HELD          # before anything has run
+    assert job.as_dict()["audio_duration"] == 492.5
+
+
+def test_a_recording_ffmpeg_cannot_read_says_nothing_rather_than_zero(queue,
+                                                                      tmp_path,
+                                                                      monkeypatch):
+    monkeypatch.setattr(jobs_module.audio, "probe_seconds", lambda path: None)
+    source = tmp_path / "broken.wav"
+    source.write_bytes(b"x")
+    assert queue.submit(str(source), start=False).audio_duration is None

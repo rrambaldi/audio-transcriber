@@ -270,6 +270,7 @@ MESSAGES = {
         "jobs.interrupted_again":
             "Interrupted by a restart {count} times: left alone rather than "
             "started again. Use 'retry' to put it back in the queue.",
+        "library.titled": "Named after what was said in it: {title}",
         "library.created": "Library entry created: {path}",
         "library.not_found": "No library entry matches '{query}'.",
         "library.ambiguous": "'{query}' matches several entries: {matches}",
@@ -377,6 +378,11 @@ MESSAGES = {
         "gui.summary_none": "No summary yet. It is written on this machine; nothing is sent anywhere.",
         "gui.summary_made_by": "written by {engine}, {when}",
         "gui.summary_tier": " (size class {tier})",
+        "gui.auto_title": "Name it after what was said in it",
+        "gui.auto_title_tip":
+            "Instead of the file name. Taken from the transcript when it is done: "
+            "the strongest sentence in it, trimmed into a title. No model is "
+            "loaded and nothing is sent anywhere.",
         "gui.summary_after": "Write a summary as well, when it is done",
         "gui.summary_after_tip":
             "A second job, queued behind this one: the transcript is filed first "
@@ -1145,6 +1151,7 @@ MESSAGES = {
         "jobs.interrupted_again":
             "Interrotta da un riavvio {count} volte: la lascio stare invece di "
             "riprovarci. Usa 'riprova' per rimetterla in coda.",
+        "library.titled": "Intitolata con quello che ci si dice dentro: {title}",
         "library.created": "Voce di libreria creata: {path}",
         "library.not_found": "Nessuna voce di libreria corrisponde a '{query}'.",
         "library.ambiguous": "'{query}' corrisponde a piu' voci: {matches}",
@@ -1245,6 +1252,11 @@ MESSAGES = {
         "gui.summary_none": "Nessun riassunto. Viene scritto su questa macchina: non esce niente da qui.",
         "gui.summary_made_by": "scritto da {engine}, {when}",
         "gui.summary_tier": " (classe {tier})",
+        "gui.auto_title": "Intitolala con quello che ci si dice dentro",
+        "gui.auto_title_tip":
+            "Invece che con il nome del file. Presa dalla trascrizione quando ha "
+            "finito: la frase piu' forte, ridotta a titolo. Nessun modello viene "
+            "caricato e niente esce da questa macchina.",
         "gui.summary_after": "Scrivi anche il riassunto, quando ha finito",
         "gui.summary_after_tip":
             "Un secondo lavoro, in coda dietro a questo: prima viene archiviata la "
@@ -1842,6 +1854,8 @@ HELP = {
         "help.diarize": "work out who said what (pyannote, on CPU)",
         "help.speakers": "number of speakers, if known (improves the result a lot)",
         "help.hf_token": "Hugging Face token for pyannote (or the HUGGINGFACE_TOKEN variable)",
+        "help.auto_title":
+            "name the library entry after what was said in it, not after the file",
         "help.diar_model": "HF id (online, needs a token) or path to a local config.yaml (offline)",
         "help.library": "file the result in the library instead of writing a .txt next to the input",
         "help.library_store": "how the library keeps the original: copy (default), move, or reference it in place",
@@ -1971,6 +1985,8 @@ HELP = {
         "help.diarize": "ricostruisci chi dice cosa (pyannote, su CPU)",
         "help.speakers": "numero di speaker, se noto (migliora molto la resa)",
         "help.hf_token": "token Hugging Face per pyannote (o la variabile HUGGINGFACE_TOKEN)",
+        "help.auto_title":
+            "intitola la voce di libreria con quello che ci si dice dentro, non con il file",
         "help.diar_model": "id HF (online, con token) o percorso a un config.yaml locale (offline)",
         "help.library": "archivia il risultato in libreria invece di scrivere un .txt accanto al file",
         "help.library_store": "come la libreria conserva l'originale: copy (default), move, oppure reference (lascialo dov'e')",

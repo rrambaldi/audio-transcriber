@@ -33,7 +33,7 @@ import traceback
 import uuid
 from datetime import datetime
 
-from . import paths, pipeline
+from . import audio, paths, pipeline
 from .config import read_prompt, resolve_output
 from .i18n import t
 from .library import STORE_MODES, STORE_MOVE, Library
@@ -352,6 +352,7 @@ class JobQueue:
                 title = safe_filename(filename)
                 job = Job(path, title=title, filename=filename,
                           settings=self.settings)
+                job.audio_duration = audio.probe_seconds(path)
                 job.status = HELD
                 self._jobs[job.id] = job
                 self._order.append(job.id)
@@ -399,6 +400,9 @@ class JobQueue:
         prompt = build_prompt(settings, names, custom_vocabulary)
         job = Job(source, title=title, filename=filename, settings=settings,
                   prompt=prompt, vocabularies=names, store=store)
+        # How long it is, from the header: a recording waiting its turn can
+        # then say so, instead of being a name and a size until it runs.
+        job.audio_duration = audio.probe_seconds(source)
         if not start:
             job.status = HELD
         with self._lock:

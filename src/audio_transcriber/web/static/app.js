@@ -83,6 +83,8 @@ const I18N = {
     output_speakers_note: "The same text arranged as a dialogue, one block per turn. Needs diarization, which runs on the CPU and takes a while.",
     output_subtitles: "Subtitles",
     output_subtitles_note: "Cues with times, cut to be readable, saved with the entry as .srt or .vtt. Nobody named: the speech, in the order it was spoken.",
+    auto_title: "Name it after what was said in it",
+    auto_title_note: "Instead of the file name. Taken from the transcript when it is done \u2014 nothing is sent anywhere and no model is loaded.",
     summary_after: "Write a summary as well, when it is done",
     summary_after_note: "A second job, queued behind this one: the transcript first, the summary after it, on this machine.",
     output_subtitles_speakers: "Subtitles, with who said what",
@@ -123,6 +125,7 @@ const I18N = {
     busy_note_summary: "A summary is being written: everything else is off until it finishes, or you stop it.",
     busy_why: "Not while a transcription is running.",
     no_jobs: "Nothing running.",
+    took: "took {time}",
     cpu: "CPU",
     ram: "RAM",
     cpu_reading: "{percent}% of {cores} cores",
@@ -288,6 +291,8 @@ const I18N = {
     output_speakers_note: "Lo stesso testo disposto come un dialogo, un blocco per battuta. Richiede la diarizzazione, che gira su CPU e ci mette un po'.",
     output_subtitles: "Sottotitoli",
     output_subtitles_note: "Battute con i tempi, tagliate per essere leggibili, salvate con la voce in .srt o .vtt. Nessun nome: il parlato, nell'ordine in cui \u00e8 stato detto.",
+    auto_title: "Intitolala con quello che ci si dice dentro",
+    auto_title_note: "Invece che con il nome del file. Presa dalla trascrizione quando ha finito: niente esce da questa macchina e nessun modello viene caricato.",
     summary_after: "Scrivi anche il riassunto, quando ha finito",
     summary_after_note: "Un secondo lavoro, in coda dietro a questo: prima la trascrizione, poi il riassunto, su questa macchina.",
     output_subtitles_speakers: "Sottotitoli, con chi dice cosa",
@@ -328,6 +333,7 @@ const I18N = {
     busy_note_summary: "Si sta scrivendo un riassunto: tutto il resto \u00e8 sospeso finch\u00e9 non finisce, o finch\u00e9 non lo interrompi.",
     busy_why: "Non mentre una trascrizione \u00e8 in corso.",
     no_jobs: "Niente in corso.",
+    took: "ci ha messo {time}",
     cpu: "CPU",
     ram: "RAM",
     cpu_reading: "{percent}% di {cores} core",
@@ -1174,10 +1180,12 @@ function renderJobs(jobs) {
     /* What the recording is, before anything has been done to it - how big,
        and when it was made - because a queue of a dozen files named by date
        is told apart by those two before it is told apart by anything else. */
-    const facts = [job.model, job.language, job.vocabularies.join(", "),
-      bytes(job.size_bytes), when(job.source_created_at),
+    const facts = [duration(job.audio_duration), bytes(job.size_bytes),
+      when(job.source_created_at), job.model, job.language,
+      job.vocabularies.join(", "),
       job.words ? t("words", { n: job.words }) : "",
-      job.elapsed_seconds ? duration(job.elapsed_seconds) : ""].filter(Boolean).join(" · ");
+      job.elapsed_seconds ? t("took", { time: duration(job.elapsed_seconds) }) : ""]
+      .filter(Boolean).join(" · ");
     const state = el("span", { className: `state${job.status === "failed" ? " failed" : ""}`,
                                textContent: stateText(job) });
     const meta = el("div", { className: "meta" }, [state]);
@@ -1691,6 +1699,7 @@ $("job-form").addEventListener("submit", async (event) => {
      are settled by the server (config.resolve_output), in the one place all
      three interfaces go through. */
   body.append("output", chosenOutput());
+  if ($("auto-title").checked) body.append("auto_title", "true");
   if ($("summary-after").checked) body.append("summary_after", "true");
   if ($("speakers").value && !$("speakers").disabled) {
     body.append("speakers", $("speakers").value);
@@ -1830,6 +1839,7 @@ async function start() {
   presets.value = subtitle.default || "";
   $("save-srt").checked = subtitle.save.includes("srt");
   $("save-vtt").checked = subtitle.save.includes("vtt");
+  $("auto-title").checked = Boolean(status.defaults.auto_title);
   $("summary-after").checked = Boolean(status.defaults.summary_after);
   const chosen = $(`output-${(status.defaults.output || "text").replace(/_/g, "-")}`);
   if (chosen) chosen.checked = true;

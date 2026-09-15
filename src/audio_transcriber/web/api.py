@@ -158,6 +158,7 @@ def register_routes(app):
                 "output": output_of(settings),
                 "diarize": bool(settings.get("diarize")),
                 "summary_after": bool(settings.get("summary_after")),
+                "auto_title": bool(settings.get("auto_title")),
                 "vocabulary": vocabularies.split_names(settings.get("vocabulary")),
             },
             "subtitles": {
@@ -236,6 +237,7 @@ def register_routes(app):
         diarize: bool = Form(False),
         speakers: int | None = Form(None),
         summary_after: bool = Form(False),
+        auto_title: bool = Form(False),
         vocabulary: list[str] = Form(default=[]),
         custom_vocabulary: str = Form(""),
         subtitles_save: str = Form(""),
@@ -285,6 +287,7 @@ def register_routes(app):
                        "diarize": diarize or None,
                        "speakers": speakers or None,
                        "summary_after": summary_after or None,
+                       "auto_title": auto_title or None,
                        "subtitles": ",".join(wanted) or None,
                        "subtitle_preset": subtitle_preset or None,
                        "subtitle_chars": subtitle_chars or None,

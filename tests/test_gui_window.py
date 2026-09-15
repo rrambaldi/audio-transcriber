@@ -995,8 +995,10 @@ def test_a_failed_job_is_shown_with_its_reason(window, tmp_path, queue):
     assert wait_for(lambda: queue.jobs()[0].status == "failed")
     window.transcribe.refresh()
     assert window.transcribe.table.item(0, 1).text() == "failed"
+    # The reason is on the recording's own line, after the facts about the
+    # recording — which a failed row still has to carry.
     assert window.transcribe.table.item(0, 0).data(
-        widgets.DETAILS_ROLE).startswith("the model exploded")
+        widgets.DETAILS_ROLE).endswith("the model exploded")
 
 
 def test_forgetting_one_job_keeps_the_right_row_selected(window, tmp_path, queue):

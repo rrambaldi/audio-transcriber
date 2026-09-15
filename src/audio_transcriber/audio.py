@@ -1,4 +1,5 @@
 """Audio decoding to 16 kHz mono float32 through ffmpeg."""
+import re
 import subprocess
 import sys
 
@@ -39,6 +40,38 @@ def load_audio(path, sample_rate=SAMPLE_RATE):
     # .copy() makes the array writable, which torch.from_numpy needs later on
     # for pyannote.
     return np.frombuffer(process.stdout, dtype=np.float32).copy()
+
+
+#: How long to wait for ffmpeg to read a header. It is milliseconds on any
+#: ordinary file; the limit is for the one that is not ordinary.
+PROBE_TIMEOUT = 20
+
+_DURATION = re.compile(r"Duration:\s*(\d+):(\d\d):(\d\d(?:\.\d+)?)")
+
+
+def probe_seconds(path):
+    """How long a recording is, from its header, without decoding it.
+
+    ffmpeg asked to do nothing with a file still prints what it found in it,
+    and stops there — which on a four-hundred-megabyte recording is the
+    difference between milliseconds and minutes. The queue uses this so that
+    a recording waiting its turn can say how long it is; the transcription
+    replaces the figure with the exact one afterwards.
+
+    ``None`` when it cannot be read: a stream that carries no duration, a
+    file ffmpeg will not open, no ffmpeg at all. A wrong number in a row
+    people read is worse than a missing one."""
+    try:
+        process = subprocess.run(
+            [ffmpeg_exe(), "-nostdin", "-hide_banner", "-i", str(path)],
+            capture_output=True, check=False, timeout=PROBE_TIMEOUT)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    found = _DURATION.search(process.stderr.decode(errors="ignore"))
+    if not found:
+        return None
+    hours, minutes, seconds = found.groups()
+    return int(hours) * 3600 + int(minutes) * 60 + float(seconds)
 
 
 def duration_seconds(audio, sample_rate=SAMPLE_RATE):

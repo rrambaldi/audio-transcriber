@@ -214,6 +214,7 @@ def defaults_from(settings):
         "backend": settings.get("backend") or "auto",
         "diarize": bool(settings.get("diarize")),
         "summary_after": bool(settings.get("summary_after")),
+        "auto_title": bool(settings.get("auto_title")),
         "speakers": int(settings.get("speakers") or 0),
         "vocabulary": vocabularies.split_names(settings.get("vocabulary")),
         "subtitle_preset": settings.get("subtitle_preset") or subtitles.DEFAULT_PRESET,
@@ -236,6 +237,7 @@ def overrides_from(choices):
         # speaking, and resolve_output turns that into the flag.
         "speakers": choices.get("speakers") or None,
         "summary_after": True if choices.get("summary_after") else None,
+        "auto_title": True if choices.get("auto_title") else None,
     }
 
 
@@ -343,28 +345,26 @@ def job_details(job):
     Only what is known. A job that has not started has a model and nothing
     else, and a dash under three headings said less than nothing — it looked
     like a value that had failed to arrive."""
-    if job.status == FAILED and job.error:
-        # The whole width of the recording column, instead of a hundred
-        # characters of ffmpeg squeezed into the status cell.
-        return first_line(job.error)
     if job.kind == SUMMARY:
         # Its "model" is the one that transcribed the entry, which has nothing
-        # to do with what this job is doing to it.
+        # to do with what this job is doing to it, and it has no recording of
+        # its own to describe.
         return t("gui.row_summary_of", engine=job.settings.get("summary_engine")
                  or AUTO)
-    parts = [job.settings.get("model") or AUTO]
-    if job.audio_duration:
-        parts.append(format_duration(job.audio_duration))
-    # What the file is, before anything has been done to it: how big, and
-    # when it was made. On a queue of a dozen recordings named by date those
-    # two are how one is told from another.
-    if getattr(job, "size_bytes", None):
-        parts.append(format_bytes(job.size_bytes))
-    made = format_when(getattr(job, "source_created_at", None))
-    if made:
-        parts.append(made)
+    # What the recording *is* — how long, how big, when it was made — comes
+    # first and is there whatever the job's state: those are the facts that
+    # tell one row from another in a queue of files named by date, and they
+    # are known before anything has been done to them.
+    parts = [format_duration(job.audio_duration) if job.audio_duration else "",
+             format_bytes(job.size_bytes) if getattr(job, "size_bytes", None) else "",
+             format_when(getattr(job, "source_created_at", None)),
+             job.settings.get("model") or AUTO]
     if job.words:
         parts.append(t("gui.n_words", count=job.words))
+    if job.status == FAILED and job.error:
+        # And why it failed, after them rather than instead of them: the row
+        # still has to say which recording this was.
+        parts.append(first_line(job.error))
     return "  ·  ".join(str(part) for part in parts if part)
 
 

@@ -36,6 +36,8 @@ CONFIG_TEMPLATE = '''\
 # interface_language = "en"
 # Spoken language of the recordings; "" auto-detects it.
 language = "it"
+# Name a recording after what was said in it rather than after its file.
+# auto_title = false
 # What a run is for, and what settles the options below: "text" (just the
 # words), "speakers" (who said what), "subtitles" (cues, saved as .srt) or
 # "subtitles_speakers" (the cues, with the change of voice marked in them).
@@ -270,6 +272,8 @@ def build_parser(defaults):
     tr.add_argument("--hf-token", dest="hf_token", default=None, help=t("help.hf_token"))
     tr.add_argument("--diar-model", dest="diar_model", default=None,
                     help=t("help.diar_model"))
+    tr.add_argument("--auto-title", dest="auto_title", action="store_true",
+                    default=None, help=t("help.auto_title"))
     tr.add_argument("--library", action="store_true", help=t("help.library"))
     tr.add_argument("--library-store", dest="library_store", default=STORE_COPY,
                     choices=list(STORE_MODES), help=t("help.library_store"))
@@ -1072,7 +1076,8 @@ def collect_cli_settings(args):
     ``--no-vad`` is the one flag that has to be inverted."""
     names = ("language", "backend", "device", "model", "compute_type", "threads",
              "prompt", "prompt_file", "vocabulary", "para_gap", "para_max_chars",
-             "keep_fillers", "diarize", "speakers", "diar_model", "models_dir",
+             "keep_fillers", "diarize", "speakers", "diar_model", "auto_title",
+             "models_dir",
              "library_dir", "vocab_dir", "subtitle_preset", "subtitle_chars",
              "subtitle_lines", "subtitle_words", "output", "summarizer",
              "summary_length", "summary_model", "summary_device",
