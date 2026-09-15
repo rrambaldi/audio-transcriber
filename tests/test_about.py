@@ -31,17 +31,6 @@ def test_the_licence_is_found_in_a_checkout():
     assert os.path.basename(path) == about.FILENAME
 
 
-def test_the_installed_copy_is_preferred_over_the_checkout(monkeypatch, tmp_path):
-    """A wheel's own file wins, because that is the copy being run - and it
-    is the one whose licence the user actually received."""
-    installed = tmp_path / "LICENSE"
-    installed.write_text("INSTALLED\n\nPermission is hereby granted", encoding="utf-8")
-    monkeypatch.setattr(about, "_installed_path", lambda: str(installed))
-
-    assert about.licence_path() == str(installed)
-    assert about.licence_text().startswith("INSTALLED")
-
-
 def test_a_copy_with_no_licence_file_says_so_instead_of_failing(monkeypatch):
     """The licence is data, like the icons: a build that lost it must still
     run, and the front ends have a sentence for the case."""
@@ -97,3 +86,40 @@ def test_the_facts_are_what_a_front_end_needs_and_no_prose():
     assert facts["version"] == __version__
     assert set(facts) == {"version", "spdx", "licence_title", "licence_text",
                           "licence_path", "fonts"}
+
+
+def test_the_checkout_wins_over_what_was_installed_from_it(monkeypatch, tmp_path):
+    """An editable install copies the licence into its metadata at install
+    time and never looks again: a checkout whose licence changed afterwards
+    was still showing the old one, which is the one case this has to get
+    right."""
+    checkout = tmp_path / "LICENSE"
+    checkout.write_text("THE ONE BESIDE THE CODE\n", encoding="utf-8")
+    installed = tmp_path / "dist-info" / "LICENSE"
+    installed.parent.mkdir()
+    installed.write_text("the one from install day\n", encoding="utf-8")
+
+    monkeypatch.setattr(about, "_CHECKOUT", str(checkout))
+    monkeypatch.setattr(about, "_installed_path", lambda: str(installed))
+    about.licence_text.cache_clear()
+    try:
+        assert about.licence_path() == str(checkout)
+        assert "BESIDE THE CODE" in about.licence_text()
+    finally:
+        about.licence_text.cache_clear()
+
+
+def test_an_installed_copy_is_still_found_when_there_is_no_checkout(monkeypatch,
+                                                                   tmp_path):
+    """A wheel has no source tree beside it, and may have moved the file."""
+    installed = tmp_path / "licenses" / "LICENSE"
+    installed.parent.mkdir()
+    installed.write_text("MIT License\n", encoding="utf-8")
+
+    monkeypatch.setattr(about, "_CHECKOUT", str(tmp_path / "nowhere" / "LICENSE"))
+    monkeypatch.setattr(about, "_installed_path", lambda: str(installed))
+    about.licence_text.cache_clear()
+    try:
+        assert about.licence_path() == str(installed)
+    finally:
+        about.licence_text.cache_clear()

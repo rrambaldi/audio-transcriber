@@ -6,6 +6,16 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- **The About box showed the licence as it was on the day the program was
+  installed.** An editable install copies the licence into its own metadata
+  once and never looks at it again, and that copy was preferred over the file
+  in the checkout — so a licence changed afterwards was invisible to everyone
+  running from the source tree, which is everyone working on it. The checkout
+  wins now; a wheel, which has no source tree beside it, still finds the copy
+  its metadata points at.
+
 ## [0.8.0] — 2026-09-15
 
 ### Added

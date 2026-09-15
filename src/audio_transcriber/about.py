@@ -42,12 +42,15 @@ _CHECKOUT = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(
 def licence_path():
     """The licence file, wherever this copy of the program keeps it.
 
-    An installed copy first: the metadata says which file was the licence, so
-    a wheel that renamed or moved it is still found. Then the checkout, which
-    is how anybody working on the program runs it. ``None`` if neither is
-    there - a licence that cannot be shown is not a reason to fail, so the
-    callers say so instead."""
-    for candidate in (_installed_path(), _CHECKOUT):
+    The checkout first, when the code being run is in one: an editable
+    install copies the licence into its metadata at install time and never
+    looks at it again, so the file beside the code is the licence that
+    actually applies — and a checkout whose licence has changed since is
+    exactly when it matters. Then the installed copy, whose metadata says
+    which file it was, so a wheel that renamed or moved it is still found.
+    ``None`` if neither is there: a licence that cannot be shown is not a
+    reason to fail, so the callers say so instead."""
+    for candidate in (_CHECKOUT, _installed_path()):
         if candidate and os.path.exists(candidate):
             return candidate
     return None
