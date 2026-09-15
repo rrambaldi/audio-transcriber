@@ -855,3 +855,87 @@ def test_an_answer_about_something_else_is_quoted_back():
 
     detail = reading.why_nothing("Write one paragraph of three or four lines.")
     assert "Write one paragraph" in detail
+
+
+# --- a suggested model this installation cannot use ------------------------
+
+def test_a_model_that_will_not_convert_hands_over_to_the_next_one(monkeypatch,
+                                                                  capsys):
+    """The newest model in the catalogue is the one most likely to be off the
+    OpenVINO exporter's list of architectures. That is a reason to take the
+    next model down, not to give up on summaries."""
+    from audio_transcriber.summarizers import openvino_genai as engine
+    from audio_transcriber.summarizers import plan as planning
+
+    tried = []
+
+    def refuse_the_first(hf_id, models_dir=None):
+        tried.append(hf_id)
+        if len(tried) == 1:
+            raise SummaryError(f"Could not convert {hf_id}: unsupported task")
+        return f"/models/{hf_id}"
+
+    monkeypatch.setattr(engine, "prepare", refuse_the_first)
+    # The plan measures the machine itself, so it is the plan that has to be
+    # told this is a big one: the test must not depend on the server it runs on.
+    for module in (engine, planning):
+        monkeypatch.setattr(module, "available_ram_gb", lambda: 12.0)
+        monkeypatch.setattr(module, "total_ram_gb", lambda: 32.0)
+    planning.forget()
+
+    chosen, hf_id, converted = engine._model_for({}, progress=None)
+
+    assert len(tried) == 2 and tried[0] != tried[1]
+    assert hf_id == tried[1] and converted.endswith(tried[1])
+    assert chosen.model.hf_id == hf_id
+    assert "next model down" in capsys.readouterr().err
+
+
+def test_a_model_asked_for_by_name_is_not_quietly_replaced(monkeypatch):
+    """Somebody who names a model wants that one; the error is the answer."""
+    from audio_transcriber.summarizers import openvino_genai as engine
+    from audio_transcriber.summarizers import plan as planning
+
+    def refuse(hf_id, models_dir=None):
+        raise SummaryError(f"Could not convert {hf_id}")
+
+    monkeypatch.setattr(engine, "prepare", refuse)
+    for module in (engine, planning):
+        monkeypatch.setattr(module, "available_ram_gb", lambda: 12.0)
+        monkeypatch.setattr(module, "total_ram_gb", lambda: 32.0)
+    planning.forget()
+
+    with pytest.raises(SummaryError):
+        engine._model_for({"summary_model": "Qwen/Qwen3.5-4B"}, by_name=True)
+
+
+def test_when_nothing_converts_the_refusal_is_the_reason_given(monkeypatch):
+    """Not "no model fits in memory", which is what asking the plan for one
+    more candidate says when the catalogue runs out."""
+    from audio_transcriber.summarizers import openvino_genai as engine
+    from audio_transcriber.summarizers import plan as planning
+
+    def refuse(hf_id, models_dir=None):
+        raise SummaryError(f"Could not convert {hf_id}: unsupported task")
+
+    monkeypatch.setattr(engine, "prepare", refuse)
+    for module in (engine, planning):
+        monkeypatch.setattr(module, "available_ram_gb", lambda: 12.0)
+        monkeypatch.setattr(module, "total_ram_gb", lambda: 32.0)
+    planning.forget()
+
+    with pytest.raises(SummaryError) as stopped:
+        engine._model_for({}, progress=None)
+    assert "Could not convert" in str(stopped.value)
+
+
+def test_the_plan_can_be_told_to_leave_a_model_out(monkeypatch):
+    from audio_transcriber.summarizers import plan as planning
+
+    planning.forget()
+    first = planning.resolve_plan(planning.OPENVINO, {}, ram=12.0, total=32.0)
+    planning.forget()
+    second = planning.resolve_plan(planning.OPENVINO, {}, ram=12.0, total=32.0,
+                                   skip=[first.model.name])
+
+    assert second is None or second.model.name != first.model.name

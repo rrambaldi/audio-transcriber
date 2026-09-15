@@ -48,7 +48,7 @@ import time
 from .. import paths
 from ..hardware import available_ram_gb, openvino_devices, total_ram_gb
 from ..i18n import t
-from ..summary import SummaryError
+from ..summary import NotEnoughMemory, SummaryError
 from . import plan, prompting, reading
 
 NAME = "openvino"
@@ -369,17 +369,59 @@ def summarize(material, settings=None, progress=None):
     Returns the sections and, when only part of the transcript reached the
     model, the note that says so."""
     settings = settings or {}
-    chosen = reading.choose(plan.OPENVINO, settings, available_ram_gb(),
-                            total_ram_gb())
-    hf_id = (resolve_model(settings.get("summary_model"), settings)
-             or chosen.model.hf_id or chosen.model.name)
     device = resolve_device(settings.get("summary_device"))
+    asked = str(settings.get("summary_model") or "").strip()
+    by_name = bool(asked) and asked.lower() != "auto"
+    chosen, hf_id, converted = _model_for(settings, progress, by_name)
 
     def open_pipeline():
-        return Pipeline(prepare(hf_id, settings.get("models_dir")), device)
+        return Pipeline(converted, device)
 
     return reading.summarize_with(open_pipeline, chosen, material, settings,
                                   progress, model_name=hf_id)
+
+
+def _model_for(settings, progress=None, by_name=False):
+    """The plan, the model and the converted directory — first one that works.
+
+    A model the plan suggests can still be one this installation cannot
+    export: OpenVINO's exporter supports a list of architectures, and the
+    newest model in the catalogue is exactly the one most likely to be off
+    it. That is not a reason to give up on summaries, it is a reason to take
+    the next model down, so a refused conversion moves on rather than ending
+    the run.
+
+    Converted here rather than lazily, on purpose: better to find out in the
+    first seconds than after the minutes it takes to reduce a transcript. A
+    model asked for by name is not replaced — somebody who names one wants
+    that one, and the error is the answer."""
+    refused, last = [], None
+    while True:
+        try:
+            chosen = reading.choose(plan.OPENVINO, settings, available_ram_gb(),
+                                    total_ram_gb(), skip=refused)
+        except NotEnoughMemory as no_room:
+            if last is not None:
+                # The catalogue ran out because every model was refused, not
+                # because the machine is small: the refusals are the story.
+                raise last from no_room
+            raise
+        # The plan that was just asked, skips and all — not resolve_model(),
+        # which asks the plan again from scratch and hands back the model this
+        # loop is trying to get away from.
+        hf_id = (resolve_model(settings.get("summary_model"), settings) if by_name
+                 else (chosen.model.hf_id or chosen.model.name))
+        if progress:
+            progress(3, "stage.loading_model")
+        try:
+            return chosen, hf_id, prepare(hf_id, settings.get("models_dir"))
+        except (SummaryError, OSError, ValueError, RuntimeError) as exc:
+            if by_name:
+                raise
+            print(t("summary.model_unusable_next", model=hf_id, error=exc),
+                  file=sys.stderr)
+            refused.append(chosen.model.name)
+            last = exc if isinstance(exc, SummaryError) else SummaryError(str(exc))
 
 
 def label(settings=None):

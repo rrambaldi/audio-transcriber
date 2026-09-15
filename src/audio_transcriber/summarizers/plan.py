@@ -298,16 +298,22 @@ def runnable(model, engine):
     return True
 
 
-def candidates(tier, engine, usable=None):
+def candidates(tier, engine, usable=None, skip=()):
     """The models this tier would choose between, best first.
 
     A tier can hold more than one, and then the floor decides: Granite H-Tiny
     is the better model of the two in the largest tier and wants eight
     gigabytes to be worth loading, so a machine with seven gets the other
     one rather than a squeezed version of the bigger."""
+    refused = {str(name).strip().lower() for name in (skip or ())}
     found = [(index, model) for index, model in enumerate(CATALOGUE)
              if model.tier == tier.name and runnable(model, engine)
-             and (usable is None or usable >= model.floor)]
+             and (usable is None or usable >= model.floor)
+             # A model this machine has already refused to convert or load is
+             # not a candidate any more: asking for it again is asking for the
+             # same failure, slowly.
+             and model.name.lower() not in refused
+             and str(model.hf_id or "").lower() not in refused]
     # The floor first, then the order they are listed in: two models in one
     # tier that want the same memory are ranked by the catalogue, which is
     # where a measurement can be recorded and a preference explained.
@@ -418,7 +424,8 @@ def named(name):
     return None
 
 
-def resolve_plan(engine, settings=None, ram=None, total=None, cores=None):
+def resolve_plan(engine, settings=None, ram=None, total=None, cores=None,
+                 skip=()):
     """The plan for this machine, or None when it should not load a model.
 
     ``None`` is a real answer and not a failure: the caller falls back to the
@@ -440,18 +447,19 @@ def resolve_plan(engine, settings=None, ram=None, total=None, cores=None):
         total = total_ram_gb()
     if cores is None:
         cores = physical_cores() or cpu_count()
-    key = (engine, None if total is None else round(total), cores, overrides)
+    key = (engine, None if total is None else round(total), cores, overrides,
+           tuple(sorted(skip or ())))
     if key in _CACHE and ram is None:
         return _CACHE[key]
 
     available = available_ram_gb() if ram is None else ram
-    plan = _resolve(engine, settings, available, total, cores)
+    plan = _resolve(engine, settings, available, total, cores, skip)
     if ram is None:
         _CACHE[key] = plan
     return plan
 
 
-def _resolve(engine, settings, available, total, cores):
+def _resolve(engine, settings, available, total, cores, skip=()):
     """:func:`resolve_plan` with the machine already measured."""
     threads = int(settings.get("threads") or cores or 1)
     usable = usable_ram_gb(available, total)
@@ -486,7 +494,7 @@ def _resolve(engine, settings, available, total, cores):
             continue
         if asked_tier is None and usable < tier.floor:
             continue
-        for model in candidates(tier, engine, usable):
+        for model in candidates(tier, engine, usable, skip):
             fitted = _fit(model, tier, usable,
                           context=asked_context,
                           kv=kv_pair(asked_kv, tier.kv) if asked_kv else None)

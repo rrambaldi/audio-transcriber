@@ -207,9 +207,13 @@ def warn_if_over_budget(chosen, available, total):
     return True
 
 
-def choose(engine, settings, available, total):
-    """The plan, or a refusal carrying the two numbers the page will print."""
-    chosen = plan.resolve_plan(engine, settings)
+def choose(engine, settings, available, total, skip=()):
+    """The plan, or a refusal carrying the two numbers the page will print.
+
+    ``skip`` leaves out models this machine has already proved it cannot use:
+    a conversion its runtime refuses is not a reason to give up on summaries,
+    it is a reason to take the next one down."""
+    chosen = plan.resolve_plan(engine, settings, skip=skip)
     if chosen is None:
         needed = plan.cheapest(engine)
         free = plan.usable_ram_gb(available, total)

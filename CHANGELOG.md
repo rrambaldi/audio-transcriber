@@ -6,7 +6,24 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.8.0] — 2026-09-15
+
 ### Added
+
+- **A suggested model this installation cannot use hands over to the next
+  one.** The summary model is chosen by the plan — `auto`, by tier and by free
+  memory — and the newest model in the catalogue is exactly the one most
+  likely to be missing from the OpenVINO exporter's list of architectures:
+  asking for `Qwen/Qwen3.5-4B` came back "the exporter only supports
+  image-text-to-text for qwen3_5", and the summary ended there. A refused
+  conversion now moves down the catalogue instead, says which model it gave
+  up on and why, and writes the page with the next one. A model asked for *by
+  name* is never replaced: somebody who names one wants that one, and the
+  error is the answer.
+
+  The model is also converted before the transcript is reduced rather than
+  after, so a model this machine cannot use is found out in the first seconds
+  instead of after the minutes that reduction takes.
 
 - **The queue says how big each recording is and when it was made.** In the
   window's rows and on the page, beside the model and the language: a queue of

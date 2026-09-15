@@ -873,6 +873,9 @@ MESSAGES = {
         "summary.thinking_stays_on":
             "  NOTE: this runtime offers no way to turn the model's reasoning off,\n"
             "  so every answer pays for it and some come back empty.",
+        "summary.model_unusable_next":
+            "  {model} cannot be used on this installation, so the next model down "
+            "is tried instead. What it said:\n  {error}",
         "summary.model_said_nothing":
             "{model} returned nothing usable: {detail}\n"
             "  Try another model, a larger token allowance, or "
@@ -1741,6 +1744,9 @@ MESSAGES = {
         "summary.thinking_stays_on":
             "  NOTA: questo runtime non permette di spegnere il ragionamento del\n"
             "  modello, quindi ogni risposta lo paga e qualcuna torna vuota.",
+        "summary.model_unusable_next":
+            "  {model} non e' utilizzabile su questa installazione: provo il modello "
+            "sotto. Cosa ha detto:\n  {error}",
         "summary.model_said_nothing":
             "{model} non ha restituito niente di utilizzabile: {detail}\n"
             "  Prova un altro modello, piu' token a disposizione, oppure "
