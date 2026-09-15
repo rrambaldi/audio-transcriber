@@ -617,6 +617,22 @@ class JobQueue:
         # that goes with it.
         job.status = outcome
         self._persist()
+        self._summarise_after(job)
+
+    def _summarise_after(self, job):
+        """Queue the summary of what has just been transcribed, if asked.
+
+        A separate job rather than a longer one: it is the same two cores
+        either way, and as its own row it can be watched, cancelled and
+        retried like anything else — and a summary that fails does not turn a
+        finished transcription into a failed job."""
+        if (job.status != DONE or job.kind != TRANSCRIPTION
+                or not job.entry_id or not job.settings.get("summary_after")):
+            return
+        try:
+            self.summarize(job.entry_id)
+        except Exception as exc:       # noqa: BLE001 - the transcript is safe
+            print(t("jobs.summary_not_queued", title=job.title, error=exc))
 
     def _discard_upload(self, job):
         """Delete the copy we made of a failed job's file.

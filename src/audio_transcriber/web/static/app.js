@@ -83,6 +83,8 @@ const I18N = {
     output_speakers_note: "The same text arranged as a dialogue, one block per turn. Needs diarization, which runs on the CPU and takes a while.",
     output_subtitles: "Subtitles",
     output_subtitles_note: "Cues with times, cut to be readable, saved with the entry as .srt or .vtt. Nobody named: the speech, in the order it was spoken.",
+    summary_after: "Write a summary as well, when it is done",
+    summary_after_note: "A second job, queued behind this one: the transcript first, the summary after it, on this machine.",
     output_subtitles_speakers: "Subtitles, with who said what",
     output_subtitles_speakers_note: "The same cues, with a change of voice marked in them. Needs diarization, which runs on the CPU and takes a while.",
     sub_legend: "How the subtitles are cut",
@@ -286,6 +288,8 @@ const I18N = {
     output_speakers_note: "Lo stesso testo disposto come un dialogo, un blocco per battuta. Richiede la diarizzazione, che gira su CPU e ci mette un po'.",
     output_subtitles: "Sottotitoli",
     output_subtitles_note: "Battute con i tempi, tagliate per essere leggibili, salvate con la voce in .srt o .vtt. Nessun nome: il parlato, nell'ordine in cui \u00e8 stato detto.",
+    summary_after: "Scrivi anche il riassunto, quando ha finito",
+    summary_after_note: "Un secondo lavoro, in coda dietro a questo: prima la trascrizione, poi il riassunto, su questa macchina.",
     output_subtitles_speakers: "Sottotitoli, con chi dice cosa",
     output_subtitles_speakers_note: "Le stesse battute, con il cambio di voce segnato dentro. Richiede la diarizzazione, che gira su CPU e ci mette un po'.",
     sub_legend: "Come vengono tagliati i sottotitoli",
@@ -1490,6 +1494,7 @@ function closeViewer() {
   player.removeAttribute("src");
   clearInterval(summaryWatch);
   summaryWatch = null;
+  showSummaryProgress(null);
   $("summary-run").disabled = pageBusy;
   $("viewer").close();
 }
@@ -1499,6 +1504,18 @@ async function reloadOpenEntry() {
     .then((r) => r.json());
   showSummary(entry);
   showViewerTab("summary");
+}
+
+function showSummaryProgress(job) {
+  /* The same bar a job row has. A summary reads an hour of transcript through
+     a model: "being written" on its own says nothing about where it is. */
+  const bar = $("summary-progress");
+  bar.hidden = job === null;
+  if (job === null) return;
+  bar.firstElementChild.style.width = `${job.progress || 0}%`;
+  bar.setAttribute("aria-valuenow", job.progress || 0);
+  bar.setAttribute("aria-label", t("summary_running",
+                                   { stage: stageLabel(job.stage) }));
 }
 
 function watchSummaryJob(jobId) {
@@ -1515,12 +1532,17 @@ function watchSummaryJob(jobId) {
     }
     if (job.status === "queued") {
       $("summary-status").textContent = t("summary_queued");
+      showSummaryProgress(null);
     } else if (job.status === "running") {
+      const clock = duration(job.running_seconds);
       $("summary-status").textContent = t("summary_running",
-                                          { stage: stageLabel(job.stage) });
+                                          { stage: stageLabel(job.stage) })
+        + ` · ${job.progress}%` + (clock ? ` · ${clock}` : "");
+      showSummaryProgress(job);
     } else {
       clearInterval(summaryWatch);
       summaryWatch = null;
+      showSummaryProgress(null);
       $("summary-run").disabled = pageBusy;
       if (job.status === "done") reloadOpenEntry();
       else $("summary-status").textContent = t("summary_failed",
@@ -1642,6 +1664,7 @@ $("job-form").addEventListener("submit", async (event) => {
      are settled by the server (config.resolve_output), in the one place all
      three interfaces go through. */
   body.append("output", chosenOutput());
+  if ($("summary-after").checked) body.append("summary_after", "true");
   if ($("speakers").value && !$("speakers").disabled) {
     body.append("speakers", $("speakers").value);
   }
@@ -1780,6 +1803,7 @@ async function start() {
   presets.value = subtitle.default || "";
   $("save-srt").checked = subtitle.save.includes("srt");
   $("save-vtt").checked = subtitle.save.includes("vtt");
+  $("summary-after").checked = Boolean(status.defaults.summary_after);
   const chosen = $(`output-${(status.defaults.output || "text").replace(/_/g, "-")}`);
   if (chosen) chosen.checked = true;
   if (!diarization.available) {

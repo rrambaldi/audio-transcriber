@@ -27,6 +27,7 @@ from PySide6.QtWidgets import (
     QLineEdit,
     QMessageBox,
     QPlainTextEdit,
+    QProgressBar,
     QPushButton,
     QSlider,
     QSplitter,
@@ -40,7 +41,7 @@ from PySide6.QtWidgets import (
 
 from ..formatting import format_clock
 from ..i18n import t
-from ..jobs import DONE, FAILED, FINISHED
+from ..jobs import DONE, FAILED, FINISHED, RUNNING
 from ..library import MAX_NOTES, LibraryError
 from ..summary import SummaryError
 from . import multimedia, options, theme
@@ -142,6 +143,13 @@ class LibraryPanel(QWidget):
         self.summary.setReadOnly(True)
         self.summary_note = QLabel("")
         self.summary_note.setWordWrap(True)
+        # A summary reads an hour of transcript through a model: the same bar
+        # a queue row has, because "being written" says nothing about where
+        # it has got to.
+        self.summary_progress = QProgressBar()
+        self.summary_progress.setRange(0, 100)
+        self.summary_progress.setTextVisible(False)
+        self.summary_progress.hide()
         self.summary_engine = QComboBox()
         self.summary_length = QComboBox()
         self.summarise = QPushButton(t("gui.summary_run"))
@@ -150,6 +158,7 @@ class LibraryPanel(QWidget):
         summary_layout = QVBoxLayout(summary_page)
         summary_layout.addWidget(self.summary, 1)
         summary_layout.addWidget(self.summary_note)
+        summary_layout.addWidget(self.summary_progress)
         summary_row = QHBoxLayout()
         engines = options.summary_engine_choices()
         for name, label in engines:
@@ -615,8 +624,13 @@ class LibraryPanel(QWidget):
             self.summary_timer.stop()
             return
         if job.status not in FINISHED:
-            self.summary_note.setText(t(job.stage or "gui.summary_run"))
+            # The state, the stage, and the clock — the same line the queue
+            # shows, so a summary reports itself the way a transcription does.
+            self.summary_note.setText(options.status_text(job))
+            self.summary_progress.setValue(int(job.progress or 0))
+            self.summary_progress.setVisible(job.status == RUNNING)
             return
+        self.summary_progress.hide()
         self.summary_timer.stop()
         self._summary_job = None
         self.summarise.setEnabled(self.entry is not None)

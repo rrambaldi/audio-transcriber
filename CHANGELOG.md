@@ -8,6 +8,19 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- **A summary can be asked for with the transcription, and it says where it
+  has got to.** *Write a summary as well, when it is done* — a tick box beside
+  the four answers, in the window and on the page (`[summary]
+  with_transcription` in `config.toml` preselects it). It queues a second job
+  behind the transcription rather than making the first one longer: the same
+  two cores either way, and as its own row it can be watched, cancelled and
+  retried, and a summary that fails leaves a finished transcription finished.
+
+  And a running summary now draws a bar and names its stage, like every other
+  job: choosing what matters, reading the transcript, writing the summary —
+  with the percentage and how long it has been at it. A model reading an hour
+  of transcript is minutes of nothing at all otherwise.
+
 - **Working out who said what now reports its own progress, and every running
   job carries a clock.** Diarization was one blocking call: the bar jumped to
   the start of its band and stood there for the whole phase — which on a long

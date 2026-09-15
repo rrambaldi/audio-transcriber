@@ -213,6 +213,7 @@ def defaults_from(settings):
         "language": settings.get("language") if settings.get("language") is not None else "it",
         "backend": settings.get("backend") or "auto",
         "diarize": bool(settings.get("diarize")),
+        "summary_after": bool(settings.get("summary_after")),
         "speakers": int(settings.get("speakers") or 0),
         "vocabulary": vocabularies.split_names(settings.get("vocabulary")),
         "subtitle_preset": settings.get("subtitle_preset") or subtitles.DEFAULT_PRESET,
@@ -234,6 +235,7 @@ def overrides_from(choices):
         # Not "diarize": the chosen answer says whether anybody asked who was
         # speaking, and resolve_output turns that into the flag.
         "speakers": choices.get("speakers") or None,
+        "summary_after": True if choices.get("summary_after") else None,
     }
 
 

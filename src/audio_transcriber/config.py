@@ -43,6 +43,9 @@ DEFAULTS = {
     "para_max_chars": 600,
     "keep_fillers": False,
     "diarize": False,
+    #: Write the summary as soon as the transcription is filed, without
+    #: anybody having to come back to the library and ask for it.
+    "summary_after": False,
     "subtitles": None,            # formats to save: "srt", "vtt", "srt,vtt"
     "subtitle_preset": None,      # None: the module's default (netflix)
     "subtitle_chars": None,       # characters per line
@@ -99,6 +102,7 @@ SCHEMA = {
     ("summary", "tier"): ("summary_tier", str),
     ("summary", "llama_server"): ("summary_llama_server", str),
     ("diarization", "enabled"): ("diarize", bool),
+    ("summary", "with_transcription"): ("summary_after", bool),
     ("diarization", "speakers"): ("speakers", int),
     ("diarization", "model"): ("diar_model", str),
     ("paths", "models"): ("models_dir", str),

@@ -67,6 +67,12 @@ class OptionsForm(QWidget):
             self.output_buttons[value] = button
             button.toggled.connect(self._output_chosen)
 
+        # An extra of every answer rather than a fifth one: it does not change
+        # what the transcription is, it puts a second job behind it.
+        self.summary_after = QCheckBox(t("gui.summary_after"))
+        self.summary_after.setToolTip(t("gui.summary_after_tip"))
+        self.summary_after.setChecked(bool(defaults.get("summary_after")))
+
         self.output_note = QLabel("")
         self.output_note.setWordWrap(True)
         # A note, not a disabled control: greying it out is the cheap way to
@@ -206,6 +212,7 @@ class OptionsForm(QWidget):
                 output_layout.addWidget(_wrap(line))
             else:
                 output_layout.addWidget(self.output_buttons[value])
+        output_layout.addWidget(self.summary_after)
         # One note, for the answer that is chosen. Three notes at once is a
         # paragraph to read before the first click.
         output_layout.addWidget(self.output_note)
@@ -376,6 +383,7 @@ class OptionsForm(QWidget):
             "language": self.language.currentData(),
             "backend": self.backend.currentData(),
             "output": self.chosen_output(),
+            "summary_after": self.summary_after.isChecked(),
             "speakers": self.speakers.value(),
             "subtitle_preset": self.subtitle_preset.currentData(),
             "subtitle_chars": self.subtitle_chars.value(),
@@ -393,6 +401,7 @@ class OptionsForm(QWidget):
         button = self.output_buttons.get(choices.get("output"))
         if button is not None and button.isEnabled():
             button.setChecked(True)
+        self.summary_after.setChecked(bool(choices.get("summary_after")))
         self.speakers.setValue(int(choices.get("speakers") or 0))
         _select(self.subtitle_preset, choices.get("subtitle_preset"))
         self.subtitle_chars.setValue(int(choices.get("subtitle_chars") or 0))
@@ -422,6 +431,7 @@ class OptionsForm(QWidget):
         store.setValue("backend", self.backend.currentData())
         store.setValue("vocabulary", self.chosen_vocabularies())
         store.setValue("output", self.chosen_output())
+        store.setValue("summary_after", self.summary_after.isChecked())
         store.setValue("subtitle_preset", self.subtitle_preset.currentData())
         store.setValue("subtitle_chars", self.subtitle_chars.value())
         store.setValue("subtitle_words", self.subtitle_words.value())

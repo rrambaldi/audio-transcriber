@@ -101,6 +101,14 @@
         </div>
         <p class="note" id="output-note" aria-live="polite"></p>
         <p class="note" id="diarize-note" hidden></p>
+        <!-- An extra of every answer rather than a fifth one: it does not
+             change what the transcription is, it adds a second job behind
+             it. -->
+        <div class="field checkbox" id="summary-after-field">
+          <input type="checkbox" id="summary-after" name="summary_after">
+          <label for="summary-after" data-t="summary_after">Write a summary as well, when it is done</label>
+          <p class="note" data-t="summary_after_note">A second job, queued behind this one: the transcript first, the summary after it, on this machine.</p>
+        </div>
       </fieldset>
 
       <div class="grid">
@@ -343,6 +351,10 @@
       </div>
     </div>
     <p class="note" id="summary-status" aria-live="polite"></p>
+    <!-- A summary reads an hour of transcript on this machine: the panel says
+         how far it has got, like any other job in the queue. -->
+    <span class="bar" id="summary-progress" role="progressbar" aria-valuemin="0"
+          aria-valuemax="100" aria-valuenow="0" aria-live="off" hidden><span></span></span>
   </div>
   <div id="viewer-notes" role="tabpanel" aria-labelledby="tab-notes" hidden>
     <div class="field">

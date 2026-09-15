@@ -264,6 +264,9 @@ MESSAGES = {
             "  WARNING: diarization produced no turns or no segments: writing plain text instead.",
 
         # --- library --------------------------------------------------------
+        "jobs.summary_not_queued":
+            "  The transcription of '{title}' is filed, but its summary could not "
+            "be queued: {error}",
         "jobs.interrupted_again":
             "Interrupted by a restart {count} times: left alone rather than "
             "started again. Use 'retry' to put it back in the queue.",
@@ -374,6 +377,10 @@ MESSAGES = {
         "gui.summary_none": "No summary yet. It is written on this machine; nothing is sent anywhere.",
         "gui.summary_made_by": "written by {engine}, {when}",
         "gui.summary_tier": " (size class {tier})",
+        "gui.summary_after": "Write a summary as well, when it is done",
+        "gui.summary_after_tip":
+            "A second job, queued behind this one: the transcript is filed first "
+            "and the summary written after it, on this machine.",
         "gui.summary_run": "Summarise",
         "gui.summary_again": "Summarise again",
         "gui.summary_engine": "Written by",
@@ -1120,6 +1127,9 @@ MESSAGES = {
             "  ATTENZIONE: diarizzazione senza turni o senza segmenti: scrivo il testo semplice.",
 
         # --- library --------------------------------------------------------
+        "jobs.summary_not_queued":
+            "  La trascrizione di '{title}' e' archiviata, ma il suo riassunto non "
+            "e' stato messo in coda: {error}",
         "jobs.interrupted_again":
             "Interrotta da un riavvio {count} volte: la lascio stare invece di "
             "riprovarci. Usa 'riprova' per rimetterla in coda.",
@@ -1223,6 +1233,10 @@ MESSAGES = {
         "gui.summary_none": "Nessun riassunto. Viene scritto su questa macchina: non esce niente da qui.",
         "gui.summary_made_by": "scritto da {engine}, {when}",
         "gui.summary_tier": " (classe {tier})",
+        "gui.summary_after": "Scrivi anche il riassunto, quando ha finito",
+        "gui.summary_after_tip":
+            "Un secondo lavoro, in coda dietro a questo: prima viene archiviata la "
+            "trascrizione, poi viene scritto il riassunto, su questa macchina.",
         "gui.summary_run": "Riassumi",
         "gui.summary_again": "Riassumi di nuovo",
         "gui.summary_engine": "Scritto da",
