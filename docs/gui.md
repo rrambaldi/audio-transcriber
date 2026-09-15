@@ -163,6 +163,13 @@ the CPU and memory found, the engine and model `auto` would pick, whether
 diarization is available, and every directory in use — with a button that opens
 `config.toml` and one that opens the library folder.
 
+**The footer watches the same two figures all the time.** At the right-hand end
+of the status line, next to whatever the window is saying: the CPU, the memory,
+and the engine and device a transcription would run on — small, greyed, and
+there while you work, because a meter you have to open a tab to see is one you
+look at after wondering rather than before. The *This machine* tab keeps the
+full version, and both read the same sampler, so they cannot disagree.
+
 It also answers the question the command line cannot: *is it working now, and
 on what*. Two meters, the CPU and the memory, read every two seconds while the
 tab is on screen and never while it is not, with a line underneath naming the

@@ -8,6 +8,15 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- **The load meters are in the window's footer as well.** CPU, memory and the
+  engine-and-device a run would use, at the right-hand end of the status line,
+  where they can be watched while a transcription runs — a meter that lives in
+  a tab is one you open after wondering rather than before. The *This machine*
+  tab keeps the full version with the run queue, and both draw from the same
+  sampler, so the two places cannot disagree by an interval. Still no GPU
+  percentage, for the same reason as before: OpenVINO publishes none, and the
+  tooltip says so rather than leaving it to be wondered about.
+
 - **`audio-transcriber diarize fetch` downloads the diarization models into
   one folder of ordinary files.** Left to itself, pyannote scatters them
   through the Hugging Face cache — a tree of commit hashes and symlinks that

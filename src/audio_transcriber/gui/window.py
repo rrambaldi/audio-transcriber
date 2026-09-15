@@ -23,12 +23,14 @@ from PySide6.QtWidgets import (
 )
 
 from .. import __version__, branding, paths
+from ..hardware import Meter
 from ..i18n import t
 from ..jobs import JobQueue
 from . import style, theme
 from .about_dialog import AboutDialog
 from .library_panel import LibraryPanel
 from .masthead import Masthead
+from .meters import MachineMeters
 from .system_panel import SystemPanel
 from .transcribe_panel import TranscribePanel
 
@@ -100,7 +102,12 @@ class MainWindow(QMainWindow):
         self.transcribe = TranscribePanel(self.queue, self.settings, self.store)
         self.library = LibraryPanel(self.queue.library, self.settings,
                                     queue=self.queue)
-        self.system = SystemPanel(self.settings, self.queue.library)
+        # One meter for the whole window: the footer and the "this machine"
+        # tab draw the same numbers, and two samplers would disagree about
+        # them by an interval.
+        self.meter = Meter()
+        self.system = SystemPanel(self.settings, self.queue.library,
+                                  meter=self.meter)
 
         self.tabs = QTabWidget()
         self.tabs.addTab(self.transcribe, t("gui.tab_transcribe"))
@@ -169,6 +176,11 @@ class MainWindow(QMainWindow):
         self.status_line = QLabel()
         style.note(self.status_line)
         self.statusBar().addWidget(self.status_line)
+        # At the other end of the same line: how busy the machine is, where it
+        # can be watched while a transcription runs rather than in a tab
+        # somebody has to go and open.
+        self.meters = MachineMeters(self.meter, self.settings)
+        self.statusBar().addPermanentWidget(self.meters)
         self.statusBar().setContentsMargins(theme.GUTTER, 0, theme.GUTTER, 0)
         # What replaces a message when it has had its time.
         self._message_over = QTimer(self)

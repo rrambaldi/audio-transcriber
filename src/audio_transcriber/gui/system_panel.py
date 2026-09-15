@@ -30,24 +30,19 @@ from PySide6.QtWidgets import (
 from .. import paths
 from ..hardware import Meter
 from ..i18n import t
-
-#: How often the meters are read. Slower than a progress bar on purpose: this
-#: is the background a job runs against, not the job.
-SAMPLE_MS = 2000
-
-#: Memory left below which the bar turns to the alarm colour. A model loads in
-#: one go: at nine tenths full the next job is the one that does not fit.
-TIGHT_PERCENT = 90
+from .meters import SAMPLE_MS, TIGHT_PERCENT, gib, paint_tight
 
 
 class SystemPanel(QWidget):
     """Hardware, engines, how busy they are, and the directories in use."""
 
-    def __init__(self, settings=None, library=None, parent=None):
+    def __init__(self, settings=None, library=None, parent=None, meter=None):
         super().__init__(parent)
         self.settings = dict(settings or {})
         self.library = library
-        self.meter = Meter()
+        # Shared with the footer when the window hands one over, so the two
+        # places that draw these numbers never disagree about them.
+        self.meter = meter or Meter()
 
         hardware = QGroupBox(t("gui.group_hardware"))
         self.hardware_form = QFormLayout(hardware)
@@ -134,15 +129,12 @@ class SystemPanel(QWidget):
               t("gui.cpu_reading", percent=round(cpu), cores=reading["cores"])
               if cpu is not None else waiting)
         _draw(self.ram_bar, self.ram_reading, ram,
-              t("gui.ram_reading", used=_gib(reading["ram_used_gb"]),
-                total=_gib(reading["ram_total_gb"]))
+              t("gui.ram_reading", used=gib(reading["ram_used_gb"]),
+                total=gib(reading["ram_total_gb"]))
               if ram is not None else t("gui.load_unmeasured"))
         # Memory is the reading worth a colour: a job that runs out of it dies
         # halfway through, while a CPU at 100% is simply a CPU doing its job.
-        tight = ram is not None and ram >= TIGHT_PERCENT
-        if self.ram_bar.property("tight") != tight:
-            self.ram_bar.setProperty("tight", tight)
-            self.ram_bar.style().polish(self.ram_bar)
+        paint_tight(self.ram_bar, ram is not None and ram >= TIGHT_PERCENT)
         self.load_note.setText(self._context(reading))
 
     def _context(self, reading):
@@ -227,6 +219,4 @@ def _draw(bar, label, percent, text):
     label.setText(text)
 
 
-def _gib(value):
-    """Gibibytes to one decimal, or a dash when the figure is missing."""
-    return "-" if value is None else f"{value:.1f}"
+

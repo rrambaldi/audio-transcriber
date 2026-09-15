@@ -185,6 +185,46 @@ def test_a_machine_that_reports_no_load_is_not_drawn_as_idle(window, monkeypatch
     assert panel.cpu_reading.text() == "this system does not report it"
 
 
+def test_the_footer_watches_the_machine_too(window):
+    """The tab is where you go to look; the footer is where you can watch
+    while a transcription runs."""
+    meters = window.meters
+    assert window.statusBar().children()               # it is in the bar
+    assert meters.parent() is not None
+    meters.refresh()
+
+    assert meters.ram.isEnabled() and 0 <= meters.ram.value() <= 100
+    assert "GiB" in meters.ram_text.text()
+    assert meters.device.text()                        # what would run, and where
+
+
+def test_the_footer_and_the_tab_read_the_same_meter(window):
+    """Two samplers would disagree by an interval, on the same screen."""
+    assert window.meters.meter is window.meter
+    assert window.system.meter is window.meter
+
+
+def test_the_footer_stops_measuring_when_the_window_is_not_shown(window):
+    from PySide6.QtGui import QHideEvent, QShowEvent
+
+    window.meters.showEvent(QShowEvent())
+    assert window.meters.timer.isActive()
+    window.meters.hideEvent(QHideEvent())
+    assert not window.meters.timer.isActive()
+
+
+def test_a_machine_that_measures_nothing_leaves_the_footer_bars_empty(window,
+                                                                     monkeypatch):
+    from audio_transcriber import hardware
+
+    monkeypatch.setattr(hardware, "cpu_ticks", lambda: None)
+    window.meters.meter = hardware.Meter()
+    window.meters.refresh()
+
+    assert not window.meters.cpu.isEnabled()
+    assert window.meters.cpu_text.text() == ""
+    assert window.meters.cpu.value() == 0
+
 def test_the_window_wears_the_icon(window):
     """Every rendered size is handed over, so the desktop picks one instead
     of scaling the only one it was given."""

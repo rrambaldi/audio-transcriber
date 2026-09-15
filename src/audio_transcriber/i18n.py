@@ -697,6 +697,11 @@ MESSAGES = {
         "gui.group_hardware": "What this machine can do",
         "gui.group_paths": "Directories in use",
         "gui.group_load": "How busy it is right now",
+        "gui.meter_device": "{engine} \u00b7 {device}",
+        "gui.meter_tip":
+            "How busy this machine is, and the engine a transcription would run "
+            "on. There is no GPU percentage because OpenVINO reports none: the "
+            "device is the honest answer.",
         "gui.row_cpu": "CPU",
         "gui.row_ram": "Memory",
         "gui.cpu_reading": "{percent}% of {cores} cores",
@@ -1525,6 +1530,11 @@ MESSAGES = {
         "gui.group_hardware": "Cosa puo' fare questa macchina",
         "gui.group_paths": "Cartelle in uso",
         "gui.group_load": "Quanto e' occupata adesso",
+        "gui.meter_device": "{engine} \u00b7 {device}",
+        "gui.meter_tip":
+            "Quanto e' occupata questa macchina, e il motore su cui girerebbe una "
+            "trascrizione. Non c'e' una percentuale GPU perche' OpenVINO non la "
+            "espone: il dispositivo e' la risposta onesta.",
         "gui.row_cpu": "CPU",
         "gui.row_ram": "Memoria",
         "gui.cpu_reading": "{percent}% di {cores} core",
