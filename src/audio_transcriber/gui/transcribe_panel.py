@@ -9,7 +9,7 @@ twice a second is cheaper than making that thread talk to the GUI.
 """
 import os
 
-from PySide6.QtCore import Qt, QTimer, QUrl, Signal
+from PySide6.QtCore import QEvent, Qt, QTimer, QUrl, Signal
 from PySide6.QtGui import QKeySequence, QShortcut
 from PySide6.QtWidgets import (
     QAbstractItemView,
@@ -102,7 +102,7 @@ class TranscribePanel(QWidget):
             lambda _state: self._update_actions())
 
     def _add_shortcuts(self):
-        """The four keys somebody who uses this every day will reach for.
+        """The keys somebody who uses this every day will reach for.
 
         There were none at all: not even Enter, on a tab whose whole purpose
         is one button."""
@@ -112,10 +112,17 @@ class TranscribePanel(QWidget):
             (QKeySequence("Ctrl+Enter"), self.start_queue),
         ):
             QShortcut(keys, self, activated=slot)
-        # Delete belongs to the list, not to the whole tab: it must not fire
-        # while somebody is writing their own terms.
-        QShortcut(QKeySequence.StandardKey.Delete, self.table,
-                  activated=self._delete_selected)
+        # These two belong to the list, not to the whole tab: they must not
+        # fire while somebody is typing somewhere else in the window, which
+        # is what the widget context — rather than the default window one —
+        # is for.
+        for keys, slot in (
+            (QKeySequence.StandardKey.Delete, self._delete_selected),
+            # And the way back out of a selection, for the keyboard.
+            (QKeySequence(Qt.Key.Key_Escape), self.table.clearSelection),
+        ):
+            QShortcut(keys, self.table, activated=slot,
+                      context=Qt.ShortcutContext.WidgetWithChildrenShortcut)
 
     def _delete_selected(self):
         """The Delete key: the same thing the row's own Remove button does."""
@@ -149,7 +156,24 @@ class TranscribePanel(QWidget):
         # Not only on the refresh tick: clicking a row and finding the buttons
         # still describing the previous one is half a second of lying.
         self.table.itemSelectionChanged.connect(self._update_actions)
+        # A click on the empty space under the rows unselects. See eventFilter.
+        self.table.viewport().installEventFilter(self)
         self.summary = QLabel("")
+
+    def eventFilter(self, watched, event):
+        """Clicking past the last row puts the list back to nothing chosen.
+
+        Qt's single-selection mode has no way out of a selection: once a row
+        has been clicked, something is selected for the rest of the session —
+        Ctrl-clicking it is the only way back, and nobody finds that. The
+        empty space under the rows is where people already click to mean "not
+        that one", and Escape does the same from the keyboard."""
+        if (watched is self.table.viewport()
+                and event.type() == QEvent.Type.MouseButtonPress
+                and not self.table.indexAt(
+                    event.position().toPoint()).isValid()):
+            self.table.clearSelection()
+        return super().eventFilter(watched, event)
 
     def _assemble(self):
         """The recorder across the top, and the queue with its way in.

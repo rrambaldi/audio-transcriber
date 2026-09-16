@@ -871,6 +871,50 @@ def test_the_way_files_get_in_is_inside_the_box_they_get_into(window):
     assert recorder_box.layout().count() == 1
 
 
+def test_a_selected_recording_can_be_unselected_again(window, tmp_path, queue):
+    """Qt's single-selection mode has no way out of a selection: once a row is
+    clicked something stays selected for the rest of the session. Clicking the
+    empty space under the rows is how people already say "not that one"."""
+    from PySide6.QtCore import QPointF
+    from PySide6.QtGui import QMouseEvent
+
+    window.transcribe.add_files([sample(tmp_path)])
+    window.transcribe.refresh()
+    window.transcribe.table.selectRow(0)
+    assert window.transcribe.selected_job_id() is not None
+
+    table = window.transcribe.table
+    below = QPointF(10, table.viewport().height() - 4)      # past the last row
+    assert not table.indexAt(below.toPoint()).isValid()
+    # Sent rather than called: the panel watches the viewport, and an event
+    # filter is Qt's delivery, not the widget's own handler.
+    QApplication.sendEvent(
+        table.viewport(),
+        QMouseEvent(QMouseEvent.Type.MouseButtonPress, below, below,
+                    Qt.MouseButton.LeftButton, Qt.MouseButton.LeftButton,
+                    Qt.KeyboardModifier.NoModifier))
+
+    assert window.transcribe.selected_job_id() is None
+
+
+def test_escape_lets_go_of_a_row_without_the_mouse(window, tmp_path):
+    """The same way out, for the keyboard — and it belongs to the list, not to
+    the window: Delete beside it must not fire while somebody is typing."""
+    window.transcribe.add_files([sample(tmp_path)])
+    window.transcribe.refresh()
+    window.transcribe.table.selectRow(0)
+
+    keys = {shortcut.key(): shortcut
+            for shortcut in window.transcribe.table.findChildren(QShortcut)}
+    escape = keys[QKeySequence(Qt.Key.Key_Escape)]
+    assert escape.context() == Qt.ShortcutContext.WidgetWithChildrenShortcut
+    assert (keys[QKeySequence(QKeySequence.StandardKey.Delete)].context()
+            == Qt.ShortcutContext.WidgetWithChildrenShortcut)
+
+    escape.activated.emit()
+    assert window.transcribe.selected_job_id() is None
+
+
 def test_a_job_that_has_not_started_can_be_taken_back_out(window, tmp_path, queue):
     """It leaves no row behind: nothing happened to it. And every row carries
     the buttons that apply to it, so there is no selection to get wrong."""

@@ -237,9 +237,13 @@ class JobDelegate(QStyledItemDelegate):
                              settings, painter, widget)
 
         selected = bool(option.state & QStyle.StateFlag.State_Selected)
-        role = (QPalette.ColorRole.HighlightedText if selected
-                else QPalette.ColorRole.Text)
-        ink = settings.palette.color(role)
+        # The ink is the same whether the row is selected or not, because the
+        # selection is a *wash* of the accent rather than the accent itself:
+        # gui/theme.py paints a selected row in signal-wash and leaves the
+        # text as it was. Reaching for HighlightedText here — the colour meant
+        # for writing on the full accent — put a pale title on a pale ground
+        # and made the selected row the one row nobody could read.
+        ink = settings.palette.color(QPalette.ColorRole.Text)
         painter.save()
         painter.setPen(ink)
         area = settings.rect.adjusted(4, self.PADDING, -4, -self.PADDING)
@@ -256,7 +260,9 @@ class JobDelegate(QStyledItemDelegate):
         # The second line is the same ink, muted as far as it can be while
         # still reading — on the selection colour too, which is why it is
         # mixed with the background actually behind it.
-        ground = settings.palette.color(QPalette.ColorRole.Highlight if selected
+        # Midlight is where palette() keeps that wash, so the muting of the
+        # second line is measured against the ground actually behind it.
+        ground = settings.palette.color(QPalette.ColorRole.Midlight if selected
                                         else QPalette.ColorRole.Base)
         painter.setPen(style.readable(ink, ground))
         painter.setFont(settings.font)
