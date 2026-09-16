@@ -23,6 +23,7 @@ from PySide6.QtWidgets import (
     QMessageBox,
     QProgressBar,
     QPushButton,
+    QSizePolicy,
     QTableWidget,
     QTableWidgetItem,
     QVBoxLayout,
@@ -44,12 +45,13 @@ REFRESH_MS = 500
 class TranscribePanel(QWidget):
     """Recordings first, then what to do with them.
 
-    The tab reads as a list down the left — where the recordings come from,
-    then the four questions about them — with the queue beside it. A file
-    that arrives waits in that queue; each row carries the buttons that act
-    on it, and starting one asks what it is for, seeded from the answers on
-    the left. That order is deliberate: you have the recording in front of
-    you before deciding what to make of it."""
+    The tab reads down the page: the recorder across the top, where a meeting
+    that has not been recorded yet comes from, and under it the queue with
+    its own way in — the button and the dashed area that files arrive
+    through. A file that arrives waits in that queue; each row carries the
+    buttons that act on it, and starting one asks what it is for. That order
+    is deliberate: you have the recording in front of you before deciding
+    what to make of it."""
 
     #: A finished job was double-clicked: the window should show the entry.
     entry_requested = Signal(str)
@@ -150,13 +152,19 @@ class TranscribePanel(QWidget):
         self.summary = QLabel("")
 
     def _assemble(self):
-        """A header saying where recordings come from, and the queue.
+        """The recorder across the top, and the queue with its way in.
 
         Everything else — what you want out of a recording, how to transcribe
         it, the subtitle numbers, the keywords — is asked about *one*
         recording, in the dialog its Transcribe button opens. A column of
         options beside the queue was answering those questions for a file
-        that did not exist yet, and answering them once for all of them."""
+        that did not exist yet, and answering them once for all of them.
+
+        Adding files belongs to the queue, not beside the recorder: both the
+        button and the dashed area put a recording in the list below them, so
+        they sit in the box that list is in. That leaves the recorder the
+        whole width, which is what its two device menus wanted — a source
+        named "[loopback] Speakers (Cirrus Logic XU)" was being cut in half."""
         # Not the primary button: the one filled thing on this tab is
         # Transcribe, under the list. This is the way in for people who would
         # rather not drag anything.
@@ -179,17 +187,18 @@ class TranscribePanel(QWidget):
         # this area as a dashed rule, which no frame shape of Qt's is.
         self.drop_zone.setObjectName("drop")
         self.drop_zone.setFrameShape(QFrame.Shape.StyledPanel)
+        # Standing over the list it fills, it takes the height it needs and no
+        # more: beside the recorder it was a tall empty rectangle, and that
+        # height belongs to the one thing on this tab that grows, the queue.
+        self.drop_zone.setSizePolicy(QSizePolicy.Policy.Preferred,
+                                     QSizePolicy.Policy.Fixed)
         drop_layout = QVBoxLayout(self.drop_zone)
-        drop_layout.addStretch(1)
         drop_layout.addLayout(add_row)
         drop_layout.addWidget(self.drop_hint)
-        drop_layout.addStretch(1)
 
-        header = QGroupBox(t("gui.group_sources"))
+        header = QGroupBox(t("gui.group_record"))
         header_layout = QHBoxLayout(header)
-        header_layout.addWidget(self.drop_zone, 2)
-        header_layout.addWidget(widgets.separator_line(), 0)
-        header_layout.addWidget(self.recorder, 3)
+        header_layout.addWidget(self.recorder)
 
         self.start = QPushButton(t("gui.start"))
         # The one filled button under the list. It starts everything that is
@@ -209,6 +218,7 @@ class TranscribePanel(QWidget):
 
         queue_box = QGroupBox(t("gui.group_queue"))
         queue_layout = QVBoxLayout(queue_box)
+        queue_layout.addWidget(self.drop_zone)
         queue_layout.addWidget(self.table, 1)
         queue_layout.addWidget(self.summary)
         queue_layout.addLayout(actions)

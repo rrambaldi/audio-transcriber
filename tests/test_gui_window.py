@@ -851,6 +851,26 @@ def test_the_queue_is_a_box_with_a_name_on_it(window):
     assert "Transcription queue" in titles
 
 
+def test_the_way_files_get_in_is_inside_the_box_they_get_into(window):
+    """The dashed area and its button put a recording in the list below them,
+    so they stand in that list's box rather than beside the recorder — where
+    they were a tall empty rectangle taking height from the only thing on the
+    tab that grows."""
+    from PySide6.QtWidgets import QGroupBox
+
+    panel = window.transcribe
+    box = next(child for child in panel.findChildren(QGroupBox)
+               if child.title() == "Transcription queue")
+
+    assert panel.drop_zone.parent() is box
+    assert panel.table.parent() is box
+    # And the recorder has its own box, with the whole width of the tab: its
+    # device menus name a source and an audio system, and half a tab cut them.
+    recorder_box = panel.recorder.parent()
+    assert isinstance(recorder_box, QGroupBox) and recorder_box is not box
+    assert recorder_box.layout().count() == 1
+
+
 def test_a_job_that_has_not_started_can_be_taken_back_out(window, tmp_path, queue):
     """It leaves no row behind: nothing happened to it. And every row carries
     the buttons that apply to it, so there is no selection to get wrong."""
