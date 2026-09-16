@@ -36,7 +36,7 @@ from datetime import datetime
 from . import audio, paths, pipeline
 from .config import read_prompt, resolve_output
 from .i18n import t
-from .library import STORE_MODES, STORE_MOVE, Library
+from .library import STORE_MODES, STORE_MOVE, Library, LibraryError
 
 #: What a job is. Both kinds go through the same queue, the same statuses and
 #: the same row on the page; what differs is what the worker calls and what
@@ -101,6 +101,23 @@ def file_facts(path):
         made = stats.st_ctime if sys.platform == "win32" else stats.st_mtime
     when = datetime.fromtimestamp(made).astimezone().isoformat(timespec="seconds")
     return stats.st_size, when
+
+
+def entry_facts(entry):
+    """``(how long, how big, when it was made)`` for a recording already filed.
+
+    What :func:`file_facts` reads off the disk, read instead out of the
+    metadata of a library entry. A summary has no file of its own, but the
+    thing it is a summary *of* is a recording with a length, a size and a
+    date, and those are what tell one row of the queue from another.
+    """
+    try:
+        data = entry.metadata
+    except (LibraryError, OSError, ValueError):
+        return None, None, None
+    return ((data.get("audio") or {}).get("duration_seconds"),
+            (data.get("source") or {}).get("bytes"),
+            data.get("created_at"))
 
 
 def safe_filename(name, fallback="recording"):
@@ -317,7 +334,12 @@ class JobQueue:
                     else:
                         job.status = QUEUED
                         job.started_at = None
-                if job.audio_duration is None and job.status not in FINISHED:
+                if job.kind == SUMMARY and job.audio_duration is None:
+                    # Written down by a version that described a summary by
+                    # its engine alone. The entry is still there, so the row
+                    # can say what it is about rather than staying blank.
+                    self._describe_entry(job)
+                elif job.audio_duration is None and job.status not in FINISHED:
                     # Written down by a version that did not record it, or by
                     # one that could not read it then. The file is still here,
                     # so the row can say how long it is rather than staying
@@ -421,6 +443,20 @@ class JobQueue:
             self._ensure_worker()
         return job
 
+    def _describe_entry(self, job):
+        """Give a summary row the facts of the recording it is about.
+
+        Separate from :meth:`summarize` because a queue read back from disk
+        may hold summaries written before those facts were kept, and an entry
+        that has since been deleted must leave the row as it was rather than
+        take the whole restore down with it."""
+        try:
+            entry = self.library.get(job.entry_id)
+        except LibraryError:
+            return
+        (job.audio_duration, job.size_bytes,
+         job.source_created_at) = entry_facts(entry)
+
     def summarize(self, entry_id, overrides=None, start=True):
         """Queue the summary of a library entry and return its :class:`Job`.
 
@@ -439,6 +475,11 @@ class JobQueue:
         job = Job(kind=SUMMARY, entry_id=entry.id, settings=settings,
                   title=entry.metadata.get("title") or entry.id,
                   filename=entry.id)
+        # The recording this is about, described the way every other row is:
+        # a summary has no file of its own, but "an hour of audio from
+        # Tuesday" is what tells its row from the next one.
+        (job.audio_duration, job.size_bytes,
+         job.source_created_at) = entry_facts(entry)
         if not start:
             job.status = HELD
         with self._lock:

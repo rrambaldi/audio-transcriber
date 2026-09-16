@@ -433,6 +433,41 @@ def test_a_summary_job_says_what_it_is(queue, filed):
     assert data["status"] == "held"
 
 
+def test_a_summary_row_describes_the_recording_it_is_about(queue, filed):
+    """A summary has no file of its own, so its row said nothing but which
+    engine wrote it — in a queue of meetings that is no way to tell it from
+    the next one. The facts of the entry it reads are those of a recording."""
+    filed.update(source={"filename": "riunione.wav", "bytes": 3 * 1024 * 1024})
+    job = queue.summarize(filed.id, start=False)
+
+    assert job.audio_duration == 32
+    assert job.size_bytes == 3 * 1024 * 1024
+    assert job.source_created_at == filed.metadata["created_at"]
+
+
+def test_a_summary_whose_entry_is_gone_keeps_its_row(queue):
+    """The entry can be deleted while its summary sits in the queue: the row
+    then says less, rather than taking the whole restore down with it."""
+    job = jobs_module.Job(kind=jobs_module.SUMMARY, entry_id="deleted")
+    queue._describe_entry(job)
+
+    assert job.audio_duration is None
+
+
+def test_a_summary_written_before_those_facts_were_kept_fills_them_in(queue,
+                                                                      filed):
+    """A queue.json from the version that described a summary by its engine
+    alone: the entry is still there, so the row can say what it is about."""
+    filed.update(source={"bytes": 1024})
+    job = queue.summarize(filed.id, start=False)
+    job.audio_duration = job.size_bytes = job.source_created_at = None
+    queue._save()
+
+    restored = restarted().get(job.id)
+    assert restored.audio_duration == 32
+    assert restored.size_bytes == 1024
+
+
 def test_a_summary_that_fails_is_reported_like_any_other_job(queue, filed):
     """An empty transcript has nothing to summarise, and says so."""
     filed.write_transcript("", [])

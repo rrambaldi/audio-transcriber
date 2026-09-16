@@ -345,20 +345,21 @@ def job_details(job):
     Only what is known. A job that has not started has a model and nothing
     else, and a dash under three headings said less than nothing — it looked
     like a value that had failed to arrive."""
-    if job.kind == SUMMARY:
-        # Its "model" is the one that transcribed the entry, which has nothing
-        # to do with what this job is doing to it, and it has no recording of
-        # its own to describe.
-        return t("gui.row_summary_of", engine=job.settings.get("summary_engine")
-                 or AUTO)
     # What the recording *is* — how long, how big, when it was made — comes
     # first and is there whatever the job's state: those are the facts that
     # tell one row from another in a queue of files named by date, and they
-    # are known before anything has been done to them.
-    parts = [format_duration(job.audio_duration) if job.audio_duration else "",
-             format_bytes(job.size_bytes) if getattr(job, "size_bytes", None) else "",
-             format_when(getattr(job, "source_created_at", None)),
-             job.settings.get("model") or AUTO]
+    # are known before anything has been done to them. A summary carries the
+    # facts of the recording it was made from, which is the recording the
+    # person at the list is thinking of.
+    parts = _recording_facts(job)
+    if job.kind == SUMMARY:
+        # Its "model" is the one that transcribed the entry, which has nothing
+        # to do with what this job is doing to it: what this row is, is said
+        # instead.
+        parts.append(t("gui.row_summary_of",
+                       engine=job.settings.get("summary_engine") or AUTO))
+        return "  ·  ".join(str(part) for part in parts if part)
+    parts.append(job.settings.get("model") or AUTO)
     if job.words:
         parts.append(t("gui.n_words", count=job.words))
     if job.status == FAILED and job.error:
@@ -366,6 +367,13 @@ def job_details(job):
         # still has to say which recording this was.
         parts.append(first_line(job.error))
     return "  ·  ".join(str(part) for part in parts if part)
+
+
+def _recording_facts(job):
+    """How long, how big and when, for whichever recording the row is about."""
+    return [format_duration(job.audio_duration) if job.audio_duration else "",
+            format_bytes(job.size_bytes) if getattr(job, "size_bytes", None) else "",
+            format_when(getattr(job, "source_created_at", None))]
 
 
 def row_title(job):

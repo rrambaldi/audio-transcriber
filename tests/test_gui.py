@@ -134,6 +134,22 @@ def test_those_facts_are_on_the_row_whatever_state_it_is_in(tmp_path):
     assert "ffmpeg failed" in details                   # and why, after them
 
 
+def test_a_summary_row_carries_those_facts_too(tmp_path):
+    """A summary is about a recording even though it has no file of its own,
+    and in a queue of meetings that recording is how it is recognised."""
+    from audio_transcriber.jobs import SUMMARY, Job
+
+    job = Job(kind=SUMMARY, title="Comitato", settings={"summary_engine": "auto"})
+    job.audio_duration = 4800.0
+    job.size_bytes = 439 * 1024 * 1024
+    job.source_created_at = "2026-09-15T11:16:04+02:00"
+
+    details = options.job_details(job)
+    assert "1h 20m" in details and "439.0 MiB" in details
+    assert "2026-09-15 11:16" in details
+    assert "summary of the transcript" in details       # and what the row is
+
+
 def test_a_running_row_carries_a_clock_as_well_as_a_stage():
     """On a step that reports nothing the bar stands still for twenty
     minutes; the row must not look hung while it works."""
