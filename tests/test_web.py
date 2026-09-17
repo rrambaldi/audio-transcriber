@@ -94,6 +94,23 @@ def test_the_typefaces_are_served_under_the_page(client):
         assert response.content[:4] != b"wOF2"      # sfnt; see test_branding
 
 
+def test_the_copy_symbol_is_served_where_the_stylesheet_asks_for_it(client):
+    """The page paints it as a CSS mask off ../brand/symbols/copy.svg rather
+    than inlining a second copy of the window's drawing — so a path that
+    stops resolving leaves three buttons with nothing drawn on them, and
+    nothing else says so."""
+    from audio_transcriber import branding
+
+    for name, file in branding.SYMBOLS:
+        response = client.get(f"/brand/{branding.SYMBOL_SUBDIR}/{file}")
+        assert response.status_code == 200, name
+        assert b"<svg" in response.content
+        # The mask is painted in currentColor, so what the file is drawn in
+        # never shows - but it is what the window substitutes, and a file
+        # that lost it would come out black in the window and fine here.
+        assert branding.SYMBOL_INK.encode() in response.content, name
+
+
 def test_the_root_favicon_answers(client):
     """A restored tab asks for it before it has the HTML that names it."""
     response = client.get("/favicon.ico")

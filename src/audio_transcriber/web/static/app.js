@@ -187,9 +187,9 @@ const I18N = {
     summary_again: "Summarise again",
     summary_delete: "delete the summary",
     download_summary: "summary (.md)",
-    summary_copy: "copy",
-    summary_copied: "Copied.",
-    summary_copy_failed: "Could not copy: the browser refused.",
+    copy: "Copy",
+    copied: "Copied to the clipboard.",
+    copy_failed: "Not copied: the browser refused.",
     summary_queued: "In the queue, behind whatever is already running.",
     summary_running: "Being written\u2026 {stage}",
     summary_failed: "Could not summarise: {error}",
@@ -419,9 +419,9 @@ const I18N = {
     summary_again: "Riassumi di nuovo",
     summary_delete: "elimina il riassunto",
     download_summary: "riassunto (.md)",
-    summary_copy: "copia",
-    summary_copied: "Copiato.",
-    summary_copy_failed: "Non copiato: il browser ha rifiutato.",
+    copy: "Copia",
+    copied: "Copiato negli appunti.",
+    copy_failed: "Non copiato: il browser ha rifiutato.",
     summary_queued: "In coda, dietro a quello che sta gia' girando.",
     summary_running: "Lo sto scrivendo\u2026 {stage}",
     summary_failed: "Non riassunto: {error}",
@@ -708,6 +708,12 @@ function translatePage() {
   $("set-text").placeholder = t("set_placeholder");
   $("set-search").placeholder = "";
   $("notes-text").placeholder = t("notes_placeholder");
+  /* The three copy buttons carry a drawing and no words, so their name is an
+     attribute: without it a screen reader announces "button" and nothing. */
+  for (const id of ["copy-transcript", "copy-summary", "copy-notes"]) {
+    $(id).title = t("copy");
+    $(id).setAttribute("aria-label", t("copy"));
+  }
   $("search").placeholder = t("search_placeholder");
   /* The log's toggle says one of two things and the pass above knows only
      the first: left alone it would offer to show a panel that is open. */
@@ -1609,7 +1615,7 @@ function showSummary(entry) {
 
 function showViewerTab(which) {
   for (const [name, tab, pane] of [
-    ["transcript", "tab-transcript", "viewer-text"],
+    ["transcript", "tab-transcript", "viewer-transcript"],
     ["segments", "tab-segments", "viewer-segments"],
     ["summary", "tab-summary", "viewer-summary"],
     ["notes", "tab-notes", "viewer-notes"],
@@ -1625,7 +1631,7 @@ function showViewerTab(which) {
   $("summary-run").hidden = which !== "summary";
   $("summary-delete").hidden = which !== "summary" || !summaryPresent;
   $("viewer-download-summary").hidden = which !== "summary" || !summaryPresent;
-  $("summary-copy").hidden = which !== "summary" || !summaryPresent;
+  $("copy-summary").hidden = which !== "summary" || !summaryPresent;
 }
 
 $("tab-transcript").addEventListener("click", () => showViewerTab("transcript"));
@@ -1802,16 +1808,29 @@ $("summary-delete").addEventListener("click", async () => {
   reloadOpenEntry();
 });
 
-$("summary-copy").addEventListener("click", async () => {
-  const text = $("summary-text").textContent || "";
-  try {
-    if (navigator.clipboard) await navigator.clipboard.writeText(text);
-    else copyWithFallback(text);
-    $("summary-status").textContent = t("summary_copied");
-  } catch {
-    $("summary-status").textContent = t("summary_copy_failed");
-  }
-});
+/* One button per pane, each saying so where that pane says things: the
+   transcript has no line of its own, the summary and the notes do. */
+function copyPane(text, statusId) {
+  return async () => {
+    const said = $(statusId);
+    try {
+      if (navigator.clipboard) await navigator.clipboard.writeText(text());
+      else copyWithFallback(text());
+      said.textContent = t("copied");
+      said.className = "note";
+    } catch {
+      said.textContent = t("copy_failed");
+      said.className = "error";
+    }
+  };
+}
+
+$("copy-transcript").addEventListener(
+  "click", copyPane(() => $("viewer-text").textContent || "", "viewer-status"));
+$("copy-summary").addEventListener(
+  "click", copyPane(() => $("summary-text").textContent || "", "summary-status"));
+$("copy-notes").addEventListener(
+  "click", copyPane(() => $("notes-text").value || "", "notes-status"));
 
 function copyWithFallback(text) {
   /* navigator.clipboard needs a secure context (https, or localhost): the

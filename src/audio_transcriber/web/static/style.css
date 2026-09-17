@@ -590,6 +590,34 @@ dialog h2 {
 .viewer-head { border-bottom: 1px solid var(--rule); padding-bottom: 0.8rem; margin-bottom: 1rem; }
 menu { display: flex; gap: 1.2rem; align-items: center; padding: 0; margin: 1.8rem 0 0; flex-wrap: wrap; }
 
+/* --- a pane and its copy button ---------------------------------------- */
+/*  Beside the box and sharing its bottom line, which is the window's layout
+    for the same three panes: a row of its own would cost height on every tab,
+    and two of these tabs already have a row of controls under them.  */
+.with-copy { display: flex; align-items: flex-end; gap: 0.6rem; }
+.with-copy > :first-child { flex: 1 1 auto; min-width: 0; }
+
+/*  The drawing is the one the window uses — the vendored Fluent icon in the
+    package's brand directory, served at /brand — rather than a second copy
+    of the same path inlined here. It arrives as a mask and is painted in
+    currentColor, which is how it follows the palette into dark and turns to
+    the accent on hover: an <img> would be a fixed near-black square that
+    disappears on a dark button.  */
+.copy {
+  flex: 0 0 auto;
+  padding: 0.45rem 0.6rem;
+  line-height: 0;
+}
+.copy::before {
+  content: "";
+  display: block;
+  width: 1.1rem;
+  height: 1.1rem;
+  background: currentColor;
+  -webkit-mask: url("../brand/symbols/copy.svg") center / contain no-repeat;
+  mask: url("../brand/symbols/copy.svg") center / contain no-repeat;
+}
+
 /* The log. Fixed pitch because a log is columns — the stamp, then the line —
    and no wrapping for the same reason: a wrapped traceback is a paragraph. */
 .log {

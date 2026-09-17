@@ -69,6 +69,15 @@ All notable changes to this project are documented here. The format follows
   timestamp and the small "delete"/"stop" asides are deliberately left as they
   were: those are words you can click, not the actions of the row they sit in.
 
+- **The page copies a pane the way the window does.** The transcript, the
+  summary and the notes each have a copy button beside them, on the pane's own
+  bottom line — the window's layout for the same three boxes, rather than one
+  word in the footer that only ever applied to the summary. It is drawn and
+  not spelled, off the same vendored file the window paints its own from: the
+  page masks it and fills the mask with the current text colour, so it follows
+  the palette into dark and turns to the accent under the mouse, and there is
+  still exactly one copy of the drawing in the package.
+
 - **The rename and copy buttons are drawn rather than spelled.** They were
   characters borrowed from the text font, which is the cheap way to have an
   icon and looked it: thin at nine points beside a hairline rule, missing

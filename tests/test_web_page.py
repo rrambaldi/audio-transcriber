@@ -640,3 +640,52 @@ def test_the_page_says_why_everything_is_off(page, script):
     assert 'id="busy-note"' in page
     assert 'data-t="busy_note"' in page
     assert 'title = why' in script
+
+
+def test_each_readable_pane_has_its_copy_button_beside_it(page, stylesheet):
+    """The window's layout for the same three panes: the box and the button
+    on one row, the button on the box's bottom line. A row of its own would
+    cost height on every tab."""
+    rows = re.findall(r'<div class="with-copy"[^>]*>(.*?)\n\s*</div>', page, re.S)
+    assert len(rows) == 3
+    paired = {}
+    for row in rows:
+        pane = re.search(r'id="(viewer-text|summary-text|notes-text)"', row)
+        button = re.search(r'id="(copy-[a-z]+)"', row)
+        assert pane and button, row
+        paired[pane.group(1)] = button.group(1)
+    assert paired == {"viewer-text": "copy-transcript",
+                      "summary-text": "copy-summary",
+                      "notes-text": "copy-notes"}
+
+    rule = re.search(r"\.with-copy \{[^}]*\}", stylesheet).group(0)
+    assert "align-items: flex-end" in rule, "it sits on the box's bottom line"
+
+
+def test_the_copy_button_is_drawn_and_not_spelled(page, stylesheet):
+    """Icon only, like the window's, and painted off the drawing the window
+    uses rather than a second copy of the path inlined here."""
+    rule = re.search(r"\.copy::before \{[^}]*\}", stylesheet).group(0)
+    assert "brand/symbols/copy.svg" in rule
+    assert "-webkit-mask" in rule, "Safari needs the prefix"
+    assert "background: currentColor" in rule, "it has to follow the palette"
+    # Nothing between the tags: the name is an attribute, set from the
+    # catalogue, because a drawing cannot be announced.
+    assert '<button type="button" class="button copy" id="copy-notes"></button>' in page
+
+
+def test_the_copy_buttons_are_named_for_a_screen_reader(script):
+    body = script.split("function translatePage()")[1].split("\nfunction ")[0]
+    assert 'setAttribute("aria-label", t("copy"))' in body
+    assert '"copy-transcript", "copy-summary", "copy-notes"' in body
+
+
+def test_the_transcript_s_copy_button_goes_away_with_its_panel(page, script):
+    """The row is the tabpanel, not the box inside it. Hiding the box alone
+    left its copy button sitting on whichever tab you switched to."""
+    assert 'aria-controls="viewer-transcript"' in page
+    row = re.search(r'<div class="with-copy" id="viewer-transcript"[^>]*>', page)
+    assert row and 'role="tabpanel"' in row.group(0)
+    body = script.split("function showViewerTab(", 1)[1].split("\n}", 1)[0]
+    assert '"viewer-transcript"' in body
+    assert '"viewer-text"' not in body, "hiding the box would leave the button"
