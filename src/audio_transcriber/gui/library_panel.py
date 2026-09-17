@@ -14,7 +14,7 @@ import html
 import os
 
 from PySide6.QtCore import Qt, QTimer, QUrl, Signal
-from PySide6.QtGui import QDesktopServices, QFont
+from PySide6.QtGui import QDesktopServices, QFont, QGuiApplication
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QComboBox,
@@ -35,6 +35,7 @@ from PySide6.QtWidgets import (
     QTableWidgetItem,
     QTabWidget,
     QTextBrowser,
+    QToolButton,
     QVBoxLayout,
     QWidget,
 )
@@ -53,6 +54,20 @@ SEARCH_DELAY_MS = 350
 #: How often a queued summary is asked whether it is finished. It may be
 #: behind an hour of transcription, so this is a heartbeat, not a wait.
 SUMMARY_POLL_MS = 1000
+
+#: Gutter on either side of the splitter handle, so the list and the reading
+#: pane are not flush against the bar that separates them.
+SPLITTER_GUTTER = 10
+
+
+class _ClickableLabel(QLabel):
+    """A label that also reacts to a double click, for the title's rename."""
+
+    doubleClicked = Signal()
+
+    def mouseDoubleClickEvent(self, event):
+        self.doubleClicked.emit()
+        super().mouseDoubleClickEvent(event)
 
 
 class LibraryPanel(QWidget):
@@ -121,6 +136,14 @@ class LibraryPanel(QWidget):
         self.transcript.setOpenLinks(False)
         self.transcript.setOpenExternalLinks(False)
         self.transcript.anchorClicked.connect(self._anchor_clicked)
+        self.copy_transcript = _copy_button(self._copy_transcript)
+        transcript_page = QWidget()
+        transcript_layout = QVBoxLayout(transcript_page)
+        transcript_layout.addWidget(self.transcript, 1)
+        transcript_row = QHBoxLayout()
+        transcript_row.addStretch(1)
+        transcript_row.addWidget(self.copy_transcript)
+        transcript_layout.addLayout(transcript_row)
 
         self.notes = QPlainTextEdit()
         self.notes.setPlaceholderText(t("gui.notes_hint"))
@@ -153,6 +176,7 @@ class LibraryPanel(QWidget):
         self.summary_engine = QComboBox()
         self.summary_length = QComboBox()
         self.summary_style = QComboBox()
+        self.copy_summary = _copy_button(self._copy_summary)
         self.summarise = QPushButton(t("gui.summary_run"))
         self.summarise.clicked.connect(self.summarise_entry)
         summary_page = QWidget()
@@ -183,11 +207,12 @@ class LibraryPanel(QWidget):
         summary_row.addWidget(QLabel(t("gui.summary_style")))
         summary_row.addWidget(self.summary_style)
         summary_row.addStretch(1)
+        summary_row.addWidget(self.copy_summary)
         summary_row.addWidget(self.summarise)
         summary_layout.addLayout(summary_row)
 
         self.tabs = QTabWidget()
-        self.tabs.addTab(self.transcript, t("gui.tab_transcript"))
+        self.tabs.addTab(transcript_page, t("gui.tab_transcript"))
         self.tabs.addTab(summary_page, t("gui.tab_summary"))
         self.tabs.addTab(notes_page, t("gui.tab_notes"))
         self.tabs.addTab(self.details, t("gui.tab_details"))
@@ -222,7 +247,7 @@ class LibraryPanel(QWidget):
     def _assemble(self):
         left = QWidget()
         left_layout = QVBoxLayout(left)
-        left_layout.setContentsMargins(0, 0, 0, 0)
+        left_layout.setContentsMargins(0, 0, SPLITTER_GUTTER, 0)
         search_row = QHBoxLayout()
         search_row.addWidget(self.search, 1)
         reload_button = QPushButton(t("gui.reload"))
@@ -234,14 +259,24 @@ class LibraryPanel(QWidget):
 
         right = QWidget()
         right_layout = QVBoxLayout(right)
-        right_layout.setContentsMargins(0, 0, 0, 0)
-        self.title = QLabel("")
+        right_layout.setContentsMargins(SPLITTER_GUTTER, 0, 0, 0)
+        self.title = _ClickableLabel("")
         self.title.setWordWrap(True)
         # The heading of what is being read, so it is set the way the page
         # sets one: the serif, a size up. See gui/theme.py.
         self.title.setFont(theme.title_font(self.font(), 1.35,
                                             weight=QFont.Weight.DemiBold))
-        right_layout.addWidget(self.title)
+        self.title.doubleClicked.connect(self.rename_entry)
+        self.rename = QToolButton()
+        self.rename.setText("✎")   # a small pencil, next to the title it renames
+        self.rename.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextOnly)
+        self.rename.setToolTip(t("gui.rename"))
+        self.rename.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.rename.clicked.connect(self.rename_entry)
+        title_row = QHBoxLayout()
+        title_row.addWidget(self.title, 1)
+        title_row.addWidget(self.rename, 0, Qt.AlignmentFlag.AlignTop)
+        right_layout.addLayout(title_row)
 
         player_row = QHBoxLayout()
         player_row.addWidget(self.play)
@@ -251,8 +286,6 @@ class LibraryPanel(QWidget):
         right_layout.addWidget(self.player_note)
         right_layout.addWidget(self.tabs, 1)
 
-        self.rename = QPushButton(t("gui.rename"))
-        self.rename.clicked.connect(self.rename_entry)
         self.export = QPushButton(t("gui.export"))
         self.export.clicked.connect(self.export_transcript)
         self.export_subtitles_button = QPushButton(t("gui.sub_export"))
@@ -262,7 +295,7 @@ class LibraryPanel(QWidget):
         self.delete = QPushButton(t("gui.delete"))
         self.delete.clicked.connect(self.delete_entry)
         actions = QHBoxLayout()
-        for button in (self.rename, self.export, self.export_subtitles_button,
+        for button in (self.export, self.export_subtitles_button,
                        self.open_folder):
             actions.addWidget(button)
         actions.addStretch(1)
@@ -401,7 +434,8 @@ class LibraryPanel(QWidget):
 
     def _enable_actions(self, enabled):
         for button in (self.rename, self.export, self.export_subtitles_button,
-                       self.open_folder, self.delete):
+                       self.open_folder, self.delete, self.copy_transcript,
+                       self.copy_summary):
             button.setEnabled(enabled)
         self.summarise.setEnabled(enabled and self.queue is not None
                                   and self._summary_job is None)
@@ -543,6 +577,21 @@ class LibraryPanel(QWidget):
             return
         self.reload(keep=self.entry.id)
         self._display()
+
+    def _copy_transcript(self):
+        """Put the whole transcript on the clipboard, plain and unlinked."""
+        if self.entry is None:
+            return
+        QGuiApplication.clipboard().setText(self.entry.read_transcript())
+        self.message.emit(t("gui.copied"))
+
+    def _copy_summary(self):
+        """Put whatever the summary pane shows on the clipboard."""
+        text = self.summary.toPlainText()
+        if not text:
+            return
+        QGuiApplication.clipboard().setText(text)
+        self.message.emit(t("gui.copied"))
 
     def export_transcript(self):
         """Write the transcript wherever the user wants a copy of it."""
@@ -700,6 +749,17 @@ class _AsResult:
 
     def __init__(self, segments):
         self.segments = segments
+
+
+def _copy_button(handler):
+    """A small "copy to clipboard" tool button, for under a text pane."""
+    button = QToolButton()
+    button.setText("⎘")   # the copy-to-clipboard glyph
+    button.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextOnly)
+    button.setToolTip(t("gui.copy"))
+    button.setCursor(Qt.CursorShape.PointingHandCursor)
+    button.clicked.connect(handler)
+    return button
 
 
 def _title_of(entry):
