@@ -741,6 +741,7 @@ def test_the_page_is_told_which_engines_this_machine_has(client):
     assert "extractive" in data["engines"]
     assert data["auto"] in data["engines"]
     assert "medium" in data["lengths"]
+    assert "combined" in data["styles"] and "split" in data["styles"]
 
 
 def test_asking_for_a_summary_gives_back_a_job_to_watch(client, queue, filed):
@@ -782,6 +783,18 @@ def test_an_engine_or_a_length_that_does_not_exist_is_refused(client, filed):
                        json={"engine": "gpt-9"}).status_code == 400
     assert client.post(f"/api/library/{filed.id}/summary",
                        json={"length": "enormous"}).status_code == 400
+    assert client.post(f"/api/library/{filed.id}/summary",
+                       json={"style": "parallel-universe"}).status_code == 400
+
+
+def test_the_split_style_can_be_asked_for(client, queue, filed):
+    """Extractive ignores the style, but the request must still be accepted
+    and passed through to the queue rather than rejected."""
+    response = client.post(f"/api/library/{filed.id}/summary",
+                           json={"engine": "extractive", "style": "split"})
+    assert response.status_code == 202
+    wait_for(queue, response.json()["id"])
+    assert queue.library.get(filed.id).has_summary()
 
 
 def test_summarising_an_entry_that_is_not_there_is_a_404(client):

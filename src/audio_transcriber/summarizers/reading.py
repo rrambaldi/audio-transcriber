@@ -24,6 +24,7 @@ import sys
 
 from ..i18n import t
 from ..summary import (
+    DEFAULT_STYLE,
     STAGE_READING,
     STAGE_WRITING,
     NotEnoughMemory,
@@ -141,12 +142,14 @@ def _map(pipeline, system, parts, language, chosen, report, band,
     return found
 
 
-def _fold(pipeline, system, answers, language, chosen, report, band):
-    """Fold the answers in a tree until one is left.
+def _fold_to_root(pipeline, system, answers, language, chosen, report, band):
+    """Fold every level except the root, and return what the root has to
+    write from: the partial summaries in time order, and the evidence to
+    check them against.
 
-    Every pass is handed a small extract of the transcript underneath it. What
-    it is merging is the model's own writing, and by the second level it has
-    no other way to tell what it invented one level down."""
+    The root's own answer is the caller's job, because from here on there are
+    two different ways to ask for it — one combined request, or one per
+    section — and both need the same partials to start from."""
     low, high = band
     # How much of the original a fold may be shown is a share of the window,
     # not a constant: four hundred tokens is nothing at sixteen thousand and a
@@ -157,37 +160,86 @@ def _fold(pipeline, system, answers, language, chosen, report, band):
         len(answers), chosen.context_tokens, chosen.map_answer_tokens,
         chosen.reduce_answer_tokens, evidence_tokens)
     levels = prompting.reduce_tree(answers, fanin=fanin, max_fanin=fanin)
-    prompt = ""
-    for depth, level in enumerate(levels):
+    for depth, level in enumerate(levels[:-1]):
         report(low + (high - low) * depth // max(1, len(levels)), STAGE_WRITING)
-        root = depth == len(levels) - 1
         folded = []
         for group in level:
             texts = [answers[index][0] for index in group]
             sentences = [line for index in group for line in answers[index][1]]
             evidence = prompting.evidence_for(sentences, evidence_tokens,
                                               language)
-            if root:
-                print(t("summary.reducing", total=len(answers)), file=sys.stderr)
-                prompt = prompting.reduce_prompt(texts, language, evidence)
-                # No prompt is passed to the echo check here, deliberately.
-                # A reduce prompt carries the partial summaries, and those are
-                # exactly the content that is supposed to come back: measured
-                # against them, a good answer looks like an echo. What a fold
-                # can wrongly reproduce is the scaffold, and :func:`parse`
-                # recognises that on its own.
-                answer = ask(pipeline, system, prompt,
-                             chosen.reduce_answer_tokens, chosen)
-            else:
-                print(t("summary.folding", groups=len(level), level=depth + 1),
-                      file=sys.stderr)
-                prompt = prompting.reduce_partial_prompt(texts, language,
-                                                         evidence)
-                answer = ask(pipeline, system, prompt,
-                             chosen.map_answer_tokens, chosen) or texts[0]
+            print(t("summary.folding", groups=len(level), level=depth + 1),
+                  file=sys.stderr)
+            prompt = prompting.reduce_partial_prompt(texts, language, evidence)
+            answer = ask(pipeline, system, prompt,
+                         chosen.map_answer_tokens, chosen) or texts[0]
             folded.append((answer, sentences))
         answers = folded
-    return answers[0][0], prompt
+    report(low + (high - low) * (len(levels) - 1) // max(1, len(levels)),
+          STAGE_WRITING)
+    print(t("summary.reducing", total=len(answers)), file=sys.stderr)
+    # The tree narrows to exactly one group at its top by construction of the
+    # fan-in above — unpacking asserts that rather than silently keeping only
+    # the first of several, the way indexing would have.
+    [root_group] = levels[-1]
+    texts = [answers[index][0] for index in root_group]
+    sentences = [line for index in root_group for line in answers[index][1]]
+    evidence = prompting.evidence_for(sentences, evidence_tokens, language)
+    return texts, evidence
+
+
+def _write_combined(pipeline, system, language, prompt, chosen):
+    """One request for all four headings, the only way this feature has ever
+    written its root. No prompt is passed to the echo check here, deliberately:
+    a reduce/single prompt carries the partial summaries or the transcript,
+    and those are exactly the content that is supposed to come back. What a
+    fold can wrongly reproduce is the scaffold, and :func:`parse` recognises
+    that on its own."""
+    answer = ask(pipeline, system, prompt, chosen.reduce_answer_tokens, chosen)
+    return prompting.parse(answer, language, prompt), answer
+
+
+def _write_split(pipeline, system, language, chosen, prompt_for):
+    """Ask for the four sections one at a time, then check them against each
+    other before the page sees them.
+
+    ``prompt_for(field)`` builds one field's question from whatever the root
+    has to write from — the caller knows whether that is the transcript
+    directly or the folded partials, and this function does not need to.
+
+    Splitting the one combined request into four removes the failure
+    :func:`~audio_transcriber.summarizers.prompting.parse` cannot parse its
+    way around: a model that cannot keep four headings straight in a single
+    answer. What it costs is the one thing a single answer had for free — a
+    model that has already written the key points knows not to write the
+    same thing again under decisions — and the merge pass buys that back by
+    checking the four drafts against each other in one more request. Skipped
+    when there is at most one draft, where a section could only be checked
+    against itself."""
+    drafts = {}
+    for field in prompting.SECTION_FIELDS:
+        prompt = prompt_for(field)
+        raw = ask(pipeline, system, prompt, chosen.map_answer_tokens, chosen,
+                 echo_prompt=prompt)
+        content = prompting.parse_section(field, raw, language, prompt)
+        if content:
+            drafts[field] = content
+
+    if len(drafts) > 1:
+        merge = prompting.merge_prompt(drafts, language)
+        answer = ask(pipeline, system, merge, chosen.reduce_answer_tokens, chosen)
+        # Trusted no further than :func:`~prompting.has_written_headings`: a
+        # merge answer that fell back to plain text is exactly the failure
+        # this split, unlike the combined path, cannot afford to keep — it
+        # would throw away drafts that were each individually fine.
+        if prompting.has_written_headings(answer, language):
+            merged = prompting.parse(answer, language, merge)
+            if (merged.abstract or merged.points or merged.decisions
+                    or merged.actions):
+                return merged, answer
+
+    return prompting.sections_from_drafts(drafts), prompting.draft_text(
+        drafts, language)
 
 
 def warn_if_over_budget(chosen, available, total):
@@ -259,32 +311,48 @@ def summarize_with(open_pipeline, chosen, material, settings=None,
         note = reduction_note(sentences, kept, language)
         sentences = kept
 
+    style = str(settings.get("summary_style") or DEFAULT_STYLE).strip().lower()
+
     report(4, "stage.loading_model")
     pipeline = open_pipeline()
     try:
         system = prompting.prompts_for(language)["system"]
         if len(parts) == 1:
             report(READING_BAND[0], STAGE_READING)
-            prompt = prompting.single_prompt(parts[0], language)
-            # No echo check against this prompt: it carries the headings the
-            # answer is supposed to come back under, so measured against it a
-            # well-shaped answer looks copied. What a one-pass answer can
-            # wrongly reproduce is the transcript, and the fence catches that.
-            answer = ask(pipeline, system, prompt,
-                         chosen.reduce_answer_tokens, chosen)
+            if style == "split":
+                sections, answer = _write_split(
+                    pipeline, system, language, chosen,
+                    lambda field: prompting.section_prompt(field, parts[0], language))
+            else:
+                # No echo check against this prompt: it carries the headings
+                # the answer is supposed to come back under, so measured
+                # against it a well-shaped answer looks copied. What a
+                # one-pass answer can wrongly reproduce is the transcript,
+                # and the fence catches that.
+                prompt = prompting.single_prompt(parts[0], language)
+                sections, answer = _write_combined(pipeline, system, language,
+                                                   prompt, chosen)
         else:
             low, high = READING_BAND
             seam = int(low + (high - low) * FOLDING_FROM)
             answers = _map(pipeline, system, parts, language, chosen, report,
                            (low, seam), settings.get("cache_dir"))
-            answer, prompt = _fold(pipeline, system, answers, language,
-                                   chosen, report, (seam, high))
+            texts, evidence = _fold_to_root(pipeline, system, answers, language,
+                                            chosen, report, (seam, high))
+            if style == "split":
+                sections, answer = _write_split(
+                    pipeline, system, language, chosen,
+                    lambda field: prompting.section_reduce_prompt(
+                        field, texts, language, evidence))
+            else:
+                prompt = prompting.reduce_prompt(texts, language, evidence)
+                sections, answer = _write_combined(pipeline, system, language,
+                                                   prompt, chosen)
     finally:
         close = getattr(pipeline, "close", None)
         if close:
             close()
 
-    sections = prompting.parse(answer, language, prompt)
     if not (sections.abstract or sections.points or sections.decisions
             or sections.actions):
         raise SummaryError(t("summary.model_said_nothing",

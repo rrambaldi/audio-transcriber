@@ -32,7 +32,7 @@ from ..jobs import (
 from ..library import LibraryError
 from ..summarizers import CHOICES as SUMMARY_ENGINES
 from ..summarizers import available as summary_engines_available
-from ..summary import DEFAULT_LENGTH, LENGTHS
+from ..summary import DEFAULT_LENGTH, DEFAULT_STYLE, LENGTHS, STYLES
 from ..transcription import AUTO, LANGUAGE_CHOICES, MODEL_CHOICES, recommend_model
 from ..vocabularies import MAX_CUSTOM_VOCABULARY
 
@@ -541,6 +541,15 @@ def summary_length_choices():
 
 def summary_default_length():
     return DEFAULT_LENGTH
+
+
+def summary_style_choices():
+    """How a model engine asks for the four sections, by name."""
+    return [(name, t(f"gui.summary_style_{name}")) for name in STYLES]
+
+
+def summary_default_style():
+    return DEFAULT_STYLE
 
 
 def summary_state(entry):

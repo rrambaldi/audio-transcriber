@@ -50,6 +50,26 @@ LENGTHS = {
 #: Used when nothing says otherwise.
 DEFAULT_LENGTH = "medium"
 
+#: How a model engine asks for the four sections of its final page, applying
+#: only to the two engines that write prose — the extractive engine never
+#: reaches either name.
+#:
+#: ``combined`` is one request for all four headings together, and has been
+#: the only way since this feature existed. A model too small to keep four
+#: headings straight in one answer can lose a whole section into the wrong
+#: one instead of merely writing it badly.
+#:
+#: ``split`` asks for one section at a time — no heading to recognise,
+#: because the question already said which one this is — and folds the four
+#: drafts into the final page with one more request that checks them against
+#: each other. It costs the extra requests, and it can lose what a single
+#: answer had for free: a model that has already written the key points knows
+#: not to repeat them under decisions, and four independent drafts do not.
+STYLES = ("combined", "split")
+
+#: Used when nothing says otherwise: the one this feature has always used.
+DEFAULT_STYLE = "combined"
+
 #: Two sentences this similar say the same thing: the second one is dropped
 #: however well it scores. Meetings are repetitive, and a summary that repeats
 #: an agreement three times has spent its budget on one point.

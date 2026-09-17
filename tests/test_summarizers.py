@@ -539,6 +539,131 @@ def test_every_fold_is_given_the_transcript_to_check_itself_against(stubbed):
     assert all(prompting.FENCE_START in prompt for prompt in folds)
 
 
+# --- the split style: one section at a time --------------------------------
+
+class FakeSectionPipeline:
+    """Answers a single-section request by field, and the merge request with
+    whatever the test set up under "merge"."""
+
+    asked = []
+    answers = {}
+
+    def __init__(self, model_path, device):
+        FakeSectionPipeline.asked = []
+        self.model_path, self.device = model_path, device
+
+    def ask(self, system, user, max_new_tokens=None, think=False):
+        FakeSectionPipeline.asked.append({"prompt": user, "tokens": max_new_tokens})
+        for field, instruction in prompting.SECTION_INSTRUCTIONS["it"].items():
+            if instruction in user:
+                return self.answers.get(field, prompting.EMPTY_SECTION)
+        if "Queste sono quattro sezioni" in user:
+            return self.answers.get("merge", "")
+        # A map or an intermediate fold: text distinct from any of the above,
+        # so it cannot be mistaken for an echo of it once it reaches the root.
+        return "- [0:00] Si e' parlato d'altro."
+
+
+@pytest.fixture
+def split_stubbed(monkeypatch, tmp_path, roomy):
+    FakeSectionPipeline.answers = {}
+    monkeypatch.setattr(engine, "prepare", lambda hf_id, models_dir=None: str(tmp_path))
+    monkeypatch.setattr(engine, "Pipeline", FakeSectionPipeline)
+    monkeypatch.setattr(engine, "openvino_devices", lambda: ["CPU"])
+    return FakeSectionPipeline
+
+
+def test_split_style_asks_one_section_at_a_time(split_stubbed):
+    split_stubbed.answers = {
+        "abstract": "Un riassunto vero.",
+        "points": "- [0:08] Budget.",
+        "decisions": "- Approvato.",
+        "actions": prompting.EMPTY_SECTION,
+        "merge": ("## In breve\nUn riassunto vero.\n\n## Punti chiave\n"
+                  "- [0:08] Budget.\n\n## Decisioni\n- Approvato."),
+    }
+    sections, note = engine.summarize(material(SENTENCES),
+                                      {"summary_style": "split"})
+    # Four single-section requests, plus one merge that checks them against
+    # each other.
+    assert len(split_stubbed.asked) == 5
+    fields_asked = [call["prompt"] for call in split_stubbed.asked[:4]]
+    for field, instruction in prompting.SECTION_INSTRUCTIONS["it"].items():
+        assert sum(instruction in prompt for prompt in fields_asked) == 1, field
+    assert sections.abstract == "Un riassunto vero."
+    assert [point.text for point in sections.points] == ["Budget."]
+    assert [point.text for point in sections.decisions] == ["Approvato."]
+    assert note is None
+
+
+def test_split_style_skips_the_merge_call_with_only_one_draft(split_stubbed):
+    """Nothing to check a section against but itself, so nothing is asked."""
+    split_stubbed.answers = {"abstract": "Un riassunto vero."}
+    sections, _ = engine.summarize(material(SENTENCES),
+                                   {"summary_style": "split"})
+    assert len(split_stubbed.asked) == 4
+    assert sections.abstract == "Un riassunto vero."
+    assert not sections.points
+
+
+def test_split_style_falls_back_to_the_drafts_if_the_merge_answer_is_unusable(
+        split_stubbed):
+    """A merge answer with no heading at all must not win over two drafts
+    that were each individually fine — it is exactly the shape a model that
+    lost the format writes, and :func:`parse` would otherwise keep it as an
+    abstract, discarding the points draft with it."""
+    split_stubbed.answers = {
+        "abstract": "Un riassunto vero.",
+        "points": "- [0:08] Budget.",
+        "merge": "boh",
+    }
+    sections, _ = engine.summarize(material(SENTENCES),
+                                   {"summary_style": "split"})
+    assert len(split_stubbed.asked) == 5
+    assert sections.abstract == "Un riassunto vero."
+    assert [point.text for point in sections.points] == ["Budget."]
+
+
+def test_split_style_reads_a_sentinel_as_nothing_to_report(split_stubbed):
+    split_stubbed.answers = {"abstract": "Un riassunto vero.",
+                             "decisions": "  __nessuna__  "}
+    sections, _ = engine.summarize(material(SENTENCES),
+                                   {"summary_style": "split"})
+    assert not sections.decisions
+
+
+def test_combined_style_is_still_the_default(stubbed):
+    """The one call this feature has always made, unless asked otherwise."""
+    engine.summarize(material(SENTENCES), {})
+    assert len(stubbed.asked) == 1
+
+
+def test_split_style_also_works_after_folding_a_long_transcript(split_stubbed):
+    """The split only concerns the root: a transcript long enough to need
+    map and fold passes first must still end with four single-section
+    requests and a merge, not a combined one."""
+    split_stubbed.answers = {
+        "abstract": "Un riassunto vero.",
+        "points": "- [0:08] Budget.",
+        "merge": "## In breve\nUn riassunto vero.\n\n## Punti chiave\n- Budget.",
+    }
+    many = [Sentence(f"Frase numero {n} del verbale.", n * 10.0) for n in range(60)]
+    sections, _ = engine.summarize(material(many),
+                                   {"summary_style": "split",
+                                    "summary_chunk_tokens": 120})
+
+    mapped = map_calls(split_stubbed)
+    assert mapped                                    # it did have to fold
+    prompts = [c["prompt"] for c in split_stubbed.asked]
+    section_calls = [p for p in prompts if any(
+        instruction in p for instruction in
+        prompting.SECTION_INSTRUCTIONS["it"].values())]
+    merge_calls = [p for p in prompts if "Queste sono quattro sezioni" in p]
+    assert len(section_calls) == 4
+    assert len(merge_calls) == 1
+    assert sections.abstract == "Un riassunto vero."
+
+
 @pytest.fixture
 def tight(monkeypatch, tmp_path):
     """A machine at the smallest tier, where the plan pre-reduces."""
@@ -714,6 +839,47 @@ def test_a_heading_the_model_wrote_in_bold_is_still_a_heading():
 def test_bold_text_inside_a_section_is_not_mistaken_for_a_heading():
     answer = "## In breve\n**Il budget** resta quello di prima."
     assert "budget" in prompting.parse(answer, "it").abstract.lower()
+
+
+def test_a_heading_the_model_wrote_in_brackets_is_still_a_heading():
+    """A weaker model, asked for "## Punti chiave", sometimes writes
+    "[Punti chiave]" instead of bold or a markdown level."""
+    answer = "[In breve]\nUn riassunto vero.\n\n[Decisioni]\n- Rinnovare il contratto."
+    sections = prompting.parse(answer, "it")
+    assert sections.abstract == "Un riassunto vero."
+    assert [point.text for point in sections.decisions] == ["Rinnovare il contratto."]
+
+
+def test_a_garbled_clock_in_brackets_is_not_mistaken_for_a_heading():
+    """"[18:11] pulizia necessaria]" is a clock the model never closed, not a
+    heading — read as one, it would swallow field=None and silently drop
+    every line after it rather than merely misplacing this one."""
+    answer = ("## In breve\nUno.\n[18:11] pulizia necessaria]\n"
+              "## Decisioni\n- Due.")
+    sections = prompting.parse(answer, "it")
+    assert "pulizia necessaria" in sections.abstract
+    assert [point.text for point in sections.decisions] == ["Due."]
+
+
+def test_a_heading_merged_with_its_own_content_still_lands_in_its_section():
+    """A small model that has already lost the markdown shape often writes
+    the label and its first line as one: "Decisioni: rinnovare il
+    contratto." Taken only as a heading this line has no bullet, and a list
+    field with no bullet is otherwise dropped — the label itself is what
+    proves this line belongs to "decisions"."""
+    answer = "## In breve\nTesto.\nDecisioni: rinnovare il contratto.\nAzioni: aggiornare il piano."
+    sections = prompting.parse(answer, "it")
+    assert [point.text for point in sections.decisions] == ["rinnovare il contratto."]
+    assert [point.text for point in sections.actions] == ["aggiornare il piano."]
+
+
+def test_a_clock_is_never_mistaken_for_a_merged_heading():
+    """"1:02:03 qualcosa" must not be read as a label "1" with content
+    "02:03 qualcosa": the digit right after the colon is what tells a clock
+    apart from "Decisioni: ..."."""
+    answer = "## Punti chiave\n- 1:02:03 Qualcosa e' successo."
+    sections = prompting.parse(answer, "it")
+    assert sections.points[0].text == "Qualcosa e' successo."
 
 
 # --- turning reasoning off on a runtime with no switch for it -------------

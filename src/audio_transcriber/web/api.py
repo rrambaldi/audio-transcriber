@@ -36,6 +36,7 @@ from ..jobs import MAX_UPLOAD_BYTES, JobQueue, safe_filename
 from ..library import MAX_NOTES, LibraryError
 from ..summarizers import CHOICES as SUMMARY_ENGINES
 from ..summary import LENGTHS as SUMMARY_LENGTHS
+from ..summary import STYLES as SUMMARY_STYLES
 from ..summary import SummaryError
 from ..transcription import (
     AUTO,
@@ -207,7 +208,8 @@ def register_routes(app):
         installed = available()
         return {"engines": installed,
                 "auto": installed[0] if installed else None,
-                "lengths": list(SUMMARY_LENGTHS)}
+                "lengths": list(SUMMARY_LENGTHS),
+                "styles": list(SUMMARY_STYLES)}
 
     @app.get("/api/vocabularies")
     def list_vocabularies(request: Request):
@@ -432,7 +434,8 @@ def register_routes(app):
     @app.post("/api/library/{entry_id}/summary", status_code=202)
     def summarise_entry(entry_id: str, request: Request,
                         engine: str = Body("", embed=True),
-                        length: str = Body("", embed=True)):
+                        length: str = Body("", embed=True),
+                        style: str = Body("", embed=True)):
         """Queue a summary of this entry.
 
         It goes in the same queue as the transcriptions, and for the same
@@ -447,10 +450,14 @@ def register_routes(app):
         if length and length not in SUMMARY_LENGTHS:
             raise HTTPException(status_code=400,
                                 detail=f"unknown summary length '{length}'")
+        if style and style not in SUMMARY_STYLES:
+            raise HTTPException(status_code=400,
+                                detail=f"unknown summary style '{style}'")
         try:
             job = request.app.state.queue.summarize(
                 entry.id, overrides={"summarizer": engine or None,
-                                     "summary_length": length or None})
+                                     "summary_length": length or None,
+                                     "summary_style": style or None})
         except (LibraryError, SummaryError) as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
         return job.as_dict()

@@ -152,6 +152,7 @@ class LibraryPanel(QWidget):
         self.summary_progress.hide()
         self.summary_engine = QComboBox()
         self.summary_length = QComboBox()
+        self.summary_style = QComboBox()
         self.summarise = QPushButton(t("gui.summary_run"))
         self.summarise.clicked.connect(self.summarise_entry)
         summary_page = QWidget()
@@ -167,6 +168,10 @@ class LibraryPanel(QWidget):
             self.summary_length.addItem(label, name)
         self.summary_length.setCurrentIndex(
             max(0, self.summary_length.findData(options.summary_default_length())))
+        for name, label in options.summary_style_choices():
+            self.summary_style.addItem(label, name)
+        self.summary_style.setCurrentIndex(
+            max(0, self.summary_style.findData(options.summary_default_style())))
         # One engine is not a choice, so the menu is not shown; the label on
         # the button is the whole story then.
         self.summary_engine_label = QLabel(t("gui.summary_engine"))
@@ -175,6 +180,8 @@ class LibraryPanel(QWidget):
             summary_row.addWidget(widget)
         summary_row.addWidget(QLabel(t("gui.summary_length")))
         summary_row.addWidget(self.summary_length)
+        summary_row.addWidget(QLabel(t("gui.summary_style")))
+        summary_row.addWidget(self.summary_style)
         summary_row.addStretch(1)
         summary_row.addWidget(self.summarise)
         summary_layout.addLayout(summary_row)
@@ -607,7 +614,8 @@ class LibraryPanel(QWidget):
             return
         title = self.entry.metadata.get("title") or self.entry.id
         overrides = {"summarizer": self.summary_engine.currentData(),
-                     "summary_length": self.summary_length.currentData()}
+                     "summary_length": self.summary_length.currentData(),
+                     "summary_style": self.summary_style.currentData()}
         try:
             self._summary_job = self.queue.summarize(self.entry.id, overrides)
         except (LibraryError, SummaryError) as exc:

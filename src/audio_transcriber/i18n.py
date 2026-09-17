@@ -402,6 +402,9 @@ MESSAGES = {
         "gui.summary_short": "short",
         "gui.summary_medium": "medium",
         "gui.summary_long": "long",
+        "gui.summary_style": "Written as",
+        "gui.summary_style_combined": "one request",
+        "gui.summary_style_split": "one per section",
         "gui.summary_engine_extractive": "no model: the sentences that carry the transcript",
         "gui.summary_engine_openvino": "a local model, on this machine's Intel device",
         "gui.summary_engine_llamacpp":
@@ -1285,6 +1288,9 @@ MESSAGES = {
         "gui.summary_short": "corto",
         "gui.summary_medium": "medio",
         "gui.summary_long": "lungo",
+        "gui.summary_style": "Scritto come",
+        "gui.summary_style_combined": "una richiesta",
+        "gui.summary_style_split": "una per sezione",
         "gui.summary_engine_extractive": "nessun modello: le frasi che reggono la trascrizione",
         "gui.summary_engine_openvino": "un modello locale, sul dispositivo Intel di questa macchina",
         "gui.summary_engine_llamacpp":
@@ -1837,6 +1843,9 @@ HELP = {
         "help.sum_query": "library entry (id, or part of the title), or the path of a text file",
         "help.sum_engine": "which engine writes the summary (default: auto)",
         "help.sum_length": "how much of the transcript to keep: short | medium | long",
+        "help.sum_style":
+            "combined (default): one request for the four sections; split: "
+            "one request per section, checked against each other afterwards",
         "help.sum_model": "which model writes it: auto, a Hugging Face id, or a converted directory",
         "help.sum_context":
             "tokens of context to give the model (default: from the plan)",
@@ -1968,6 +1977,9 @@ HELP = {
         "help.sum_query": "voce di libreria (id, o parte del titolo), oppure il percorso di un file di testo",
         "help.sum_engine": "quale motore scrive il riassunto (default: auto)",
         "help.sum_length": "quanto tenere della trascrizione: short | medium | long",
+        "help.sum_style":
+            "combined (default): una richiesta per le quattro sezioni; "
+            "split: una richiesta per sezione, controllate poi fra loro",
         "help.sum_model": "quale modello lo scrive: auto, un id Hugging Face, o una cartella gia' convertita",
         "help.sum_context":
             "token di contesto da dare al modello (default: dal piano)",

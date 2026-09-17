@@ -765,6 +765,7 @@ class JobQueue:
         entry.update(summary={
             "engine": result.engine,
             "length": job.settings.get("summary_length") or summarising.DEFAULT_LENGTH,
+            "style": job.settings.get("summary_style") or summarising.DEFAULT_STYLE,
             "sentences_kept": result.kept,
             "sentences_total": result.of,
             "tier": result.tier,

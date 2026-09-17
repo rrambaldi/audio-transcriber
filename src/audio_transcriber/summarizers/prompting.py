@@ -91,11 +91,25 @@ MIN_ANSWER = 40
 _THINK = re.compile(r"<think>.*?</think>\s*", re.DOTALL | re.IGNORECASE)
 
 #: A markdown heading, at any level — or a line that is nothing but bold text,
-#: which is how a model asked for "## Punti chiave" very often answers. Left
-#: unrecognised, every section it wrote lands in the abstract and the page is
-#: one paragraph where it should be four.
+#: or square brackets, which is how a model asked for "## Punti chiave" very
+#: often answers instead. Left unrecognised, every section it wrote lands in
+#: the abstract and the page is one paragraph where it should be four.
+#:
+#: The bracket form excludes a leading digit and a nested bracket on purpose:
+#: without that guard, a garbled line such as "[18:11] pulizia necessaria]"
+#: (a clock the model never closed) reads as a heading too, and everything
+#: after it is silently dropped rather than merely misplaced.
 _HEADING = re.compile(r"^\s{0,3}(?:#{1,6}\s*(.+?)\s*#*"
-                      r"|\*\*(.+?)\*\*:?|__(.+?)__:?)\s*$")
+                      r"|\*\*(.+?)\*\*:?|__(.+?)__:?"
+                      r"|\[(?!\d)([^\[\]]{1,40})\])\s*$")
+
+#: A heading and its content on the same line — "Decisioni: rinnovare il
+#: contratto" — which is what a small model does with the scaffold instead of
+#: writing a heading of its own. The colon must be followed by a space, not a
+#: digit, so a clock such as "1:02:03 ..." is never read as one: the whole
+#: label is checked against the known headings below, so this cannot turn an
+#: ordinary sentence with a colon in it into a section switch.
+_LABELLED = re.compile(r"^\s{0,3}([^\n:]{1,40}):\s+(\S.*)$")
 
 #: A bullet: a dash, a star, or a number.
 _BULLET = re.compile(r"^\s*(?:[-*•]|\d{1,2}[.)])\s+(.*)$")
@@ -164,6 +178,29 @@ PROMPTS = {
             "## {decisions}\nSolo le decisioni effettivamente prese.\n\n"
             "## {actions}\nChi si e' impegnato a fare cosa, ed entro quando "
             "se e' stato detto.",
+        "section_single":
+            "Questa e' la trascrizione di una registrazione.\n\n"
+            "{fence_start}\n{transcript}\n{fence_end}\n\n"
+            "{instruction} Se non c'e' nulla da scrivere per questa sezione, "
+            "rispondi esattamente con {empty} e nient'altro.",
+        "section_reduce":
+            "Questi sono i riassunti parziali di una registrazione, in "
+            "ordine.\n\n{partials}\n\n{evidence}"
+            "{instruction} Se non c'e' nulla da scrivere per questa sezione, "
+            "rispondi esattamente con {empty} e nient'altro.",
+        "merge":
+            "Queste sono quattro sezioni scritte una alla volta sulla stessa "
+            "registrazione: la stessa cosa puo' comparire in piu' di "
+            "una.\n\n{draft}\n\n"
+            "Riscrivi il documento finale in italiano, con esattamente "
+            "queste intestazioni e in quest'ordine, saltando quelle che non "
+            "hanno contenuto:\n\n"
+            "## {abstract}\n\n## {points}\n\n## {decisions}\n\n## "
+            "{actions}\n\n"
+            "Se la stessa cosa compare in piu' di una sezione, tienila solo "
+            "in quella piu' specifica (Decisioni o Azioni valgono su Punti "
+            "chiave) e non ripeterla altrove. Non aggiungere nulla che non "
+            "sia gia' scritto qui sopra.",
     },
     "en": {
         "system":
@@ -215,6 +252,85 @@ PROMPTS = {
             "## {decisions}\nOnly decisions actually taken.\n\n"
             "## {actions}\nWho committed to what, and by when if it was "
             "said.",
+        "section_single":
+            "This is the transcript of a recording.\n\n"
+            "{fence_start}\n{transcript}\n{fence_end}\n\n"
+            "{instruction} If there is nothing to write for this section, "
+            "answer with exactly {empty} and nothing else.",
+        "section_reduce":
+            "These are the partial summaries of one recording, in order.\n\n"
+            "{partials}\n\n{evidence}"
+            "{instruction} If there is nothing to write for this section, "
+            "answer with exactly {empty} and nothing else.",
+        "merge":
+            "These are four sections written one at a time about the same "
+            "recording: the same thing may appear in more than one.\n\n"
+            "{draft}\n\n"
+            "Rewrite the final document in English, under exactly these "
+            "headings and in this order, leaving out any that would be "
+            "empty:\n\n"
+            "## {abstract}\n\n## {points}\n\n## {decisions}\n\n## "
+            "{actions}\n\n"
+            "Where the same thing appears in more than one section, keep it "
+            "only in the more specific one (Decisions or Actions over Key "
+            "points) and do not repeat it elsewhere. Add nothing that is not "
+            "already written above.",
+    },
+}
+
+
+#: The four fields a model can be asked to write, in page order. ``keywords``
+#: is not here: no engine that writes prose fills it, so there is nothing for
+#: a single-section request to ask for.
+SECTION_FIELDS = ("abstract", "points", "decisions", "actions")
+
+#: What a single-section request answers when it has nothing to write, in
+#: place of simply leaving a heading out — there is no heading to leave out
+#: here, since the question already said which one this is. Not translated,
+#: the same way FENCE_START/FENCE_END are not: a fixed marker is easier to
+#: recognise coming back than a word that could arrive capitalised,
+#: translated, or wrapped in emphasis.
+EMPTY_SECTION = "__NESSUNA__"
+
+#: The marker above, tolerant of the emphasis and punctuation a model wraps
+#: it in — "**__NESSUNA__**", "_Nessuna._" — and of the underscores being
+#: dropped, which is what a model that renders markdown does with them.
+_EMPTY_SECTION = re.compile(r"^[\s*_\"'.:]*nessuna[\s*_\"'.:]*$", re.IGNORECASE)
+
+#: The one line each single-section request adds to the shared prompt body,
+#: per field. In the language that was spoken, like every other prompt here.
+SECTION_INSTRUCTIONS = {
+    "it": {
+        "abstract":
+            "Scrivi in italiano SOLO un paragrafo di tre o quattro righe che "
+            "riassume la registrazione, senza titolo e senza elenco.",
+        "points":
+            "Scrivi in italiano SOLO i punti chiave discussi, come elenco "
+            "puntato, ogni riga con il minuto.",
+        "decisions":
+            "Scrivi in italiano SOLO le decisioni effettivamente prese (non "
+            "proposte, non ipotesi), come elenco puntato, ogni riga con il "
+            "minuto.",
+        "actions":
+            "Scrivi in italiano SOLO chi si e' impegnato a fare cosa, con la "
+            "scadenza se e' stata detta, come elenco puntato, ogni riga con "
+            "il minuto.",
+    },
+    "en": {
+        "abstract":
+            "Write, in English, ONLY a paragraph of three or four lines "
+            "summarising the recording, with no title and no list.",
+        "points":
+            "Write, in English, ONLY the key points discussed, as a "
+            "bulleted list, every line carrying its minute.",
+        "decisions":
+            "Write, in English, ONLY decisions actually taken (not "
+            "proposals, not hypotheses), as a bulleted list, every line "
+            "carrying its minute.",
+        "actions":
+            "Write, in English, ONLY who committed to what, and by when if "
+            "it was said, as a bulleted list, every line carrying its "
+            "minute.",
     },
 }
 
@@ -447,6 +563,30 @@ def _field_of(heading, language):
     return None
 
 
+def has_written_headings(answer, language="it"):
+    """Whether the answer carries at least one heading :func:`parse`
+    recognises for this language.
+
+    The difference between a document in the right shape and text
+    :func:`parse` only kept because keeping it beats discarding it: the merge
+    pass trusts its own answer no further than this, because accepting a
+    degenerate one there would throw away drafts that were each individually
+    fine."""
+    language = language_of(language)
+    for line in without_thinking(answer).splitlines():
+        heading = _HEADING.match(line)
+        if heading:
+            written = next((group for group in heading.groups()
+                            if group is not None), None)
+            if written is not None and _field_of(written, language) is not None:
+                return True
+            continue
+        labelled = _LABELLED.match(line)
+        if labelled and _field_of(labelled.group(1), language) is not None:
+            return True
+    return False
+
+
 def parse(answer, language="it", prompt=None):
     """Read the model's markdown back into sections.
 
@@ -476,7 +616,23 @@ def parse(answer, language="it", prompt=None):
             field = found
             matched = matched or found is not None
             continue
-        if field is None or not line.strip():
+        if not line.strip():
+            continue
+        labelled = _LABELLED.match(line)
+        if labelled:
+            found = _field_of(labelled.group(1), language)
+            if found is not None:
+                # The heading and its first line arrived together: taken as a
+                # heading alone, the content after the colon would need a
+                # bullet of its own to survive into a list field, and it has
+                # none — this is the one place a list field accepts an
+                # unbulleted line, because the label just proved what it is.
+                field, matched = found, True
+                content = labelled.group(2).strip()
+                if content and content not in scaffold(language):
+                    collected[field].append(content)
+                continue
+        if field is None:
             continue
         bullet = _BULLET.match(line)
         content = bullet.group(1) if bullet else line.strip()
@@ -505,6 +661,68 @@ def parse(answer, language="it", prompt=None):
         keywords=[word.strip() for line in collected["keywords"]
                   for word in line.split(",") if word.strip()],
     )
+
+
+def _section_lines(text, language):
+    """One entry per line, a bullet marker stripped where there is one.
+
+    Unlike :func:`parse`, an unbulleted line is kept: with only one field
+    possible there is nowhere else for it to be mistaken for, which is the
+    ambiguity a bullet marker exists to resolve in the combined answer."""
+    lines = []
+    for line in text.splitlines():
+        if not line.strip():
+            continue
+        bullet = _BULLET.match(line)
+        content = bullet.group(1) if bullet else line.strip()
+        if content and content not in scaffold(language):
+            lines.append(content)
+    return lines
+
+
+def parse_section(field, answer, language="it", prompt=None):
+    """Read back one single-section answer: the empty marker, a paragraph, or
+    a list, depending on ``field``.
+
+    There is no heading to recognise here — the question already said which
+    field this is — so this is simpler than :func:`parse` on purpose, and
+    cannot lose a section into the wrong one: that failure needs two fields to
+    confuse, and a single-section answer only ever has one."""
+    language = language_of(language)
+    usable = usable_answer(answer, prompt)
+    if not usable or _EMPTY_SECTION.match(usable.strip()):
+        return "" if field == "abstract" else []
+    lines = _section_lines(usable, language)
+    return " ".join(lines).strip() if field == "abstract" else lines
+
+
+def sections_from_drafts(drafts):
+    """The four single-section drafts, taken as the answer with no merge
+    pass: used when there is at most one to check for overlap, where asking a
+    model to compare a section against itself would only add a chance to go
+    wrong for nothing."""
+    return Sections(
+        abstract=drafts.get("abstract") or "",
+        points=[_point(line) for line in drafts.get("points") or []],
+        decisions=[_point(line) for line in drafts.get("decisions") or []],
+        actions=[_point(line) for line in drafts.get("actions") or []],
+    )
+
+
+def draft_text(drafts, language):
+    """The drafts as one block, each under its own heading: the input to the
+    merge pass, and — when a merge was skipped or failed — what a diagnostic
+    message shows for "what the model answered"."""
+    words = HEADINGS.get(language_of(language), HEADINGS["en"])
+    parts = []
+    for field in SECTION_FIELDS:
+        content = drafts.get(field)
+        if not content:
+            continue
+        body = content if field == "abstract" else "\n".join(
+            f"- {line}" for line in content)
+        parts.append(f"## {words[field]}\n{body}")
+    return "\n\n".join(parts)
 
 
 #: An opening narration with no end: the model was still thinking when the
@@ -632,5 +850,47 @@ def reduce_prompt(partials, language, evidence=None):
     return prompts_for(language)["reduce"].format(
         partials=_numbered(partials),
         evidence=_evidence_block(evidence, language),
+        abstract=words["abstract"], points=words["points"],
+        decisions=words["decisions"], actions=words["actions"])
+
+
+def _section_instruction(field, language):
+    return SECTION_INSTRUCTIONS.get(
+        language_of(language), SECTION_INSTRUCTIONS["en"])[field]
+
+
+def section_prompt(field, sentences, language):
+    """The one-pass prompt for a single section, asked on its own.
+
+    Everything else about the one-pass path is unchanged: the same
+    transcript, the same fence. Only the question at the end differs from one
+    field to the next, which is what lets a sequence of these calls reuse the
+    transcript's own share of the prompt from the model's own cache instead of
+    reading it four times over."""
+    return prompts_for(language)["section_single"].format(
+        transcript=transcript_for(sentences),
+        fence_start=FENCE_START, fence_end=FENCE_END,
+        instruction=_section_instruction(field, language), empty=EMPTY_SECTION)
+
+
+def section_reduce_prompt(field, partials, language, evidence=None):
+    """The reduce-root prompt for a single section, asked on its own."""
+    return prompts_for(language)["section_reduce"].format(
+        partials=_numbered(partials),
+        evidence=_evidence_block(evidence, language),
+        instruction=_section_instruction(field, language), empty=EMPTY_SECTION)
+
+
+def merge_prompt(drafts, language):
+    """The prompt that checks the four single-section drafts against each
+    other, and writes the one document a reader sees.
+
+    It reuses the combined heading format on purpose: whatever comes back is
+    read with the same :func:`parse` the combined path uses, headings
+    misplaced by a weak model included — a merge pass gets no fewer
+    protections than a first draft would have."""
+    words = HEADINGS.get(language_of(language), HEADINGS["en"])
+    return prompts_for(language)["merge"].format(
+        draft=draft_text(drafts, language),
         abstract=words["abstract"], points=words["points"],
         decisions=words["decisions"], actions=words["actions"])

@@ -354,6 +354,13 @@
           <option value="long" data-t="summary_long">long</option>
         </select>
       </div>
+      <div class="field">
+        <label for="summary-style" data-t="summary_style">Written as</label>
+        <select id="summary-style">
+          <option value="combined" selected data-t="summary_style_combined">one request</option>
+          <option value="split" data-t="summary_style_split">one per section</option>
+        </select>
+      </div>
     </div>
     <p class="note" id="summary-status" aria-live="polite"></p>
     <!-- A summary reads an hour of transcript on this machine: the panel says
@@ -378,6 +385,8 @@
     <a id="viewer-download-srt" class="button" download data-t="download_srt">subtitles (.srt)</a>
     <a id="viewer-download-vtt" class="button" download data-t="download_vtt">subtitles (.vtt)</a>
     <a id="viewer-download-summary" class="button" download data-t="download_summary">summary (.md)</a>
+    <button type="button" class="button" id="summary-copy" hidden
+            data-t="summary_copy">copy</button>
     <button type="button" class="button danger" id="summary-delete" hidden
             data-t="summary_delete">delete the summary</button>
     <button type="button" class="button send" id="summary-run" hidden

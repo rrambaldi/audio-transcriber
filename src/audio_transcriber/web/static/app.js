@@ -164,10 +164,16 @@ const I18N = {
     summary_short: "short",
     summary_medium: "medium",
     summary_long: "long",
+    summary_style: "Written as",
+    summary_style_combined: "one request",
+    summary_style_split: "one per section",
     summary_run: "Summarise",
     summary_again: "Summarise again",
     summary_delete: "delete the summary",
     download_summary: "summary (.md)",
+    summary_copy: "copy",
+    summary_copied: "Copied.",
+    summary_copy_failed: "Could not copy: the browser refused.",
     summary_queued: "In the queue, behind whatever is already running.",
     summary_running: "Being written\u2026 {stage}",
     summary_failed: "Could not summarise: {error}",
@@ -374,10 +380,16 @@ const I18N = {
     summary_short: "corto",
     summary_medium: "medio",
     summary_long: "lungo",
+    summary_style: "Scritto come",
+    summary_style_combined: "una richiesta",
+    summary_style_split: "una per sezione",
     summary_run: "Riassumi",
     summary_again: "Riassumi di nuovo",
     summary_delete: "elimina il riassunto",
     download_summary: "riassunto (.md)",
+    summary_copy: "copia",
+    summary_copied: "Copiato.",
+    summary_copy_failed: "Non copiato: il browser ha rifiutato.",
     summary_queued: "In coda, dietro a quello che sta gia' girando.",
     summary_running: "Lo sto scrivendo\u2026 {stage}",
     summary_failed: "Non riassunto: {error}",
@@ -1465,6 +1477,7 @@ function showViewerTab(which) {
   $("summary-run").hidden = which !== "summary";
   $("summary-delete").hidden = which !== "summary" || !summaryPresent;
   $("viewer-download-summary").hidden = which !== "summary" || !summaryPresent;
+  $("summary-copy").hidden = which !== "summary" || !summaryPresent;
 }
 
 $("tab-transcript").addEventListener("click", () => showViewerTab("transcript"));
@@ -1605,7 +1618,8 @@ $("summary-run").addEventListener("click", async () => {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ engine: $("summary-engine").value || "",
-                           length: $("summary-length").value || "" }),
+                           length: $("summary-length").value || "",
+                           style: $("summary-style").value || "" }),
   });
   if (!response.ok) {
     const problem = await response.json().catch(() => ({}));
@@ -1631,6 +1645,30 @@ $("summary-delete").addEventListener("click", async () => {
               { method: "DELETE" });
   reloadOpenEntry();
 });
+
+$("summary-copy").addEventListener("click", async () => {
+  const text = $("summary-text").textContent || "";
+  try {
+    if (navigator.clipboard) await navigator.clipboard.writeText(text);
+    else copyWithFallback(text);
+    $("summary-status").textContent = t("summary_copied");
+  } catch {
+    $("summary-status").textContent = t("summary_copy_failed");
+  }
+});
+
+function copyWithFallback(text) {
+  /* navigator.clipboard needs a secure context (https, or localhost): the
+     same boundary the recorder already runs into. A hidden textarea and the
+     legacy command still work over a plain http tunnel. */
+  const area = el("textarea", { value: text });
+  area.style.position = "fixed";
+  area.style.opacity = "0";
+  document.body.append(area);
+  area.select();
+  document.execCommand("copy");
+  area.remove();
+}
 
 $("viewer-close").addEventListener("click", closeViewer);
 $("viewer").addEventListener("close", () => $("viewer-audio").pause());

@@ -20,6 +20,7 @@ from .reference import POOR_MATCH, ReferenceError
 from .subtitles import PROBLEM_GROUPS, TIMING_PROBLEMS
 from .summarizers import CHOICES as SUMMARY_ENGINES
 from .summary import LENGTHS as SUMMARY_LENGTHS
+from .summary import STYLES as SUMMARY_STYLES
 from .transcription import BACKENDS
 from .vocabularies import MAX_PROMPT_CHARS, VocabularyError
 
@@ -104,6 +105,12 @@ engine = "auto"
 # How much of the transcript to keep, with the extractive engine:
 # short | medium | long.
 # length = "medium"
+# How a model engine asks for the four sections of the final page.
+# "combined" (default) asks for all four in one request. "split" asks for
+# one section at a time and checks the four drafts against each other
+# afterwards: costs more requests, and is worth trying if "combined" keeps
+# losing a section into the wrong one on a weak model.
+# style = "combined"
 # Which model writes it: "auto" picks the largest recommended one that fits in
 # this machine's free memory. Any Hugging Face id works, as does the path of a
 # directory already converted to OpenVINO IR.
@@ -305,6 +312,8 @@ def build_parser(defaults):
                     choices=list(SUMMARY_ENGINES), help=t("help.sum_engine"))
     sm.add_argument("--length", dest="summary_length", default=None,
                     choices=list(SUMMARY_LENGTHS), help=t("help.sum_length"))
+    sm.add_argument("--style", dest="summary_style", default=None,
+                    choices=list(SUMMARY_STYLES), help=t("help.sum_style"))
     sm.add_argument("--model", dest="summary_model", default=None,
                     help=t("help.sum_model"))
     sm.add_argument("--device", dest="summary_device", default=None,
@@ -617,6 +626,7 @@ def command_summarize(args, settings):
         entry.update(summary={
             "engine": result.engine,
             "length": settings.get("summary_length") or summarising.DEFAULT_LENGTH,
+            "style": settings.get("summary_style") or summarising.DEFAULT_STYLE,
             "sentences_kept": result.kept,
             "sentences_total": result.of,
             "tier": result.tier,
@@ -1080,7 +1090,7 @@ def collect_cli_settings(args):
              "models_dir",
              "library_dir", "vocab_dir", "subtitle_preset", "subtitle_chars",
              "subtitle_lines", "subtitle_words", "output", "summarizer",
-             "summary_length", "summary_model", "summary_device",
+             "summary_length", "summary_style", "summary_model", "summary_device",
              "summary_chunk_tokens", "summary_context_tokens",
              "summary_kv_type", "summary_tier", "summary_llama_server")
     values = {name: getattr(args, name, None) for name in names}

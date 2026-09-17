@@ -56,6 +56,7 @@ DEFAULTS = {
     "subtitle_words": None,       # words per cue, if you would rather cap that
     "summarizer": "auto",         # "auto": the best engine this machine has
     "summary_length": None,       # None: the module's default (medium)
+    "summary_style": None,        # None: the module's default (combined)
     "summary_model": None,        # None/"auto": the largest one this machine holds
     "summary_device": None,       # None/"auto": the Intel iGPU, then the CPU
     "summary_chunk_tokens": None,  # None: the module's default
@@ -96,6 +97,7 @@ SCHEMA = {
     ("subtitles", "max_words_per_cue"): ("subtitle_words", int),
     ("summary", "engine"): ("summarizer", str),
     ("summary", "length"): ("summary_length", str),
+    ("summary", "style"): ("summary_style", str),
     ("summary", "model"): ("summary_model", str),
     ("summary", "device"): ("summary_device", str),
     ("summary", "chunk_tokens"): ("summary_chunk_tokens", int),
