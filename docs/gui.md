@@ -527,7 +527,7 @@ stylesheet's own token values, by `tests/test_gui_theme.py`.
 | `--paper` / `--sheet` | `QPalette.Window` / `QPalette.Base` — Qt needs two surfaces where CSS needs one |
 | `--signal` | `QPalette.Highlight`, the focus ring, a timestamp, the primary action |
 | a field as one rule under the text | `QLineEdit`, `QComboBox`, `QSpinBox` with a single bottom border |
-| `.button`, typographic and never boxy | `QPushButton` with no fill and a bottom rule; `#primary` is the accent and a heavier rule, not a filled box |
+| `.button`, a quiet surface with a rule under it | `QPushButton` with the sheet colour, a hairline frame and the same heavier rule along its foot; `#primary` is the accent on the accent's wash, never a box filled with it |
 | `.tab` | `QTabBar::tab`, a word with the accent under it — see below |
 | `.row .title` in the serif | the queue and library rows, painted by `widgets.JobDelegate` |
 | `.drop`, dashed | `QFrame#drop`, dashed, washed in the accent while a file is over it |

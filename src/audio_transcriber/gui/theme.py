@@ -314,10 +314,17 @@ def _scale(font, factor):
 def qss(which="light"):
     """The chrome: what the stylesheet does to controls, said in Qt's dialect.
 
-    Fields are a rule under the text, buttons are typographic and never boxy,
-    a tab is a word with a line under it, and the one filled thing on the page
-    is nothing - the primary action is the accent and a heavier rule, as
-    ``.button.send`` is. Only what the page decides is set here; the rest is
+    Fields are a rule under the text; a button is a small sheet lifted off the
+    paper with that same rule along its foot; a tab is a word with a line
+    under it; and nothing is filled with the accent - the primary action is
+    the accent on the accent's own wash, as ``.button.send`` is.
+
+    The button used to be the field's own drawing, a word with a hairline
+    under it, and that was a mistake worth leaving written down: it is not
+    enough to be discreet, a control also has to look like one, and a row of
+    buttons that read as a row of empty fields is a row nobody presses.
+
+    Only what the page decides is set here; the rest is
     left to the style, which is Fusion on all three platforms so that these
     rules land the same way on each."""
     token = dict(TOKENS[which])
@@ -351,23 +358,44 @@ QTabBar::tab:hover:!selected {{ color: {token['signal']};
                                 border-bottom-color: {token['rule']}; }}
 QTabBar::tab:focus {{ color: {token['ink']}; }}
 
-/* --- buttons: typographic, never boxy ----------------------------------- */
-QPushButton, QToolButton {{ background: transparent; border: none;
-                            border-bottom: 1px solid {token['line']};
+/* --- buttons: a quiet panel, with the page's rule still under it --------- */
+/*  These used to be a word with a hairline under it and nothing else, which
+    is the same drawing a field gets here - so a row of buttons read as a row
+    of empty fields, and people could not tell what was pressable. What makes
+    something look pressable, short of a filled box the page does not have, is
+    a *surface*: a sheet lifted off the paper, closed on all four sides.
+    So the rule stays where it was, heavier than the three hairlines that now
+    close the shape around it, and the family resemblance survives the change.
+    The accent is still what hover and the primary action are said in.  */
+QPushButton, QToolButton {{ background: {token['sheet']};
                             color: {token['ink']};
-                            padding: 5px 2px; margin: 0 2px; }}
+                            border: 1px solid {token['rule']};
+                            border-bottom: 2px solid {token['line']};
+                            border-radius: 0;
+                            padding: 6px 12px; margin: 0 2px; }}
 QPushButton:hover, QToolButton:hover {{ color: {token['signal']};
-                                        border-bottom-color: {token['signal']}; }}
+                                        background: {token['signal-wash']};
+                                        border-color: {token['signal']}; }}
 QPushButton:pressed, QToolButton:pressed {{ color: {token['signal']};
-                                            border-bottom-width: 2px; }}
-QPushButton:disabled, QToolButton:disabled {{ border-bottom-color: {token['rule']}; }}
-/* The one action a screen is for: the accent and a heavier rule, which is
-   what .button.send is on the page. Not a filled box - the page has none. */
+                                            background: {token['signal-wash']};
+                                            border-color: {token['signal']};
+                                            border-bottom-width: 3px; }}
+/* Keyboard focus has to be visible on its own: the hover wash says nothing
+   to somebody tabbing through. */
+QPushButton:focus, QToolButton:focus {{ border-color: {token['signal']}; }}
+/* Nothing to press, so no surface to press it on: the shape stays, empty. */
+QPushButton:disabled, QToolButton:disabled {{ background: transparent;
+                                              border-color: {token['rule']}; }}
+/* The one action a screen is for: the accent, on the accent's own wash, with
+   the heavier rule .button.send has on the page. Still not a filled box. */
 QPushButton#primary {{ color: {token['signal']};
-                       border-bottom: 2px solid {token['signal']}; }}
+                       background: {token['signal-wash']};
+                       border: 1px solid {token['signal']};
+                       border-bottom: 3px solid {token['signal']}; }}
 QPushButton#primary:hover {{ color: {token['ink']};
-                             border-bottom-color: {token['ink']}; }}
-QPushButton#primary:disabled {{ border-bottom-color: {token['rule']}; }}
+                             border-color: {token['ink']}; }}
+QPushButton#primary:disabled {{ background: transparent;
+                                border-color: {token['rule']}; }}
 
 /* --- fields: one rule under the text ------------------------------------ */
 QLineEdit, QComboBox, QSpinBox, QDoubleSpinBox, QTimeEdit {{

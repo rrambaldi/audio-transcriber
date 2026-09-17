@@ -364,19 +364,50 @@ def test_a_desktop_that_reports_nothing_is_read_from_its_palette(application, re
     assert theme.scheme(application) == "light"
 
 
-def test_the_chrome_is_the_page_s_chrome(application):
-    """Spot-checks of the translation, on the decisions the page actually
-    makes: a field is a rule under the text, a button is typographic and never
-    boxy, and the primary action is the accent rather than a filled box."""
+def test_a_field_is_a_rule_and_a_button_is_a_surface(application):
+    """The distinction the window turns on, and the one it got wrong first.
+
+    A button used to be a word with a hairline under it — which is exactly
+    what a field is here — so a row of buttons read as a row of empty fields
+    and nobody could tell what was pressable. It is a small sheet now, closed
+    on four sides, with the same rule it always had along its foot. The test
+    is that the two remain *different*: a field has no surface and no frame,
+    and a button has both."""
     sheet = theme.qss("light")
     line = theme.colour("line", "light").name().upper()
-    signal = theme.colour("signal", "light").name().upper()
+    paper = theme.colour("sheet", "light").name().upper()
 
-    assert f"border-bottom: 1px solid {line}".lower() in sheet.lower()
-    assert "QPushButton, QToolButton { background: transparent" in sheet
-    assert f"QPushButton#primary {{ color: {signal}".lower() in sheet.lower()
-    assert "background:" not in sheet.split("QPushButton#primary")[1].split("}")[0]
-    # The dashed drop area, and the accent wash while a file is over it.
+    field = sheet.split("QLineEdit, QComboBox")[1].split("}")[0]
+    assert "background: transparent" in field
+    assert f"border-bottom: 1px solid {line}".lower() in field.lower()
+    assert "border: none" in field
+
+    button = sheet.split("QPushButton, QToolButton")[1].split("}")[0]
+    assert f"background: {paper}".lower() in button.lower()
+    rule = theme.colour("rule", "light").name().upper()
+    assert f"border: 1px solid {rule}".lower() in button.lower()
+    assert f"border-bottom: 2px solid {line}".lower() in button.lower()
+
+
+def test_the_primary_action_is_the_accent_and_not_a_box_filled_with_it(
+        application):
+    """The page's one loud thing is a colour and a heavier rule, never a slab
+    of accent with text knocked out of it."""
+    sheet = theme.qss("light")
+    signal = theme.colour("signal", "light").name().upper()
+    wash = theme.colour("signal-wash", "light").name().upper()
+
+    primary = sheet.split("QPushButton#primary")[1].split("}")[0]
+    assert f"color: {signal}".lower() in primary.lower()
+    assert f"background: {wash}".lower() in primary.lower()
+    # The wash, which is the accent at a fifteenth of its strength - not the
+    # accent itself, which would leave the label to be knocked out white.
+    assert f"background: {signal}".lower() not in primary.lower()
+
+
+def test_the_rest_of_the_chrome_is_the_page_s_chrome(application):
+    """The dashed drop area, and the accent wash while a file is over it."""
+    sheet = theme.qss("light")
     assert "QFrame#drop { border: 1px dashed" in sheet
     assert theme.colour("signal-wash", "light").name().upper() in sheet.upper()
 

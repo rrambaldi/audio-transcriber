@@ -54,6 +54,21 @@ All notable changes to this project are documented here. The format follows
 
 ### Changed
 
+- **A button now looks like one.** It used to be a word with a hairline under
+  it and nothing else — which is exactly the drawing a field gets here, so a
+  row of buttons read as a row of empty fields and people could not tell what
+  was pressable. The style is the same; what was missing was a *surface*. A
+  button is now a small sheet lifted off the paper, closed on four sides by
+  hairlines, with the rule it always had along its foot, heavier than the
+  three that close it — so the family resemblance survives the change. Hover
+  and focus are still said in the accent, and the primary action is the accent
+  on the accent's own wash rather than a box filled with it: nothing here is
+  filled, which was the point of the old drawing and is kept.
+
+  In both front ends, because they are meant to be one program. A tab, a
+  timestamp and the small "delete"/"stop" asides are deliberately left as they
+  were: those are words you can click, not the actions of the row they sit in.
+
 - **The rename and copy buttons are drawn rather than spelled.** They were
   characters borrowed from the text font, which is the cheap way to have an
   icon and looked it: thin at nine points beside a hairline rule, missing

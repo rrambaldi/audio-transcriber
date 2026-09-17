@@ -341,7 +341,16 @@ fieldset.subs .grid { margin-top: 0.6rem; }
   white-space: nowrap;
 }
 
-/* --- buttons: typographic, never boxy ---------------------------------- */
+/* --- buttons: a quiet panel, with the rule still under it --------------- */
+/*  These used to be a word with a hairline under it and nothing else, which
+    is the same drawing a field gets — so a row of buttons read as a row of
+    empty fields. What makes something look pressable, short of a filled box
+    this page does not have, is a surface: a sheet lifted off the paper and
+    closed on all four sides. The rule stays where it was, heavier than the
+    three hairlines that now close the shape around it.
+    .link is the exception and stays a link: it is the small "delete", "stop"
+    and "remove from the list", which are asides inside a row and not the
+    row's own actions.  */
 
 .button, button, .link {
   font-family: var(--sans);
@@ -350,40 +359,53 @@ fieldset.subs .grid { margin-top: 0.6rem; }
   letter-spacing: 0.14em;
   font-weight: 600;
   color: var(--ink);
-  background: none;
-  border: none;
-  border-bottom: 1px solid var(--line);
+  background: var(--sheet);
+  border: 1px solid var(--rule);
+  border-bottom: 2px solid var(--line);
   border-radius: 0;
-  padding: 0.35rem 0.1rem;
+  padding: 0.5rem 0.9rem;
   cursor: pointer;
   text-decoration: none;
   display: inline-block;
-  transition: border-color 0.15s, color 0.15s;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
 }
-.button:hover, button:hover { border-color: var(--signal); color: var(--signal); }
-.button.send {
-  border-bottom-width: 2px;
+.button:hover, button:hover {
   border-color: var(--signal);
   color: var(--signal);
-  padding-right: 1.4rem;
+  background: var(--signal-wash);
+}
+.button.send {
+  border-color: var(--signal);
+  border-bottom-width: 3px;
+  background: var(--signal-wash);
+  color: var(--signal);
+  padding-right: 2.1rem;
   position: relative;
 }
 .button.send::after {
   content: "\2192";
   position: absolute;
-  right: 0.1rem;
+  right: 0.8rem;
   transition: transform 0.15s;
 }
 .button.send:hover::after { transform: translateX(0.2rem); }
 .button.danger { color: var(--clay); border-color: var(--clay); }
-.button.danger:hover { color: var(--clay); border-bottom-width: 2px; }
-button:disabled { opacity: 0.45; cursor: default; }
+.button.danger:hover {
+  color: var(--clay);
+  border-color: var(--clay);
+  background: var(--sheet);
+  border-bottom-width: 3px;
+}
+/* Nothing to press, so no surface to press it on: the shape stays, empty. */
+button:disabled { opacity: 0.45; cursor: default; background: none; }
 .link {
   text-transform: none;
   letter-spacing: 0;
   font-size: 0.85rem;
   font-weight: 400;
   color: var(--signal);
+  background: none;
+  border: none;
   border-bottom: 1px solid var(--rule);
   /* "delete", "stop" and "remove from the list" are all of this kind, and at
      22px they were the smallest targets on the page. The area grows, the
@@ -410,6 +432,10 @@ menu .spacer { flex: 1; }
 
 .tabs { display: flex; gap: 1.4rem; margin-bottom: 1.4rem; border-bottom: 1px solid var(--rule); }
 .tab {
+  /* A tab is a word with a line under it and never a surface: it takes the
+     typography of a button and none of the rest, so both have to be undone
+     here by name. */
+  background: none;
   border: none;
   border-bottom: 2px solid transparent;
   color: var(--muted);
@@ -601,6 +627,9 @@ menu { display: flex; gap: 1.2rem; align-items: center; padding: 0; margin: 1.8r
   font-size: 0.8rem;
   letter-spacing: 0.04em;
   color: var(--signal);
+  /* One per block down a whole transcript: a surface here would be a column
+     of chips beside the text. It is a number you can click, and no more. */
+  background: none;
   border: none;
   padding: 0;
   text-align: left;

@@ -324,7 +324,9 @@ in the window, and `audio_transcriber/about.py`, which both ask.
 
 It is laid out as a sheet of paper rather than as an application: each section
 puts its explanation in a narrow column and its controls in a wide one, fields
-are a single rule under the text, and the buttons are typographic. Two
+are a single rule under the text, and a button is a quiet surface with that
+same rule along its foot — enough to tell the two apart at a glance, which an
+underline alone was not. Two
 typefaces — Fraunces for the headings, Karla for everything else — both
 self-hosted with their OFL licences under the package's `data/brand/fonts/`
 and served from `/brand`, so the page loads with no network and calls nobody.
