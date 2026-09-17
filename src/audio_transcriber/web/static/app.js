@@ -48,6 +48,14 @@ const I18N = {
     rename_title: "Rename",
     rename_label: "Title",
     rename_ok: "Rename",
+    speakers_name: "name the speakers",
+    speakers_title: "Who is speaking",
+    speakers_intro: "The machine heard the voices apart but cannot know whose they are. Give them names and the transcript is rewritten to use them; leave one blank and it keeps the label it has.",
+    speakers_same: "Two of them with the same name means one person: their turns are run together.",
+    speakers_hint: "a name",
+    speakers_ok: "Name them",
+    speakers_named: "The speakers are now: {speakers}",
+    speakers_failed: "Not renamed: {error}",
     colophon: "audio-transcriber {version} — {sets} keyword sets installed. Everything runs on this machine.",
     reference_label: "A text you already have",
     reference_note: "A script, a press release, a transcript from elsewhere. Its rare words are given to the engine so it spells them right, and afterwards it corrects the words it misheard or cut short. What was actually said still wins: nothing is added because the text expected it.",
@@ -264,6 +272,14 @@ const I18N = {
     rename_title: "Rinomina",
     rename_label: "Titolo",
     rename_ok: "Rinomina",
+    speakers_name: "dai un nome agli interlocutori",
+    speakers_title: "Chi parla",
+    speakers_intro: "La macchina ha distinto le voci ma non può sapere di chi sono. Dai loro un nome e la trascrizione viene riscritta con quello; lascia vuoto e resta l'etichetta che ha adesso.",
+    speakers_same: "Due con lo stesso nome vuol dire una persona sola: i loro turni vengono uniti.",
+    speakers_hint: "un nome",
+    speakers_ok: "Assegna i nomi",
+    speakers_named: "Adesso gli interlocutori sono: {speakers}",
+    speakers_failed: "Non rinominati: {error}",
     colophon: "audio-transcriber {version} — {sets} set di parole chiave installati. Tutto gira su questa macchina.",
     reference_label: "Un testo che hai gia'",
     reference_note: "Un copione, un comunicato, una trascrizione presa altrove. Le sue parole rare vengono passate al motore perche' le scriva giuste, e dopo correggono quelle che ha sentito male o troncato. Quello che e' stato detto davvero vince comunque: niente viene aggiunto perche' il testo se lo aspettava.",
@@ -464,6 +480,11 @@ let installed = [];
 let selectedFile = null;
 let polling = null;
 let openEntryId = null;
+/* Who the open entry says is talking, and the first thing each of them says:
+   both read once when the entry opens, because the dialog that names them is
+   built from the labels and a label is not a reminder of anything. */
+let openSpeakers = [];
+let openSamples = {};
 
 const $ = (id) => document.getElementById(id);
 const el = (tag, props = {}, children = []) => {
@@ -519,6 +540,78 @@ function ask({ title, body, detail = "", confirmLabel, danger = true, input = nu
     dialog.showModal();
     (input ? $("ask-input") : $("ask-cancel")).focus();
   });
+}
+
+/* --- who is speaking ---------------------------------------------------- */
+
+/* A diarized transcript arrives addressed to SPEAKER_00: the machine can hear
+   that two people are talking and not who they are. One field per voice, each
+   with the first thing that voice says under it, because "which one was
+   SPEAKER_01" is a question this dialog should answer rather than ask.
+   Resolves to {label: name} for the fields that were filled in, or to false.
+   The blanks are left out, so naming one person does not rename the rest. */
+function askSpeakers(speakers, samples = {}) {
+  const dialog = $("speakers");
+  const box = $("speakers-fields");
+  box.textContent = "";
+  const fields = {};
+  speakers.forEach((label, index) => {
+    const id = `speaker-name-${index}`;
+    const input = el("input", { type: "text", id,
+                                placeholder: t("speakers_hint") });
+    fields[label] = input;
+    box.append(el("div", { className: "field" }, [
+      el("label", { htmlFor: id, textContent: label }),
+      samples[label]
+        ? el("p", { className: "note", textContent: shorten(samples[label]) })
+        : null,
+      input,
+    ]));
+  });
+
+  return new Promise((resolve) => {
+    const finish = (answer) => {
+      $("speakers-ok").removeEventListener("click", onOk);
+      $("speakers-cancel").removeEventListener("click", onCancel);
+      dialog.removeEventListener("close", onCancel);
+      dialog.close();
+      resolve(answer);
+    };
+    const onOk = () => {
+      const names = {};
+      for (const [label, input] of Object.entries(fields)) {
+        if (input.value.trim()) names[label] = input.value.trim();
+      }
+      finish(Object.keys(names).length ? names : false);
+    };
+    const onCancel = () => finish(false);
+    $("speakers-ok").addEventListener("click", onOk);
+    $("speakers-cancel").addEventListener("click", onCancel);
+    dialog.addEventListener("close", onCancel);
+    dialog.showModal();
+    const first = speakers.length ? fields[speakers[0]] : null;
+    (first || $("speakers-cancel")).focus();
+  });
+}
+
+/* One line of what somebody said, cut at a word if it has to be cut. */
+function shorten(text, limit = 60) {
+  const line = String(text || "").split(/\s+/).filter(Boolean).join(" ");
+  return line.length <= limit
+    ? line
+    : `${line.slice(0, limit).replace(/\s\S*$/, "")}…`;
+}
+
+/* The first thing each speaker says, by label. From the segments rather than
+   the transcript: that has already had its turns merged. */
+function firstLines(segments) {
+  const said = {};
+  for (const segment of segments) {
+    const label = segment.speaker;
+    const text = (segment.text || "").trim();
+    if (label && text && !(label in said)) said[label] = text;
+  }
+  return said;
 }
 
 /* --- when the server stops answering ----------------------------------- */
@@ -1524,8 +1617,16 @@ async function openEntry(id) {
     (transcription.vocabulary || []).join(", ")].filter(Boolean).join(" · ");
   $("viewer-text").textContent = entry.transcript || "";
   renderSegments(entry.segments || []);
+  openSpeakers = entry.speakers || [];
+  openSamples = firstLines(entry.segments || []);
+  /* Hidden rather than disabled on a run that was not diarized: there is
+     nobody to name, and a dead button is a question about a feature that does
+     not apply to what is being read. */
+  $("viewer-speakers").hidden = openSpeakers.length === 0;
   $("notes-text").value = entry.notes || "";
   $("notes-status").textContent = "";
+  $("viewer-status").textContent = "";
+  $("viewer-status").className = "note";
   showSummary(entry);
   const player = $("viewer-audio");
   player.hidden = !entry.has_audio;
@@ -1709,6 +1810,31 @@ $("viewer-rename").addEventListener("click", async () => {
     $("viewer-title").textContent = (await response.json()).title;
     refreshLibrary();
   }
+});
+
+$("viewer-speakers").addEventListener("click", async () => {
+  const names = await askSpeakers(openSpeakers, openSamples);
+  if (!names) return;
+  const response = await fetch(
+    api(`library/${encodeURIComponent(openEntryId)}/speakers`),
+    { method: "PUT", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ names }) });
+  const box = $("viewer-status");
+  if (!response.ok) {
+    const detail = await response.json().catch(() => ({}));
+    box.textContent = t("speakers_failed",
+                        { error: detail.detail || response.statusText });
+    box.className = "error";
+    return;
+  }
+  /* The whole entry again rather than the transcript alone: two labels given
+     the same name have had their turns run together, so the segments on
+     screen are no longer the segments on disk. */
+  const named = (await response.json()).speakers || [];
+  await openEntry(openEntryId);
+  refreshLibrary();
+  box.textContent = t("speakers_named", { speakers: named.join(", ") });
+  box.className = "note";
 });
 
 $("viewer-delete").addEventListener("click", async () => {

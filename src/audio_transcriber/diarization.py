@@ -730,3 +730,33 @@ def format_dialogue(segments):
     if buffer:
         blocks.append((current_speaker, clean_text(" ".join(buffer))))
     return "\n\n".join(f"[{speaker}] {text}" for speaker, text in blocks if text)
+
+
+def speakers_in(segments):
+    """Everyone in ``segments``, in the order they first say something.
+
+    First-heard order rather than alphabetical, because that is the order
+    somebody reading the transcript meets them in, and ``SPEAKER_00`` is a
+    name only in the sense that a seat number is."""
+    found = []
+    for segment in segments:
+        label = segment.get("speaker")
+        if label and label not in found:
+            found.append(label)
+    return found
+
+
+def rename_speakers(segments, names):
+    """``segments`` again, with each speaker called what ``names`` calls it.
+
+    ``names`` maps the label a segment carries now to what it should be
+    called; a label it does not mention, or gives an empty name to, is left
+    exactly as it was. Giving two labels the same name is allowed and means
+    what it says - the machine heard two voices where there was one person -
+    and :func:`format_dialogue` will then run their turns together, which is
+    the transcript that person should have had in the first place."""
+    wanted = {label: str(name).strip()
+              for label, name in (names or {}).items() if str(name).strip()}
+    return [{**segment, "speaker": wanted.get(segment.get("speaker"),
+                                              segment.get("speaker"))}
+            for segment in segments]

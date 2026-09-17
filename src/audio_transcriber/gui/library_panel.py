@@ -18,6 +18,7 @@ from PySide6.QtGui import QDesktopServices, QFont, QGuiApplication
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QComboBox,
+    QDialog,
     QFileDialog,
     QFormLayout,
     QHBoxLayout,
@@ -39,12 +40,14 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from ..diarization import speakers_in
 from ..formatting import format_clock
 from ..i18n import t
 from ..jobs import DONE, FAILED, FINISHED, RUNNING
 from ..library import MAX_NOTES, LibraryError
 from ..summary import SummaryError
 from . import multimedia, options, symbols, theme
+from .speakers_dialog import SpeakersDialog, first_lines
 
 #: Typing in the search box is not a query per keystroke: searching reads every
 #: transcript in the library, so it waits until the typing stops.
@@ -278,6 +281,9 @@ class LibraryPanel(QWidget):
         right_layout.addWidget(self.player_note)
         right_layout.addWidget(self.tabs, 1)
 
+        self.name_speakers = QPushButton(t("gui.name_speakers"))
+        self.name_speakers.clicked.connect(self.name_speakers_of_entry)
+        self.name_speakers.hide()
         self.export = QPushButton(t("gui.export"))
         self.export.clicked.connect(self.export_transcript)
         self.export_subtitles_button = QPushButton(t("gui.sub_export"))
@@ -287,8 +293,8 @@ class LibraryPanel(QWidget):
         self.delete = QPushButton(t("gui.delete"))
         self.delete.clicked.connect(self.delete_entry)
         actions = QHBoxLayout()
-        for button in (self.export, self.export_subtitles_button,
-                       self.open_folder):
+        for button in (self.name_speakers, self.export,
+                       self.export_subtitles_button, self.open_folder):
             actions.addWidget(button)
         actions.addStretch(1)
         actions.addWidget(self.delete)
@@ -393,8 +399,13 @@ class LibraryPanel(QWidget):
             self.message.emit(str(exc))
             return
         self.title.setText(f"{data.get('title') or entry.id}  ({entry.id})")
-        self.transcript.setHtml(_transcript_html(entry.read_segments(),
+        segments = entry.read_segments()
+        self.transcript.setHtml(_transcript_html(segments,
                                                  entry.read_transcript()))
+        # Hidden rather than disabled on a run that was not diarized: there is
+        # nobody to name, and a greyed-out button is a question about a
+        # feature that does not apply to what is being read.
+        self.name_speakers.setVisible(bool(speakers_in(segments)))
         self.notes.blockSignals(True)
         self.notes.setPlainText(entry.read_notes())
         self.notes.blockSignals(False)
@@ -422,12 +433,14 @@ class LibraryPanel(QWidget):
         self.notes.blockSignals(False)
         _fill_form(self.details_form, [])
         self._load_audio(None)
+        self.name_speakers.hide()
         self._enable_actions(False)
 
     def _enable_actions(self, enabled):
         for button in (self.rename, self.export, self.export_subtitles_button,
                        self.open_folder, self.delete, self.copy_transcript,
-                       self.copy_summary, self.copy_notes):
+                       self.copy_summary, self.copy_notes,
+                       self.name_speakers):
             button.setEnabled(enabled)
         self.summarise.setEnabled(enabled and self.queue is not None
                                   and self._summary_job is None)
@@ -569,6 +582,34 @@ class LibraryPanel(QWidget):
             return
         self.reload(keep=self.entry.id)
         self._display()
+
+    def name_speakers_of_entry(self):
+        """Put names to the voices, and rewrite the transcript with them.
+
+        The transcript is re-read afterwards rather than patched: the turns of
+        two labels given the same name are run together by the rewrite, so
+        what is on screen is no longer what was on screen."""
+        if self.entry is None:
+            return
+        segments = self.entry.read_segments()
+        speakers = speakers_in(segments)
+        if not speakers:
+            return
+        dialog = SpeakersDialog(speakers, first_lines(segments), self)
+        if dialog.exec() != QDialog.DialogCode.Accepted:
+            return
+        names = dialog.names()
+        if not names:
+            self.message.emit(t("gui.speakers_unchanged"))
+            return
+        try:
+            named = self.entry.name_speakers(names)
+        except (LibraryError, OSError) as exc:
+            self.message.emit(str(exc))
+            return
+        self.reload(keep=self.entry.id)
+        self._display()
+        self.message.emit(t("gui.speakers_named", speakers=", ".join(named)))
 
     def _copy_transcript(self):
         """Put the whole transcript on the clipboard, plain and unlinked."""

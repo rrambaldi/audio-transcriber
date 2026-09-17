@@ -606,6 +606,36 @@ def test_notes_beyond_the_limit_are_refused(client, entry):
     assert response.status_code == 413
 
 
+def test_an_entry_says_who_is_speaking_in_it(client, entry):
+    assert client.get(f"/api/library/{entry.id}").json()["speakers"] == [
+        "SPEAKER_00"]
+
+
+def test_the_speakers_can_be_given_names(client, entry):
+    response = client.put(f"/api/library/{entry.id}/speakers",
+                          json={"names": {"SPEAKER_00": "Anna"}})
+    assert response.status_code == 200
+    assert response.json()["speakers"] == ["Anna"]
+    assert "[Anna] hello there" in entry.read_transcript()
+
+
+def test_naming_nobody_is_refused_rather_than_rewriting_nothing(client, entry):
+    for names in ({}, {"SPEAKER_00": "  "}, "Anna"):
+        response = client.put(f"/api/library/{entry.id}/speakers",
+                              json={"names": names})
+        assert response.status_code in (400, 422), names
+    assert entry.speakers() == ["SPEAKER_00"]
+
+
+def test_naming_the_speakers_of_a_plain_transcript_is_a_conflict(client, queue):
+    """Nothing to rename: the run was never diarized."""
+    plain = queue.library.create(title="A memo")
+    plain.write_transcript("just me talking\n", [])
+    response = client.put(f"/api/library/{plain.id}/speakers",
+                          json={"names": {"SPEAKER_00": "Anna"}})
+    assert response.status_code == 409
+
+
 def test_an_entry_can_be_renamed_without_moving_its_folder(client, entry):
     response = client.patch(f"/api/library/{entry.id}", json={"title": "Board, June"})
     assert response.json() == {"id": entry.id, "title": "Board, June"}

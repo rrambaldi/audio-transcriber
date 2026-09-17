@@ -1530,3 +1530,129 @@ def test_a_transcription_is_still_asked(window, tmp_path, queue, fake_dialog):
     row = window.transcribe._row_for(queue.jobs()[0].id)
 
     assert row["asks"] is True
+
+
+# --- putting names to the voices ------------------------------------------
+
+def diarized_panel(tmp_path, texts=("Buongiorno.", "Ho i numeri qui.")):
+    """A library panel showing one two-voice entry, ready to be renamed."""
+    from audio_transcriber.diarization import format_dialogue
+    from audio_transcriber.gui.library_panel import LibraryPanel
+    from audio_transcriber.library import Library
+
+    library = Library(str(tmp_path / "library"))
+    entry = library.create(title="Comitato")
+    segments = [{"text": texts[0], "start": 0.0, "end": 2.0,
+                 "speaker": "SPEAKER_00"},
+                {"text": texts[1], "start": 2.0, "end": 4.0,
+                 "speaker": "SPEAKER_01"}]
+    entry.write_transcript(format_dialogue(segments) + "\n", segments)
+    panel = LibraryPanel(library)
+    panel.show_entry(entry.id)
+    return panel, entry
+
+
+def test_naming_the_speakers_is_offered_only_when_there_are_any(application,
+                                                                tmp_path):
+    """Hidden and not merely disabled on a plain transcript: a dead button is
+    a question about a feature that does not apply to what is being read."""
+    from audio_transcriber.gui.library_panel import LibraryPanel
+    from audio_transcriber.library import Library
+
+    panel, _entry = diarized_panel(tmp_path)
+    assert panel.name_speakers.isHidden() is False
+    panel.deleteLater()
+
+    library = Library(str(tmp_path / "plain"))
+    plain = library.create(title="Un memo")
+    plain.write_transcript("solo io che parlo\n", [])
+    quiet = LibraryPanel(library)
+    quiet.show_entry(plain.id)
+    assert quiet.name_speakers.isHidden() is True
+    quiet.deleteLater()
+
+
+def test_the_dialog_is_built_from_the_voices_and_what_they_first_say(
+        application, tmp_path):
+    from audio_transcriber.gui.speakers_dialog import SpeakersDialog, first_lines
+
+    _panel, entry = diarized_panel(tmp_path)
+    segments = entry.read_segments()
+    dialog = SpeakersDialog(entry.speakers(), first_lines(segments))
+    assert list(dialog.fields) == ["SPEAKER_00", "SPEAKER_01"]
+    # Not prefilled with the label: a field holding SPEAKER_00 would have to
+    # be cleared before it could be typed in.
+    assert [field.text() for field in dialog.fields.values()] == ["", ""]
+    assert dialog.names() == {}
+    dialog.deleteLater()
+
+
+def test_what_the_dialog_gives_back_leaves_out_the_blanks(application, tmp_path):
+    from audio_transcriber.gui.speakers_dialog import SpeakersDialog
+
+    dialog = SpeakersDialog(["SPEAKER_00", "SPEAKER_01"])
+    dialog.fields["SPEAKER_00"].setText("  Anna  ")
+    assert dialog.names() == {"SPEAKER_00": "Anna"}
+    dialog.deleteLater()
+
+
+def test_a_long_first_line_is_cut_at_a_word(application, tmp_path):
+    from audio_transcriber.gui.speakers_dialog import shorten
+
+    assert shorten("uno due tre", limit=40) == "uno due tre"
+    cut = shorten("parola " * 20, limit=40)
+    assert len(cut) <= 41 and cut.endswith("…")
+    assert "parol…" not in cut         # cut between words, not inside one
+
+
+def test_naming_them_rewrites_the_transcript_on_screen(application, tmp_path,
+                                                       monkeypatch):
+    from audio_transcriber.gui import library_panel
+
+    panel, entry = diarized_panel(tmp_path)
+
+    class Named:
+        """The dialog, answered."""
+
+        def __init__(self, speakers, samples=None, parent=None):
+            self.speakers = speakers
+
+        def exec(self):
+            from PySide6.QtWidgets import QDialog
+            return QDialog.DialogCode.Accepted
+
+        def names(self):
+            return {"SPEAKER_00": "Anna", "SPEAKER_01": "Bruno"}
+
+    said = []
+    panel.message.connect(said.append)
+    monkeypatch.setattr(library_panel, "SpeakersDialog", Named)
+    panel.name_speakers_of_entry()
+
+    assert entry.speakers() == ["Anna", "Bruno"]
+    assert "Anna" in panel.transcript.toPlainText()
+    assert "SPEAKER_" not in panel.transcript.toPlainText()
+    assert said and "Anna, Bruno" in said[-1]
+    panel.deleteLater()
+
+
+def test_a_cancelled_dialog_changes_nothing(application, tmp_path, monkeypatch):
+    from audio_transcriber.gui import library_panel
+
+    panel, entry = diarized_panel(tmp_path)
+
+    class Refused:
+        def __init__(self, speakers, samples=None, parent=None):
+            pass
+
+        def exec(self):
+            from PySide6.QtWidgets import QDialog
+            return QDialog.DialogCode.Rejected
+
+        def names(self):           # pragma: no cover - never reached
+            raise AssertionError("a cancelled dialog was read anyway")
+
+    monkeypatch.setattr(library_panel, "SpeakersDialog", Refused)
+    panel.name_speakers_of_entry()
+    assert entry.speakers() == ["SPEAKER_00", "SPEAKER_01"]
+    panel.deleteLater()

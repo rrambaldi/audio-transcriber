@@ -240,3 +240,98 @@ def test_an_unknown_subtitle_format_is_refused(tmp_path):
     entry = library.create(title="Comitato")
     with pytest.raises(LibraryError):
         entry.subtitle_path("ass")
+
+
+# --- who is speaking ------------------------------------------------------
+
+#: A two-voice transcript as the pipeline files one: segments carrying the
+#: labels pyannote hands out, and a transcript.txt written from them.
+DIALOGUE = [
+    {"text": "Buongiorno a tutti.", "start": 0.0, "end": 2.0,
+     "speaker": "SPEAKER_00"},
+    {"text": "Cominciamo dal bilancio.", "start": 2.0, "end": 4.0,
+     "speaker": "SPEAKER_00"},
+    {"text": "Ho i numeri qui.", "start": 4.0, "end": 6.0,
+     "speaker": "SPEAKER_01"},
+]
+
+
+@pytest.fixture
+def diarized(library, recording):
+    from audio_transcriber.diarization import format_dialogue
+
+    entry = library.create(source=recording)
+    entry.write_transcript(format_dialogue(DIALOGUE) + "\n", DIALOGUE)
+    return entry
+
+
+def test_the_speakers_are_the_ones_in_the_segments_in_the_order_heard(diarized):
+    assert diarized.speakers() == ["SPEAKER_00", "SPEAKER_01"]
+
+
+def test_a_transcript_with_no_speakers_has_none(library, recording):
+    entry = library.create(source=recording)
+    entry.write_transcript("Buongiorno a tutti.\n",
+                           [{"text": "Buongiorno a tutti.", "start": 0.0,
+                             "end": 2.0}])
+    assert entry.speakers() == []
+
+
+def test_naming_them_rewrites_the_transcript_and_the_segments(diarized):
+    assert diarized.name_speakers({"SPEAKER_00": "Anna",
+                                   "SPEAKER_01": "Bruno"}) == ["Anna", "Bruno"]
+    text = diarized.read_transcript()
+    assert "[Anna] Buongiorno a tutti. Cominciamo dal bilancio." in text
+    assert "[Bruno] Ho i numeri qui." in text
+    assert "SPEAKER_" not in text
+    assert [segment["speaker"] for segment in diarized.read_segments()] == [
+        "Anna", "Anna", "Bruno"]
+
+
+def test_a_name_nobody_gave_leaves_that_speaker_alone(diarized):
+    """Naming one person is not a decision about the others."""
+    assert diarized.name_speakers({"SPEAKER_01": "Bruno"}) == ["SPEAKER_00",
+                                                               "Bruno"]
+    assert "[SPEAKER_00] Buongiorno" in diarized.read_transcript()
+
+
+def test_an_empty_name_is_not_a_name(diarized):
+    diarized.name_speakers({"SPEAKER_00": "   ", "SPEAKER_01": "Bruno"})
+    assert diarized.speakers() == ["SPEAKER_00", "Bruno"]
+
+
+def test_two_labels_with_one_name_become_one_person(diarized):
+    """The machine heard two voices where there was one. Saying so should
+    join their turns, not leave the same person answering themselves."""
+    diarized.name_speakers({"SPEAKER_00": "Anna", "SPEAKER_01": "Anna"})
+    assert diarized.speakers() == ["Anna"]
+    assert diarized.read_transcript().strip() == (
+        "[Anna] Buongiorno a tutti. Cominciamo dal bilancio. Ho i numeri qui.")
+
+
+def test_the_metadata_remembers_which_label_a_name_started_as(diarized):
+    """Provenance, for somebody who opens the folder in a year: the files
+    themselves say Anna, and this is where it says Anna was SPEAKER_00."""
+    diarized.name_speakers({"SPEAKER_00": "Anna"})
+    assert diarized.read_metadata()["speaker_names"] == {"SPEAKER_00": "Anna"}
+
+    diarized.name_speakers({"Anna": "Anna Bianchi"})
+    assert diarized.read_metadata()["speaker_names"] == {
+        "SPEAKER_00": "Anna Bianchi"}
+
+
+def test_the_word_count_follows_the_rewrite(diarized):
+    diarized.update(stats={"words": 999})
+    diarized.name_speakers({"SPEAKER_00": "Anna", "SPEAKER_01": "Anna"})
+    assert diarized.read_metadata()["stats"]["words"] == len(
+        diarized.read_transcript().split())
+
+
+def test_naming_speakers_in_a_transcript_that_has_none_is_refused(library,
+                                                                  recording):
+    """Without segments the transcript is prose, and a search and replace on
+    prose is somebody else's tool."""
+    entry = library.create(source=recording)
+    entry.write_transcript("Buongiorno a tutti.\n", [])
+    with pytest.raises(LibraryError):
+        entry.name_speakers({"SPEAKER_00": "Anna"})

@@ -247,6 +247,60 @@ class Entry:
         segments = payload.get("segments") if isinstance(payload, dict) else payload
         return segments if isinstance(segments, list) else []
 
+    # --- who is speaking --------------------------------------------------
+    def speakers(self):
+        """Who this transcript says is talking, in the order they first do.
+
+        Empty for a run that was not diarized, which is what the interfaces
+        use to decide whether there is anything to name."""
+        from .diarization import speakers_in
+        return speakers_in(self.read_segments())
+
+    def name_speakers(self, names):
+        """Call the speakers what ``names`` calls them, and rewrite the files.
+
+        A diarized transcript comes out of the machine addressed to
+        ``SPEAKER_00`` and ``SPEAKER_01``, which is the best anything can do
+        from the audio alone: who those are is in the room, not in the sound.
+        So it is a thing done afterwards, by somebody who has read a line of
+        it and recognised a voice.
+
+        Both files are rewritten rather than annotated, because of the rule
+        at the top of this module: the folder has to stay as readable without
+        this program as with it, and a transcript that says ``SPEAKER_01``
+        beside a metadata file that says it means Anna is a puzzle, not a
+        document. What the metadata keeps is the mapping from the labels the
+        machine gave out to the names they were given - provenance, for
+        somebody who opens the folder in a year and wonders where the names
+        came from.
+
+        Returns the names now in use. Raises :class:`LibraryError` when there
+        are no segments to rewrite: without them the transcript is prose,
+        and a search and replace on prose is somebody else's tool.
+        """
+        from .diarization import format_dialogue
+        from .diarization import rename_speakers as apply_names
+
+        segments = self.read_segments()
+        if not any(segment.get("speaker") for segment in segments):
+            raise LibraryError(f"no speakers recorded in {self.id}")
+        renamed = apply_names(segments, names)
+        text = format_dialogue(renamed) + "\n"
+        self.write_transcript(text, renamed)
+
+        # Composed onto what is already there, so that renaming Anna to Anna
+        # Bianchi still records which label she started as rather than
+        # inventing a speaker called Anna.
+        record = dict(self.metadata.get("speaker_names") or {})
+        first_called = {given: label for label, given in record.items()}
+        for label, name in (names or {}).items():
+            name = str(name).strip()
+            if name:
+                record[first_called.get(label, label)] = name
+        self.update(speaker_names=record,
+                    stats={"words": len(text.split())})
+        return self.speakers()
+
     def has_written_notes(self):
         """True when someone actually wrote something.
 

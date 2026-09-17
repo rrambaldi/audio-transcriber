@@ -261,6 +261,7 @@ using it directly. `GET /api/docs` serves the generated schema.
 | `PATCH /api/library/{id}` | rename it (`{"title": "..."}`); the folder keeps its id |
 | `DELETE /api/library/{id}` | delete the entry and everything in it |
 | `PUT /api/library/{id}/notes` | replace `notes.md` (`{"notes": "..."}`) |
+| `PUT /api/library/{id}/speakers` | name the voices (`{"names": {"SPEAKER_00": "Anna"}}`); rewrites the transcript and the timestamps |
 | `GET /api/library/{id}/transcript.txt` | the transcript as a download |
 | `GET /api/library/{id}/transcript.json` | the timestamped segments |
 | `GET /api/library/{id}/subtitles.srt` · `.vtt` | the entry cut into subtitles on the spot; `?preset=`, `?chars=`, `?words=` |

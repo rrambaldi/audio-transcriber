@@ -824,3 +824,49 @@ def test_an_output_with_no_turns_in_it_at_all_says_what_it_got():
         diarization.turns_from(output)
     assert "SimpleNamespace" in str(stopped.value)
     assert "--diarize" in str(stopped.value)
+
+
+# --- putting names to the voices ------------------------------------------
+
+TURNS = [{"text": "uno", "speaker": "SPEAKER_01"},
+         {"text": "due", "speaker": "SPEAKER_00"},
+         {"text": "tre", "speaker": "SPEAKER_01"}]
+
+
+def test_the_speakers_come_back_in_the_order_they_are_first_heard():
+    """First-heard and not alphabetical: that is the order somebody reading
+    the transcript meets them in."""
+    assert diarization.speakers_in(TURNS) == ["SPEAKER_01", "SPEAKER_00"]
+
+
+def test_segments_without_a_speaker_are_not_a_speaker():
+    assert diarization.speakers_in([{"text": "uno"},
+                                    {"text": "due", "speaker": ""}]) == []
+
+
+def test_renaming_touches_only_the_labels_it_was_given():
+    renamed = diarization.rename_speakers(TURNS, {"SPEAKER_01": "Anna"})
+    assert [segment["speaker"] for segment in renamed] == ["Anna",
+                                                           "SPEAKER_00",
+                                                           "Anna"]
+
+
+def test_a_blank_name_leaves_the_label_alone():
+    for names in ({"SPEAKER_00": "   "}, {"SPEAKER_00": ""}, {}, None):
+        renamed = diarization.rename_speakers(TURNS, names)
+        assert [segment["speaker"] for segment in renamed] == [
+            "SPEAKER_01", "SPEAKER_00", "SPEAKER_01"], names
+
+
+def test_renaming_keeps_everything_else_in_the_segment():
+    timed = [{"text": "uno", "start": 1.0, "end": 2.0, "speaker": "SPEAKER_00"}]
+    renamed = diarization.rename_speakers(timed, {"SPEAKER_00": "Anna"})
+    assert renamed[0] == {"text": "uno", "start": 1.0, "end": 2.0,
+                          "speaker": "Anna"}
+    assert timed[0]["speaker"] == "SPEAKER_00"      # the original is not moved
+
+
+def test_two_labels_under_one_name_have_their_turns_run_together():
+    renamed = diarization.rename_speakers(
+        TURNS, {"SPEAKER_00": "Anna", "SPEAKER_01": "Anna"})
+    assert diarization.format_dialogue(renamed) == "[Anna] uno due tre"

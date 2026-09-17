@@ -145,6 +145,15 @@ and the notes, read the transcript with a clickable timestamp per block, play
 the recording while reading along, jump to any moment, write notes, rename,
 export the text, open the folder, delete.
 
+A recording transcribed with "who said what" also offers **Name the
+speakers**: one field per voice, in the order they are first heard, each with
+the first thing that voice says under it. The transcript and the timestamps
+are rewritten to use the names — an entry has to stay as readable without this
+program as with it — and `metadata.json` keeps which label the machine handed
+out for each name. A voice left blank keeps its label; two voices given the
+same name are one person, and their turns are run together. The button is
+absent, not greyed, on a recording that was not diarized.
+
 A **Summary** tab sits beside the transcript and the notes, with the button
 that writes one under it and — when this machine has more than one engine — a
 menu saying which will. What comes back says who wrote it and when: a page

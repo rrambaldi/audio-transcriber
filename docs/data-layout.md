@@ -110,7 +110,13 @@ recordings filed in the same minute get a numeric suffix rather than
 overwriting each other.
 
 Everything a human needs is plain text or JSON: an entry stays perfectly
-readable without this program, which is the point of the format. Metadata is
+readable without this program, which is the point of the format. That is also
+why naming the speakers of a diarized recording rewrites `transcript.txt` and
+`transcript.json` rather than annotating them: a transcript that says
+`SPEAKER_01` beside a metadata file that says it means Anna is a puzzle, not a
+document. What `metadata.json` keeps is `speaker_names` — which label the
+machine handed out for each name — so the names' provenance survives too.
+Metadata is
 written through a temporary file and an atomic rename, so an interrupted run
 cannot leave half a file behind.
 

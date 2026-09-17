@@ -8,6 +8,42 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- **The speakers in a transcript can be given names.** *Name the speakers*, in
+  the library — the window and the page both — on any recording that was
+  transcribed with "who said what". One field per voice, in the order they are
+  first heard, each with the first thing that voice says under it, because
+  "which one was `SPEAKER_01`" is a question the dialog should answer rather
+  than ask.
+
+  The transcript and the timestamps are rewritten to use the names: the rule
+  for the library is that an entry stays as readable without this program as
+  with it, and a transcript that says `SPEAKER_01` beside a metadata file that
+  says it means Anna is a puzzle rather than a document. What the metadata
+  keeps is where the names came from — which label the machine handed out, and
+  what it was called afterwards — so a folder opened in a year still says so.
+  A voice left blank keeps its label, which is how one person is named without
+  a decision about the others; two labels given the same name are one person,
+  and their turns are run together.
+
+  It is done afterwards and not asked for up front on purpose: which voice is
+  whose is in the room, not in the sound, and nothing here guesses at a name
+  it heard in the audio — the person addressed is not the person speaking.
+
+### Changed
+
+- **The rename and copy buttons are drawn rather than spelled.** They were
+  characters borrowed from the text font, which is the cheap way to have an
+  icon and looked it: thin at nine points beside a hairline rule, missing
+  altogether from some faces, and a different size on every platform. They are
+  drawings now — two from Microsoft's Fluent set, MIT, bundled with the fonts
+  and the mark — rendered in the window's own ink at the interface font's
+  size, following the desktop into dark and back, and going to the accent
+  under the mouse like every other button. A build that shipped without them
+  falls back to the character, the way a missing typeface falls back to the
+  next family in the stack.
+
+### Added
+
 - **A recording can be named after what was said in it.** *Name it after what
   was said in it* — a tick box beside the four answers, in the window and on
   the page, `--auto-title` on the command line, `[general] auto_title` in

@@ -316,10 +316,26 @@
   </menu>
 </dialog>
 
+<!-- Who is speaking. One field per voice, built from the entry's own labels,
+     so this dialog is empty markup until there is something to put in it. -->
+<dialog id="speakers" aria-labelledby="speakers-title">
+  <h2 id="speakers-title" data-t="speakers_title">Who is speaking</h2>
+  <p class="note" id="speakers-intro" data-t="speakers_intro">The machine heard the voices apart but cannot know whose they are. Give them names and the transcript is rewritten to use them; leave one blank and it keeps the label it has.</p>
+  <div id="speakers-fields"></div>
+  <p class="note" id="speakers-same" data-t="speakers_same">Two of them with the same name means one person: their turns are run together.</p>
+  <menu>
+    <button type="button" class="button" id="speakers-cancel" data-t="cancel">Cancel</button>
+    <button type="button" class="button send" id="speakers-ok" data-t="speakers_ok">Name them</button>
+  </menu>
+</dialog>
+
 <dialog id="viewer" aria-labelledby="viewer-title">
   <div class="viewer-head">
     <h2 id="viewer-title"></h2>
     <p class="note" id="viewer-meta"></p>
+    <!-- What the entry as a whole has to say back: the panels each have their
+         own line, and renaming the speakers belongs to none of them. -->
+    <p class="note" id="viewer-status" aria-live="polite"></p>
   </div>
   <audio id="viewer-audio" controls hidden></audio>
 
@@ -379,6 +395,8 @@
   <menu>
     <button type="button" class="button danger" id="viewer-delete" data-t="delete_entry">delete</button>
     <span class="spacer"></span>
+    <button type="button" class="button" id="viewer-speakers" hidden
+            data-t="speakers_name">name the speakers</button>
     <button type="button" class="button" id="viewer-rename" data-t="rename">rename</button>
     <a id="viewer-download" class="button" download data-t="download">Transcript</a>
     <a id="viewer-download-json" class="button" download data-t="download_json">Timestamps</a>

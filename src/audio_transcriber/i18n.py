@@ -728,6 +728,18 @@ MESSAGES = {
         "gui.rename_prompt": "New title:",
         "gui.copy": "Copy",
         "gui.copied": "Copied to the clipboard.",
+        "gui.name_speakers": "Name the speakers",
+        "gui.name_speakers_title": "Who is speaking",
+        "gui.name_speakers_intro":
+            "The machine heard the voices apart but cannot know whose they "
+            "are. Give them names and the transcript is rewritten to use "
+            "them; leave one blank and it keeps the label it has.",
+        "gui.name_speakers_hint": "a name",
+        "gui.name_speakers_same":
+            "Two of them with the same name means one person: their turns "
+            "are run together.",
+        "gui.speakers_named": "The speakers are now: {speakers}",
+        "gui.speakers_unchanged": "Nothing to change.",
         "gui.export": "Export the transcript",
         "gui.exported": "Transcript written to {path}",
         "gui.open_folder": "Open the folder",
@@ -1616,6 +1628,18 @@ MESSAGES = {
         "gui.rename_prompt": "Nuovo titolo:",
         "gui.copy": "Copia",
         "gui.copied": "Copiato negli appunti.",
+        "gui.name_speakers": "Dai un nome agli interlocutori",
+        "gui.name_speakers_title": "Chi parla",
+        "gui.name_speakers_intro":
+            "La macchina ha distinto le voci ma non può sapere di chi sono. "
+            "Dai loro un nome e la trascrizione viene riscritta con quello; "
+            "lascia vuoto e resta l'etichetta che ha adesso.",
+        "gui.name_speakers_hint": "un nome",
+        "gui.name_speakers_same":
+            "Due con lo stesso nome vuol dire una persona sola: i loro turni "
+            "vengono uniti.",
+        "gui.speakers_named": "Adesso gli interlocutori sono: {speakers}",
+        "gui.speakers_unchanged": "Niente da cambiare.",
         "gui.export": "Esporta la trascrizione",
         "gui.exported": "Trascrizione scritta in {path}",
         "gui.open_folder": "Apri la cartella",

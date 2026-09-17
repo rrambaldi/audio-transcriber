@@ -398,6 +398,7 @@ def register_routes(app):
         data["has_audio"] = bool(entry.stored_audio())
         data["subtitle_files"] = entry.subtitles()
         data["summary"] = entry.read_summary()
+        data["speakers"] = entry.speakers()
         return data
 
     @app.patch("/api/library/{entry_id}")
@@ -430,6 +431,29 @@ def register_routes(app):
         except OSError as exc:
             raise HTTPException(status_code=500, detail=str(exc)) from exc
         return {"id": entry.id, "notes": entry.read_notes()}
+
+    @app.put("/api/library/{entry_id}/speakers")
+    def name_speakers(entry_id: str, request: Request,
+                      names: dict = Body(..., embed=True)):
+        """Put names to the voices a diarized run kept apart.
+
+        The names come as ``{label: name}``: what the machine called a voice,
+        and what it should be called instead. A label that is not mentioned,
+        or is given an empty name, keeps what it has - so this is also how a
+        single speaker is renamed without touching the others."""
+        if not isinstance(names, dict) or not any(
+                str(name).strip() for name in names.values()):
+            raise HTTPException(status_code=400, detail="no names given")
+        entry = entry_or_404(request, entry_id)
+        try:
+            speakers = entry.name_speakers(
+                {str(label): str(name) for label, name in names.items()})
+        except LibraryError as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+        except OSError as exc:
+            raise HTTPException(status_code=500, detail=str(exc)) from exc
+        return {"id": entry.id, "speakers": speakers,
+                "transcript": entry.read_transcript()}
 
     @app.post("/api/library/{entry_id}/summary", status_code=202)
     def summarise_entry(entry_id: str, request: Request,
