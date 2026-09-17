@@ -902,6 +902,10 @@ def command_web(args, settings):
     print(t("web.starting", host=args.host, port=args.port))
     if args.host not in ("127.0.0.1", "localhost", "::1"):
         print(t("web.exposed"))
+    # After the banner and before the server: whoever typed this still needs
+    # to be told where to point a browser, and everything after that is the
+    # running commentary of a process nobody is watching.
+    start_logging("web")
     return run(args.host, args.port, settings, root_path=args.root_path)
 
 
@@ -909,7 +913,25 @@ def command_gui(settings):
     """Open the desktop window."""
     from .gui import run
 
+    start_logging("window")
     return run(settings)
+
+
+def start_logging(what):
+    """Send this front end's messages to the log file, and say where it is.
+
+    The one line stays on the terminal on purpose: a window whose messages
+    have just stopped appearing should say where they went, and it is also
+    the answer to "it did nothing" when the window fails to open at all."""
+    from . import logs
+
+    where = logs.start(what)
+    # To the stream the process started with, not to ``sys.stderr``: that one
+    # is the log file by now, and this is the one line that has to land on
+    # the terminal. It is None under pythonw, where there is no terminal to
+    # miss it - which is the case this whole module exists for.
+    if sys.__stderr__ is not None:
+        print(t("logs.writing_to", path=where), file=sys.__stderr__)
 
 
 def command_hardware(args):

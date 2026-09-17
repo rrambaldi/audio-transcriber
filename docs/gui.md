@@ -140,6 +140,15 @@ lifted to the same floor, so the answers this machine cannot produce stay
 legible: reading why is the only thing left to do with one of them. It is
 `gui/style.py`, and `tests/test_gui_style.py` measures it.
 
+**Messages.** The last part of the log, on the *This machine* tab, with a
+button that opens the file and one that empties it. A window started from a
+shortcut has no terminal, and one started from a terminal has one nobody is
+reading, so everything the window would have printed goes to a file instead —
+`audio-transcriber paths` says where, and so does the line under the panel.
+It follows the end of the file while it is on screen, unless you have scrolled
+up to look at something. Set `AUDIO_TRANSCRIBER_LOG_CONSOLE=1` to get the
+terminal copy back while debugging.
+
 **Library.** Every transcribed recording, newest first. Search the transcripts
 and the notes, read the transcript with a clickable timestamp per block, play
 the recording while reading along, jump to any moment, write notes, rename,

@@ -8,6 +8,29 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- **The window and the server keep a log, and both can show it.** They used
+  to print into whatever terminal they were started from: a terminal the
+  person using them has usually closed, and on Windows, from a shortcut, one
+  that does not exist at all. So a recording that failed at four in the
+  morning failed silently, and the only honest answer to "what did it say"
+  was "nothing, anywhere".
+
+  Everything they would have printed now goes to a file — under the cache
+  directory, capped, with one older copy kept beside it — and both front ends
+  read it back: a *Messages* panel on the window's *This machine* tab, and one
+  under the job list on the page, each with a button to empty it. It is a
+  redirection of the two output streams rather than a logging framework, which
+  is what makes it catch the things worth catching: this program's own
+  messages, but also uvicorn's, pyannote's, and the traceback of whatever went
+  wrong. Every line is stamped, and a line built by several threads at once is
+  still one line.
+
+  The command line is untouched, on purpose: there the output *is* the
+  interface. `AUDIO_TRANSCRIBER_LOG_CONSOLE=1` gets the terminal copy back in
+  the window and the server, for somebody who is watching one;
+  `AUDIO_TRANSCRIBER_LOG_DIR` moves the file, and `audio-transcriber paths`
+  says where it is.
+
 - **The speakers in a transcript can be given names.** *Name the speakers*, in
   the library — the window and the page both — on any recording that was
   transcribed with "who said what". One field per voice, in the order they are

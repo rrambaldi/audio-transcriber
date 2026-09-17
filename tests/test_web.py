@@ -830,3 +830,51 @@ def test_the_split_style_can_be_asked_for(client, queue, filed):
 def test_summarising_an_entry_that_is_not_there_is_a_404(client):
     assert client.post("/api/library/2026-01-01_0000_nothing/summary",
                        json={}).status_code == 404
+
+
+# --- what the server would otherwise have printed -------------------------
+
+def test_the_log_comes_back_even_when_there_is_none_yet(client):
+    """A server started a minute ago has written nothing. The panel has to
+    show that rather than an error."""
+    data = client.get("/api/log").json()
+    assert data["lines"] == []
+    assert data["bytes"] == 0
+    assert data["path"].endswith(paths.LOG_FILENAME)
+
+
+def test_the_log_is_the_tail_of_the_file(client):
+    from audio_transcriber import logs
+
+    paths.ensure(paths.log_dir())
+    with open(logs.path(), "w", encoding="utf-8") as handle:
+        for index in range(50):
+            handle.write(f"12:00:0{index % 10}  line {index:02d}\n")
+
+    data = client.get("/api/log?lines=5").json()
+    assert len(data["lines"]) == 5
+    assert data["lines"][-1].endswith("line 49")
+    assert data["bytes"] > 0
+
+
+def test_a_caller_cannot_ask_for_the_whole_disk(client):
+    """A ceiling on what is asked for, not on what the log holds: somebody who
+    wants the whole file has the whole file."""
+    from audio_transcriber.web.api import MAX_LOG_LINES
+
+    paths.ensure(paths.log_dir())
+    with open(paths.log_file(), "w", encoding="utf-8") as handle:
+        handle.write("one line\n")
+    assert client.get(f"/api/log?lines={MAX_LOG_LINES * 100}").status_code == 200
+    assert client.get("/api/log?lines=0").json()["lines"] == ["one line"]
+
+
+def test_the_log_can_be_emptied(client):
+    paths.ensure(paths.log_dir())
+    with open(paths.log_file(), "w", encoding="utf-8") as handle:
+        handle.write("something to forget\n")
+
+    response = client.delete("/api/log")
+    assert response.status_code == 200
+    assert response.json()["cleared"] is True
+    assert client.get("/api/log").json()["lines"] == []

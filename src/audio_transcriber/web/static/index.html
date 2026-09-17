@@ -232,6 +232,22 @@
       </div>
       <p class="note" id="jobs-status" aria-live="polite"></p>
       <div id="jobs"><p class="note" data-t="no_jobs">Nothing running.</p></div>
+
+      <!-- What the server would otherwise have printed into the terminal it
+           was started from. Folded away, because it is the answer to one
+           question and that question is not asked most days. -->
+      <p class="note">
+        <button type="button" class="link" id="log-toggle" aria-expanded="false"
+                aria-controls="log-panel" data-t="log_show">messages</button>
+      </p>
+      <div id="log-panel" hidden>
+        <pre class="log" id="log-text" tabindex="0" aria-live="off"></pre>
+        <p class="note" id="log-path"></p>
+        <p class="note">
+          <button type="button" class="link" id="log-refresh" data-t="log_refresh">refresh</button>
+          <button type="button" class="link" id="log-clear" data-t="log_clear">empty it</button>
+        </p>
+      </div>
     </div>
   </section>
 

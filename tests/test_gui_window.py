@@ -1656,3 +1656,80 @@ def test_a_cancelled_dialog_changes_nothing(application, tmp_path, monkeypatch):
     panel.name_speakers_of_entry()
     assert entry.speakers() == ["SPEAKER_00", "SPEAKER_01"]
     panel.deleteLater()
+
+
+# --- the log, on the tab that exists for questions like it -----------------
+
+def test_this_machine_tab_shows_what_the_window_would_have_printed(window):
+    """A window started from a shortcut has no terminal, so the messages have
+    to be somewhere a person can reach without one."""
+    from audio_transcriber import logs
+
+    paths.ensure(paths.log_dir())
+    with open(logs.path(), "w", encoding="utf-8") as handle:
+        handle.write("12:00:00  the model was chosen\n")
+
+    panel = window.system
+    panel.read_log()
+    assert "the model was chosen" in panel.log_view.toPlainText()
+    assert panel.log_view.isReadOnly()
+    assert logs.path() in panel.log_path.text()
+
+
+def test_the_log_is_re_read_only_when_it_has_changed(window):
+    """It runs on the meters' timer, and a window left open on this tab must
+    not read the log every second for nothing."""
+    from audio_transcriber import logs
+
+    paths.ensure(paths.log_dir())
+    with open(logs.path(), "w", encoding="utf-8") as handle:
+        handle.write("12:00:00  first\n")
+    panel = window.system
+    panel.read_log()
+    seen = panel._log_seen
+    assert seen is not None
+
+    panel.read_log()
+    assert panel._log_seen is seen           # untouched file, nothing re-read
+
+    with open(logs.path(), "a", encoding="utf-8") as handle:
+        handle.write("12:00:01  second\n")
+    panel.read_log()
+    assert panel._log_seen != seen
+    assert "second" in panel.log_view.toPlainText()
+
+
+def test_an_absent_log_is_a_line_saying_so_and_not_an_error(window):
+    panel = window.system
+    panel.read_log()
+    assert panel.log_view.toPlainText() == ""
+    assert panel.log_view.placeholderText()
+
+
+def test_emptying_the_log_asks_first(window, monkeypatch):
+    """Small as it is, it destroys something — and what it destroys is the
+    hour before a crash."""
+    from PySide6.QtWidgets import QMessageBox
+
+    from audio_transcriber import logs
+    from audio_transcriber.gui import system_panel
+
+    paths.ensure(paths.log_dir())
+    with open(logs.path(), "w", encoding="utf-8") as handle:
+        handle.write("12:00:00  something to forget\n")
+
+    panel = window.system
+    monkeypatch.setattr(system_panel.QMessageBox, "question",
+                        staticmethod(lambda *args, **kwargs:
+                                     QMessageBox.StandardButton.No))
+    panel.clear_log()
+    with open(logs.path(), encoding="utf-8") as handle:
+        assert "something to forget" in handle.read()
+
+    monkeypatch.setattr(system_panel.QMessageBox, "question",
+                        staticmethod(lambda *args, **kwargs:
+                                     QMessageBox.StandardButton.Yes))
+    panel.clear_log()
+    with open(logs.path(), encoding="utf-8") as handle:
+        assert handle.read() == ""
+    assert panel.log_view.toPlainText() == ""

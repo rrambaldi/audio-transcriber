@@ -158,6 +158,12 @@ ssh -L 8765:127.0.0.1:8765 user@server     # then open http://127.0.0.1:8765
 
 The tool warns when it starts on a non-local address.
 
+The **messages panel** under the job list serves the server's own log, which
+carries the names of the recordings it has handled and the paths they sit at.
+That is no more than `/api/library` already gives away to the same caller, so
+it changes nothing about who may be allowed to reach this port — but it is
+one more reason the answer is "only this machine".
+
 ## Behind a reverse proxy
 
 The interface speaks plain HTTP and asks nobody who they are. Both problems are
@@ -262,6 +268,8 @@ using it directly. `GET /api/docs` serves the generated schema.
 | `DELETE /api/library/{id}` | delete the entry and everything in it |
 | `PUT /api/library/{id}/notes` | replace `notes.md` (`{"notes": "..."}`) |
 | `PUT /api/library/{id}/speakers` | name the voices (`{"names": {"SPEAKER_00": "Anna"}}`); rewrites the transcript and the timestamps |
+| `GET /api/log` | the tail of the server's own log (`?lines=`) |
+| `DELETE /api/log` | empty it |
 | `GET /api/library/{id}/transcript.txt` | the transcript as a download |
 | `GET /api/library/{id}/transcript.json` | the timestamped segments |
 | `GET /api/library/{id}/subtitles.srt` · `.vtt` | the entry cut into subtitles on the spot; `?preset=`, `?chars=`, `?words=` |

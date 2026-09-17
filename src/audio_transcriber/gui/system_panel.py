@@ -15,22 +15,29 @@ measuring — and a figure this system cannot measure is not drawn at all.
 import os
 
 from PySide6.QtCore import Qt, QTimer, QUrl
-from PySide6.QtGui import QDesktopServices
+from PySide6.QtGui import QDesktopServices, QFontDatabase
 from PySide6.QtWidgets import (
     QFormLayout,
+    QFrame,
     QGroupBox,
     QHBoxLayout,
     QLabel,
+    QMessageBox,
+    QPlainTextEdit,
     QProgressBar,
     QPushButton,
+    QScrollArea,
     QVBoxLayout,
     QWidget,
 )
 
-from .. import paths
+from .. import logs, paths
 from ..hardware import Meter
 from ..i18n import t
 from .meters import SAMPLE_MS, TIGHT_PERCENT, gib, paint_tight
+
+#: How many lines of the log the panel shows before it starts scrolling.
+LOG_LINES = 12
 
 
 class SystemPanel(QWidget):
@@ -58,6 +65,7 @@ class SystemPanel(QWidget):
         self.sampler = QTimer(self)
         self.sampler.setInterval(SAMPLE_MS)
         self.sampler.timeout.connect(self.read_meters)
+        self.sampler.timeout.connect(self.read_log)
 
         locations = QGroupBox(t("gui.group_paths"))
         form = QFormLayout(locations)
@@ -76,14 +84,121 @@ class SystemPanel(QWidget):
         buttons.addWidget(library_button)
         buttons.addStretch(1)
 
-        layout = QVBoxLayout(self)
+        # Everything on this tab at its own height, and the tab scrolled when
+        # they do not all fit: the directory rows are word-wrapped paths, and
+        # a layout that shares out the height instead squeezes them to one
+        # line each and cuts the rest off. That was invisible while the tab
+        # was four short groups; the log is what made it fit badly.
+        inside = QWidget()
+        layout = QVBoxLayout(inside)
         layout.setContentsMargins(0, 0, 0, 0)   # the pane's gutter is the only one
         layout.addWidget(hardware)
         layout.addWidget(load)
         layout.addWidget(locations)
         layout.addLayout(buttons)
+        layout.addWidget(self._log_group())
         layout.addStretch(1)
+
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.Shape.NoFrame)
+        scroll.setHorizontalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        scroll.setWidget(inside)
+        outside = QVBoxLayout(self)
+        outside.setContentsMargins(0, 0, 0, 0)
+        outside.addWidget(scroll)
         self.read_meters()
+
+    # --- what the window would otherwise have printed ---------------------
+
+    def _log_group(self):
+        """The tail of the log, and the two things anybody does with it.
+
+        Here rather than in a window of its own because this is the tab
+        somebody is already on when they want it: the question the log
+        answers — "why did that not work" — is the question this whole tab
+        exists for."""
+        group = QGroupBox(t("gui.group_log"))
+        inside = QVBoxLayout(group)
+        self.log_view = QPlainTextEdit()
+        self.log_view.setReadOnly(True)
+        self.log_view.setLineWrapMode(QPlainTextEdit.LineWrapMode.NoWrap)
+        # A fixed pitch, because a log is columns: the stamp, then the line.
+        self.log_view.setFont(QFontDatabase.systemFont(
+            QFontDatabase.SystemFont.FixedFont))
+        self.log_view.setPlaceholderText(t("gui.log_empty"))
+        # Tall enough that a traceback is a traceback and not a keyhole; not
+        # taller, because the tab is scrolled and the rest of it has to stay
+        # reachable without going past this.
+        self.log_view.setMinimumHeight(
+            self.log_view.fontMetrics().lineSpacing() * LOG_LINES)
+        inside.addWidget(self.log_view, 1)
+
+        self.log_path = _value(logs.path())
+        inside.addWidget(self.log_path)
+
+        row = QHBoxLayout()
+        open_log = QPushButton(t("gui.open_log"))
+        open_log.clicked.connect(self.open_log)
+        clear_log = QPushButton(t("gui.clear_log"))
+        clear_log.clicked.connect(self.clear_log)
+        row.addWidget(open_log)
+        row.addWidget(clear_log)
+        row.addStretch(1)
+        inside.addLayout(row)
+        self._log_seen = None
+        self.read_log()
+        return group
+
+    def read_log(self):
+        """Redraw the tail, but only when the file has actually changed.
+
+        This runs on the same timer as the meters, and a window left open on
+        this tab must not re-read the log every second for nothing. Size and
+        modification time together are enough: the file is only ever appended
+        to, or truncated by the button below it."""
+        try:
+            stat = os.stat(logs.path())
+            state = (stat.st_size, stat.st_mtime_ns)
+        except OSError:
+            state = None
+        if state == self._log_seen:
+            return
+        self._log_seen = state
+        bar = self.log_view.verticalScrollBar()
+        at_end = bar.value() >= bar.maximum() - 1
+        self.log_view.setPlainText("\n".join(logs.tail()))
+        # Follow the end unless the reader has scrolled up to look at
+        # something: a view that jumps back every second cannot be read.
+        if at_end:
+            self.log_view.verticalScrollBar().setValue(
+                self.log_view.verticalScrollBar().maximum())
+
+    def open_log(self):
+        """Open the log in whatever the system uses for text files."""
+        path = logs.path()
+        if not os.path.exists(path):
+            QDesktopServices.openUrl(
+                QUrl.fromLocalFile(paths.ensure(paths.log_dir())))
+            return
+        QDesktopServices.openUrl(QUrl.fromLocalFile(path))
+
+    def clear_log(self):
+        """Empty it, after asking. Kept next to the view because that is where
+        it is wanted: somebody about to reproduce a problem wants the next
+        lines alone. Asked about because, small as it is, it destroys
+        something — and what it destroys is the hour before a crash."""
+        answer = QMessageBox.question(
+            self, t("gui.clear_log_title"),
+            t("gui.clear_log_confirm", path=logs.path()),
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No)
+        if answer != QMessageBox.StandardButton.Yes:
+            return
+        logs.clear()
+        self._log_seen = None
+        self.read_log()
 
     def _hardware_rows(self):
         """What the machine can do, asked the same way the CLI asks it.
@@ -163,6 +278,7 @@ class SystemPanel(QWidget):
     def showEvent(self, event):
         super().showEvent(event)
         self.read_meters()
+        self.read_log()
         self.sampler.start()
 
     def hideEvent(self, event):

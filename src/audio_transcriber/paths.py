@@ -39,6 +39,7 @@ ENV_CACHE_DIR = "AUDIO_TRANSCRIBER_CACHE_DIR"
 ENV_MODELS_DIR = "AUDIO_TRANSCRIBER_MODELS_DIR"
 ENV_LIBRARY_DIR = "AUDIO_TRANSCRIBER_LIBRARY_DIR"
 ENV_VOCAB_DIR = "AUDIO_TRANSCRIBER_VOCABULARIES_DIR"
+ENV_LOG_DIR = "AUDIO_TRANSCRIBER_LOG_DIR"
 
 # Folders written by versions <= 0.2 in the working directory.
 LEGACY_MODELS_DIRNAME = "whisper-ov-models"
@@ -46,6 +47,7 @@ LEGACY_DIARIZATION_DIRNAME = "pyannote-diar"
 
 CONFIG_FILENAME = "config.toml"
 DOTENV_FILENAME = ".env"
+LOG_FILENAME = "audio-transcriber.log"
 
 
 def _env_path(name):
@@ -162,6 +164,25 @@ def vocabularies_dir():
     return os.path.join(config_dir(), "vocabularies")
 
 
+def log_dir():
+    """Directory holding what the window and the server print.
+
+    Under the *cache* root rather than the data one, and the distinction is
+    the promise this program makes about each: data is what you would be
+    upset to lose, cache is what can be deleted at any time without losing
+    anything. A log is the second. It is worth reading after a crash and
+    worth nothing a week later."""
+    override = _env_path(ENV_LOG_DIR)
+    if override:
+        return override
+    return os.path.join(cache_dir(), "logs")
+
+
+def log_file():
+    """Path of the log, whether or not anything has been written to it."""
+    return os.path.join(log_dir(), LOG_FILENAME)
+
+
 def diarization_candidates():
     """Where a pyannote config is looked for, in the order it is looked for.
 
@@ -235,6 +256,10 @@ def describe(settings=None):
         # do they go?" - so the answer is one of the lines this prints.
         ("diarization", (diarization_config(), False)),
         ("cache", chosen("cache_dir", cache_dir())),
+        # Where the window and the server put what they would otherwise have
+        # printed into a terminal nobody is reading. Asked about in exactly
+        # one situation, and it is the situation where nothing else worked.
+        ("log", (log_file(), False)),
     ]
     return [(label, path, os.path.exists(path), configured)
             for label, (path, configured) in rows]

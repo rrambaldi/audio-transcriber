@@ -45,13 +45,27 @@ under `cache/` is precious either: deleting it costs a re-download at worst,
 and it is also where an upload or a fresh recording waits for its turn in the
 queue.
 
+Inside the cache directory:
+
+```
+logs/
+  audio-transcriber.log       what the window and the server would otherwise
+                              have printed into a terminal; capped, with one
+  audio-transcriber.log.1     older copy kept beside it
+```
+
+A log is exactly what "cache" promises: worth reading after a crash, worth
+nothing a week later. The command line does not write one — there the output
+is the interface. `AUDIO_TRANSCRIBER_LOG_DIR` moves it elsewhere.
+
 ## Overriding the locations
 
 Three levels, strongest first:
 
 1. A per-purpose variable: `AUDIO_TRANSCRIBER_MODELS_DIR`,
    `AUDIO_TRANSCRIBER_LIBRARY_DIR`, `AUDIO_TRANSCRIBER_CONFIG_DIR`,
-   `AUDIO_TRANSCRIBER_DATA_DIR`, `AUDIO_TRANSCRIBER_CACHE_DIR`.
+   `AUDIO_TRANSCRIBER_DATA_DIR`, `AUDIO_TRANSCRIBER_CACHE_DIR`,
+   `AUDIO_TRANSCRIBER_LOG_DIR`.
 2. `AUDIO_TRANSCRIBER_HOME`, which puts config, data and cache under a single
    self-contained folder. This is the portable mode: use it in a container, or
    on a server where everything should sit on one mounted volume.

@@ -326,6 +326,9 @@ MESSAGES = {
         "stage.summary_reading": "reading the transcript",
         "stage.summary_writing": "writing the summary",
 
+        # --- the log ----------------------------------------------------------
+        "logs.writing_to": "Messages from here on: {path}",
+
         # --- web interface ----------------------------------------------------
         "web.starting": "Web interface: http://{host}:{port}  (Ctrl-C to stop)",
         "web.exposed":
@@ -779,6 +782,16 @@ MESSAGES = {
         "gui.path_configured": "from config.toml",
         "gui.open_config": "Open config.toml",
         "gui.open_library": "Open the library folder",
+        "gui.group_log": "Messages",
+        "gui.log_empty":
+            "Nothing yet. This is what the window would otherwise have "
+            "printed into the terminal it was started from.",
+        "gui.open_log": "Open the log file",
+        "gui.clear_log": "Empty it",
+        "gui.clear_log_title": "Empty the log",
+        "gui.clear_log_confirm":
+            "Empty {path}?\n\nWhat is in it now is gone. What happens next is "
+            "written from scratch; nothing else is touched.",
 
         "gui.quit_title": "Quit",
         "gui.quit_pending":
@@ -1233,6 +1246,9 @@ MESSAGES = {
         "stage.summary_reading": "lettura della trascrizione",
         "stage.summary_writing": "scrittura del riassunto",
 
+        # --- the log ----------------------------------------------------------
+        "logs.writing_to": "Da qui in poi i messaggi vanno in: {path}",
+
         # --- web interface ----------------------------------------------------
         "web.starting": "Interfaccia web: http://{host}:{port}  (Ctrl-C per fermarla)",
         "web.exposed":
@@ -1679,6 +1695,16 @@ MESSAGES = {
         "gui.path_configured": "da config.toml",
         "gui.open_config": "Apri config.toml",
         "gui.open_library": "Apri la cartella della libreria",
+        "gui.group_log": "Messaggi",
+        "gui.log_empty":
+            "Ancora niente. Qui finisce quello che la finestra avrebbe "
+            "scritto nel terminale da cui e' stata avviata.",
+        "gui.open_log": "Apri il file di log",
+        "gui.clear_log": "Svuotalo",
+        "gui.clear_log_title": "Svuota il log",
+        "gui.clear_log_confirm":
+            "Svuotare {path}?\n\nQuello che c'e' adesso sparisce. Quello che "
+            "succede dopo viene scritto da zero; nient'altro viene toccato.",
 
         "gui.quit_title": "Esci",
         "gui.quit_pending":

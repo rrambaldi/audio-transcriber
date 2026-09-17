@@ -48,6 +48,14 @@ const I18N = {
     rename_title: "Rename",
     rename_label: "Title",
     rename_ok: "Rename",
+    log_show: "messages",
+    log_hide: "hide the messages",
+    log_refresh: "refresh",
+    log_clear: "empty it",
+    log_empty: "Nothing yet. This is what the server would otherwise have printed into the terminal it was started from.",
+    log_where: "Written to {path}",
+    confirm_clear_log: "Empty the log",
+    confirm_clear_log_body: "What is in it now is gone. What happens next is written from scratch; nothing else is touched.",
     speakers_name: "name the speakers",
     speakers_title: "Who is speaking",
     speakers_intro: "The machine heard the voices apart but cannot know whose they are. Give them names and the transcript is rewritten to use them; leave one blank and it keeps the label it has.",
@@ -272,6 +280,14 @@ const I18N = {
     rename_title: "Rinomina",
     rename_label: "Titolo",
     rename_ok: "Rinomina",
+    log_show: "messaggi",
+    log_hide: "nascondi i messaggi",
+    log_refresh: "aggiorna",
+    log_clear: "svuotalo",
+    log_empty: "Ancora niente. Qui finisce quello che il server avrebbe scritto nel terminale da cui e' stato avviato.",
+    log_where: "Scritto in {path}",
+    confirm_clear_log: "Svuota il log",
+    confirm_clear_log_body: "Quello che c'e' adesso sparisce. Quello che succede dopo viene scritto da zero; nient'altro viene toccato.",
     speakers_name: "dai un nome agli interlocutori",
     speakers_title: "Chi parla",
     speakers_intro: "La macchina ha distinto le voci ma non può sapere di chi sono. Dai loro un nome e la trascrizione viene riscritta con quello; lascia vuoto e resta l'etichetta che ha adesso.",
@@ -542,6 +558,41 @@ function ask({ title, body, detail = "", confirmLabel, danger = true, input = nu
   });
 }
 
+/* --- what the server would have printed --------------------------------- */
+
+/* Folded away by default and polled only while it is open: a panel nobody has
+   asked for must not fetch a tail of the log every three seconds for the
+   whole time the page is left on a screen. */
+let logWatch = null;
+
+async function loadLog() {
+  let data;
+  try {
+    data = await fetch(api("log")).then((r) => r.json());
+  } catch {
+    return;                        /* offline() already says so, once */
+  }
+  const box = $("log-text");
+  const lines = data.lines || [];
+  /* Follow the end unless the reader has scrolled up to look at something:
+     a view that jumps back every three seconds cannot be read. */
+  const atEnd = box.scrollTop >= box.scrollHeight - box.clientHeight - 4;
+  box.textContent = lines.length ? lines.join("\n") : t("log_empty");
+  if (atEnd) box.scrollTop = box.scrollHeight;
+  $("log-path").textContent = t("log_where", { path: data.path || "" });
+}
+
+function showLog(open) {
+  $("log-panel").hidden = !open;
+  $("log-toggle").textContent = t(open ? "log_hide" : "log_show");
+  $("log-toggle").setAttribute("aria-expanded", open ? "true" : "false");
+  clearInterval(logWatch);
+  logWatch = null;
+  if (!open) return;
+  loadLog();
+  logWatch = setInterval(loadLog, 3000);
+}
+
 /* --- who is speaking ---------------------------------------------------- */
 
 /* A diarized transcript arrives addressed to SPEAKER_00: the machine can hear
@@ -658,6 +709,10 @@ function translatePage() {
   $("set-search").placeholder = "";
   $("notes-text").placeholder = t("notes_placeholder");
   $("search").placeholder = t("search_placeholder");
+  /* The log's toggle says one of two things and the pass above knows only
+     the first: left alone it would offer to show a panel that is open. */
+  $("log-toggle").textContent = t($("log-panel").hidden ? "log_show"
+                                                        : "log_hide");
 }
 
 function duration(seconds) {
@@ -1810,6 +1865,22 @@ $("viewer-rename").addEventListener("click", async () => {
     $("viewer-title").textContent = (await response.json()).title;
     refreshLibrary();
   }
+});
+
+$("log-toggle").addEventListener("click", () => showLog($("log-panel").hidden));
+$("log-refresh").addEventListener("click", loadLog);
+$("log-clear").addEventListener("click", async () => {
+  /* Small as it is, it destroys something: the rule on this page is that
+     nothing goes without being asked, and a log emptied by a mis-click is the
+     hour before a crash gone. */
+  const sure = await ask({
+    title: t("confirm_clear_log"),
+    body: t("confirm_clear_log_body"),
+    confirmLabel: t("log_clear"),
+  });
+  if (!sure) return;
+  await fetch(api("log"), { method: "DELETE" });
+  loadLog();
 });
 
 $("viewer-speakers").addEventListener("click", async () => {

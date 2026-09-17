@@ -25,6 +25,7 @@ from .. import (
     branding,
     hardware,
     i18n,
+    logs,
     pipeline,
     subtitles,
     vocabularies,
@@ -51,6 +52,11 @@ STATIC_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
 #: The icon set is the program's, not this page's: it is shared with the
 #: desktop window and lives in the package rather than under static/.
 BRAND_DIR = branding.DIR
+
+#: The most lines ``/api/log`` will hand over at once. A ceiling on what a
+#: caller can ask for, not on what the log holds: the panel wants a tail, and
+#: somebody who wants the whole file has the file.
+MAX_LOG_LINES = 2000
 
 #: The menus this page offers, shared with the desktop window.
 MODELS = MODEL_CHOICES
@@ -197,6 +203,28 @@ def register_routes(app):
         reading = state.meter.read()
         reading.update(engine=engine, device=device)
         return reading
+
+    @app.get("/api/log")
+    def read_log(lines: int = logs.TAIL_LINES):
+        """What the server would otherwise have printed into its terminal.
+
+        A server is started once and watched for a minute; the interesting
+        output arrives an hour later, into a terminal somebody has closed.
+        This is that output, tail-first, for the panel under the job list.
+
+        It carries no more than the endpoints beside it already do — the
+        names of the recordings on this machine, and the paths they sit at —
+        and the server has no authentication of any kind, which is why it
+        binds to localhost. See docs/web.md."""
+        wanted = max(1, min(int(lines or logs.TAIL_LINES), MAX_LOG_LINES))
+        return {"path": logs.path(), "bytes": logs.size(),
+                "lines": logs.tail(wanted)}
+
+    @app.delete("/api/log")
+    def clear_log():
+        """Empty it: what somebody does just before reproducing a problem."""
+        return {"cleared": logs.clear(), "path": logs.path(),
+                "bytes": logs.size()}
 
     # --- keyword sets installed on this machine ---------------------------
 

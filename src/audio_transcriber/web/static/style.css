@@ -564,6 +564,22 @@ dialog h2 {
 .viewer-head { border-bottom: 1px solid var(--rule); padding-bottom: 0.8rem; margin-bottom: 1rem; }
 menu { display: flex; gap: 1.2rem; align-items: center; padding: 0; margin: 1.8rem 0 0; flex-wrap: wrap; }
 
+/* The log. Fixed pitch because a log is columns — the stamp, then the line —
+   and no wrapping for the same reason: a wrapped traceback is a paragraph. */
+.log {
+  max-height: 24rem;
+  overflow: auto;
+  margin: 0 0 0.6rem;
+  padding: 0.7rem 0.8rem;
+  background: var(--sheet);
+  border: 1px solid var(--rule);
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 0.78rem;
+  line-height: 1.55;
+  white-space: pre;
+  color: var(--muted);
+}
+
 .prose, .segments {
   max-height: 52vh;
   overflow: auto;
