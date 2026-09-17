@@ -140,20 +140,19 @@ class LibraryPanel(QWidget):
         transcript_page = QWidget()
         transcript_layout = QVBoxLayout(transcript_page)
         transcript_layout.addWidget(self.transcript, 1)
-        transcript_row = QHBoxLayout()
-        transcript_row.addStretch(1)
-        transcript_row.addWidget(self.copy_transcript)
-        transcript_layout.addLayout(transcript_row)
+        transcript_layout.addLayout(_copy_row(self.copy_transcript))
 
         self.notes = QPlainTextEdit()
         self.notes.setPlaceholderText(t("gui.notes_hint"))
         self.notes.textChanged.connect(self._notes_changed)
+        self.copy_notes = _copy_button(self._copy_notes)
         self.save_notes = QPushButton(t("gui.notes_save"))
         self.save_notes.clicked.connect(self.write_notes)
         self.save_notes.setEnabled(False)
         notes_page = QWidget()
         notes_layout = QVBoxLayout(notes_page)
         notes_layout.addWidget(self.notes, 1)
+        notes_layout.addLayout(_copy_row(self.copy_notes))
         notes_row = QHBoxLayout()
         notes_row.addStretch(1)
         notes_row.addWidget(self.save_notes)
@@ -182,6 +181,7 @@ class LibraryPanel(QWidget):
         summary_page = QWidget()
         summary_layout = QVBoxLayout(summary_page)
         summary_layout.addWidget(self.summary, 1)
+        summary_layout.addLayout(_copy_row(self.copy_summary))
         summary_layout.addWidget(self.summary_note)
         summary_layout.addWidget(self.summary_progress)
         summary_row = QHBoxLayout()
@@ -207,7 +207,6 @@ class LibraryPanel(QWidget):
         summary_row.addWidget(QLabel(t("gui.summary_style")))
         summary_row.addWidget(self.summary_style)
         summary_row.addStretch(1)
-        summary_row.addWidget(self.copy_summary)
         summary_row.addWidget(self.summarise)
         summary_layout.addLayout(summary_row)
 
@@ -267,12 +266,7 @@ class LibraryPanel(QWidget):
         self.title.setFont(theme.title_font(self.font(), 1.35,
                                             weight=QFont.Weight.DemiBold))
         self.title.doubleClicked.connect(self.rename_entry)
-        self.rename = QToolButton()
-        self.rename.setText("✎")   # a small pencil, next to the title it renames
-        self.rename.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextOnly)
-        self.rename.setToolTip(t("gui.rename"))
-        self.rename.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.rename.clicked.connect(self.rename_entry)
+        self.rename = _glyph_button("✎", t("gui.rename"), self.rename_entry)
         title_row = QHBoxLayout()
         title_row.addWidget(self.title, 1)
         title_row.addWidget(self.rename, 0, Qt.AlignmentFlag.AlignTop)
@@ -435,7 +429,7 @@ class LibraryPanel(QWidget):
     def _enable_actions(self, enabled):
         for button in (self.rename, self.export, self.export_subtitles_button,
                        self.open_folder, self.delete, self.copy_transcript,
-                       self.copy_summary):
+                       self.copy_summary, self.copy_notes):
             button.setEnabled(enabled)
         self.summarise.setEnabled(enabled and self.queue is not None
                                   and self._summary_job is None)
@@ -588,6 +582,14 @@ class LibraryPanel(QWidget):
     def _copy_summary(self):
         """Put whatever the summary pane shows on the clipboard."""
         text = self.summary.toPlainText()
+        if not text:
+            return
+        QGuiApplication.clipboard().setText(text)
+        self.message.emit(t("gui.copied"))
+
+    def _copy_notes(self):
+        """Put the notes as written on the clipboard."""
+        text = self.notes.toPlainText()
         if not text:
             return
         QGuiApplication.clipboard().setText(text)
@@ -751,15 +753,36 @@ class _AsResult:
         self.segments = segments
 
 
-def _copy_button(handler):
-    """A small "copy to clipboard" tool button, for under a text pane."""
+def _glyph_button(glyph, tooltip, handler, label=None):
+    """A small tool button led by a glyph, enlarged so it reads as an icon.
+
+    A QToolButton's default font renders these glyphs at body-text size and
+    weight, thin enough to disappear next to real widgets; bumping size and
+    weight is what makes it read as an icon rather than a stray character."""
     button = QToolButton()
-    button.setText("⎘")   # the copy-to-clipboard glyph
+    button.setText(f"{glyph}  {label}" if label else glyph)
     button.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextOnly)
-    button.setToolTip(t("gui.copy"))
+    font = button.font()
+    font.setPointSize(font.pointSize() + 3)
+    font.setBold(True)
+    button.setFont(font)
+    button.setToolTip(tooltip)
     button.setCursor(Qt.CursorShape.PointingHandCursor)
     button.clicked.connect(handler)
     return button
+
+
+def _copy_button(handler):
+    """The "copy to clipboard" tool button that sits under a text pane."""
+    return _glyph_button("⎘", t("gui.copy"), handler, label=t("gui.copy"))
+
+
+def _copy_row(button):
+    """A right-aligned row for a copy button, directly under its text pane."""
+    row = QHBoxLayout()
+    row.addStretch(1)
+    row.addWidget(button)
+    return row
 
 
 def _title_of(entry):
