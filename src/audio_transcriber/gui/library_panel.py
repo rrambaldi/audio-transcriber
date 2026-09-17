@@ -145,14 +145,18 @@ class LibraryPanel(QWidget):
         self.notes = QPlainTextEdit()
         self.notes.setPlaceholderText(t("gui.notes_hint"))
         self.notes.textChanged.connect(self._notes_changed)
-        self.copy_notes = _copy_button(self._copy_notes)
+        self.copy_notes = _copy_button(self._copy_notes, labelled=False)
         self.save_notes = QPushButton(t("gui.notes_save"))
         self.save_notes.clicked.connect(self.write_notes)
         self.save_notes.setEnabled(False)
         notes_page = QWidget()
         notes_layout = QVBoxLayout(notes_page)
-        notes_layout.addWidget(self.notes, 1)
-        notes_layout.addLayout(_copy_row(self.copy_notes))
+        # Beside the box rather than under it: the notes tab already has a row
+        # of its own below, and the copy belongs to the text, not to that row.
+        notes_box = QHBoxLayout()
+        notes_box.addWidget(self.notes, 1)
+        notes_box.addWidget(self.copy_notes, 0, Qt.AlignmentFlag.AlignBottom)
+        notes_layout.addLayout(notes_box, 1)
         notes_row = QHBoxLayout()
         notes_row.addStretch(1)
         notes_row.addWidget(self.save_notes)
@@ -772,9 +776,10 @@ def _glyph_button(glyph, tooltip, handler, label=None):
     return button
 
 
-def _copy_button(handler):
-    """The "copy to clipboard" tool button that sits under a text pane."""
-    return _glyph_button("⎘", t("gui.copy"), handler, label=t("gui.copy"))
+def _copy_button(handler, labelled=True):
+    """The "copy to clipboard" tool button that sits by a text pane."""
+    return _glyph_button("⎘", t("gui.copy"), handler,
+                         label=t("gui.copy") if labelled else None)
 
 
 def _copy_row(button):
