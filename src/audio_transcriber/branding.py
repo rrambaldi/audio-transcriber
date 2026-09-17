@@ -15,7 +15,13 @@ background that is already dark. The PNGs are renders of the first two — the
 small drawing below 48 px, the master above it — and ``favicon.ico`` carries
 six of them for browsers that still ask for one file.
 
-The two typefaces are here for the same reason the icons are: the page and the
+The symbols are a different job from the mark, and the word is kept separate
+on purpose: the mark is what a desktop draws for the *program*, a symbol is
+the little drawing on a button inside it. Those are not ours — they are two
+files out of Microsoft's Fluent set, MIT, with the licence beside them — and
+:data:`SYMBOLS` says which and why so few.
+
+The two typefaces are here for the same reason the mark is: the page and the
 window are meant to look like one program, and a font in ``web/static`` would
 be a file the window has to reach across the package to find. Fraunces carries
 the headings and Karla everything read while typing; both are OFL, self-hosted,
@@ -41,6 +47,40 @@ MARK_SVG = "icon-mark.svg"
 
 #: What a browser asks for at ``/favicon.ico`` if it ignores the SVG.
 FAVICON = "favicon.ico"
+
+#: Where the button symbols are, under :data:`DIR`.
+SYMBOL_SUBDIR = "symbols"
+
+#: The symbols that ship, by the job they do, as ``(name, file)``.
+#:
+#: They are Microsoft's Fluent UI System Icons, the 20 px regular cut, which
+#: is the size these are actually drawn at: an icon set has a drawing per
+#: size, and scaling the 24 px one down thickens its strokes until it is a
+#: blot next to a hairline rule. Two of them, because two is what the window
+#: has a use for - a button whose job can be *said* says it, in the interface
+#: font, like every other button here. A symbol is for the ones that would
+#: otherwise repeat a word three times down the same column.
+#:
+#: They were glyphs from the text font before this - ✎ and ⎘ - which is the
+#: cheap way to have an icon and looks it: the glyph is whatever weight the
+#: interface font draws it at, it is missing from some faces entirely, and no
+#: two platforms agree on how much of the em it fills.
+SYMBOLS = (("copy", "copy.svg"),
+           ("edit", "edit.svg"))
+
+#: The set to cite, and the licence that travels with it. MIT asks only that
+#: the notice go with the copies; it does, in this file, and ``docs/
+#: third-party.md`` is where a reader is pointed at it. That is why the About
+#: box names the typefaces and not these: the OFL asks to travel *with the
+#: font*, MIT does not ask for a credit screen.
+SYMBOL_SET = ("Fluent UI System Icons", "fluent-MIT.txt")
+
+#: The colour Fluent draws its own files in, and therefore the one string that
+#: is replaced to put a symbol in this program's ink. The files are kept
+#: byte for byte as they are published - a vendored file that has been edited
+#: is a file somebody has to diff before they can trust it - so the recolour
+#: happens on the way to the renderer, in :mod:`audio_transcriber.gui.symbols`.
+SYMBOL_INK = "#212121"
 
 #: Where the typefaces are, under :data:`DIR`. The web page asks for them over
 #: HTTP - the app mounts this directory at ``/brand`` - and the window hands
@@ -123,6 +163,23 @@ def icon_png(size):
 def font_path(name):
     """The full path of one font file, whether or not it is there."""
     return os.path.join(DIR, FONT_SUBDIR, name)
+
+
+def symbol_path(name):
+    """The full path of one symbol file, whether or not it is there."""
+    return os.path.join(DIR, SYMBOL_SUBDIR, name)
+
+
+def symbol_svg(name):
+    """The drawing for ``name``, or ``None`` when it did not ship.
+
+    Cosmetic like the rest of this module: a window that cannot find a symbol
+    falls back to the glyph it used to draw, rather than refusing to open."""
+    for known, file in SYMBOLS:
+        if known == name:
+            candidate = symbol_path(file)
+            return candidate if os.path.exists(candidate) else None
+    return None
 
 
 def font_files():

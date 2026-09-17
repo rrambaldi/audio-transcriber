@@ -203,7 +203,7 @@ def test_the_copyleft_ones_are_named_in_the_program_itself():
     i18n.set_language("en")
 
 
-def test_the_bundled_typefaces_are_the_only_vendored_thing():
+def test_the_typefaces_and_the_symbols_are_the_only_vendored_things():
     """Everything else is installed by pip into the user's own environment.
     If that stops being true, this file is where it has to be written down."""
     from audio_transcriber import branding
@@ -215,3 +215,7 @@ def test_the_bundled_typefaces_are_the_only_vendored_thing():
         assert family in listed
         assert licence in listed
     assert "SIL Open Font License 1.1" in listed
+
+    name, licence = branding.SYMBOL_SET
+    assert name in listed
+    assert licence in listed

@@ -44,9 +44,10 @@ def test_the_icons_are_declared_as_package_data():
         config = tomllib.load(handle)
     patterns = config["tool"]["setuptools"]["package-data"]["audio_transcriber"]
     assert "data/brand/*" in patterns
-    # A glob does not recurse: the fonts are a directory deeper and would be
-    # left out of the wheel by the line above.
+    # A glob does not recurse: the fonts and the button symbols are a
+    # directory deeper and would be left out of the wheel by the line above.
     assert "data/brand/fonts/*" in patterns
+    assert "data/brand/symbols/*" in patterns
 
 
 # --- the typefaces --------------------------------------------------------

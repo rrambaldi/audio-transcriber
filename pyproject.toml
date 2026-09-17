@@ -103,7 +103,8 @@ where = ["src"]
 # window both take theirs from data/brand.
 [tool.setuptools.package-data]
 audio_transcriber = ["data/vocabularies/*.txt", "data/brand/*",
-                     "data/brand/fonts/*", "web/static/*"]
+                     "data/brand/fonts/*", "data/brand/symbols/*",
+                     "web/static/*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

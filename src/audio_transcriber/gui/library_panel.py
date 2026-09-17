@@ -35,7 +35,6 @@ from PySide6.QtWidgets import (
     QTableWidgetItem,
     QTabWidget,
     QTextBrowser,
-    QToolButton,
     QVBoxLayout,
     QWidget,
 )
@@ -45,7 +44,7 @@ from ..i18n import t
 from ..jobs import DONE, FAILED, FINISHED, RUNNING
 from ..library import MAX_NOTES, LibraryError
 from ..summary import SummaryError
-from . import multimedia, options, theme
+from . import multimedia, options, symbols, theme
 
 #: Typing in the search box is not a query per keystroke: searching reads every
 #: transcript in the library, so it waits until the typing stops.
@@ -264,7 +263,8 @@ class LibraryPanel(QWidget):
         self.title.setFont(theme.title_font(self.font(), 1.35,
                                             weight=QFont.Weight.DemiBold))
         self.title.doubleClicked.connect(self.rename_entry)
-        self.rename = _glyph_button("✎", t("gui.rename"), self.rename_entry)
+        self.rename = _symbol_button("edit", "✎", t("gui.rename"),
+                                     self.rename_entry)
         title_row = QHBoxLayout()
         title_row.addWidget(self.title, 1)
         title_row.addWidget(self.rename, 0, Qt.AlignmentFlag.AlignTop)
@@ -751,28 +751,21 @@ class _AsResult:
         self.segments = segments
 
 
-def _glyph_button(glyph, tooltip, handler):
-    """A small tool button drawn as a glyph, enlarged so it reads as an icon.
+def _symbol_button(name, glyph, tooltip, handler):
+    """A small button drawn as one of the bundled symbols.
 
-    A QToolButton's default font renders these glyphs at body-text size and
-    weight, thin enough to disappear next to real widgets; bumping size and
-    weight is what makes it read as an icon rather than a stray character."""
-    button = QToolButton()
-    button.setText(glyph)
-    button.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextOnly)
-    font = button.font()
-    font.setPointSize(font.pointSize() + 3)
-    font.setBold(True)
-    button.setFont(font)
-    button.setToolTip(tooltip)
-    button.setCursor(Qt.CursorShape.PointingHandCursor)
+    ``glyph`` is what it falls back to on a build that shipped without the
+    drawings — the character this button used to be, which is legible but
+    thin: :mod:`audio_transcriber.gui.symbols` says why that was not good
+    enough to keep."""
+    button = symbols.Button(name, tooltip, glyph)
     button.clicked.connect(handler)
     return button
 
 
 def _copy_button(handler):
-    """The "copy to clipboard" tool button that sits beside a text pane."""
-    return _glyph_button("⎘", t("gui.copy"), handler)
+    """The "copy to clipboard" button that sits beside a text pane."""
+    return _symbol_button("copy", "⎘", t("gui.copy"), handler)
 
 
 def _with_copy(box, button):
