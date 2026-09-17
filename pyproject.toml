@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "audio-transcriber-ov"
-version = "0.8.0"
+version = "0.9.0"
 description = "Local audio/video transcription with Whisper — Intel iGPU via OpenVINO or CPU-only servers via faster-whisper — with optional speaker diarization. No cloud, your data stays on your machine."
 readme = "README.md"
 # MIT as the expression, the whole file as the text. The licence is the MIT
