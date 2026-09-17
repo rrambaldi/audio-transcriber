@@ -123,6 +123,25 @@ All notable changes to this project are documented here. The format follows
 
 ### Fixed
 
+- **A small model that says "there was nothing here" in its own words is now
+  believed.** The one-section-at-a-time summary asks for a fixed marker when a
+  section has nothing in it, and an xs-tier model answers "nessuna
+  informazione disponibile" instead: meaning it and being able to obey are not
+  the same thing. That line was read as content, became the only non-empty
+  draft of the summary, and the pass that checks the four sections against
+  each other was then skipped for having nothing to compare — so an hour of
+  meeting came out as one line saying there was nothing in it. A short answer
+  that opens on a denial now counts as the marker, in either language. The
+  length is what makes that safe: a real finding about something that did not
+  happen — "no decision on the hires, but the budget passed" — is longer than
+  a refusal, and is kept.
+
+- **The summary no longer narrates itself to the console.** Twelve `[TRACE]`
+  and `[DEBUG]` lines left over from debugging in September printed on every
+  run, unconditionally: when a model was loaded, when each prompt started and
+  how long it took. They were never anybody's business but the author's, and
+  with the log file they had begun to be written down as well as printed.
+
 - **Two upstream warnings printed over every run are no longer repeated.**
   transformers said, twice per transcription, that a token-suppression
   processor had been passed to `generate()` as well as created inside it —

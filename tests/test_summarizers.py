@@ -632,6 +632,61 @@ def test_split_style_reads_a_sentinel_as_nothing_to_report(split_stubbed):
     assert not sections.decisions
 
 
+def test_split_style_reads_the_paraphrase_of_the_sentinel_too(split_stubbed):
+    """The bug this was widened for, end to end.
+
+    A small model asked for a fixed marker answers in its own words instead.
+    Taken as content, "nessuna informazione disponibile" became the only
+    non-empty draft of a whole summary, the merge pass was skipped for having
+    nothing to compare, and an hour of meeting came out as one line saying
+    there was nothing in it."""
+    split_stubbed.answers = {
+        "abstract": "Un riassunto vero.",
+        "points": "- [0:08] Budget.",
+        "decisions": "nessuna informazione disponibile.",
+        "actions": "Non ci sono impegni.",
+        "merge": ("## In breve\nUn riassunto vero.\n\n## Punti chiave\n"
+                  "- [0:08] Budget."),
+    }
+    sections, _ = engine.summarize(material(SENTENCES),
+                                   {"summary_style": "split"})
+    assert not sections.decisions
+    assert not sections.actions
+    assert sections.abstract == "Un riassunto vero."
+    assert [point.text for point in sections.points] == ["Budget."]
+
+
+# --- what counts as "there was nothing to say" ----------------------------
+
+@pytest.mark.parametrize("answer", [
+    "__NESSUNA__", "**__NESSUNA__**", "_Nessuna._", "- nessuna.",
+    "nessuna informazione disponibile.", "Nessun impegno preso.",
+    "Non ci sono decisioni.", "Non sono state prese decisioni.",
+    "Non risultano azioni.",
+    "none", "None.", "Nothing to report.", "No information available.",
+    "", "   ",
+])
+def test_an_answer_that_denies_everything_is_an_empty_section(answer):
+    assert prompting.is_empty_section(answer) is True
+
+
+@pytest.mark.parametrize("answer", [
+    # Long enough to be a finding about something that did not happen.
+    "Nessuna decisione sulle assunzioni, ma il budget e' stato approvato e il"
+    " consiglio ha dato mandato al direttore",
+    "No, the board did not approve the plan; it asked for a revised budget by"
+    " October and for a second review",
+    # And the words that merely start like a denial.
+    "Nominato il nuovo direttore.", "Nonostante il ritardo, e' passato.",
+    "Notes on the budget were circulated.",
+    "- [12:30] Anna presenta il bilancio del trimestre",
+    "Il comitato ha approvato il piano.",
+])
+def test_a_finding_is_not_thrown_away_for_opening_on_a_negation(answer):
+    """The length is what makes the widened marker safe, not the wording."""
+    assert prompting.is_empty_section(answer) is False
+
+
 def test_combined_style_is_still_the_default(stubbed):
     """The one call this feature has always made, unless asked otherwise."""
     engine.summarize(material(SENTENCES), {})

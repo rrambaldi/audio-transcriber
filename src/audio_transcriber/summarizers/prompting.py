@@ -292,10 +292,51 @@ SECTION_FIELDS = ("abstract", "points", "decisions", "actions")
 #: translated, or wrapped in emphasis.
 EMPTY_SECTION = "__NESSUNA__"
 
-#: The marker above, tolerant of the emphasis and punctuation a model wraps
-#: it in — "**__NESSUNA__**", "_Nessuna._" — and of the underscores being
-#: dropped, which is what a model that renders markdown does with them.
-_EMPTY_SECTION = re.compile(r"^[\s*_\"'.:]*nessuna[\s*_\"'.:]*$", re.IGNORECASE)
+#: How long an answer can be and still be read as "there is nothing here".
+#: A model with nothing to say says so in a few words; one with something to
+#: say writes bullets with minutes in them. The bound is what keeps a real
+#: finding that happens to open with a negation — "Nessuna decisione sulle
+#: assunzioni, ma il budget è stato approvato" — from being thrown away.
+EMPTY_SECTION_CHARS = 90
+
+#: The marker above, tolerant of three things a model does to it.
+#:
+#: The emphasis and punctuation it gets wrapped in — "**__NESSUNA__**",
+#: "_Nessuna._" — and the underscores being dropped, which is what a model
+#: that renders markdown does with them. That much was always allowed.
+#:
+#: And then the paraphrase, which is what this was widened for: an xs-tier
+#: model asked for a fixed marker writes "nessuna informazione disponibile"
+#: instead, and meaning it is not the same as being able to obey. Taken as
+#: content, that one line became the only non-empty draft of a summary and
+#: the whole merge pass was skipped for it. So a short answer opening on a
+#: negation counts as the marker, in either language the prompts are written
+#: in — the length is what makes it safe, not the wording.
+_EMPTY_SECTION = re.compile(
+    r"^(nessun[ao]?|non\s+(ci\s+sono|risultano?|sono\s+stat[ei])"
+    r"|none|nothing|no\s+\w+)(?![a-z])",
+    re.IGNORECASE)
+
+#: What a model wraps the marker in, and what is taken off both ends before
+#: it is looked at: emphasis, quotes, the bullet it arrived as, and the full
+#: stop it was given. The underscores are in here twice over — they are the
+#: marker's own, and they are why the match cannot end on ``\b``, since a
+#: regex counts an underscore as part of a word.
+_DECORATION = "\t\n\r *_\"'`.:;-—–•"
+
+
+def is_empty_section(text):
+    """Whether a single-section answer means "there was nothing to say".
+
+    Short *and* opening on a negation: either alone would be wrong. A long
+    answer that starts with "no" is a finding about something that did not
+    happen — "Nessuna decisione sulle assunzioni, ma il budget è passato" —
+    and a short answer that denies nothing is simply a short finding."""
+    text = " ".join(str(text or "").split()).strip(_DECORATION)
+    if not text:
+        return True
+    return (len(text) <= EMPTY_SECTION_CHARS
+            and bool(_EMPTY_SECTION.match(text)))
 
 #: The one line each single-section request adds to the shared prompt body,
 #: per field. In the language that was spoken, like every other prompt here.
@@ -690,7 +731,7 @@ def parse_section(field, answer, language="it", prompt=None):
     confuse, and a single-section answer only ever has one."""
     language = language_of(language)
     usable = usable_answer(answer, prompt)
-    if not usable or _EMPTY_SECTION.match(usable.strip()):
+    if not usable or is_empty_section(usable):
         return "" if field == "abstract" else []
     lines = _section_lines(usable, language)
     return " ".join(lines).strip() if field == "abstract" else lines
