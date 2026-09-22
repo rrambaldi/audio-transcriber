@@ -154,6 +154,15 @@ and the notes, read the transcript with a clickable timestamp per block, play
 the recording while reading along, jump to any moment, write notes, rename,
 export the text, open the folder, delete.
 
+Under each name, the shape of the recording: how loud it was from start to
+end. It goes in the title column and not in one of its own, because that is
+the only column wide enough to hold a picture and it is where somebody looking
+for a recording is already looking. The queue rows on the *Transcribe* tab
+carry the same drawing under their titles, measured while they wait their turn,
+so half a dozen files named by date are told apart before any of them has been
+transcribed. A recording filed before the window could draw one is measured in
+the background, one at a time; see [data-layout.md](data-layout.md).
+
 A recording transcribed with "who said what" also offers **Name the
 speakers**: one field per voice, in the order they are first heard, each with
 the first thing that voice says under it. The transcript and the timestamps
@@ -290,6 +299,15 @@ They are read in decibels, floored at -60 dBFS. A linear bar would be a useless
 meter: ordinary speech peaks at around a tenth of full scale and would barely
 leave the left edge, so a working microphone would look broken. On this scale
 speech fills about two thirds.
+
+**Beside each bar, the last five seconds of the same source**, one column every
+tenth of a second, oldest on the left. It answers the question after the bar's:
+a meter holding steady at two thirds and a meter moving with every syllable are
+the same meter, and only one of them is somebody talking — the other is a fan,
+a hum, or a room. Same scale, so the newest column is exactly what the bar is
+showing, and it runs during *Test audio* as well as during a recording. It is
+also filled while a recording is paused, which is when somebody is most likely
+to be looking at it.
 
 And when a recording stops having never risen above silence, the window says
 so. The file is queued anyway — it is real, and the decision is not this

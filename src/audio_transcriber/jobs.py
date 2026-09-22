@@ -14,6 +14,12 @@ transcription needs, and running both at once would make each slower without
 finishing either sooner. One queue means the machine is never asked to do two
 heavy things at the same time.
 
+Measuring what a recording *looks* like is the one thing that does not wait
+its turn, and has a thread of its own. It is ffmpeg reading a file through
+once — seconds, where the jobs beside it are hours — and its whole purpose is
+to put a drawing on a row while that row is still worth looking at. Behind the
+queue it would arrive after the transcription it describes.
+
 The queue outlives the process. A transcription is hours and a machine is
 restarted — a service updated, a window closed by mistake, a laptop that ran
 out of battery — so the list is written down beside the uploads after every
@@ -33,7 +39,7 @@ import traceback
 import uuid
 from datetime import datetime
 
-from . import audio, paths, pipeline
+from . import audio, paths, pipeline, waveform
 from .config import read_prompt, resolve_output
 from .i18n import t
 from .library import STORE_MODES, STORE_MOVE, Library, LibraryError
@@ -165,6 +171,12 @@ class Job:
         self.finished_at = None
         self.elapsed = None
         self.audio_duration = None
+        #: How loud the recording is, slice by slice, for the drawing under
+        #: the name. Measured in the background and deliberately *not* written
+        #: down with the rest: four hundred numbers a job, rewritten on every
+        #: change, would swamp a state file that is meant to be readable, and
+        #: measuring one again after a restart costs a single pass of ffmpeg.
+        self.loudness = None
         #: The recording as the disk describes it: how big, and when it was
         #: made. Read now, while the file is still where it was handed over.
         self.size_bytes, self.source_created_at = file_facts(source)
@@ -245,6 +257,7 @@ class Job:
             "elapsed_seconds": self.elapsed,
             "running_seconds": self.running_seconds,
             "audio_duration": self.audio_duration,
+            "loudness": self.loudness,
             "size_bytes": self.size_bytes,
             "source_created_at": self.source_created_at,
         }
@@ -253,12 +266,16 @@ class Job:
 class JobQueue:
     """Accepts jobs, runs them one at a time, remembers what happened."""
 
-    def __init__(self, settings, library=None, runner=None, summariser=None):
+    def __init__(self, settings, library=None, runner=None, summariser=None,
+                 measurer=None):
         self.settings = dict(settings or {})
         self.library = library or Library(self.settings.get("library_dir"))
         self._runner = runner or self._transcribe
         self._summariser = summariser or self._summarize
+        self._measurer = measurer or waveform.loudness_of_file
         self._pending = queue.Queue()
+        self._measuring = queue.Queue()
+        self._measurer_thread = None
         self._jobs = {}
         self._order = []
         # Re-entrant: every change is written down before the lock is let go,
@@ -349,6 +366,7 @@ class JobQueue:
                     resume.append(job.id)
                 self._jobs[job.id] = job
                 self._order.append(job.id)
+                self._measure(job)
             self._forget_old()
             self._save()
         for known in resume:
@@ -384,6 +402,7 @@ class JobQueue:
                 job.status = HELD
                 self._jobs[job.id] = job
                 self._order.append(job.id)
+                self._measure(job)
             self._save()
 
     # --- public API -------------------------------------------------------
@@ -431,6 +450,10 @@ class JobQueue:
         # How long it is, from the header: a recording waiting its turn can
         # then say so, instead of being a name and a size until it runs.
         job.audio_duration = audio.probe_seconds(source)
+        # The length comes off the header in milliseconds and is read here;
+        # what the recording looks like takes a pass of ffmpeg, so it does not
+        # hold up the answer to an upload.
+        self._measure(job)
         if not start:
             job.status = HELD
         with self._lock:
@@ -456,6 +479,7 @@ class JobQueue:
             return
         (job.audio_duration, job.size_bytes,
          job.source_created_at) = entry_facts(entry)
+        self._measure(job)
 
     def summarize(self, entry_id, overrides=None, start=True):
         """Queue the summary of a library entry and return its :class:`Job`.
@@ -636,6 +660,52 @@ class JobQueue:
         """Write the queue down from outside the lock-holding methods."""
         with self._lock:
             self._save()
+
+    # --- what a recording looks like --------------------------------------
+
+    def _measure(self, job):
+        """Ask for this job's drawing, if it has not got one already."""
+        if job.loudness is None:
+            self._measuring.put(job.id)
+            self._ensure_measurer()
+
+    def _ensure_measurer(self):
+        with self._lock:
+            if self._measurer_thread and self._measurer_thread.is_alive():
+                return
+            self._measurer_thread = threading.Thread(
+                target=self._measure_work, name="waveform", daemon=True)
+            self._measurer_thread.start()
+
+    def _measure_work(self):
+        """One recording measured at a time, for as long as any are waiting."""
+        while True:
+            try:
+                job_id = self._measuring.get(timeout=30)
+            except queue.Empty:
+                return      # nothing left to draw; a new job starts a new one
+            job = self.get(job_id)
+            if job is None or job.loudness is not None:
+                continue
+            try:
+                job.loudness = self._shape_of(job)
+            except Exception:       # noqa: BLE001 - a picture, not the work
+                job.loudness = None
+
+    def _shape_of(self, job):
+        """Where this job's drawing comes from: its entry, or its file.
+
+        A summary has no recording of its own — it is about one — and the
+        entry it is about has very probably been measured already, when it was
+        transcribed."""
+        if job.entry_id:
+            try:
+                return waveform.entry_loudness(self.library.get(job.entry_id))
+            except LibraryError:
+                return None
+        if not job.source or not os.path.isfile(job.source):
+            return None
+        return self._measurer(job.source)
 
     def _ensure_worker(self):
         with self._lock:

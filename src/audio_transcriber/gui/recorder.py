@@ -108,6 +108,10 @@ class DeviceRecorder(QWidget):
         self.reload_button.clicked.connect(self.rescan)
         self.level = _level_bar()
         self.mix_level = _level_bar()
+        # Beside each meter, the last few seconds of the same source: the bar
+        # says something is arriving, the trace says what.
+        self.trace = widgets.TraceMeter()
+        self.mix_trace = widgets.TraceMeter()
         self.test_button = QPushButton(t("gui.rec_test"))
         self.test_button.setToolTip(t("gui.rec_test_tip"))
         self.test_button.clicked.connect(self.toggle_test)
@@ -149,13 +153,17 @@ class DeviceRecorder(QWidget):
             row.addWidget(widget, 1)
             # The meter sits on the row of the source it measures, which is
             # the only labelling it needs.
-            row.addWidget(self.reload_button if widget is self.host_apis
-                          else self.level)
+            if widget is self.host_apis:
+                row.addWidget(self.reload_button)
+            else:
+                row.addWidget(self.level)
+                row.addWidget(self.trace)
             layout.addLayout(row)
         mix_row = QHBoxLayout()
         mix_row.addWidget(self.mix_enabled)
         mix_row.addWidget(self.mix_sources, 1)
         mix_row.addWidget(self.mix_level)
+        mix_row.addWidget(self.mix_trace)
         layout.addLayout(mix_row)
         buttons = QHBoxLayout()
         buttons.addWidget(self.button)
@@ -411,29 +419,33 @@ class DeviceRecorder(QWidget):
         device that gave up."""
         if self._session is not None:
             self.elapsed.setText(format_clock(self._session.elapsed_seconds))
-            self._show_levels(self._session.levels)
+            self._show_levels(self._session.levels, self._session.trail())
             if self._session.error or not self._session.running:
                 self.stop()
             return
         if self._monitor is None:
             return
-        self._show_levels(self._monitor.levels)
+        self._show_levels(self._monitor.levels, self._monitor.trail())
         self.verdict.setText(options.speech_verdict(*self._monitor.measure()))
         if self._monitor.error or not self._monitor.running:
             self.stop_test()
         elif time.monotonic() - self._test_started > MAX_TEST_SECONDS:
             self.stop_test(timed_out=True)
 
-    def _show_levels(self, levels):
+    def _show_levels(self, levels, trails=()):
         """Draw the input levels: the answer to "is anything arriving at all".
 
         One bar per source, so a loopback that gives nothing is visible even
         when the microphone next to it is working — with a single mixed bar it
-        would not be."""
+        would not be. And, beside each bar, the last few seconds of the same
+        source, which is the answer to the question after that one."""
         levels = list(levels or [])
+        trails = list(trails or [])
         self.level.setValue(options.level_percent(levels[0] if levels else 0))
         self.mix_level.setValue(
             options.level_percent(levels[1] if len(levels) > 1 else 0))
+        self.trace.show_trail(trails[0] if trails else [])
+        self.mix_trace.show_trail(trails[1] if len(trails) > 1 else [])
 
     # --- what is remembered -----------------------------------------------
 

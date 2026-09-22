@@ -37,9 +37,12 @@ import os
 import sys
 import threading
 import wave
+from collections import deque
 from dataclasses import dataclass, field
 
 import numpy as np
+
+from . import waveform
 
 #: A device that records what goes into it.
 INPUT = "input"
@@ -624,6 +627,12 @@ class _Capture:
         #: Peak of the last block read, one per source, primary first. Read by
         #: the interface on a timer to draw a level meter.
         self.levels = [0.0]
+        #: The same peaks, kept: the last few seconds of each source, oldest
+        #: first. A meter says how loud it is *now*; two recordings — one of a
+        #: conversation, one of a fan — look the same on it and quite
+        #: different here.
+        self._trail_length = waveform.trail_length(block_seconds)
+        self._trails = [deque(maxlen=self._trail_length)]
         self._backends = backends
         self._block = max(1, int(self.samplerate * block_seconds))
         self._streams = []
@@ -661,7 +670,35 @@ class _Capture:
         self._close()
         with self._lock:
             self.levels = [0.0] * len(self.levels)
+            for trail in self._trails:
+                trail.clear()
         return None
+
+    def _remember(self, levels):
+        """Append one block's peaks to the trace. Called holding the lock."""
+        while len(self._trails) < len(levels):
+            # The second source is opened with the first, but a trace that
+            # started one block early would be one block out of step with it.
+            self._trails.append(deque([0.0] * len(self._trails[0]),
+                                      maxlen=self._trail_length))
+        for trail, level in zip(self._trails, levels, strict=False):
+            trail.append(level)
+
+    def trail(self):
+        """The last few seconds of each source, oldest first.
+
+        Always the full width, padded at the front with silence while the
+        recording is younger than the trace is long: a picture that grows from
+        nothing to full width for the first five seconds, and then scrolls,
+        is two different pictures.
+
+        A copy, because the reader is the interface's timer and the writer is
+        the capture thread. Like the levels it is filled while paused too: a
+        paused recording is exactly when somebody is looking at the trace to
+        see whether the microphone works."""
+        with self._lock:
+            return [[0.0] * (self._trail_length - len(trail)) + list(trail)
+                    for trail in self._trails]
 
     def pause(self):
         """Keep the devices and the meters, stop consuming what they give."""
@@ -742,6 +779,7 @@ class _Capture:
                 # see whether the microphone works.
                 with self._lock:
                     self.levels = levels
+                    self._remember(levels)
                     self._loudest = max(self._loudest, *levels)
                 if self._paused.is_set():
                     continue

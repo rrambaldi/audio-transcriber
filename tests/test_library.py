@@ -335,3 +335,30 @@ def test_naming_speakers_in_a_transcript_that_has_none_is_refused(library,
     entry.write_transcript("Buongiorno a tutti.\n", [])
     with pytest.raises(LibraryError):
         entry.name_speakers({"SPEAKER_00": "Anna"})
+
+
+# --- what the recording looks like ----------------------------------------
+
+def test_a_waveform_is_written_and_read_back(library, recording):
+    """A file beside the transcript, like the subtitles: derived from the
+    recording, and losing it costs only the second it takes to measure it
+    again."""
+    entry = library.create(source=recording)
+    assert entry.read_waveform() is None            # nobody has measured it
+    entry.write_waveform([0, 500, 1000])
+    assert entry.read_waveform() == [0, 500, 1000]
+    assert os.path.basename(entry.waveform_path) == "waveform.json"
+
+
+def test_a_measured_silence_is_not_the_same_as_an_unmeasured_recording(
+        library, recording):
+    entry = library.create(source=recording)
+    entry.write_waveform([0, 0, 0])
+    assert entry.read_waveform() == [0, 0, 0]
+
+
+def test_deleting_an_entry_takes_its_waveform_with_it(library, recording):
+    entry = library.create(source=recording)
+    entry.write_waveform([1, 2, 3])
+    library.remove(entry)
+    assert not os.path.exists(entry.waveform_path)

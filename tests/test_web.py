@@ -4,11 +4,12 @@ The queue itself lives in :mod:`audio_transcriber.jobs` and is tested in
 ``test_jobs.py``, which needs no web framework. What is left here needs
 FastAPI, an optional extra, and is skipped without it."""
 import os
+import pathlib
 
 import pytest
 
 from audio_transcriber import jobs as jobs_module
-from audio_transcriber import paths
+from audio_transcriber import paths, waveform
 
 fastapi = pytest.importorskip("fastapi", reason="the [web] extra is not installed")
 from fastapi.testclient import TestClient  # noqa: E402
@@ -40,7 +41,10 @@ def queue():
         job.words = 3
         done.append(job)
 
-    return jobs_module.JobQueue(SETTINGS, runner=runner)
+    # A stub measurer: the files in these tests are a handful of bytes, and
+    # running ffmpeg on each of them would buy a picture of nothing.
+    return jobs_module.JobQueue(SETTINGS, runner=runner,
+                                measurer=lambda path: [1, 500, 1000])
 
 
 @pytest.fixture
@@ -895,3 +899,55 @@ def test_the_log_can_be_emptied(client):
     assert response.status_code == 200
     assert response.json()["cleared"] is True
     assert client.get("/api/log").json()["lines"] == []
+
+
+# --- what a recording looks like ------------------------------------------
+
+def test_the_list_carries_the_drawings_it_already_has(client, queue):
+    """Already measured, so the list hands them over with the rest of the row;
+    never measured, so the row says so and asks for it separately."""
+    drawn = queue.library.create(title="Board meeting")
+    drawn.write_transcript("hello\n", [])
+    drawn.write_waveform([0, 500, 1000])
+    plain = queue.library.create(title="Corridor")
+    plain.write_transcript("hello\n", [])
+    listed = {item["title"]: item["loudness"]
+              for item in client.get("/api/library").json()["entries"]}
+    assert listed == {"Board meeting": [0, 500, 1000], "Corridor": None}
+
+
+def test_an_entry_measures_itself_once_and_keeps_it(client, queue, monkeypatch):
+    entry = queue.library.create(title="Board meeting")
+    entry.write_transcript("hello\n", [])
+    (pathlib.Path(entry.path) / "source.wav").write_bytes(b"pretend audio")
+    entry.update(source={"stored": "source.wav", "mode": "copy"})
+
+    runs = []
+
+    def measure(path, *arguments, **options):
+        runs.append(path)
+        return [2, 4, 8]
+
+    monkeypatch.setattr(waveform, "loudness_of_file", measure)
+    answer = client.get(f"/api/library/{entry.id}/waveform").json()
+    assert answer["loudness"] == [2, 4, 8]
+    assert answer["scale"] == waveform.SCALE
+    # Kept in the entry, so the next reader — this page, the window, or a
+    # restart of either — never pays for it again.
+    assert entry.read_waveform() == [2, 4, 8]
+    assert client.get(f"/api/library/{entry.id}/waveform").json()["loudness"] == [2, 4, 8]
+    assert len(runs) == 1
+
+
+def test_an_entry_whose_recording_lives_elsewhere_has_no_drawing(client, queue):
+    """--library-store reference points at a file outside the entry, which
+    stored_audio refuses on purpose. No picture is the honest answer."""
+    entry = queue.library.create(title="Somewhere else")
+    entry.write_transcript("hello\n", [])
+    answer = client.get(f"/api/library/{entry.id}/waveform")
+    assert answer.status_code == 200
+    assert answer.json()["loudness"] is None
+
+
+def test_asking_an_unknown_entry_what_it_looks_like_is_a_404(client):
+    assert client.get("/api/library/2099-01-01_0000_nope/waveform").status_code == 404

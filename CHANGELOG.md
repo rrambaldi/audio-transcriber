@@ -6,6 +6,35 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- **A recording can be seen as well as read.** Two drawings of the same
+  thing — how loud it was, moment by moment — in both the window and the page.
+
+  While you record, the last five seconds scroll past beside the level meter,
+  one column every tenth of a second. The meter stays: it answers whether
+  anything is arriving at all, and that is worth its own bar. The trace answers
+  the question after it, which the bar cannot — a meter holding steady at two
+  thirds and a meter moving with every syllable are the same meter, and only
+  one of them is somebody talking. Same decibel scale, floored at -60 dBFS, so
+  the newest column is exactly what the bar is showing.
+
+  And under the name of every recording, in the library and in the queue, the
+  whole of it at once. An hour of meeting and an hour of empty room have the
+  same date, the same length and the same model, and they look nothing alike.
+  It is four hundred measurements kept with the entry in `waveform.json`,
+  written while the recording is being transcribed — the audio is decoded then
+  anyway, so it costs nothing — and derived like the subtitles, so deleting it
+  loses a second of ffmpeg and nothing else.
+
+  A recording filed before this existed is measured the first time somebody
+  looks at a row of it, once, and kept afterwards. One at a time, and only for
+  the rows on screen: measuring is a pass of ffmpeg over the whole file, and a
+  library of forty must not start forty of them to draw a page. A queued
+  recording is measured on a thread of its own rather than behind the
+  transcriptions, because a drawing that arrives after the job it describes is
+  a drawing of nothing anybody is still looking at.
+
 ## [0.9.0] — 2026-09-17
 
 ### Added

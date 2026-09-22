@@ -12,6 +12,11 @@ said.
 """
 import html
 import os
+import threading
+
+# Imported by name: this panel's own "queue" is the window's job queue, and a
+# module of that name beside it is a trap set for the next reader.
+from queue import Empty, Queue
 
 from PySide6.QtCore import Qt, QTimer, QUrl, Signal
 from PySide6.QtGui import QDesktopServices, QFont, QGuiApplication
@@ -40,13 +45,14 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from .. import waveform
 from ..diarization import speakers_in
 from ..formatting import format_clock
 from ..i18n import t
 from ..jobs import DONE, FAILED, FINISHED, RUNNING
-from ..library import MAX_NOTES, LibraryError
+from ..library import MAX_NOTES, Entry, LibraryError
 from ..summary import SummaryError
-from . import multimedia, options, symbols, theme
+from . import multimedia, options, symbols, theme, widgets
 from .speakers_dialog import SpeakersDialog, first_lines
 
 #: Typing in the search box is not a query per keystroke: searching reads every
@@ -56,6 +62,11 @@ SEARCH_DELAY_MS = 350
 #: How often a queued summary is asked whether it is finished. It may be
 #: behind an hour of transcription, so this is a heartbeat, not a wait.
 SUMMARY_POLL_MS = 1000
+
+#: How often the list asks whether another recording has been measured. The
+#: measuring happens on a thread of its own; this is only the hand-over, and
+#: it stops as soon as there is nothing left to hand over.
+WAVE_POLL_MS = 400
 
 #: Gutter on either side of the splitter handle, so the list and the reading
 #: pane are not flush against the bar that separates them.
@@ -91,6 +102,17 @@ class LibraryPanel(QWidget):
         self._notes_dirty = False
         self._audio_path = None
         self._summary_job = None
+        #: Recordings filed before this program could draw them have never
+        #: been measured, and measuring one is a pass of ffmpeg over the whole
+        #: file. So it happens on a thread, one at a time, and the drawings
+        #: land in the rows as they are finished rather than holding the list.
+        self._wanted = Queue()
+        self._measured = Queue()
+        self._measurer = None
+        #: Asked for once and not again: the list is re-read on every search
+        #: keystroke, and a recording that cannot be measured must not send
+        #: ffmpeg after it each time.
+        self._asked = set()
 
         self._build_table()
         self._build_reader()
@@ -105,6 +127,9 @@ class LibraryPanel(QWidget):
         #: is done.
         self.summary_timer = QTimer(self)
         self.summary_timer.timeout.connect(self._check_summary)
+        self.wave_timer = QTimer(self)
+        self.wave_timer.setInterval(WAVE_POLL_MS)
+        self.wave_timer.timeout.connect(self._take_measurements)
         self.reload()
 
     # --- construction -----------------------------------------------------
@@ -131,6 +156,13 @@ class LibraryPanel(QWidget):
         header = self.table.horizontalHeader()
         header.setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
         header.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
+        # The title column draws the name with the shape of the recording
+        # under it. The rows have to be told to take their height from what
+        # is in them, or the drawing is simply clipped away: the horizontal
+        # header above has nothing to do with how tall a row is.
+        self.table.setItemDelegateForColumn(1, widgets.WaveTitleDelegate(self.table))
+        self.table.verticalHeader().setSectionResizeMode(
+            QHeaderView.ResizeMode.ResizeToContents)
         self.table.itemSelectionChanged.connect(self._selection_changed)
 
     def _build_reader(self):
@@ -335,8 +367,11 @@ class LibraryPanel(QWidget):
                                           "model", "notes")):
                 item = QTableWidgetItem(row[key])
                 item.setData(Qt.ItemDataRole.UserRole, row["id"])
+                if column == 1:
+                    item.setData(widgets.LOUDNESS_ROLE, row["loudness"])
                 self.table.setItem(index, column, item)
         self.table.blockSignals(False)
+        self._want_measurements()
 
         if not self._rows:
             self.entry = None
@@ -345,6 +380,64 @@ class LibraryPanel(QWidget):
         index = next((i for i, row in enumerate(self._rows) if row["id"] == keep), 0)
         self.table.selectRow(index)
         self._selection_changed()
+
+    # --- what each recording looks like -----------------------------------
+
+    def _want_measurements(self):
+        """Ask for the drawings this list is missing, newest row first."""
+        missing = [(row["id"], row["path"]) for row in self._rows
+                   if not row["loudness"] and row["id"] not in self._asked]
+        if not missing:
+            return
+        for wanted in missing:
+            self._asked.add(wanted[0])
+            self._wanted.put(wanted)
+        if self._measurer is None or not self._measurer.is_alive():
+            self._measurer = threading.Thread(target=self._measure,
+                                              name="library-waveform",
+                                              daemon=True)
+            self._measurer.start()
+        self.wave_timer.start()
+
+    def _measure(self):
+        """One recording read through at a time, off the interface's thread.
+
+        Nothing here touches a widget: what it finds goes into a queue, and
+        :meth:`_take_measurements` — which does run on the interface's thread
+        — puts it in the row. Qt does not forgive the other arrangement."""
+        while True:
+            try:
+                entry_id, path = self._wanted.get(timeout=5)
+            except Empty:
+                return
+            try:
+                found = waveform.entry_loudness(Entry(path))
+            except Exception:       # noqa: BLE001 - a picture, not the work
+                found = None
+            if found:
+                self._measured.put((entry_id, found))
+
+    def _take_measurements(self):
+        """Move finished drawings into the rows, and stop when there are none."""
+        drawn = False
+        while True:
+            try:
+                entry_id, found = self._measured.get_nowait()
+            except Empty:
+                break
+            for index, row in enumerate(self._rows):
+                if row["id"] != entry_id:
+                    continue
+                row["loudness"] = found
+                item = self.table.item(index, 1)
+                if item is not None:
+                    item.setData(widgets.LOUDNESS_ROLE, found)
+                    drawn = True
+        if drawn:
+            self.table.viewport().update()
+        if (self._wanted.empty() and self._measured.empty()
+                and (self._measurer is None or not self._measurer.is_alive())):
+            self.wave_timer.stop()
 
     def selected_id(self):
         items = self.table.selectedItems()

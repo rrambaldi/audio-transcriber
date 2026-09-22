@@ -40,6 +40,14 @@ because a transcription that takes an hour is easier to watch than to wait for.
 - **Browse the library**: search the transcripts and notes, open an entry, play
   the recording while reading along, jump to any moment from its timestamp,
   write notes, rename, delete, download the text or the timestamps.
+- **See the recording under its name**, in the library and in the queue: how
+  loud it was from start to end. An hour of meeting and an hour of empty room
+  have the same date, the same length and the same model, and they do not look
+  alike at all. It is drawn from four hundred measurements kept with the entry
+  — written while the recording was being transcribed, when the audio is
+  decoded anyway — and an entry from before that is measured the first time a
+  row of it is on screen, one at a time, because measuring is a pass of ffmpeg
+  over the whole file and a library of forty must not start forty of them.
 
 Every finished job is filed in the library, exactly as `--library` does, and
 the page's library list is the same entries `audio-transcriber library list`
@@ -71,6 +79,12 @@ floor at -60 dBFS, the same scale the desktop window uses, so ordinary speech
 fills about two thirds. And a recording that never rose above silence says so
 when it stops — the file is still there and can still be transcribed, but you
 find out now rather than from an empty transcript.
+
+**Beside it, the last five seconds**, one column every tenth of a second,
+oldest on the left. The meter answers whether anything is arriving; the trace
+answers what — a bar holding steady at two thirds and a bar moving with every
+syllable are the same bar, and only one of them is a voice. It is read on the
+same decibel scale, so the newest column is exactly what the meter is showing.
 
 What the browser cannot offer, and the window can: choosing the audio system
 (MME, DirectSound, WASAPI), recording what the speakers are playing, and mixing
@@ -274,6 +288,7 @@ using it directly. `GET /api/docs` serves the generated schema.
 | `GET /api/library/{id}/transcript.json` | the timestamped segments |
 | `GET /api/library/{id}/subtitles.srt` · `.vtt` | the entry cut into subtitles on the spot; `?preset=`, `?chars=`, `?words=` |
 | `GET /api/library/{id}/audio` | the recording, with range requests so seeking works |
+| `GET /api/library/{id}/waveform` | how loud it is slice by slice, measuring it once if nobody has yet |
 | `POST /api/library/{id}/summary` | queue a summary (`{"engine": "", "length": ""}`); returns a job to poll |
 | `GET /api/library/{id}/summary.md` | the summary as a download |
 | `DELETE /api/library/{id}/summary` | throw the summary away; the transcript is untouched |

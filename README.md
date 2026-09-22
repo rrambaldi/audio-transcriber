@@ -187,7 +187,8 @@ ID                          DATE        LENGTH  WORDS  TITLE
 
 Each entry holds the original recording, `transcript.txt`, `transcript.json`
 (segments with timestamps and speakers), `notes.md` for you to write in,
-`summary.md` if you asked for one, and `metadata.json` recording how it was
+`summary.md` if you asked for one, `waveform.json` so a list can draw the shape
+of the recording under its name, and `metadata.json` recording how it was
 transcribed and how long it took.
 Everything is plain text or JSON, readable without this program.
 

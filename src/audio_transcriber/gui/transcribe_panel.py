@@ -412,6 +412,7 @@ class TranscribePanel(QWidget):
         for index, row in enumerate(rows):
             title = _cell(row["title"], row["id"])
             title.setData(widgets.DETAILS_ROLE, row["details"])
+            title.setData(widgets.LOUDNESS_ROLE, row["loudness"])
             self.table.setItem(index, 0, title)
             self.table.setItem(index, 1, _cell(row["status"], row["id"]))
             self._set_progress(index, row)
@@ -471,6 +472,12 @@ class TranscribePanel(QWidget):
         for index, row in enumerate(rows):
             self.table.item(index, 0).setText(row["title"])
             self.table.item(index, 0).setData(widgets.DETAILS_ROLE, row["details"])
+            # Measured on its own thread while the row waits its turn, so it
+            # arrives some polls after the row does. Only written when it
+            # changes: this runs every second for as long as anything is
+            # running, and four hundred numbers a time is not free.
+            if self.table.item(index, 0).data(widgets.LOUDNESS_ROLE) != row["loudness"]:
+                self.table.item(index, 0).setData(widgets.LOUDNESS_ROLE, row["loudness"])
             self.table.item(index, 1).setText(row["status"])
             self.table.item(index, 1).setToolTip(row["tooltip"] or "")
             self._set_progress(index, row)

@@ -13,7 +13,7 @@ import time
 from collections import namedtuple
 from datetime import datetime
 
-from . import paths, titles
+from . import paths, titles, waveform
 from .audio import duration_seconds, load_audio
 from .cleaning import clean_segments, paragraphs_from_blob, to_paragraphs
 from .config import read_prompt
@@ -67,13 +67,15 @@ class Cancelled(Exception):
     turned into a plain transcript."""
 
 
-#: What one run produces. ``info`` is the backend/device/model record, and
+#: What one run produces. ``info`` is the backend/device/model record,
 #: ``reference`` is what a given text corrected, on the runs that were handed
-#: one, and ``None`` on every other.
+#: one, and ``None`` on every other, and ``waveform`` is how loud the audio
+#: was slice by slice — measured here because the audio is already decoded,
+#: and measuring it anywhere else means decoding the file a second time.
 Result = namedtuple("Result",
                     "text segments info audio_duration elapsed diarized prompt "
-                    "reference",
-                    defaults=(None,))
+                    "reference waveform",
+                    defaults=(None, None))
 
 
 class EmptyTranscription(Exception):
@@ -262,6 +264,7 @@ def run(source, settings, prompt=None, progress=None):
 
     audio = load_audio(source)
     audio_duration = duration_seconds(audio)
+    shape = waveform.loudness(audio)
     report(*STAGE_DECODED)
 
     token = diar_model = None
@@ -328,7 +331,8 @@ def run(source, settings, prompt=None, progress=None):
            STAGE_LAYING_OUT)
     return Result(text=text, segments=segments, info=info,
                   audio_duration=audio_duration, elapsed=time.time() - started,
-                  diarized=diarized, prompt=prompt, reference=proofed)
+                  diarized=diarized, prompt=prompt, reference=proofed,
+                  waveform=shape)
 
 
 
@@ -347,6 +351,10 @@ def file_in_library(library, source, result, settings, title=None, store="copy")
             title = suggested
     entry = library.create(source=source, title=title, store=store)
     entry.write_transcript(result.text, result.segments)
+    if result.waveform:
+        # Free: the run had the whole recording in memory anyway. Every entry
+        # filed from here on can draw itself without reading its audio again.
+        entry.write_waveform(result.waveform)
     entry.update(
         audio={"duration_seconds": round(result.audio_duration, 2),
                "sample_rate": 16000},

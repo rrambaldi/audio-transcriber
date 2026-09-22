@@ -663,6 +663,12 @@ MESSAGES = {
         "gui.rec_silent":
             "That recording never rose above silence. Check the level meter and the "
             "source before trusting the next one - the file is in the queue anyway.",
+        "gui.rec_trace_name": "The last five seconds",
+        "gui.rec_trace_tip":
+            "The last five seconds of what this source is giving, read on the same "
+            "scale as the meter beside it. The meter says whether anything is "
+            "arriving; this says whether it is a voice or the room, which a bar "
+            "holding steady at one height cannot.",
         "gui.rec_test": "Test audio",
         "gui.rec_test_stop": "Stop the test",
         "gui.rec_open_folder_tip":
@@ -1575,6 +1581,12 @@ MESSAGES = {
         "gui.rec_silent":
             "Quella registrazione non e' mai salita sopra il silenzio. Controlla la barra del "
             "livello e la sorgente prima di fidarti della prossima: il file e' comunque in coda.",
+        "gui.rec_trace_name": "Gli ultimi cinque secondi",
+        "gui.rec_trace_tip":
+            "Gli ultimi cinque secondi di quello che da' questa sorgente, letti sulla "
+            "stessa scala della barra accanto. La barra dice se sta arrivando qualcosa; "
+            "questa dice se e' una voce o la stanza, cosa che una barra ferma a "
+            "un'altezza sola non puo' dire.",
         "gui.rec_test": "Prova audio",
         "gui.rec_test_stop": "Ferma la prova",
         "gui.rec_open_folder_tip":

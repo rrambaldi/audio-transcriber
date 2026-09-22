@@ -8,6 +8,7 @@ Layout of an entry::
         transcript.txt    the readable text, exactly what the CLI writes
         transcript.json   segments with timestamps and speakers, for tooling
         summary.md        the short version, when one was asked for
+        waveform.json     how loud it was, moment by moment, for the row
         notes.md          yours to write
 
 Two rules make the format durable. Everything a human needs is plain text, so
@@ -33,6 +34,7 @@ TRANSCRIPT_FILENAME = "transcript.txt"
 SEGMENTS_FILENAME = "transcript.json"
 NOTES_FILENAME = "notes.md"
 SUMMARY_FILENAME = "summary.md"
+WAVEFORM_FILENAME = "waveform.json"
 SUBTITLE_FILENAMES = {"srt": "subtitles.srt", "vtt": "subtitles.vtt"}
 SOURCE_STEM = "source"
 
@@ -111,6 +113,10 @@ class Entry:
     @property
     def segments_path(self):
         return os.path.join(self.path, SEGMENTS_FILENAME)
+
+    @property
+    def waveform_path(self):
+        return os.path.join(self.path, WAVEFORM_FILENAME)
 
     @property
     def notes_path(self):
@@ -215,6 +221,26 @@ class Entry:
 
     def has_summary(self):
         return os.path.exists(self.summary_path)
+
+    def write_waveform(self, loudness):
+        """Store how loud the recording was, slice by slice.
+
+        Derived, like the subtitles: it is measured from the recording and can
+        be measured again, so deleting it loses nothing but the second or two
+        it takes to read the file back."""
+        from . import waveform
+
+        write_atomic(self.waveform_path, waveform.as_document(loudness) + "\n")
+        return self
+
+    def read_waveform(self):
+        """The stored loudness, or ``None`` when nobody has measured this yet.
+
+        ``None`` rather than an empty list, because the two are different
+        answers: nothing measured, against measured and silent throughout."""
+        from . import waveform
+
+        return waveform.read_file(self.waveform_path)
 
     def subtitle_path(self, kind="srt"):
         """Where the subtitles of this entry live, whether or not they exist."""

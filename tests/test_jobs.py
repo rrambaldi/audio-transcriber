@@ -3,6 +3,7 @@
 The queue is tested with a fake runner: nothing here loads a model, touches the
 network or takes longer than a few milliseconds. It needs neither FastAPI nor
 Qt, because it belongs to neither front end."""
+import json
 import pathlib
 import threading
 import time
@@ -38,7 +39,10 @@ def queue():
         job.words = 3
         done.append(job)
 
-    return jobs_module.JobQueue(SETTINGS, runner=runner)
+    # A stub measurer: the files in these tests are a handful of bytes, and
+    # running ffmpeg on each of them would buy a picture of nothing.
+    return jobs_module.JobQueue(SETTINGS, runner=runner,
+                                measurer=lambda path: [1, 500, 1000])
 
 
 def wait_for(queue, job_id, statuses=("done", "failed"), timeout=5.0):
@@ -681,3 +685,49 @@ def test_a_row_written_before_the_duration_was_recorded_fills_it_in(queue,
 
     monkeypatch.setattr(jobs_module.audio, "probe_seconds", lambda path: 3600.0)
     assert restarted().get(job.id).audio_duration == 3600.0
+
+
+# --- what a queued recording looks like ------------------------------------
+
+def test_a_queued_recording_is_measured_without_waiting_for_its_turn(queue, tmp_path):
+    """The drawing is worth having while the row is still worth looking at,
+    so it does not go behind an hour of transcription in the same queue."""
+    source = tmp_path / "meeting.wav"
+    source.write_bytes(b"not really audio")
+    job = queue.submit(str(source), title="Weekly", start=False)
+    deadline = time.time() + 5.0
+    while job.loudness is None and time.time() < deadline:
+        time.sleep(0.01)
+    assert job.loudness == [1, 500, 1000]
+    assert queue.get(job.id).as_dict()["loudness"] == [1, 500, 1000]
+
+
+def test_a_recording_that_cannot_be_measured_leaves_the_row_alone(tmp_path):
+    def runner(job):
+        job.words = 0
+
+    def measurer(path):
+        return None
+
+    unmeasured = jobs_module.JobQueue(SETTINGS, runner=runner, measurer=measurer)
+    source = tmp_path / "meeting.wav"
+    source.write_bytes(b"x")
+    job = unmeasured.submit(str(source), start=False)
+    time.sleep(0.2)
+    assert job.loudness is None
+    assert job.as_dict()["loudness"] is None
+
+
+def test_the_drawing_is_not_written_into_the_queue_file(queue, tmp_path):
+    """Four hundred numbers a job, rewritten on every change, would swamp a
+    state file meant to be read by a person. Measuring one again after a
+    restart is a single pass of ffmpeg."""
+    source = tmp_path / "meeting.wav"
+    source.write_bytes(b"not really audio")
+    job = queue.submit(str(source), start=False)
+    deadline = time.time() + 5.0
+    while job.loudness is None and time.time() < deadline:
+        time.sleep(0.01)
+    with open(queue.state_path(), encoding="utf-8") as handle:
+        written = json.load(handle)
+    assert "loudness" not in written["jobs"][0]

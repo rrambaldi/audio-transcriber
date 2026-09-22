@@ -395,6 +395,9 @@ def job_row(job):
         "id": job.id,
         "title": row_title(job),
         "details": job_details(job),
+        #: How loud the recording is, slice by slice, or None until the queue
+        #: has measured it. Drawn under the name by widgets.JobDelegate.
+        "loudness": job.loudness,
         "status": status_text(job),
         "progress": int(job.progress or 0),
         "model": job.settings.get("model") or AUTO,
@@ -514,6 +517,11 @@ def entry_row(entry):
         "model": transcription.get("model") or "-",
         "notes": t("gui.notes_yes") if entry.has_written_notes() else "",
         "diarized": bool(transcription.get("diarized")),
+        # Only what is already on disk. Measuring an entry that has never been
+        # measured is a pass of ffmpeg over the whole recording, and a list
+        # must not do forty of those to draw itself: the panel asks for the
+        # missing ones in the background, a row at a time.
+        "loudness": entry.read_waveform(),
         "path": entry.path,
     }
 
@@ -683,7 +691,7 @@ LEVEL_FLOOR_DB = -60.0
 def level_percent(peak):
     """A peak amplitude (0..1) as a bar length (0..100), in decibels.
 
-    A linear bar makes a useless meter: ordinary speech peaks at around a tenth
+    A linear bar makes a useless meter: ordinary speech loudness at around a tenth
     of full scale and would barely leave the left edge, so a working microphone
     would look like a broken one. Decibels are how every audio meter is read —
     speech at -20 dBFS fills two thirds of this one."""

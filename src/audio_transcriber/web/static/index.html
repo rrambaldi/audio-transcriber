@@ -60,6 +60,10 @@
             <span id="record-time" class="timer" aria-live="off"></span>
             <span id="record-level" class="level" role="progressbar" aria-valuemin="0"
                   aria-valuemax="100" aria-valuenow="0" aria-live="off" hidden><span></span></span>
+            <!-- The last few seconds, drawn. The meter beside it answers "is
+                 anything arriving"; this one answers "is it the room or is it
+                 me", which a single bar cannot. -->
+            <span id="record-trace" class="trace" role="img" aria-live="off" hidden></span>
           </p>
           <p class="note" id="record-hint" aria-live="polite" data-t="record_hint">Records from your microphone, in this browser. Nothing is sent until you start the transcription.</p>
           <audio id="record-preview" controls hidden></audio>

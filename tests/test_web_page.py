@@ -462,6 +462,39 @@ def test_recording_shows_the_input_level(page, script):
     assert "recording_silent" in script
 
 
+def test_recording_shows_the_last_five_seconds_as_well_as_the_level(page, script,
+                                                                    stylesheet):
+    """The meter answers "is anything arriving". The trace beside it answers
+    "is that a voice or is that the room", which one bar cannot."""
+    assert 'id="record-trace"' in page
+    assert "TRACE_COLUMNS = 50" in script           # one column each 100 ms
+    assert "function drawTrace(" in script
+    assert "clearTrace()" in script                 # and it stops when it stops
+    trace = re.search(r"\.trace \{[^}]*\}", stylesheet).group(0)
+    assert "flex: 1 1" in trace                     # folds on a narrow screen
+
+
+def test_a_recording_is_drawn_under_its_name_in_both_lists(page, script,
+                                                           stylesheet):
+    """An hour of meeting and an hour of empty room have the same date, the
+    same length and the same model."""
+    assert "function wavePath(" in script
+    assert "function waveDrawing(" in script
+    # In the library list and in the queue list, both from the same function.
+    assert script.count("waveDrawing(") >= 3
+    assert 'preserveAspectRatio: "none"' in script
+    # An svg with a viewBox has an intrinsic ratio: without a height it grows
+    # to a quarter of the row's width.
+    rule = re.search(r"\.row \.wave \{[^}]*\}", stylesheet).group(0)
+    assert "height:" in rule
+
+
+def test_the_drawing_is_read_on_the_same_scale_as_the_meter(script):
+    """One scale rule for the two pictures and the bar, not three."""
+    drawing = script[script.index("function wavePath("):]
+    assert "levelPercent(" in drawing[:drawing.index("\n}")]
+
+
 @pytest.mark.parametrize("scheme", ["light", "dark"])
 def test_the_palette_meets_wcag_aa(stylesheet, scheme):
     light, dark = palettes(stylesheet)

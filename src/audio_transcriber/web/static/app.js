@@ -238,6 +238,8 @@ const I18N = {
     confirm_clear_finished_detail: "The transcriptions stay in the library: nothing is deleted.",
     confirm_clear_finished_ok: "Clear the list",
     level_label: "Input level",
+    trace_label: "The last five seconds",
+    wave_label: "How loud the recording is, from start to end",
     recording_silent: "That recording never rose above silence: check that the right microphone is being used before trusting the next one.",
     no_file: "Choose a file, or record something, first.",
     uploading: "Uploading...",
@@ -470,6 +472,8 @@ const I18N = {
     confirm_clear_finished_detail: "Le trascrizioni restano in libreria: non si cancella nulla.",
     confirm_clear_finished_ok: "Svuota l'elenco",
     level_label: "Livello in ingresso",
+    trace_label: "Gli ultimi cinque secondi",
+    wave_label: "Quanto è forte la registrazione, dall'inizio alla fine",
     recording_silent: "Quella registrazione non e' mai salita sopra il silenzio: controlla che sia il microfono giusto prima di fidarti della prossima.",
     no_file: "Scegli prima un file, o registra qualcosa.",
     uploading: "Caricamento...",
@@ -507,6 +511,18 @@ const el = (tag, props = {}, children = []) => {
   const node = Object.assign(document.createElement(tag), props);
   for (const child of [].concat(children)) {
     if (child) node.append(child);
+  }
+  return node;
+};
+
+/* SVG nodes are not HTML nodes: el() above builds them in the wrong namespace
+   and they draw nothing, and viewBox is not a property you can assign. Hence a
+   second, smaller helper rather than a flag on the first. */
+const SVG_NS = "http://www.w3.org/2000/svg";
+const svg = (tag, attributes = {}) => {
+  const node = document.createElementNS(SVG_NS, tag);
+  for (const [name, value] of Object.entries(attributes)) {
+    node.setAttribute(name, value);
   }
   return node;
 };
@@ -700,6 +716,7 @@ function translatePage() {
   $("source-tabs").setAttribute("aria-label", t("source_tabs"));
   $("view-tabs").setAttribute("aria-label", t("view_tabs"));
   $("record-level").setAttribute("aria-label", t("level_label"));
+  $("record-trace").setAttribute("aria-label", t("trace_label"));
   /* Zero is not a value here, it is "whatever the preset says" - which is what
      the window's spin boxes write in the same place. */
   for (const id of ["subtitle-chars", "subtitle-words"]) {
@@ -1103,6 +1120,44 @@ function levelPercent(peak) {
   return Math.round(((decibels - LEVEL_FLOOR_DB) / -LEVEL_FLOOR_DB) * 100);
 }
 
+/* Levels arrive as whole numbers out of this, the same figure the server
+   writes into an entry's waveform.json. */
+const LOUDNESS_SCALE = 1000;
+
+/* How many columns the live trace holds: one every tenth of a second, which
+   is how often the level is read, so five seconds is fifty of them. */
+const TRACE_COLUMNS = 50;
+
+let trace = [];
+
+function drawTrace() {
+  /* Fifty spans whose heights change, not fifty spans rebuilt: this runs ten
+     times a second for as long as the recording lasts. */
+  const box = $("record-trace");
+  if (box.childElementCount !== TRACE_COLUMNS) {
+    box.textContent = "";
+    for (let column = 0; column < TRACE_COLUMNS; column += 1) {
+      box.append(el("span"));
+    }
+  }
+  const columns = box.children;
+  for (let column = 0; column < TRACE_COLUMNS; column += 1) {
+    /* Oldest on the left, so the trace runs the way the clock beside it does
+       and the newest column is the one the level meter is showing. */
+    const behind = TRACE_COLUMNS - 1 - column;
+    const peak = trace[trace.length - 1 - behind];
+    const height = peak === undefined ? 0 : levelPercent(peak);
+    columns[column].style.height = `${Math.max(height, 2)}%`;
+  }
+}
+
+function clearTrace() {
+  trace = [];
+  const box = $("record-trace");
+  box.textContent = "";
+  box.hidden = true;
+}
+
 function watchLevel(stream) {
   /* A timer counting up says the browser is recording; it does not say
      anything is arriving. The classic failure is an hour of digital silence
@@ -1117,6 +1172,8 @@ function watchLevel(stream) {
   const samples = new Float32Array(analyser.fftSize);
   const meter = $("record-level");
   meter.hidden = false;
+  trace = [];
+  $("record-trace").hidden = false;
   levelTimer = setInterval(() => {
     analyser.getFloatTimeDomainData(samples);
     let peak = 0;
@@ -1125,6 +1182,11 @@ function watchLevel(stream) {
     const percent = levelPercent(peak);
     meter.firstElementChild.style.width = `${percent}%`;
     meter.setAttribute("aria-valuenow", percent);
+    /* And the same reading, kept. The meter says how loud it is now; five
+       seconds of it say whether that is a voice or a fan. */
+    trace.push(peak);
+    if (trace.length > TRACE_COLUMNS) trace.shift();
+    drawTrace();
   }, 100);
 }
 
@@ -1135,6 +1197,7 @@ function stopWatchingLevel() {
   meter.firstElementChild.style.width = "0%";
   meter.setAttribute("aria-valuenow", 0);
   meter.hidden = true;
+  clearTrace();
   if (levelContext) {
     levelContext.close();
     levelContext = null;
@@ -1372,6 +1435,10 @@ function renderJobs(jobs) {
                     textContent: isSummary
                       ? t("row_summary_title", { title: job.title })
                       : job.title }),
+        // Measured in the background while the row waits its turn, so a queue
+        // of half a dozen files named by date is told apart before any of
+        // them has been transcribed.
+        job.loudness && job.loudness.length ? waveDrawing(job.loudness) : null,
         meta,
         job.error ? el("div", { className: "error", textContent: job.error }) : null,
       ]),
@@ -1519,6 +1586,97 @@ function watchMachine() {
 
 document.addEventListener("visibilitychange", watchMachine);
 
+/* --- what a recording looks like ---------------------------------------- */
+
+/* The same reading as the level meter, at the length of a whole recording:
+   decibels with the floor at -60 dBFS. Drawn linearly, a row of speech would be
+   a flat line with four bumps in it. What arrives is the loudness of each
+   slice rather than its loudest instant, because over three seconds of
+   anything there is always one bang: see waveform.py. */
+function wavePath(loudness, width = 400, height = 100) {
+  const columns = loudness.length;
+  if (!columns) return "";
+  const step = width / columns;
+  const middle = height / 2;
+  /* Never quite nothing: a silent passage should read as a thin line through
+     the middle, which is a statement, and not as a gap, which looks broken. */
+  const arms = loudness.map((level) =>
+    Math.max(0.6, (levelPercent(level / LOUDNESS_SCALE) / 100) * middle));
+  const points = [];
+  for (let column = 0; column < columns; column += 1) {
+    const x = column * step;
+    const y = (middle - arms[column]).toFixed(2);
+    points.push(`${x.toFixed(2)} ${y}`, `${(x + step).toFixed(2)} ${y}`);
+  }
+  for (let column = columns - 1; column >= 0; column -= 1) {
+    const x = column * step;
+    const y = (middle + arms[column]).toFixed(2);
+    points.push(`${(x + step).toFixed(2)} ${y}`, `${x.toFixed(2)} ${y}`);
+  }
+  return `M${points.join("L")}Z`;
+}
+
+function waveDrawing(loudness) {
+  /* preserveAspectRatio="none" on purpose: stretching the picture sideways to
+     whatever the row is wide is exactly what is wanted of it. */
+  const box = svg("svg", { class: "wave", viewBox: "0 0 400 100",
+                           preserveAspectRatio: "none", focusable: "false",
+                           role: "img", "aria-label": t("wave_label") });
+  box.append(svg("path", { d: wavePath(loudness) }));
+  return box;
+}
+
+/* Entries filed before this program could draw them have no measurement yet,
+   and making one is a pass of ffmpeg over the whole recording. So they are
+   asked for one at a time, and only for the rows somebody has actually
+   scrolled to: a library of forty would otherwise spend a quarter of an hour
+   of a two-core server drawing pictures nobody looked at. */
+const waveWanted = [];
+let waveBusy = false;
+
+const waveWatcher = window.IntersectionObserver
+  ? new IntersectionObserver((seen, watcher) => {
+      for (const row of seen) {
+        if (!row.isIntersecting) continue;
+        watcher.unobserve(row.target);
+        waveWanted.push(row.target);
+        drawNextWave();
+      }
+    }, { rootMargin: "200px" })
+  : null;
+
+function waveSlot(entryId) {
+  /* Empty, but the height of the drawing that will replace it: a list that
+     reflows under the pointer as the pictures arrive is worse than one that
+     waits a moment for them. */
+  const slot = el("span", { className: "wave-slot" });
+  slot.dataset.entry = entryId;
+  if (waveWatcher) waveWatcher.observe(slot);
+  else waveWanted.push(slot);
+  return slot;
+}
+
+async function drawNextWave() {
+  if (waveBusy) return;
+  const slot = waveWanted.shift();
+  if (!slot) return;
+  waveBusy = true;
+  try {
+    if (slot.isConnected) {
+      const found = await fetch(api(`library/${encodeURIComponent(slot.dataset.entry)}/waveform`))
+        .then((answer) => (answer.ok ? answer.json() : null));
+      if (found && found.loudness && found.loudness.length && slot.isConnected) {
+        slot.replaceWith(waveDrawing(found.loudness));
+      }
+    }
+  } catch (error) {
+    /* No drawing, and the row is still a row. An entry whose recording lives
+       elsewhere on disk never gets one, and that is not an error either. */
+  }
+  waveBusy = false;
+  if (waveWanted.length) drawNextWave();
+}
+
 /* --- the library ------------------------------------------------------- */
 
 let searchTimer = null;
@@ -1541,6 +1699,11 @@ async function refreshLibrary() {
   }
   const box = $("library");
   box.textContent = "";
+  // The rows about to go are the ones those were waiting for. disconnect()
+  // also lets go of the slots the watcher is still holding, which a list
+  // re-read on every keystroke would otherwise accumulate.
+  waveWanted.length = 0;
+  if (waveWatcher) waveWatcher.disconnect();
   // The count is announced, and is also worth having on screen: a search that
   // returns nothing and a search that returns forty looked the same.
   $("library-status").textContent = query
@@ -1561,6 +1724,11 @@ async function refreshLibrary() {
     box.append(el("div", { className: "row" }, [
       el("div", {}, [
         el("div", { className: "title", textContent: entry.title }),
+        // Under the name, because it says what the recording is in a way the
+        // facts under it cannot: an hour of meeting and an hour of empty room
+        // have the same date, the same length and the same model.
+        entry.loudness && entry.loudness.length ? waveDrawing(entry.loudness)
+                                          : waveSlot(entry.id),
         el("div", { className: "meta", textContent: facts }),
       ]),
       open,

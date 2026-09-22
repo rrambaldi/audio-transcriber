@@ -470,6 +470,26 @@ menu .spacer { flex: 1; }
    rest cannot answer "is anything arriving?". */
 .level { flex: 1 1 6rem; max-width: 12rem; height: 8px; background: var(--line); align-self: center; }
 .level > span { display: block; height: 100%; width: 0; background: var(--signal); }
+/* The last five seconds of it, one column every tenth of a second, oldest on
+   the left. Sized like the meter and not wider: on a 320px screen the button,
+   the clock, the meter and this have to share one line and then fold. */
+.trace {
+  display: flex;
+  align-items: center;
+  gap: 1px;
+  flex: 1 1 8rem;
+  max-width: 14rem;
+  height: 28px;
+  align-self: center;
+}
+.trace > span {
+  flex: 1 1 0;
+  min-height: 1px;
+  background: var(--signal);
+  /* Grown from the middle, so a quiet passage reads as a thin line through
+     the centre rather than as a row of stubs standing on the floor. */
+  align-self: center;
+}
 .timer { font-variant-numeric: tabular-nums; font-size: 1.4rem; font-family: var(--serif); color: var(--muted); }
 button.recording { color: var(--clay); border-color: var(--clay); border-bottom-width: 2px; }
 audio { width: 100%; margin-top: 1rem; }
@@ -561,6 +581,17 @@ legend { color: var(--muted); padding: 0; }
   color: var(--muted);
 }
 .row .actions { display: flex; gap: 1rem; }
+/* What the recording looks like, under its name. Drawn in the colour of a
+   meter's empty track rather than the accent: it sits under forty titles, and
+   forty accents would out-shout every one of them. An explicit height,
+   because an SVG with a viewBox has an intrinsic ratio and would otherwise
+   grow to a quarter of the row's width. */
+.row .wave { display: block; width: 100%; height: 26px; margin-top: 0.35rem; }
+.row .wave path { fill: var(--line); }
+/* The same height, empty, while the drawing is still being measured: a list
+   that reflows under the pointer as the pictures land is worse than one that
+   holds the space for them. */
+.row .wave-slot { display: block; height: 26px; margin-top: 0.35rem; }
 .row .state { color: var(--signal); }
 .row .state.failed { color: var(--clay); }
 .bar { grid-column: 1 / -1; height: 4px; background: var(--line); margin-top: 0.5rem; }

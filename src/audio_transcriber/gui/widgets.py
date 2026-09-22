@@ -1,20 +1,30 @@
-"""Two small widgets the window needs and Qt does not have, and one errand.
+"""Small widgets the window needs and Qt does not have, and one errand.
 
-Both come out of the same finding: the tab asked everything at once. A
+Most of them come out of the same finding: the tab asked everything at once. A
 :class:`Disclosure` puts what is rarely changed away without hiding that it
 exists — the closed row says what is inside — and :class:`JobDelegate` gives
-a queue row two lines, so the facts about a recording can sit under its title
-instead of in four columns that are empty for most of a job's life.
+a queue row two lines and a drawing, so the facts about a recording, and the
+shape of the recording itself, can sit under its title instead of in four
+columns that are empty for most of a job's life. :class:`TraceMeter` is the
+last few seconds of what a microphone is giving, beside the meter that says
+how loud it is this instant.
 
-They live here rather than in the panel because the library tab wants the
-same two things, and a second copy is how two lists start looking different.
+They live here rather than in the panels because more than one tab wants them,
+and a second copy is how two lists start looking different.
 """
 import os
 import subprocess
 import sys
 
-from PySide6.QtCore import QSize, Qt, QUrl, Signal
-from PySide6.QtGui import QDesktopServices, QFont, QFontMetrics, QPalette
+from PySide6.QtCore import QRectF, QSize, Qt, QUrl, Signal
+from PySide6.QtGui import (
+    QColor,
+    QDesktopServices,
+    QFont,
+    QFontMetrics,
+    QPainter,
+    QPalette,
+)
 from PySide6.QtWidgets import (
     QApplication,
     QFrame,
@@ -29,10 +39,14 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from . import style, theme
+from ..i18n import t
+from . import style, theme, wave
 
 #: Where the second line of a queue row is kept.
 DETAILS_ROLE = Qt.ItemDataRole.UserRole + 1
+
+#: Where a row keeps the shape of its recording, when it has been measured.
+LOUDNESS_ROLE = Qt.ItemDataRole.UserRole + 2
 
 
 def reveal(path):
@@ -205,6 +219,46 @@ class Disclosure(QWidget):
         self.button.setChecked(bool(open_now) and self.button.isEnabled())
 
 
+class TraceMeter(QWidget):
+    """The last few seconds of one source, drawn.
+
+    Beside the level meter and not instead of it: the meter answers "is
+    anything arriving at all", which is one question, and this answers "is
+    that a voice or is that the room", which is another. A bar holding steady
+    at two thirds and a bar moving with every syllable are the same bar.
+    """
+
+    #: Room for five seconds at a glance, and no more: it shares a line with
+    #: the source menus, the buttons and the meter it belongs to.
+    WIDTH_PX = 108
+    HEIGHT_PX = 22
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self._values = []
+        self.setFixedSize(self.WIDTH_PX, self.HEIGHT_PX)
+        self.setToolTip(t("gui.rec_trace_tip"))
+        self.setAccessibleName(t("gui.rec_trace_name"))
+
+    def show_trail(self, values):
+        """Take one reading of the capture's trace, and redraw if it moved."""
+        values = [float(value) for value in (values or [])]
+        if values == self._values:
+            return
+        self._values = values
+        self.update()
+
+    def paintEvent(self, event):
+        if not self._values:
+            return
+        painter = QPainter(self)
+        # Highlight is this palette's accent — the same blue the level meter
+        # fills with — so the trace and the bar beside it are one instrument.
+        wave.draw_trace(painter, QRectF(self.rect()), self._values,
+                        QColor(self.palette().color(QPalette.ColorRole.Highlight)))
+        painter.end()
+
+
 class JobDelegate(QStyledItemDelegate):
     """Paints a queue row as a title with its facts underneath.
 
@@ -220,6 +274,16 @@ class JobDelegate(QStyledItemDelegate):
     #: How much larger the title is than the facts under it. The page sets a
     #: row title at 1.15rem against a 0.85rem meta line.
     TITLE_SCALE = 1.15
+
+    #: Height of the drawing under the facts. Room to read a shape in, and no
+    #: more: this is a row in a list, not a waveform editor. The space is
+    #: reserved whether or not the measurement has arrived, because a row that
+    #: grows taller under the pointer when it does is worse than a row with a
+    #: gap in it for a second.
+    WAVE_PX = 18
+
+    #: Air between the facts and the drawing, so the two read as two things.
+    WAVE_GAP = 3
 
     def paint(self, painter, option, index):
         details = index.data(DETAILS_ROLE)
@@ -271,6 +335,15 @@ class JobDelegate(QStyledItemDelegate):
             area.left(), area.top() + line, area.width(), facts.height(),
             int(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter),
             facts.elidedText(details, Qt.TextElideMode.ElideRight, area.width()))
+        # And the recording itself, in the colour the facts are set in: it
+        # belongs with them, under the name, not over it.
+        loudness = index.data(LOUDNESS_ROLE)
+        if loudness:
+            wave.draw_wave(painter,
+                           QRectF(area.left(),
+                                  area.top() + line + facts.height() + self.WAVE_GAP,
+                                  area.width(), self.WAVE_PX - self.WAVE_GAP),
+                           loudness, painter.pen().color())
         painter.restore()
 
     def sizeHint(self, option, index):
@@ -281,9 +354,68 @@ class JobDelegate(QStyledItemDelegate):
         self.initStyleOption(settings, index)
         title = theme.title_font(settings.font, self.TITLE_SCALE)
         line = QFontMetrics(title).height() + settings.fontMetrics.height()
-        return QSize(size.width(), line + self.PADDING * 2)
+        return QSize(size.width(), line + self.WAVE_PX + self.PADDING * 2)
 
 
+
+
+class WaveTitleDelegate(QStyledItemDelegate):
+    """Paints a library title with the shape of its recording under it.
+
+    The library is a table and not a list of two-line rows, because the date,
+    the length and the model are worth a column each there. So the drawing
+    goes where the name is, under it, in the one column wide enough to hold a
+    picture — which is also where somebody looking for a recording is already
+    looking.
+    """
+
+    #: Space above and below the pair.
+    PADDING = 3
+
+    #: Height of the drawing. The same figure as :class:`JobDelegate`, and for
+    #: the same reason: the queue and the library are one list seen twice.
+    WAVE_PX = JobDelegate.WAVE_PX
+
+    #: Air between the name and the drawing.
+    WAVE_GAP = JobDelegate.WAVE_GAP
+
+    def paint(self, painter, option, index):
+        settings = QStyleOptionViewItem(option)
+        self.initStyleOption(settings, index)
+        title = settings.text
+        settings.text = ""              # the background and selection only
+        widget = settings.widget
+        painting = widget.style() if widget else QApplication.style()
+        painting.drawControl(QStyle.ControlElement.CE_ItemViewItem,
+                             settings, painter, widget)
+
+        area = settings.rect.adjusted(4, self.PADDING, -4, -self.PADDING)
+        ink = settings.palette.color(QPalette.ColorRole.Text)
+        painter.save()
+        painter.setPen(ink)
+        painter.setFont(settings.font)
+        metrics = painter.fontMetrics()
+        line = metrics.height()
+        painter.drawText(
+            area.left(), area.top(), area.width(), line,
+            int(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter),
+            metrics.elidedText(title, Qt.TextElideMode.ElideRight, area.width()))
+        loudness = index.data(LOUDNESS_ROLE)
+        if loudness:
+            # Muted against the ground actually behind it, so a selected row
+            # keeps its drawing instead of losing it into the wash.
+            selected = bool(option.state & QStyle.StateFlag.State_Selected)
+            ground = settings.palette.color(QPalette.ColorRole.Midlight if selected
+                                            else QPalette.ColorRole.Base)
+            wave.draw_wave(painter,
+                           QRectF(area.left(), area.top() + line + self.WAVE_GAP,
+                                  area.width(), self.WAVE_PX - self.WAVE_GAP),
+                           loudness, style.readable(ink, ground))
+        painter.restore()
+
+    def sizeHint(self, option, index):
+        size = super().sizeHint(option, index)
+        return QSize(size.width(), size.height() + self.WAVE_PX)
 
 
 class JobActions(QWidget):

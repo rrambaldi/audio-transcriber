@@ -112,12 +112,22 @@ for a single run.
 ├── transcript.json   segments with timestamps, and speakers when diarized
 ├── subtitles.srt     cues, when subtitles were asked for; see subtitles.md
 ├── subtitles.vtt     the same cues as WebVTT, if that was asked for too
+├── waveform.json     how loud it was, moment by moment
 └── notes.md          yours to write
 ```
 
 The subtitle files are optional and derived: the cues are cut from
 `transcript.json` whenever something asks, so an entry can be exported again
 later with different numbers, and deleting them loses nothing.
+
+`waveform.json` is derived in the same way: four hundred levels, whole numbers
+out of a thousand, measured from the recording so a list can draw its shape
+under its name. Each one is the loudness of its stretch — the root mean square
+— and not the loudest instant in it: over three seconds of anything there is
+always one bang, and measured that way every drawing came out a solid block. It is written while the recording is being transcribed, when
+the audio is decoded anyway and it costs nothing; an entry that predates it, or
+one whose file it lost, is measured the first time somebody looks at it. It has
+no bearing on the transcript, and deleting it loses a second of ffmpeg.
 
 The id is `YYYY-MM-DD_HHMM_slug`, so entries sort chronologically by name. Two
 recordings filed in the same minute get a numeric suffix rather than

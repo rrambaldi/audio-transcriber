@@ -664,3 +664,39 @@ def test_starting_twice_is_refused(tmp_path):
     with pytest.raises(recording.RecordingError):
         session.start()
     session.stop()
+
+
+# --- the last few seconds --------------------------------------------------
+
+def test_the_trace_keeps_the_recent_past_and_lets_go_of_the_rest():
+    """The meter says how loud it is now; this says what the last five
+    seconds were. Older than that is not the recent past."""
+    mic = source(samplerate=1000)
+    stream = FakeStream(fill=0.4)
+    monitor = recording.Monitor(
+        mic, backends=(FakeEngine(recording.PORTAUDIO, [mic], stream=stream),
+                       FakeEngine(recording.SYSTEM)),
+        block_seconds=0.1)
+    monitor.start()
+    wait_until(lambda: monitor.levels[0] > 0)
+    trail = monitor.trail()[0]
+    # Always the full five seconds wide, padded with silence at the front
+    # until there has been five seconds of it.
+    assert len(trail) == 50
+    assert trail[-1] == pytest.approx(0.4)
+    wait_until(lambda: all(value > 0 for value in monitor.trail()[0]))
+    assert len(monitor.trail()[0]) == 50
+    monitor.stop()
+    # Stopped is stopped: a trace left standing beside a meter at zero is a
+    # picture of a microphone that is no longer open.
+    assert set(monitor.trail()[0]) == {0.0}
+
+
+def test_a_shorter_block_means_more_of_them_in_the_same_five_seconds():
+    mic = source(samplerate=1000)
+    monitor = recording.Monitor(
+        mic, backends=(FakeEngine(recording.PORTAUDIO, [mic],
+                                  stream=FakeStream(fill=0.2)),
+                       FakeEngine(recording.SYSTEM)),
+        block_seconds=0.05)
+    assert len(monitor.trail()[0]) == 100

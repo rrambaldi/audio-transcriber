@@ -29,6 +29,7 @@ from .. import (
     pipeline,
     subtitles,
     vocabularies,
+    waveform,
 )
 from ..backends import BACKENDS
 from ..config import OUTPUTS, output_of
@@ -406,6 +407,11 @@ def register_routes(app):
                 "vocabulary": transcription.get("vocabulary"),
                 "has_notes": entry.has_written_notes(),
                 "subtitles": entry.subtitles(),
+                # Only what has already been measured. An index page that
+                # decoded forty recordings to draw itself would be an index
+                # page nobody waits for; the rows on screen ask for the rest,
+                # one at a time, from the endpoint below.
+                "loudness": entry.read_waveform(),
             })
         return {"entries": entries, "query": q}
 
@@ -591,6 +597,23 @@ def register_routes(app):
             headers={"Content-Disposition": f'attachment; filename="{entry.id}.{kind}"',
                      "X-Subtitle-Cues": str(len(cue_list)),
                      "X-Subtitle-Preset": str(spec.get("name") or "")})
+
+    @app.get("/api/library/{entry_id}/waveform")
+    def entry_waveform(entry_id: str, request: Request):
+        """How loud the recording is, slice by slice, for the row's drawing.
+
+        Measured the first time somebody looks and kept in the entry
+        afterwards, so this costs one pass of ffmpeg per recording ever rather
+        than one per page. Recordings filed before this program could draw
+        them arrive here; ones transcribed since were measured while they were
+        being transcribed, and are already on disk.
+
+        ``loudness`` is ``null``, not an error, for an entry whose audio lives
+        somewhere else on disk (``--library-store reference``): there is
+        nothing here to measure, and the row simply has no drawing."""
+        entry = entry_or_404(request, entry_id)
+        return {"id": entry.id, "scale": waveform.SCALE,
+                "loudness": waveform.entry_loudness(entry)}
 
     @app.get("/api/library/{entry_id}/audio")
     def stream_audio(entry_id: str, request: Request):
