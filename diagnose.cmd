@@ -12,12 +12,12 @@ rem      diagnose.cmd .local\summary\gold.srt
 rem      diagnose.cmd .local\summary\gold.srt .local\summary
 rem
 rem  It pulls, finds whichever builds of llama-server are installed, asks each
-rem  one what it can see, and summarises the same transcript on each: the
-rem  graphics card through Vulkan, the OpenVINO runtime, and the processor on
-rem  its own. Three runs of the same recording are the only way to say which
-rem  device is worth using, because a summary is not faster or slower in a
-rem  straight line - a bigger context changes what the model is asked, not
-rem  only how long it takes.
+rem  one what it can see, and then makes the measurements of the round: the
+rem  same recording, summarised once per thing being tried.
+rem
+rem  The list of runs is the block marked "the runs this round", and it is
+rem  meant to be edited between rounds. The rule it exists to enforce: between
+rem  two runs exactly one thing changes, or the two cannot be compared.
 rem
 rem  Each run leaves two files. "<name>.numbers.json" is numbers and nothing
 rem  else, safe to send to anybody; "<name>.page.md" is the summary itself and
@@ -50,6 +50,7 @@ set "AT_SRT=%~1"
 if "%AT_SRT%"=="" set "AT_SRT=.local\summary\gold.srt"
 if not exist "%AT_SRT%" goto :no_transcript
 
+set "AT_MADE="
 set "AT_OUT=%~2"
 if "%AT_OUT%"=="" set "AT_OUT=.local\summary"
 if not exist "%AT_OUT%" mkdir "%AT_OUT%"
@@ -89,17 +90,21 @@ echo === what each build can see
 call :devices "vulkan" "%AT_LLAMA_VULKAN%"
 call :devices "openvino" "%AT_LLAMA_OPENVINO%"
 
-rem --- the three runs --------------------------------------------------------
-rem The same transcript, the same shape, three devices. Anything else that
-rem differed between them would make the numbers incomparable, which is the
-rem one thing a comparison cannot survive.
-call :measure "G-vulkan" "%AT_LLAMA_VULKAN%" ""
-call :measure "H-openvino" "%AT_LLAMA_OPENVINO%" ""
-call :measure "I-cpu" "%AT_LLAMA_VULKAN%" "--device cpu"
+rem --- the runs this round ---------------------------------------------------
+rem What was settled in the round before: Vulkan runs the same model on the
+rem Arc four times faster than the eight cores do, and the OpenVINO build
+rem gives up after six seconds on this model - so both of those are measured
+rem and neither needs measuring again.
+rem
+rem What is being asked now: the reading passes are being cut off mid-list
+rem ("BUDGET_EXHAUSTED"), so the second run says more and nothing else
+rem differs.
+call :measure "J-vulkan" "%AT_LLAMA_VULKAN%" ""
+call :measure "K-vulkan-900" "%AT_LLAMA_VULKAN%" "--map-tokens 900"
 
 echo.
-echo === done. These carry no meeting in them and can be sent as they are:
-dir /b "%AT_OUT%\*.numbers.json"
+echo === done. These are this round's, and carry no meeting in them:
+echo  %AT_MADE%
 
 :done
 if not defined AT_CLICKED goto :quit
@@ -128,6 +133,7 @@ rem else to say on the command line.
 if "%~2"=="" goto :measure_skipped
 echo.
 echo === %~1 - starting at %TIME%
+set "AT_MADE=%AT_MADE% %AT_OUT%\%~1.numbers.json"
 python tools\diagnose_summary.py "%AT_SRT%" --out "%AT_OUT%\%~1" --shape sections --engine llamacpp --llama-server "%~2" %~3
 if errorlevel 1 echo   %~1: this run did not finish - the lines above say why.
 echo === %~1 - finished at %TIME%
