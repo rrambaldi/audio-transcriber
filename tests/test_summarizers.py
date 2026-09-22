@@ -1160,3 +1160,36 @@ def test_the_plan_can_be_told_to_leave_a_model_out(monkeypatch):
                                    skip=[first.model.name])
 
     assert second is None or second.model.name != first.model.name
+
+
+def test_a_reading_pass_can_be_given_more_room_than_the_plan_allows():
+    """The first diagnosis found every pass stopping on its allowance after
+    the first fifth of its chunk. Whether that allowance is the cause or a
+    symptom is one number away, so the number has to be reachable."""
+    from audio_transcriber import summary as summarising
+    from audio_transcriber.summarizers import reading
+
+    seen = {}
+
+    class Pipeline:
+        def ask(self, system, prompt, max_new_tokens=0, think=False):
+            seen.setdefault("budgets", []).append(max_new_tokens)
+            return "- Un punto qualunque. [0:10]\n"
+
+        def close(self):
+            pass
+
+    material = summarising.Material(
+        title="prova", language="it", duration=600.0,
+        sentences=summarising.sentences_of(
+            [{"text": f"Frase numero {n} del verbale.", "start": n * 4.0,
+              "end": n * 4.0 + 3.0} for n in range(200)]))
+    chosen = plan.resolve_plan(plan.LLAMACPP, ram=32.0, total=64.0, cores=4)
+    # The fake writes no headings, so the root has nothing to parse and says
+    # so. What is being checked is what the reading passes were allowed.
+    with pytest.raises(SummaryError):
+        reading.summarize_with(lambda: Pipeline(), chosen, material,
+                               {"summary_map_tokens": 1234,
+                                "summary_chunk_tokens": 400})
+    assert seen["budgets"][0] == 1234
+    assert chosen.map_answer_tokens != 1234      # the plan itself is untouched

@@ -333,6 +333,18 @@ def summarize_with(open_pipeline, chosen, material, settings=None,
     trace = tracing.Trace()
     fingerprint = partials.settings_key(settings, chosen)
     budget = int(settings.get("summary_chunk_tokens") or chosen.chunk_tokens)
+    # How much a reading pass may say. It comes from the plan, and it is worth
+    # being able to override: the first real diagnosis found every pass
+    # stopping on this allowance after the first fifth of its chunk, and
+    # whether that is the cause or a symptom is one number away.
+    answer_tokens = int(settings.get("summary_map_tokens")
+                        or chosen.map_answer_tokens)
+    if answer_tokens != chosen.map_answer_tokens:
+        chosen = chosen._replace(map_answer_tokens=answer_tokens)
+        room = prompting.budget_for(chosen.context_tokens, answer_tokens)
+        if budget > room:
+            print(t("summary.no_room_for_answer", chunk=budget, answer=answer_tokens,
+                    context=chosen.context_tokens, room=room), file=sys.stderr)
     parts = prompting.chunks(sentences, budget, chosen.chunk_overlap, language)
     if not parts:
         raise SummaryError(t("summary.empty"))

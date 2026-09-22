@@ -902,6 +902,10 @@ MESSAGES = {
             "  The reading passes covered {read}% of the recording and the "
             "page carries {written}%. The difference did not survive the "
             "folding, and nothing else would have said so.",
+        "summary.no_room_for_answer":
+            "  A chunk of {chunk} tokens and an answer of {answer} do not "
+            "both fit in {context}: there is room for {room}. The chunks will "
+            "be cut short of what was asked for.",
         "summary.low_coverage":
             "  This page mentions only {percent}% of the recording's "
             "minutes. It reads like a summary of the whole of it and is not "
@@ -1845,6 +1849,10 @@ MESSAGES = {
             "  Le passate di lettura hanno coperto il {read}% della "
             "registrazione, la pagina ne porta il {written}%. La differenza "
             "non e' sopravvissuta alla fusione, e nessun altro l'avrebbe detto.",
+        "summary.no_room_for_answer":
+            "  Un chunk da {chunk} token e una risposta da {answer} non ci "
+            "stanno insieme in {context}: c'e' posto per {room}. I chunk "
+            "verranno tagliati rispetto a quanto chiesto.",
         "summary.low_coverage":
             "  Questa pagina nomina solo il {percent}% dei minuti della "
             "registrazione. Sembra il riassunto di tutta e non lo e'.",

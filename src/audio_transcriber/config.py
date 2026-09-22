@@ -60,6 +60,7 @@ DEFAULTS = {
     "summary_model": None,        # None/"auto": the largest one this machine holds
     "summary_device": None,       # None/"auto": the Intel iGPU, then the CPU
     "summary_chunk_tokens": None,  # None: the module's default
+    "summary_map_tokens": None,    # None: what the plan allows a pass to say
     "summary_context_tokens": None,  # None: the tier's own context window
     "summary_kv_type": None,      # None: the tier's own cache precision
     "summary_reduce_fanin": None,  # None: as many partials as the context holds
@@ -101,6 +102,7 @@ SCHEMA = {
     ("summary", "model"): ("summary_model", str),
     ("summary", "device"): ("summary_device", str),
     ("summary", "chunk_tokens"): ("summary_chunk_tokens", int),
+    ("summary", "map_tokens"): ("summary_map_tokens", int),
     ("summary", "context_tokens"): ("summary_context_tokens", int),
     ("summary", "kv_type"): ("summary_kv_type", str),
     ("summary", "reduce_fanin"): ("summary_reduce_fanin", int),

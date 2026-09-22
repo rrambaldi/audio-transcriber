@@ -191,6 +191,12 @@ def main(argv=None):
     parser.add_argument("--language", default="it")
     parser.add_argument("--context-tokens", type=int, default=None,
                         help="override the plan's context window")
+    parser.add_argument("--map-tokens", type=int, default=None, metavar="N",
+                        help="how much a single reading pass may say; the "
+                             "plan's figure is what a pass stops on when it "
+                             "is cut off, so this is the lever to try")
+    parser.add_argument("--chunk-tokens", type=int, default=None, metavar="N",
+                        help="how much transcript goes into one pass")
     parser.add_argument("--keep-cache", action="store_true",
                         help="do not clear the partial answers first")
     args = parser.parse_args(argv)
@@ -208,6 +214,8 @@ def main(argv=None):
         "summary_style": args.style,
         "summary_length": args.length,
         "summary_context_tokens": args.context_tokens,
+        "summary_map_tokens": args.map_tokens,
+        "summary_chunk_tokens": args.chunk_tokens,
         "language": args.language,
     }
     settings = {name: value for name, value in settings.items()
@@ -266,7 +274,9 @@ def main(argv=None):
         "engines": installed,
         "asked": {"engine": engine_name, "style": args.style,
                   "length": args.length,
-                  "context_tokens": args.context_tokens},
+                  "context_tokens": args.context_tokens,
+                  "map_tokens": args.map_tokens,
+                  "chunk_tokens": args.chunk_tokens},
         "prompt_version": prompting.PROMPT_VERSION,
         "plan": the_plan,
         "cache_cleared": None if args.keep_cache else clear_cache(settings),
