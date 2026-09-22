@@ -46,6 +46,9 @@ if (SOURCE / "audio_transcriber").is_dir():      # running from a checkout
 
 from audio_transcriber import summary as summarising  # noqa: E402
 from audio_transcriber.summarizers import (  # noqa: E402
+    ENGINES,
+    EXTRACTIVE,
+    is_installed,
     partials,
     plan,
     prompting,
@@ -82,6 +85,33 @@ def machine():
         found["ram_available_gb"] = round(memory.available / 1024 ** 3, 1)
     except Exception:                       # noqa: BLE001 - a nice-to-have
         found["ram_total_gb"] = found["ram_available_gb"] = None
+    return found
+
+
+def why_missing(name):
+    """What stopped an engine from counting as installed, in one line.
+
+    "Not available" is the answer that wastes an afternoon. An import that
+    fails because a package is absent and one that fails because a DLL was
+    found in the wrong order are the same sentence here and nothing alike on
+    the disk."""
+    if name != "openvino":
+        return None
+    try:
+        import openvino_genai  # noqa: F401
+    except BaseException as refused:                     # noqa: BLE001
+        return f"{type(refused).__name__}: {refused}"
+    return None
+
+
+def engines_here(settings):
+    """Which engines this machine could run, and why the others could not."""
+    found = {}
+    for name in ENGINES:
+        if is_installed(name, settings):
+            found[name] = "installed"
+        else:
+            found[name] = why_missing(name) or "not installed"
     return found
 
 
@@ -191,6 +221,41 @@ def main(argv=None):
               file=sys.stderr)
 
     engine_name = resolve_summarizer(args.engine)
+    installed = engines_here(settings)
+
+    # The whole point of this script is the engine that reads in passes. It
+    # has quietly done the other one once already, on a machine where the
+    # model was one conda environment away, and printed a page of numbers
+    # about a run nobody wanted. Not again.
+    the_plan = ({"error": "the extractive engine loads no model"}
+                if engine_name == EXTRACTIVE
+                else chosen_plan(engine_name, settings))
+
+    # The whole point of this script is the engine that reads in passes. It
+    # has quietly done the other one once already, on a machine where the
+    # model was one conda environment away, and printed a page of numbers
+    # about a run nobody wanted. Not again.
+    if args.engine is None and (engine_name == EXTRACTIVE
+                                or the_plan.get("error")):
+        if engine_name == EXTRACTIVE:
+            print("\nThe extractive engine is the only one this environment "
+                  "has, and it reads in\none pass: no chunks, no folds, "
+                  "nothing to diagnose.", file=sys.stderr)
+        else:
+            print(f"\n{engine_name} is installed but no model will load here:"
+                  f"\n    {the_plan['error']}\nThe run would quietly fall "
+                  "back to quoting sentences, which is not what this\nscript "
+                  "measures.", file=sys.stderr)
+        print("\nWhat each engine said:", file=sys.stderr)
+        for name, state in installed.items():
+            print(f"    {name:<12} {state}", file=sys.stderr)
+        print("\nOn Windows this is nearly always the wrong environment: "
+              "conda's base has no\nopenvino-genai. Activate the one the "
+              "project was installed into and try again.\n"
+              "\n    --engine extractive   run it anyway, on purpose",
+              file=sys.stderr)
+        return 2
+
     report = {
         "schema": 1,
         "when": datetime.now().astimezone().isoformat(timespec="seconds"),
@@ -198,16 +263,19 @@ def main(argv=None):
         "transcript": {"name": source.name, "shape": shape,
                        "sentences": len(material.sentences),
                        "duration_s": material.duration},
+        "engines": installed,
         "asked": {"engine": engine_name, "style": args.style,
                   "length": args.length,
                   "context_tokens": args.context_tokens},
         "prompt_version": prompting.PROMPT_VERSION,
-        "plan": chosen_plan(engine_name, settings),
+        "plan": the_plan,
         "cache_cleared": None if args.keep_cache else clear_cache(settings),
     }
 
     print(f"engine: {engine_name}   model: {report['plan'].get('model')}   "
           f"context: {report['plan'].get('context_tokens')}", file=sys.stderr)
+    if report["plan"].get("error"):
+        print(f"! no plan: {report['plan']['error']}", file=sys.stderr)
     print(f"transcript: {len(material.sentences)} lines, "
           f"{material.duration and round(material.duration)}s\n", file=sys.stderr)
 
@@ -236,6 +304,15 @@ def main(argv=None):
         passes.unlink()
     else:
         content, report["passes"] = None, None
+
+    if result is not None and result.engine == EXTRACTIVE \
+            and engine_name != EXTRACTIVE:
+        # It got all the way in and fell back anyway: the model refused to
+        # load, or ran and gave back nothing usable. Either way the numbers
+        # below would describe quoted sentences. The page says which.
+        print(f"\n{engine_name} fell back to quoting sentences part way "
+              "through. Nothing here\ndescribes a reading pass. What it "
+              "said is in the report, and on the page.", file=sys.stderr)
 
     if result is not None:
         points = summarising.points_of(result.sections)
