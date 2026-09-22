@@ -72,7 +72,7 @@ EVIDENCE_TOKENS = 400
 #: Bumped whenever a prompt here changes. It is part of the cache key of a
 #: partial answer, and a cache that survives a prompt change is a bug that
 #: accumulates rather than a saving.
-PROMPT_VERSION = 1
+PROMPT_VERSION = 2
 
 #: What the transcript is wrapped in inside a prompt. The same two markers in
 #: every language, because they are delimiters rather than prose and because
@@ -146,11 +146,57 @@ PROMPTS = {
             "dalla trascrizione;\n"
             "- niente preamboli e niente commenti: solo il documento chiesto.",
         "map":
-            "Questa e' la parte {part} di {total} di una trascrizione.\n"
-            "Elenca, in italiano, solo quello che compare in QUESTA parte: i "
-            "punti trattati, le decisioni prese e le cose che qualcuno si e' "
-            "impegnato a fare. Un elenco puntato, ogni riga con il minuto.\n\n"
+            "Questa e' la parte {part} di {total} della trascrizione "
+            "automatica di una registrazione parlata: parlato com'e' stato "
+            "detto, con frasi incomplete, ripetizioni ed errori di "
+            "riconoscimento.\n\n"
+            "Prendi APPUNTI su quello che compare in QUESTA parte. Appunti, "
+            "non citazioni.\n\n"
+            "1. RISCRIVI. Ogni appunto e' una frase completa e comprensibile "
+            "da sola, da chi non era presente. Non copiare le parole del "
+            "parlato.\n"
+            "2. Un appunto, una informazione. Se una frase ne contiene tre, "
+            "scrivi tre appunti.\n"
+            "3. Non inventare. Quello che non e' stato detto non lo scrivi; "
+            "quello che non si capisce lo salti.\n"
+            "4. Salta convenevoli, saluti, digressioni personali e problemi "
+            "audio.\n"
+            "5. Usa esattamente le intestazioni qui sotto, in quest'ordine. "
+            "Salta un'intestazione se non hai nulla da metterci, e non "
+            "aggiungerne altre.\n"
+            "6. OGNI riga finisce con il minuto fra parentesi quadre, copiato "
+            "dalla riga della trascrizione da cui viene.{speaker_rule}\n\n"
+            "{sections_block}\n\n{examples}\n"
+            "Ora la parte {part} di {total}:\n\n"
             "{fence_start}\n{transcript}\n{fence_end}",
+        "map_speaker_rule":
+            " Dopo il minuto, fra parentesi tonde, l'etichetta di chi parla.",
+        "map_example":
+            "Esempio. Da questo estratto:\n\n"
+            "{fence_start}\n"
+            "[0:27] eh allora io vorrei cioe' monitorare tutti gli utenti a "
+            "cui e' stata inviata la mail no e poi vedere se sono entrati\n"
+            "[0:35] e poi veder nel momento in cui partito la campagna gli "
+            "vengono assegnati i ticket agli utenti se loro entrano\n"
+            "[14:02] ma si' allora scusa un attimo che ho il cane che abbaia\n"
+            "[14:11] dicevo ho provato a fare una checklist fornitore vera "
+            "con la vecchia interfaccia ci ho messo ventidue minuti con "
+            "quella nuova quattro minuti e dodici secondi\n"
+            "{fence_end}\n\n"
+            "si scrive:\n\n"
+            "## Requisiti\n"
+            "- Serve poter monitorare gli utenti a cui e' stata inviata la "
+            "mail di invito e verificare se hanno fatto il primo accesso. "
+            "[0:27]\n"
+            "- Dopo l'avvio di una campagna occorre sapere se gli utenti a "
+            "cui sono stati assegnati i ticket hanno fatto il login per "
+            "vederli. [0:35]\n"
+            "## Fatti\n"
+            "- Creare una checklist fornitore reale ha richiesto 22 minuti "
+            "con la vecchia interfaccia e 4 minuti e 12 secondi con la "
+            "nuova. [14:11]\n\n"
+            "Il cane che abbaia non e' un appunto, e le due frasi sulla "
+            "checklist sono un appunto solo.\n",
         "evidence":
             "Questi sono passaggi della trascrizione originale, per "
             "controllo.\n\n{fence_start}\n{evidence}\n{fence_end}\n\n"
@@ -221,11 +267,55 @@ PROMPTS = {
             "the transcript;\n"
             "- no preamble and no commentary: only the document asked for.",
         "map":
-            "This is part {part} of {total} of a transcript.\n"
-            "List, in English, only what appears in THIS part: the points "
-            "discussed, the decisions taken, and what somebody committed to "
-            "doing. A bulleted list, every line carrying its minute.\n\n"
+            "This is part {part} of {total} of the automatic transcript of a "
+            "spoken recording: speech as it was said, with unfinished "
+            "sentences, repetitions and recognition errors.\n\n"
+            "Take NOTES on what appears in THIS part. Notes, not quotations."
+            "\n\n"
+            "1. REWRITE. Every note is a complete sentence, understandable on "
+            "its own by somebody who was not there. Do not copy the words of "
+            "the speech.\n"
+            "2. One note, one piece of information. If a sentence holds "
+            "three, write three notes.\n"
+            "3. Do not invent. What was not said you do not write; what "
+            "cannot be understood you skip.\n"
+            "4. Skip pleasantries, greetings, personal digressions and audio "
+            "trouble.\n"
+            "5. Use exactly the headings below, in this order. Skip a heading "
+            "with nothing to put under it, and add none of your own.\n"
+            "6. EVERY line ends with the minute in square brackets, copied "
+            "from the transcript line it came from.{speaker_rule}\n\n"
+            "{sections_block}\n\n{examples}\n"
+            "Now part {part} of {total}:\n\n"
             "{fence_start}\n{transcript}\n{fence_end}",
+        "map_speaker_rule":
+            " After the minute, in round brackets, the label of whoever is "
+            "speaking.",
+        "map_example":
+            "An example. From this extract:\n\n"
+            "{fence_start}\n"
+            "[0:27] right so what I want is to keep an eye on all the users "
+            "the mail went out to you know and then see whether they came in\n"
+            "[0:35] and then see once the campaign has started they get the "
+            "tickets assigned do they actually log in\n"
+            "[14:02] hang on sorry a second the dog is barking\n"
+            "[14:11] anyway I tried building a real supplier checklist it "
+            "took me twenty-two minutes on the old interface four minutes and "
+            "twelve seconds on the new one\n"
+            "{fence_end}\n\n"
+            "one writes:\n\n"
+            "## Requirements\n"
+            "- There has to be a way to see which users the invitation mail "
+            "went to and whether they have signed in for the first time. "
+            "[0:27]\n"
+            "- Once a campaign has started, it has to be possible to tell "
+            "whether the users its tickets were assigned to have logged in to "
+            "see them. [0:35]\n"
+            "## Facts\n"
+            "- Building a real supplier checklist took 22 minutes on the old "
+            "interface and 4 minutes 12 seconds on the new one. [14:11]\n\n"
+            "The barking dog is not a note, and the two sentences about the "
+            "checklist are one note.\n",
         "evidence":
             "These are passages of the original transcript, to check "
             "against.\n\n{fence_start}\n{evidence}\n{fence_end}\n\n"
@@ -392,22 +482,37 @@ def prompts_for(language):
 _SCAFFOLDS = {}
 
 
-def scaffold(language):
+def scaffold(language, types=None):
     """Every line this program's own prompts are made of, as literal text.
 
     What it is for is recognising those lines coming back: a model that
     reproduces the shape it was given has not written anything, and the shape
-    is known exactly because this module wrote it."""
+    is known exactly because this module wrote it.
+
+    Two things have to be in here that are not in the templates, and both are
+    easy to miss. The headings block is generated, so its lines never appear
+    in a template value; and the worked example in the reading prompt is a
+    model answer, which is exactly what a model that has understood nothing
+    hands back. Neither would be recognised, and both would reach the page.
+
+    Kept per language *and per set of kinds*, because the block depends on
+    both: memoised on the language alone, two runs in one process with
+    different kinds would share the wrong scaffold."""
     code = language_of(language)
-    if code not in _SCAFFOLDS:
+    from . import notes
+
+    kinds = tuple(types or notes.DEFAULT_TYPES)
+    if (code, kinds) not in _SCAFFOLDS:
         lines = set()
-        for template in prompts_for(code).values():
+        written = list(prompts_for(code).values())
+        written.append(note_headings(code, kinds))
+        for template in written:
             for line in re.sub(r"\{[^}]*\}", "", template).splitlines():
                 line = line.strip()
                 if len(line) > 3:
                     lines.add(line)
-        _SCAFFOLDS[code] = frozenset(lines)
-    return _SCAFFOLDS[code]
+        _SCAFFOLDS[(code, kinds)] = frozenset(lines)
+    return _SCAFFOLDS[(code, kinds)]
 
 
 def transcript_for(sentences):
@@ -883,10 +988,58 @@ def single_prompt(sentences, language):
         decisions=words["decisions"], actions=words["actions"])
 
 
-def map_prompt(sentences, language, part, total):
-    """The prompt for one chunk of a transcript too long to read at once."""
-    return prompts_for(language)["map"].format(
+def note_headings(language, types=None):
+    """The headings a reading pass is asked for, each with what belongs there.
+
+    Generated rather than written into the template, because which kinds are
+    asked for is a setting: the block is the only part of the prompt that
+    changes between two runs over the same recording, and :func:`scaffold`
+    has to be told so."""
+    from . import notes
+
+    language = language_of(language)
+    lines = []
+    for kind in (types or notes.DEFAULT_TYPES):
+        lines.append(f"## {notes.heading_of(kind, language)}")
+        lines.append(notes.INSTRUCTIONS.get(language, notes.INSTRUCTIONS["en"])
+                     .get(kind, ""))
+    return "\n".join(lines)
+
+
+def map_overhead(language, types=None):
+    """How many tokens of a reading prompt are not the transcript.
+
+    Measured rather than assumed. The default guess of four hundred was right
+    for a prompt of four lines; with the headings and a worked example it is
+    more than twice that, and a chunk sized against the old figure overflows
+    the window by the difference — silently, because what overflows is the end
+    of the transcript and nothing counts it."""
+    empty = map_prompt([], language, 1, 1, types)
+    return estimate_tokens(empty, language)
+
+
+def map_prompt(sentences, language, part, total, types=None):
+    """The prompt for one chunk of a transcript too long to read at once.
+
+    It carries a worked example, and that is not decoration. Told to put the
+    minute on every row, the first reading pass of every measured run put it
+    on none: eight notes, none of them placed, whatever the chunk held and
+    however much room it was given. A small model copies the shape of an
+    example far more reliably than it obeys a sentence describing one.
+
+    The example shows two of the headings, and it is fixed text. While every
+    kind is asked for that is a sample; the day a caller asks for a subset
+    that leaves one of the two out, the example will be showing a heading the
+    rules above forbid, and it will have to be built from the kinds like the
+    block is."""
+    prompts = prompts_for(language)
+    speakers = any(getattr(line, "speaker", None) for line in sentences)
+    return prompts["map"].format(
         part=part, total=total, transcript=transcript_for(sentences),
+        sections_block=note_headings(language, types),
+        examples=prompts["map_example"].format(fence_start=FENCE_START,
+                                               fence_end=FENCE_END),
+        speaker_rule=prompts["map_speaker_rule"] if speakers else "",
         fence_start=FENCE_START, fence_end=FENCE_END)
 
 

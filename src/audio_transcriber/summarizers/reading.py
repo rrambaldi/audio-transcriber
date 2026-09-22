@@ -36,6 +36,7 @@ from ..summary import (
 from ..summary import (
     reduce as reduce_sentences,
 )
+from . import notes as note_reading
 from . import partials, plan, prompting
 from . import trace as tracing
 
@@ -46,6 +47,11 @@ READING_BAND = (10, 85)
 
 #: Where the map stage hands over to the folding, inside that band.
 FOLDING_FROM = 2.0 / 3.0
+
+#: Left free in the window whatever else is asked for: a tokeniser this
+#: program does not have would count the prompt a little differently, and the
+#: failure that costs is the transcript losing its tail.
+CONTEXT_MARGIN = 128
 
 
 def cut_to_fit(sentences, budget, chosen, language="it", tries=3):
@@ -141,18 +147,28 @@ def _map(pipeline, system, parts, language, chosen, report, band,
             print(t("summary.pass_cached", part=index, total=len(parts)),
                   file=sys.stderr)
             status = tracing.REUSED
+        span = (part[0].start if part else None,
+                (part[-1].end or part[-1].start) if part else None)
+        written, unknown = note_reading.read(answer, language, index, span)
         if trace is not None:
             trace.chunk(index=index, total=len(parts),
                         budget=chosen.map_answer_tokens,
                         in_tokens=estimate_tokens(prompt, language),
                         out_tokens=estimate_tokens(answer, language),
-                        notes=len(prompting.points_in(answer)),
-                        status=status,
-                        starts=prompting.point_starts(answer),
-                        span=(part[0].start if part else None,
-                              (part[-1].end or part[-1].start) if part else None))
+                        notes=len(written),
+                        placed=note_reading.placed(written),
+                        unknown_headings=unknown,
+                        status=status, span=span,
+                        starts=[note.ts_start for note in written])
             trace.answers.append(answer)
-        found.append((answer, list(part)))
+            trace.notes.extend(written)
+        # What goes up is the notes, laid out flat, and not the answer they
+        # were read out of: a bridge until sections are written one cluster at
+        # a time and nothing wants a chunk's worth of text in one blob. An
+        # answer nothing could be read out of goes up as it came, because a
+        # pass that produced prose still produced something.
+        found.append((note_reading.as_bullets(written, language) if written
+                      else answer, list(part)))
     if written:
         # This program has no daemon, so the only moment anything can be
         # tidied away is a moment when something was added. A cache that only
@@ -342,10 +358,17 @@ def summarize_with(open_pipeline, chosen, material, settings=None,
                         or chosen.map_answer_tokens)
     if answer_tokens != chosen.map_answer_tokens:
         chosen = chosen._replace(map_answer_tokens=answer_tokens)
-        room = prompting.budget_for(chosen.context_tokens, answer_tokens)
-        if budget > room:
-            print(t("summary.no_room_for_answer", chunk=budget, answer=answer_tokens,
-                    context=chosen.context_tokens, room=room), file=sys.stderr)
+    # What is left for the transcript once the instructions, the worked
+    # example and the answer have had their share. Measured, not guessed: the
+    # reading prompt grew when it gained an example, and a chunk sized against
+    # the old guess overflows the window by the difference — silently, because
+    # what falls off the end is the end of the transcript.
+    room = (int(chosen.context_tokens) - answer_tokens
+            - prompting.map_overhead(language) - CONTEXT_MARGIN)
+    if room > 0 and budget > room:
+        print(t("summary.no_room_for_answer", chunk=budget, answer=answer_tokens,
+                context=chosen.context_tokens, room=room), file=sys.stderr)
+        budget = room
     parts = prompting.chunks(sentences, budget, chosen.chunk_overlap, language)
     if not parts:
         raise SummaryError(t("summary.empty"))

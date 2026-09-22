@@ -32,6 +32,32 @@ All notable changes to this project are documented here. The format follows
   failure is the difference between them. Read and then lost is a different
   bug from never read, and it has its own line.
 
+- **A reading pass now produces notes, and is shown how.** What a pass wrote
+  used to be a bullet list whose shape nothing checked and whose lines nothing
+  could be said about. It is now read back into notes — one fact each, with a
+  kind, a minute and whoever said it — which is the thing grouping and writing
+  will be given once they exist, and which can be counted in the meantime.
+
+  The kinds are the catalogue the earlier design worked out for the page's
+  headings, kept whole and given a different job: it stops meaning *which
+  headings do I print* and starts meaning *which atoms do I collect*. Three of
+  its entries left, because they are not kinds of note — a topic is a section,
+  and a date and a number are attributes found by looking. One arrived:
+  `requirement`, which the catalogue lacked and these recordings are mostly
+  made of.
+
+  The prompt that asks for them carries a worked example, and that is not
+  decoration. Measured over four runs, the first reading pass wrote eight
+  notes and put a minute on none of them — whatever the chunk held and however
+  much room it was given — while every later pass placed all of theirs. A
+  small model copies the shape of an example far more reliably than it obeys a
+  sentence describing one.
+
+  The prompt is also twice the size it was, and the room left for transcript
+  is now measured rather than guessed at four hundred tokens. A chunk sized
+  against the old figure overflowed the window by the difference, silently,
+  because what falls off the end is the end of the transcript.
+
 - **A subtitle file can be summarised as what it is.** `summarize` on an
   `.srt` or a `.vtt` read it as prose, which shreds every time it carries into
   the middle of the text and leaves the summary unable to say when anything

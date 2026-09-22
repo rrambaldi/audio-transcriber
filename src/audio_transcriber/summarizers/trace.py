@@ -79,6 +79,14 @@ class ChunkRecord:
     in_tokens: int
     out_tokens: int
     notes: int
+    #: How many of those notes say when they happened. Every measured run has
+    #: had a pass that wrote notes and placed none of them, which is a pass
+    #: that contributes nothing to what the recording was covered by.
+    placed: int = 0
+    #: Headings the model invented. Their notes are kept, as facts; the names
+    #: are kept too, because a model inventing the same heading every run is
+    #: a heading the catalogue is missing.
+    unknown_headings: list = field(default_factory=list)
     #: What the pass was allowed to say. Without it "out=630" is a number
     #: with no scale: generous on one budget and the ceiling on another.
     budget: int = 0
@@ -114,7 +122,7 @@ class ChunkRecord:
         share = "" if covered is None else f"  covered={covered * 100:.0f}%"
         return (f"{head}  in={self.in_tokens} tok  "
                 f"out={self.out_tokens}/{self.budget} tok  "
-                f"note={self.notes}{share}  {self.status}")
+                f"note={self.placed}/{self.notes}{share}  {self.status}")
 
 
 @dataclass
@@ -150,6 +158,9 @@ class Trace:
         #: can be answered without asking a graphics card to read an hour of
         #: meeting again.
         self.answers = []
+        #: Every note every pass produced, in order. The product of the
+        #: reading, and what the grouping will be given once there is one.
+        self.notes = []
 
     # --- recording ---------------------------------------------------------
 
@@ -213,6 +224,12 @@ class Trace:
                                    if record.status == BUDGET_EXHAUSTED),
             "chunks_exhausted": sum(1 for record in self.chunks
                                     if record.status == BUDGET_EXHAUSTED),
+            "notes": sum(record.notes for record in self.chunks),
+            "notes_placed": sum(record.placed for record in self.chunks),
+            "unplaced_chunks": sum(1 for record in self.chunks
+                                   if record.notes and not record.placed),
+            "unknown_headings": sorted({name for record in self.chunks
+                                        for name in record.unknown_headings}),
             "map_budget": max((record.budget for record in self.chunks),
                               default=0),
             "least_covered_chunk": min(

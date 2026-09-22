@@ -869,10 +869,12 @@ def test_a_thought_with_no_end_never_reaches_the_page():
 def test_an_echo_reflowed_onto_one_line_is_still_an_echo():
     """Models rewrap what they copy, and two lines come back as one."""
     prompt = prompting.map_prompt(SENTENCES, "it", 2, 2)
-    reflowed = ("Questa e' la parte 2 di 2 di una trascrizione. Elenca, in "
-                "italiano, solo quello che compare in QUESTA parte: i punti "
-                "trattati, le decisioni prese e le cose che qualcuno si e' "
-                "impegnato a fare. Un elenco puntato, ogni riga con il minuto.")
+    # Taken from the prompt as it stands rather than written out here: what
+    # the reading pass asks for changes, and a literal copy of it in a test
+    # goes stale without the test failing for the reason it was written.
+    written = [line.strip() for line in prompt.splitlines()
+               if len(line.strip()) > 20][:4]
+    reflowed = " ".join(written)
     assert reflowed not in prompt          # not as written, only reflowed
     assert prompting.usable_answer(reflowed, prompt) == ""
 
