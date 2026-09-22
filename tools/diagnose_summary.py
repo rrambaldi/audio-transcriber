@@ -32,6 +32,7 @@ import argparse
 import io
 import json
 import platform
+import re
 import sys
 import time
 from contextlib import redirect_stderr
@@ -114,12 +115,34 @@ def engines_here(settings):
     return found
 
 
-def chosen_plan(engine, settings):
-    """The model, the context and the passes the plan settled on.
+#: The engine says which model it is loading, and that is the only place the
+#: name of the one that actually ran can be read from out here.
+_LOADING = re.compile(r"Loading\s+(\S+)\s+on\s+(\S+?)\.{0,3}\s*$")
 
-    Written down because every number below is only readable next to it: four
-    chunks and eleven chunks are different runs of the same recording, and the
-    fold behaves differently in each."""
+
+def what_ran(said):
+    """The model the run really loaded, out of what it printed.
+
+    Asked for separately because the plan below is resolved a second time, on
+    its own, and a plan depends on how much memory is free at the moment it is
+    asked: two runs minutes apart reported two different models while
+    producing byte-identical answers, which is the report lying about which
+    one wrote them."""
+    for line in reversed(list(said or [])):
+        found = _LOADING.search(line.strip())
+        if found:
+            return {"model": found.group(1), "device": found.group(2)}
+    return None
+
+
+def chosen_plan(engine, settings):
+    """What the plan would settle on if it were asked now.
+
+    Every number below is only readable next to it: four chunks and eleven
+    chunks are different runs of the same recording. But it is asked *again*,
+    after the fact, and the answer depends on free memory — so where it
+    disagrees with :func:`what_ran`, that one is right and this one is a
+    second opinion."""
     try:
         chosen = plan.resolve_plan(engine, settings)
     except Exception as refused:            # noqa: BLE001 - reported, not raised
@@ -266,14 +289,14 @@ def main(argv=None):
                   "map_tokens": args.map_tokens,
                   "chunk_tokens": args.chunk_tokens},
         "prompt_version": prompting.PROMPT_VERSION,
-        "plan": the_plan,
+        "plan_asked_again": the_plan,
         "cache_cleared": None if args.keep_cache else clear_cache(settings),
     }
 
-    print(f"engine: {engine_name}   model: {report['plan'].get('model')}   "
-          f"context: {report['plan'].get('context_tokens')}", file=sys.stderr)
-    if report["plan"].get("error"):
-        print(f"! no plan: {report['plan']['error']}", file=sys.stderr)
+    print(f"engine: {engine_name}   model: {the_plan.get('model')}   "
+          f"context: {the_plan.get('context_tokens')}", file=sys.stderr)
+    if the_plan.get("error"):
+        print(f"! no plan: {the_plan['error']}", file=sys.stderr)
     print(f"transcript: {len(material.sentences)} lines, "
           f"{material.duration and round(material.duration)}s\n", file=sys.stderr)
 
@@ -289,6 +312,7 @@ def main(argv=None):
     report["elapsed_s"] = round(time.time() - started, 1)
     report["failed"] = failure
     report["said"] = [line for line in heard.getvalue().splitlines() if line.strip()]
+    report["ran"] = what_ran(report["said"])
 
     # The passes, as the program itself wrote them down.
     passes = Path(settings["summary_dump_notes"])
