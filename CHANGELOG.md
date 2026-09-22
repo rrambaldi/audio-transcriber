@@ -58,6 +58,28 @@ All notable changes to this project are documented here. The format follows
   against the old figure overflowed the window by the difference, silently,
   because what falls off the end is the end of the transcript.
 
+- **Notes are grouped into sections by arithmetic, with no model involved.**
+  Notes about one subject find each other by the words they share; the
+  recording decides how many sections there are, and they come out in the
+  order it had them. A note that arrived twice — which happens on every seam,
+  because chunks overlap on purpose — is recognised and dropped, keeping the
+  fuller telling and the earlier minute. What a note mentions, and any dates
+  and figures in it, are read out of its own text rather than asked of a model
+  that would sometimes supply ones nobody said.
+
+  Three ways of deciding what a section is, and what they share is everything
+  that happens to a note before it is placed. `discover` lets the distances
+  decide; `fixed` sends each note to the section its own kind names, computing
+  no distances at all, because running a decision through a clustering to
+  arrive at a heading called *Decisions* is a lossy way of getting where it
+  already was; `hybrid`, the default, discovers the body and collects the
+  decisions and the actions into lists of their own as well as leaving them in
+  the section that explains them.
+
+  None of it reaches the page yet — that is the next step — but every run now
+  measures it, because it costs one matrix multiplication to find out whether
+  a real recording falls into themes a reader would recognise.
+
 - **A subtitle file can be summarised as what it is.** `summarize` on an
   `.srt` or a `.vtt` read it as prose, which shreds every time it carries into
   the middle of the text and leaves the summary unable to say when anything

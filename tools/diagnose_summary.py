@@ -325,9 +325,12 @@ def main(argv=None):
         # numbers, so they go to the other file.
         content = report["passes"].pop("points", None)
         answers = report["passes"].pop("answers", None)
+        # How many sections and how big is a measurement; what each one is
+        # about is the meeting.
+        grouped = report["passes"].pop("sections", None)
         passes.unlink()
     else:
-        content = answers = report["passes"] = None
+        content = answers = grouped = report["passes"] = None
 
     if result is not None and result.engine == EXTRACTIVE \
             and engine_name != EXTRACTIVE:
@@ -382,6 +385,14 @@ def main(argv=None):
         body.append("\n\n<!-- what the page says, point by point -->\n")
         for point in content:
             body.append(f"- [{point.get('start')}] {point.get('text')}\n")
+    if grouped:
+        body.append("\n\n<!-- what the notes would be grouped into -->\n")
+        for at, section in enumerate(grouped, start=1):
+            minute = int((section.get("ts_min") or 0) // 60)
+            body.append(f"- {at}. [{minute}m] {section.get('notes')} note, "
+                        f"{section.get('origin')}"
+                        f"{'/' + section['kind'] if section.get('kind') else ''}"
+                        f": {', '.join(section.get('about') or [])}\n")
     if answers:
         # Kept so that a question about how an answer was *read* can be
         # settled without asking the graphics card to read the hour again.

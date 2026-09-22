@@ -695,7 +695,9 @@ def test_a_queued_recording_is_measured_without_waiting_for_its_turn(queue, tmp_
     source = tmp_path / "meeting.wav"
     source.write_bytes(b"not really audio")
     job = queue.submit(str(source), title="Weekly", start=False)
-    deadline = time.time() + 5.0
+    # Generous on purpose: this waits on a thread of its own, and a deadline
+    # tight enough to fail when the suite is busy is a test that cries wolf.
+    deadline = time.time() + 20.0
     while job.loudness is None and time.time() < deadline:
         time.sleep(0.01)
     assert job.loudness == [1, 500, 1000]
@@ -725,7 +727,7 @@ def test_the_drawing_is_not_written_into_the_queue_file(queue, tmp_path):
     source = tmp_path / "meeting.wav"
     source.write_bytes(b"not really audio")
     job = queue.submit(str(source), start=False)
-    deadline = time.time() + 5.0
+    deadline = time.time() + 20.0
     while job.loudness is None and time.time() < deadline:
         time.sleep(0.01)
     with open(queue.state_path(), encoding="utf-8") as handle:

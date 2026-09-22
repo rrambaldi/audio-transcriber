@@ -36,8 +36,8 @@ from ..summary import (
 from ..summary import (
     reduce as reduce_sentences,
 )
+from . import grouping, partials, plan, prompting
 from . import notes as note_reading
-from . import partials, plan, prompting
 from . import trace as tracing
 
 #: The band of a progress bar the reading passes are mapped into. Loading and
@@ -438,6 +438,38 @@ def summarize_with(open_pipeline, chosen, material, settings=None,
     return sections, note
 
 
+def _section_shape(found, language, settings):
+    """What the notes would be grouped into, as numbers and as words.
+
+    Split in two on purpose: how many sections and how big they are is a
+    measurement, and what each one is about is meeting content. They are
+    written to different files."""
+    empty = {"numbers": {"sections": 0, "sections_kept": 0}, "sections": []}
+    if not found:
+        return empty
+    try:
+        kept = grouping.dedupe(grouping.enrich(list(found), language), language)
+        body, tail = grouping.assign(
+            kept, settings.get("summary_sections_mode") or grouping.HYBRID,
+            language)
+    except Exception:                   # noqa: BLE001 - a measurement, not the work
+        return empty
+    return {
+        "numbers": {
+            "sections": len(body),
+            "sections_kept": len(kept),
+            "notes_deduped": len(found) - len(kept),
+            "section_sizes": [len(section.notes) for section in body],
+            "tail_sizes": [len(section.notes) for section in tail],
+            "orphans": sum(len(section.notes) for section in body
+                           if section.kind == "other"),
+        },
+        "sections": [{"kind": section.kind, "origin": section.origin,
+                      "ts_min": section.ts_min, "notes": len(section.notes),
+                      "about": section.keywords} for section in body + tail],
+    }
+
+
 def points_of(sections):
     """Every point on the finished page, whichever heading it ended under."""
     found = []
@@ -459,6 +491,13 @@ def report_trace(trace, sections, material, settings=None):
     points = points_of(sections)
     counts = trace.counts()
     reading_share = trace.reading_coverage(material.duration)
+    # Grouped here and not used for anything yet: the page is still written
+    # the old way. What it is for now is the measurement — whether the notes
+    # of a real recording fall into themes a reader would recognise — and it
+    # costs one matrix multiplication to find out on every run rather than
+    # only when somebody remembers to look.
+    shape = _section_shape(trace.notes, language_of(material.language),
+                           settings)
 
     if settings.get("summary_debug"):
         for line in trace.lines():
@@ -483,7 +522,9 @@ def report_trace(trace, sections, material, settings=None):
 
     where = settings.get("summary_dump_notes")
     if where:
-        extra = {"metrics": dict(counts, reading_coverage=reading_share),
+        extra = {"metrics": dict(counts, reading_coverage=reading_share,
+                                 **shape["numbers"]),
+                 "sections": shape["sections"],
                  "answers": list(trace.answers),
                  "points": [{"start": point.start, "speaker": point.speaker,
                              "text": point.text} for point in points]}
