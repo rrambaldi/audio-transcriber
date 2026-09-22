@@ -58,6 +58,30 @@ All notable changes to this project are documented here. The format follows
   against the old figure overflowed the window by the difference, silently,
   because what falls off the end is the end of the transcript.
 
+- **A summary says when closing something would write a better one.** Which
+  model writes a summary is decided by the memory that is *free*, not by the
+  memory the machine has, and nothing ever said so: a laptop with thirty-two
+  gigabytes and a browser open summarises with a two-billion-parameter model
+  and reports nothing unusual, because nothing unusual happened. It is simply
+  a worse summary than that machine can write, arrived at honestly and
+  presented as the only one on offer.
+
+  One line now, before the reading starts, naming the model more room would
+  fetch and how much room that is. Only when it is worth acting on: the better
+  model has to be one this engine can actually load, and one that would fit in
+  the memory the machine really has. Otherwise it is not advice, it is a
+  remark about somebody's hardware.
+
+  It also pins something worth knowing. `Qwen/Qwen3.5-4B` is registered by
+  optimum-intel as an image-text-to-text architecture and cannot be exported
+  for text generation at all, so it joins the models the OpenVINO path will
+  not attempt — a refusal that used to cost a download of several gigabytes
+  and a failed conversion on every run that reached for it. With it listed,
+  **the OpenVINO ladder stops at MiniCPM5-2B**: everything above it in the
+  catalogue is a hybrid or a multimodal checkpoint. Through llama.cpp, on the
+  processor, the same machine reaches Granite 4.0 H-Tiny with four times the
+  context.
+
 - **A summary can be written one section at a time, and nothing sees the
   whole recording.** The shape this feature started with asks a model for a
   page, then to merge pages, then to merge the merges — and every one of those

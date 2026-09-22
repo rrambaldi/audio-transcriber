@@ -274,13 +274,32 @@ def quants_for(model):
     return tuple(name for name in QUANT_LADDER if name.upper() in have)
 
 
-#: Hybrid architectures (Mamba/SSM layers) whose OpenVINO export unrolls into
-#: tens of thousands of elementary nodes, which openvino_genai's CausalLM
-#: pipeline cannot load or execute cleanly.
+#: Models the OpenVINO path cannot use. Kept as a list rather than found out
+#: at run time, because finding out costs a download of several gigabytes and
+#: a conversion that then fails: the ladder steps down to the next model,
+#: which is the right thing to do and an expensive way to learn something that
+#: is true of every installation.
+#:
+#: The first three are hybrid architectures — Mamba and SSM layers — whose
+#: export unrolls into tens of thousands of elementary nodes that
+#: openvino_genai's CausalLM pipeline cannot load or execute cleanly.
+#:
+#: Qwen3.5 is a flatter refusal: optimum-intel registers ``qwen3_5`` as an
+#: image-text-to-text architecture and supports no other task for it, so a
+#: request to export it for text generation is turned down before anything is
+#: converted. Listing it matters for a second reason — :func:`better_with_more`
+#: tells somebody which model they would get by freeing memory, and naming one
+#: that cannot be loaded is worse advice than saying nothing.
+#:
+#: The consequence is worth stating plainly rather than leaving to be
+#: discovered: with these four out, the OpenVINO ladder stops at MiniCPM5-2B.
+#: Everything above it in the catalogue is hybrid or multimodal. A larger
+#: model on that path needs a dense checkpoint optimum can export, added here.
 OPENVINO_INCOMPATIBLE = {
     "ibm-granite/granite-4.0-h-micro",
     "ibm-granite/granite-4.0-h-tiny",
     "LiquidAI/LFM2.5-1.2B-Instruct",
+    "Qwen/Qwen3.5-4B",
 }
 
 
@@ -501,6 +520,39 @@ def _resolve(engine, settings, available, total, cores, skip=()):
             if fitted:
                 return _plan_of(model, tier, *fitted, threads=threads)
     return None
+
+
+def better_with_more(engine, available, total, cores=None):
+    """The model this machine would use if more of its memory were free.
+
+    ``(model, gigabytes free it would need)``, or ``None`` when there is
+    nothing better to have — either because the best one is already running,
+    or because the machine does not have the memory at all and closing things
+    would not help.
+
+    Worth asking on every run. The plan is made from *available* memory, not
+    installed memory, so a laptop with thirty-two gigabytes and a browser open
+    writes its summaries with a two-billion-parameter model and never says
+    that shutting the browser would fetch a far better one. That is the same
+    silence this package has spent its recent history taking out of the
+    reading and the folding: a worse result, arrived at honestly, reported as
+    though it were the only one available."""
+    now = _resolve(engine, {}, available, total, cores)
+    best = _resolve(engine, {}, total, total, cores)
+    if best is None:
+        return None
+    if not runnable(best.model, engine):
+        return None
+    if now is not None and now.model.name == best.model.name:
+        return None
+    # What would have to be free for the better one, expressed the way the
+    # person reading it can act on: memory free, not memory used.
+    wanted = max(best.model.floor, best.est_ram_gb or 0.0)
+    reserve = RESERVE_GB if not total else max(RESERVE_GB, total * RESERVE_SHARE)
+    needed = wanted + min(reserve, RESERVE_CAP_GB)
+    if total and needed > total:
+        return None
+    return best.model, needed
 
 
 def cheapest(engine):

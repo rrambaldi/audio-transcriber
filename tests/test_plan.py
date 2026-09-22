@@ -119,9 +119,22 @@ def test_a_machine_that_will_not_say_is_treated_as_the_smallest_one(monkeypatch)
 def test_the_better_model_of_a_tier_needs_the_memory_to_be_worth_it():
     """Granite H-Tiny is the better model and wants eight gigabytes."""
     plenty = plan.resolve_plan(plan.LLAMACPP, ram=32.0, total=64.0, cores=8)
-    just_over = plan.resolve_plan(plan.OPENVINO, ram=9.0, total=10.0, cores=8)
+    scarce = plan.resolve_plan(plan.LLAMACPP, ram=5.0, total=10.0, cores=8)
     assert plenty.model.name == "Granite 4.0 H-Tiny"
-    assert just_over.tier == "l" and just_over.model.name == "Qwen3.5-4B"
+    assert scarce.model.name != "Granite 4.0 H-Tiny"
+
+
+def test_the_openvino_ladder_stops_where_the_exporter_does():
+    """Worth pinning rather than leaving to be discovered: everything above
+    MiniCPM5-2B in the catalogue is a hybrid or a multimodal checkpoint that
+    optimum will not export, so on that path a large machine gets the same
+    model a small one does. A larger model there needs a dense checkpoint
+    added to the catalogue, not more memory."""
+    for memory in (4.0, 10.0, 32.0, 96.0):
+        chosen = plan.resolve_plan(plan.OPENVINO, ram=memory, total=128.0,
+                                   cores=8)
+        assert chosen.model.name == "MiniCPM5-2B"
+    assert plan.better_with_more(plan.OPENVINO, 4.0, 128.0, 8) is None
 
 
 def test_an_engine_is_never_offered_a_model_it_cannot_load():
@@ -286,11 +299,40 @@ def test_two_engines_do_not_share_one_answer(monkeypatch):
     monkeypatch.setattr(plan, "physical_cores", lambda: 4)
     intel = plan.resolve_plan(plan.OPENVINO)
     gguf = plan.resolve_plan(plan.LLAMACPP)
-    assert intel.model.name == "Qwen3.5-4B"
-    assert gguf.model.name != "Qwen3.5-4B"
+    assert intel.model.name != gguf.model.name
 
 
 def test_the_legacy_models_are_no_longer_chosen_by_anything():
     names = {model.hf_id for model in plan.CATALOGUE}
     assert not names & set(plan.LEGACY_MODELS)
     assert "Qwen/Qwen3-8B" in plan.LEGACY_MODELS
+
+
+# --- memory that is installed but not free --------------------------------
+
+def test_a_machine_is_told_what_freeing_memory_would_buy_it():
+    """A laptop with thirty-two gigabytes and a browser open writes its
+    summaries with a two-billion-parameter model, and never says that closing
+    the browser would fetch a far better one."""
+    better = plan.better_with_more(plan.LLAMACPP, 4.0, 32.0, 8)
+    assert better is not None
+    model, needed = better
+    assert model.name == "Granite 4.0 H-Tiny"
+    assert 4.0 < needed <= 32.0
+
+
+def test_nothing_is_said_when_the_best_model_is_already_running():
+    assert plan.better_with_more(plan.LLAMACPP, 30.0, 32.0, 8) is None
+
+
+def test_nothing_is_said_when_the_machine_does_not_have_the_memory_at_all():
+    """Closing things would not help: the advice has to be actionable or it
+    is just a complaint about the hardware."""
+    assert plan.better_with_more(plan.LLAMACPP, 0.4, 1.0, 2) is None
+
+
+def test_a_model_that_cannot_be_loaded_is_never_advised():
+    """Naming one that will fail to convert is worse advice than silence."""
+    for memory in (2.0, 8.0):
+        better = plan.better_with_more(plan.OPENVINO, memory, 64.0, 8)
+        assert better is None or plan.runnable(better[0], plan.OPENVINO)

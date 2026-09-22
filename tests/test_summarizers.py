@@ -6,12 +6,13 @@ feature that only works on a machine with an accelerator testable on one
 without.
 """
 import os
+import re
 
 import pytest
 
 from audio_transcriber import paths
 from audio_transcriber.summarizers import openvino_genai as engine
-from audio_transcriber.summarizers import plan, prompting
+from audio_transcriber.summarizers import plan, prompting, reading
 from audio_transcriber.summary import NotEnoughMemory, Sentence, SummaryError
 
 
@@ -493,22 +494,33 @@ def test_a_long_transcript_is_read_in_parts_and_then_folded(stubbed):
     asked = prompts(stubbed)
     assert "parte 1 di" in asked[0]
     assert "riassunti parziali" in asked[-1]
-    assert "Un riassunto vero." in asked[-1]
+    # What the folding is handed is what the reading produced. Since the
+    # reading became notes, that is the notes laid out flat rather than the
+    # answer they were read out of — the bullet and its minute are the shape
+    # they come back in.
+    assert re.search(r"- `\[\d+:\d\d\]`", asked[-1])
 
 
-def test_the_passes_are_exactly_the_ones_the_tree_calls_for(stubbed):
+def test_the_passes_are_exactly_the_ones_the_tree_calls_for(stubbed, roomy):
     """Not one per chunk plus one: the folding levels are passes too."""
     many = [Sentence(f"Frase numero {n} del verbale.", n * 10.0) for n in range(400)]
     engine.summarize(material(many), {"summary_chunk_tokens": 120})
 
-    chunks = prompting.chunks(many, 120, 0.1)
-    fanin = prompting.fanin_for(len(chunks), 16384, 500, 1400,
+    # Counted from what the run actually read, not from the chunker: which
+    # model this machine gets decides the window, the budgets and how many
+    # passes it will spend, and a test that writes those out is testing the
+    # catalogue. A long transcript on a small plan is read in part and says
+    # so, which is a different feature with its own tests.
+    read = map_calls(stubbed)
+    assert read
+    fanin = prompting.fanin_for(len(read), roomy.context_tokens,
+                                roomy.map_answer_tokens,
+                                roomy.reduce_answer_tokens,
                                 prompting.EVIDENCE_TOKENS)
-    levels = prompting.reduce_tree(range(len(chunks)), fanin=fanin,
+    levels = prompting.reduce_tree(range(len(read)), fanin=fanin,
                                    max_fanin=fanin)
-    expected = len(chunks) + sum(len(level) for level in levels)
+    expected = len(read) + sum(len(level) for level in levels)
     assert len(stubbed.asked) == expected
-    assert len(map_calls(stubbed)) == len(chunks)
 
 
 def test_the_map_answers_under_a_tighter_budget_than_the_page(stubbed, roomy):
@@ -1225,3 +1237,21 @@ def test_the_minute_of_a_note_is_found_wherever_the_model_put_it():
               "- Una prova ha richiesto 22 minuti (14:11).\n"
               "- Un punto senza nessun minuto.\n")
     assert prompting.point_starts(answer) == [27, 75, 851, None]
+
+
+def test_a_run_says_what_freeing_memory_would_buy(capsys):
+    """The plan is made from memory that is free, not memory that is
+    installed, and until now nothing said so: a worse summary, arrived at
+    honestly, presented as the only one on offer."""
+    chosen = plan.resolve_plan(plan.LLAMACPP, ram=4.0, total=32.0, cores=8)
+    assert reading.say_what_more_room_would_buy(plan.LLAMACPP, chosen, 4.0, 32.0)
+    said = capsys.readouterr().err
+    assert "Granite 4.0 H-Tiny" in said
+    assert "4.0" in said and "10" in said
+
+
+def test_nothing_is_said_when_the_best_model_is_already_loaded(capsys):
+    chosen = plan.resolve_plan(plan.LLAMACPP, ram=30.0, total=32.0, cores=8)
+    assert not reading.say_what_more_room_would_buy(plan.LLAMACPP, chosen,
+                                                    30.0, 32.0)
+    assert capsys.readouterr().err == ""

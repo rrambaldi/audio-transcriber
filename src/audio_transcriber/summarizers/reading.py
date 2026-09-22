@@ -344,7 +344,34 @@ def choose(engine, settings, available, total, skip=()):
               free="?" if free is None else f"{free:.1f}"),
             needed=needed, free=free)
     warn_if_over_budget(chosen, available, total)
+    say_what_more_room_would_buy(engine, chosen, available, total)
     return chosen
+
+
+def say_what_more_room_would_buy(engine, chosen, available, total):
+    """Say which model this machine would use with more of itself free.
+
+    The plan is made from memory that is *available*, not memory that is
+    installed, and nothing has ever said so. A laptop with thirty-two
+    gigabytes and a browser open summarises with a two-billion-parameter
+    model and reports nothing unusual, because nothing unusual happened —
+    it is simply a worse summary than the same machine can write, arrived at
+    honestly and presented as the only one on offer.
+
+    Said once, before the reading starts, and only when it is actionable: the
+    better model has to be one this engine can load and one that would fit in
+    the memory the machine actually has. Otherwise it is not advice, it is a
+    remark about somebody's hardware."""
+    better = plan.better_with_more(engine, available, total, None)
+    if better is None:
+        return False
+    model, needed = better
+    if chosen is not None and chosen.model.name == model.name:
+        return False
+    print(t("summary.more_room_would_buy", model=model.name,
+            needed=f"{needed:.0f}", free=f"{(available or 0):.1f}"),
+          file=sys.stderr)
+    return True
 
 
 def summarize_with(open_pipeline, chosen, material, settings=None,

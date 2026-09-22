@@ -902,6 +902,12 @@ MESSAGES = {
             "  The reading passes covered {read}% of the recording and the "
             "page carries {written}%. The difference did not survive the "
             "folding, and nothing else would have said so.",
+        "summary.more_room_would_buy":
+            "  {free} GB of this machine's memory are free, and a summary "
+            "here is written by whatever fits in them. With {needed} GB free "
+            "it would be written by {model}, which is a better model: "
+            "closing what is not in use is worth more than any setting on "
+            "this page.",
         "summary.no_room_for_answer":
             "  A chunk of {chunk} tokens and an answer of {answer} do not "
             "both fit in {context}: there is room for {room}. The chunks will "
@@ -1849,6 +1855,11 @@ MESSAGES = {
             "  Le passate di lettura hanno coperto il {read}% della "
             "registrazione, la pagina ne porta il {written}%. La differenza "
             "non e' sopravvissuta alla fusione, e nessun altro l'avrebbe detto.",
+        "summary.more_room_would_buy":
+            "  Di questa macchina sono liberi {free} GB, e il riassunto lo "
+            "scrive quello che ci sta dentro. Con {needed} GB liberi lo "
+            "scriverebbe {model}, che e' un modello migliore: chiudere quello "
+            "che non serve vale piu' di qualunque impostazione.",
         "summary.no_room_for_answer":
             "  Un chunk da {chunk} token e una risposta da {answer} non ci "
             "stanno insieme in {context}: c'e' posto per {room}. I chunk "
