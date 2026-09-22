@@ -734,12 +734,23 @@ def _failure_note(material, failed):
 
 
 def points_of(sections):
-    """Every point on the finished page, whichever heading it ended under."""
+    """Every point on the finished page, whichever heading it ended under.
+
+    Two shapes arrive here. The page of fixed headings carries points, which
+    say when they happened in a field called ``start``; a document carries
+    notes, which call the same thing ``ts_start`` because that is what the
+    reading pass wrote. Whatever comes in leaves as a point, because what
+    reads this counts minutes and should not have to know the difference."""
     found = []
     for field in ("points", "decisions", "actions"):
         value = getattr(sections, field, None)
-        if isinstance(value, (list, tuple)):
-            found.extend(value)
+        if not isinstance(value, (list, tuple)):
+            continue
+        for entry in value:
+            found.append(entry if hasattr(entry, "start") else
+                         Point(getattr(entry, "ts_start", None),
+                               getattr(entry, "speaker", None),
+                               getattr(entry, "text", "")))
     return found
 
 

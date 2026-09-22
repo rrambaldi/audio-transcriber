@@ -192,6 +192,13 @@ All notable changes to this project are documented here. The format follows
 
 ### Fixed
 
+- **A summary in the new shape no longer falls over at the last step.** It
+  read the recording, grouped what it found, wrote every section, and then
+  crashed measuring how much of the recording it had covered — because the
+  decisions and actions at the foot of the page are notes, and a note says
+  when it happened in a field of its own. Minutes on the page are counted the
+  same way whichever shape the page has.
+
 - **A llama-server named in the configuration now counts as installed.**
   Asking for the engine by name was refused — "summary engine 'llamacpp' is
   not installed on this machine" — on the one kind of machine the setting

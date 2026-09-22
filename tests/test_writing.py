@@ -191,6 +191,25 @@ def test_the_document_counts_as_a_page_for_whatever_measures_one():
     assert document.points[0].start == 0.0
 
 
+def test_a_document_with_decisions_can_still_be_measured():
+    """The crash this is written against: a run on a real recording read the
+    transcript, grouped it, wrote every section, and then fell over counting
+    how much of the recording it had covered - because the decisions at the
+    foot of the page are notes, and a note says when it happened in a field
+    of its own."""
+    material = summarising.Material(title="riunione", sentences=(),
+                                    language="it", duration=1320.0)
+    document = writing.write(
+        [cluster(DASHBOARD)],
+        [cluster(["Il documentale va su Aruba."], kind="decision"),
+         cluster(["Chiedere ad Aruba il supporto S3."], kind="action")],
+        Asked("Titolo"), material, "it")
+    measured = summarising.report_metrics(document, material, {})
+    assert measured["coverage"] is not None
+    starts = [point.start for point in summarising.points_of(document)]
+    assert all(start is not None for start in starts)
+
+
 def test_progress_is_reported_as_the_sections_are_written():
     seen = []
     writing.write([cluster(DASHBOARD), cluster(DOCUMENTALE)], [],

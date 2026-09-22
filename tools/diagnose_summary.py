@@ -376,6 +376,11 @@ def main(argv=None):
                 [point.start for point in points if point.start is not None],
                 default=None),
             "had_a_caveat": bool(result.note),
+            # The caveat itself, and not only that there was one: when an
+            # engine gives up, the page is written by the one that quotes and
+            # the reason is in that line and nowhere else. It is this
+            # program's own words about its own failure - no meeting in it.
+            "caveat": result.note or None,
         }
         page_share = tracing.coverage([point.start for point in points],
                                       material.duration)
