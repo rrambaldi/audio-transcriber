@@ -84,13 +84,33 @@ class ChunkRecord:
     #: covered can be compared with what the *page* covers: the first says
     #: whether the recording was read, the second whether it survived.
     starts: list = field(default_factory=list)
+    #: The stretch of recording the chunk itself held, in seconds. Without it
+    #: the minutes above cannot be read: notes about one minute are a good
+    #: pass over a one-minute chunk and a truncated one over a seven-minute
+    #: chunk, and those are not the same finding.
+    span: tuple = (None, None)
+
+    @property
+    def covered(self):
+        """Share of its own chunk this pass wrote about, 0..1.
+
+        The number that says a pass was cut off rather than selective. A model
+        that chose what mattered would write about the whole stretch sparsely;
+        one that was cut off writes about the beginning of it and stops."""
+        first, last = self.span
+        said = [start for start in self.starts if start is not None]
+        if first is None or last is None or last <= first or not said:
+            return None
+        return min(1.0, (max(said) - min(said)) / (last - first))
 
     def line(self):
         head = f"chunk {self.index:02d}/{self.total:02d}"
         if self.status == REUSED:
             return f"{head}  cache-hit{'':22}{REUSED}"
+        covered = self.covered
+        share = "" if covered is None else f"  covered={covered * 100:.0f}%"
         return (f"{head}  in={self.in_tokens} tok  out={self.out_tokens} tok  "
-                f"note={self.notes}  {self.status}")
+                f"note={self.notes}{share}  {self.status}")
 
 
 @dataclass
@@ -124,8 +144,14 @@ class Trace:
 
     # --- recording ---------------------------------------------------------
 
-    def chunk(self, **fields):
+    def chunk(self, budget=None, **fields):
         record = ChunkRecord(**fields)
+        if (record.status == OK and budget
+                and record.out_tokens >= budget * BUDGET_MARGIN):
+            # It stopped where it ran out, not where it had finished. On a
+            # bullet list that is invisible: what comes back parses perfectly
+            # and is simply missing the rest of the chunk.
+            record.status = BUDGET_EXHAUSTED
         self.chunks.append(record)
         return record
 
@@ -145,7 +171,7 @@ class Trace:
         A chunk that produced nothing is one of these, and a fold that lost
         partials is one of these. A cache hit is not."""
         return ([record for record in self.chunks
-                 if record.status in (EMPTY_OUTPUT, ECHOED)
+                 if record.status in (EMPTY_OUTPUT, ECHOED, BUDGET_EXHAUSTED)
                  or (record.notes == 0 and record.status != NO_CONTENT)]
                 + [record for record in self.folds if record.status != OK])
 
@@ -173,6 +199,11 @@ class Trace:
             "partials_lost": sum(record.lost for record in collapsed),
             "folds_exhausted": sum(1 for record in self.folds
                                    if record.status == BUDGET_EXHAUSTED),
+            "chunks_exhausted": sum(1 for record in self.chunks
+                                    if record.status == BUDGET_EXHAUSTED),
+            "least_covered_chunk": min(
+                [record.covered for record in self.chunks
+                 if record.covered is not None], default=None),
         }
 
     def as_document(self, extra=None):

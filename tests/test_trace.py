@@ -7,6 +7,8 @@ what would have caught it.
 """
 import json
 
+import pytest
+
 from audio_transcriber.summarizers import trace as tracing
 
 
@@ -144,3 +146,45 @@ def test_everything_recorded_comes_back_as_json():
     assert payload["folds"][1]["lost"] == 5
     assert payload["counts"]["partials_lost"] == 5
     assert payload["metrics"]["coverage"] == 0.34
+
+
+# --- a pass that stopped where it ran out ----------------------------------
+
+def test_an_answer_that_lands_on_its_allowance_was_cut_off():
+    """Invisible otherwise: a truncated bullet list parses perfectly and is
+    simply missing the rest of the chunk."""
+    found = tracing.Trace()
+    found.chunk(index=2, total=4, budget=400, in_tokens=2155, out_tokens=401,
+                notes=18, starts=[382, 455], span=(382, 789))
+    assert found.chunks[0].status == tracing.BUDGET_EXHAUSTED
+    assert found.counts()["chunks_exhausted"] == 1
+    assert found.failures()
+
+
+def test_an_answer_with_room_to_spare_was_not():
+    found = tracing.Trace()
+    found.chunk(index=1, total=4, budget=400, in_tokens=2032, out_tokens=245,
+                notes=8, starts=[10, 400], span=(0, 420))
+    assert found.chunks[0].status == tracing.OK
+    assert found.failures() == []
+
+
+def test_a_pass_says_how_much_of_its_own_chunk_it_wrote_about():
+    """Notes about one minute are a good pass over a one-minute chunk and a
+    truncated one over a seven-minute chunk."""
+    found = tracing.Trace()
+    record = found.chunk(index=2, total=4, budget=999, in_tokens=2155,
+                         out_tokens=401, notes=18, starts=[382, 400, 455],
+                         span=(382, 789))
+    assert record.covered == pytest.approx(73 / 407, abs=0.01)
+    assert "covered=18%" in record.line()
+    assert found.counts()["least_covered_chunk"] == pytest.approx(0.179, abs=0.01)
+
+
+def test_a_pass_whose_notes_carry_no_minute_covers_nothing_measurable():
+    found = tracing.Trace()
+    record = found.chunk(index=1, total=4, budget=999, in_tokens=2032,
+                         out_tokens=245, notes=8, starts=[None] * 8,
+                         span=(0, 420))
+    assert record.covered is None
+    assert "covered=" not in record.line()

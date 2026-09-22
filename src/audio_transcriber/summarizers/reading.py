@@ -143,11 +143,14 @@ def _map(pipeline, system, parts, language, chosen, report, band,
             status = tracing.REUSED
         if trace is not None:
             trace.chunk(index=index, total=len(parts),
+                        budget=chosen.map_answer_tokens,
                         in_tokens=estimate_tokens(prompt, language),
                         out_tokens=estimate_tokens(answer, language),
                         notes=len(prompting.points_in(answer)),
                         status=status,
-                        starts=prompting.point_starts(answer))
+                        starts=prompting.point_starts(answer),
+                        span=(part[0].start if part else None,
+                              (part[-1].end or part[-1].start) if part else None))
         found.append((answer, list(part)))
     if written:
         # This program has no daemon, so the only moment anything can be
