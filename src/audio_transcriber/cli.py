@@ -944,7 +944,7 @@ def start_logging(what):
         print(t("logs.writing_to", path=where), file=sys.__stderr__)
 
 
-def command_hardware(args):
+def command_hardware(args, settings=None):
     """Report what the machine can do, and what it would choose.
 
     Returns 1 when this installation cannot transcribe at all, so a script can
@@ -972,9 +972,9 @@ def command_hardware(args):
 
     try:
         from .summarizers import resolve_summarizer
-        engine = resolve_summarizer("auto")
+        engine = resolve_summarizer("auto", settings)
         print(t("summary.auto_engine", engine=engine))
-        print(_summary_plan_line(engine))
+        print(_summary_plan_line(engine, settings))
     except SummaryError as exc:
         print(exc)
 
@@ -985,7 +985,7 @@ def command_hardware(args):
     return 0 if backend else 1
 
 
-def _summary_plan_line(engine):
+def _summary_plan_line(engine, settings=None):
     """What the summary engine would load here, and what it would take.
 
     The policy that decides between a written page and a quoted one lives in
@@ -998,7 +998,7 @@ def _summary_plan_line(engine):
     # reading this report wants to know before installing one.
     engine = engine if engine in (planning.OPENVINO,
                                   planning.LLAMACPP) else planning.LLAMACPP
-    chosen = planning.resolve_plan(engine, {})
+    chosen = planning.resolve_plan(engine, settings or {})
     if chosen is None:
         needed = planning.cheapest(engine)
         return t("summary.plan_none",
@@ -1088,10 +1088,13 @@ def main(argv=None):
             sys.exit(config_error)
         print(config_error, file=sys.stderr)
 
-    if command == "hardware":
-        return command_hardware(args)
-
     settings = resolve(collect_cli_settings(args), file_settings)
+    # After the settings and not before them: whether an engine is installed
+    # can depend on what the configuration says - a llama-server named there
+    # is as installed as one on the PATH, and a report that said otherwise
+    # would be describing a different machine.
+    if command == "hardware":
+        return command_hardware(args, settings)
     if command == "paths":
         return command_paths(settings)
     if command == "vocab":

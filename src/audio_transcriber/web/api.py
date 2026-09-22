@@ -230,11 +230,11 @@ def register_routes(app):
     # --- keyword sets installed on this machine ---------------------------
 
     @app.get("/api/summary/engines")
-    def summary_engines():
+    def summary_engines(request: Request):
         """Which engines this machine could actually use, and which is auto."""
         from ..summarizers import available
 
-        installed = available()
+        installed = available(request.app.state.settings)
         return {"engines": installed,
                 "auto": installed[0] if installed else None,
                 "lengths": list(SUMMARY_LENGTHS),

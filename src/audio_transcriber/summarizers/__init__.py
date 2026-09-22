@@ -119,8 +119,26 @@ def resolve_summarizer(engine=None, settings=None):
         raise SummaryError(t("summary.unknown_engine", name=engine,
                              valid=", ".join(CHOICES)))
     if not is_installed(name, settings):
-        raise SummaryError(t("summary.engine_missing", name=name))
+        raise SummaryError(t("summary.engine_missing", name=name)
+                           + how_to_install(name))
     return name
+
+
+#: What to do about an engine that is not here, per engine. The engine's own
+#: module says it better than this one could, and says it in the language the
+#: rest of the program is speaking.
+_HOW_TO_INSTALL = {LLAMACPP: "summary.llamacpp_missing",
+                   OPENVINO: "summary.openvino_missing"}
+
+
+def how_to_install(name):
+    """The line that turns a refusal into something somebody can act on.
+
+    Being told an engine is not installed, and not being told what would
+    install it, sent somebody looking through the source for the name of a
+    configuration key. Twice."""
+    key = _HOW_TO_INSTALL.get(name)
+    return "\n" + t(key) if key else ""
 
 
 def load(name):

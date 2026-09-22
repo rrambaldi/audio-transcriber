@@ -217,7 +217,7 @@ class LibraryPanel(QWidget):
         summary_layout.addWidget(self.summary_note)
         summary_layout.addWidget(self.summary_progress)
         summary_row = QHBoxLayout()
-        engines = options.summary_engine_choices()
+        engines = options.summary_engine_choices(self.settings)
         for name, label in engines:
             self.summary_engine.addItem(label, name)
         for name, label in options.summary_length_choices():

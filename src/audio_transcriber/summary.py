@@ -785,7 +785,7 @@ def summarize(material, settings=None, progress=None):
     if not material.sentences:
         raise SummaryError(t("summary.empty"))
 
-    name = resolve_summarizer(settings.get("summarizer"))
+    name = resolve_summarizer(settings.get("summarizer"), settings)
     engine = load(name)
     started = time.time()
     if progress:

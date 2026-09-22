@@ -239,6 +239,30 @@ def test_a_server_that_dies_before_answering_says_so(monkeypatch, tmp_path):
     assert "llama-server" in str(raised.value)
 
 
+def test_a_configured_binary_makes_the_engine_askable_by_name(monkeypatch,
+                                                              tmp_path):
+    """The bug this is written against: --engine llamacpp was refused on the
+    one machine where the binary had been named in the configuration, because
+    the question was put without the settings that hold the answer."""
+    from audio_transcriber import summarizers
+
+    binary = tmp_path / "llama-server"
+    binary.write_text("")
+    binary.chmod(0o755)
+    monkeypatch.setattr(engine.shutil, "which", lambda name: None)
+    monkeypatch.setattr(engine, "module_available", lambda name: False)
+    # The suite pins this to the engine with no model; here the real question
+    # is being asked, of the engine that can be a file somewhere.
+    monkeypatch.setattr(summarizers, "is_installed",
+                        lambda name, settings=None: name == "llamacpp"
+                        and engine.is_available(settings))
+
+    with pytest.raises(SummaryError):
+        summarizers.resolve_summarizer("llamacpp")
+    assert summarizers.resolve_summarizer(
+        "llamacpp", {"summary_llama_server": str(binary)}) == "llamacpp"
+
+
 # --- what the binary can run on -------------------------------------------
 
 #: What two builds of llama.cpp on one machine answered, copied from the

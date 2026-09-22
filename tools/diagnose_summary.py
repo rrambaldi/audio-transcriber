@@ -259,7 +259,7 @@ def main(argv=None):
         print("! read as prose: no minutes, so coverage cannot be measured.",
               file=sys.stderr)
 
-    engine_name = resolve_summarizer(args.engine)
+    engine_name = resolve_summarizer(args.engine, settings)
     installed = engines_here(settings)
 
     # The whole point of this script is the engine that reads in passes. It

@@ -531,7 +531,7 @@ def entry_rows(entries):
     return [row for row in (entry_row(entry) for entry in entries) if row]
 
 
-def summary_engine_choices():
+def summary_engine_choices(settings=None):
     """The summary engines this machine can actually run, best first.
 
     A menu of one is furniture, so the window hides the row when that is all
@@ -539,7 +539,7 @@ def summary_engine_choices():
     label says what the engine does rather than what it is called: "openvino"
     means nothing to somebody deciding whether to wait for it."""
     return [(name, t(f"gui.summary_engine_{name}")) for name in
-            summary_engines_available() if name in SUMMARY_ENGINES]
+            summary_engines_available(settings) if name in SUMMARY_ENGINES]
 
 
 def summary_length_choices():

@@ -190,6 +190,21 @@ All notable changes to this project are documented here. The format follows
   transcriptions, because a drawing that arrives after the job it describes is
   a drawing of nothing anybody is still looking at.
 
+### Fixed
+
+- **A llama-server named in the configuration now counts as installed.**
+  Asking for the engine by name was refused — "summary engine 'llamacpp' is
+  not installed on this machine" — on the one kind of machine the setting
+  exists for: the binary was named in `config.toml`, and the question of
+  whether the engine was there was being asked without the settings that held
+  the answer. The same was true of the engine list in the window and on the
+  page, and of what `audio-transcriber hardware` reported about this machine.
+
+- **Being told an engine is missing now says what would install it.** Both
+  ways in for llama.cpp, the configuration key included, and the one `pip
+  install` for OpenVINO. The bare refusal sent somebody reading the source
+  for the name of a setting.
+
 ## [0.9.0] — 2026-09-17
 
 ### Added

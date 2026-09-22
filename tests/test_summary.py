@@ -314,7 +314,7 @@ def test_a_machine_with_no_room_gets_quoted_sentences_and_the_reason(monkeypatch
 
     real_load = summarizers.load
     monkeypatch.setattr(summarizers, "resolve_summarizer",
-                        lambda engine=None: "openvino")
+                        lambda engine=None, settings=None: "openvino")
     monkeypatch.setattr(summarizers, "load",
                         lambda name: Refusing if name == "openvino"
                         else real_load(name))
@@ -376,7 +376,7 @@ def test_a_model_that_says_nothing_usable_still_leaves_a_page(monkeypatch):
 
     real_load = summarizers.load
     monkeypatch.setattr(summarizers, "resolve_summarizer",
-                        lambda engine=None: "openvino")
+                        lambda engine=None, settings=None: "openvino")
     monkeypatch.setattr(summarizers, "load",
                         lambda name: Mumbling if name == "openvino"
                         else real_load(name))
@@ -420,7 +420,7 @@ def test_a_runtime_that_writes_an_essay_is_cut_down_to_a_caveat(monkeypatch):
 
     real_load = summarizers.load
     monkeypatch.setattr(summarizers, "resolve_summarizer",
-                        lambda engine=None: "openvino")
+                        lambda engine=None, settings=None: "openvino")
     monkeypatch.setattr(summarizers, "load",
                         lambda name: Failing if name == "openvino"
                         else real_load(name))
@@ -451,13 +451,37 @@ def test_an_extractive_summary_that_fails_is_still_a_failure(monkeypatch):
             raise summary.SummaryError("nothing to quote")
 
     monkeypatch.setattr(summarizers, "resolve_summarizer",
-                        lambda engine=None: EXTRACTIVE)
+                        lambda engine=None, settings=None: EXTRACTIVE)
     monkeypatch.setattr(summarizers, "load", lambda name: Broken)
 
     material = summary.Material(title="x", sentences=summary.sentences_of(SEGMENTS),
                                 language="it", duration=70)
     with pytest.raises(summary.SummaryError):
         summary.summarize(material, {})
+
+
+def test_the_engine_is_chosen_knowing_what_the_configuration_says():
+    """Whether an engine is installed is not a property of the machine alone:
+    a llama-server named in config.toml is as installed as one on the PATH,
+    and the question has to be put with the settings in hand."""
+    from audio_transcriber import summarizers
+
+    asked = {}
+
+    def remember(engine=None, settings=None):
+        asked["settings"] = settings
+        return EXTRACTIVE
+
+    material = summary.Material(title="x",
+                                sentences=summary.sentences_of(SEGMENTS),
+                                language="it", duration=70)
+    real = summarizers.resolve_summarizer
+    summarizers.resolve_summarizer = remember
+    try:
+        summary.summarize(material, {"summary_llama_server": "/opt/llama-server"})
+    finally:
+        summarizers.resolve_summarizer = real
+    assert asked["settings"]["summary_llama_server"] == "/opt/llama-server"
 
 
 def test_an_entry_without_segments_falls_back_to_the_plain_transcript(entry):

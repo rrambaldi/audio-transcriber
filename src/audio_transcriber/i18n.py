@@ -937,7 +937,8 @@ MESSAGES = {
         "summary.reducing": "  Writing the summary from {total} parts...",
         "summary.llamacpp_missing":
             "llama.cpp is not installed. Run: pip install llama-cpp-python\n"
-            "  or put the 'llama-server' binary on the PATH.",
+            "  or put the 'llama-server' binary on the PATH, or name it in\n"
+            "  config.toml:  [summary]  llama_server = \"/path/to/llama-server\"",
         "summary.no_gguf": "No GGUF is published for {model}.",
         "summary.downloading":
             "Downloading {model} ({quant}) - once, and only this once...",
@@ -1889,7 +1890,8 @@ MESSAGES = {
         "summary.reducing": "  Scrivo il riassunto dalle {total} parti...",
         "summary.llamacpp_missing":
             "llama.cpp non e' installato. Esegui: pip install llama-cpp-python\n"
-            "  oppure metti l'eseguibile 'llama-server' nel PATH.",
+            "  oppure metti l'eseguibile 'llama-server' nel PATH, oppure\n"
+            "  scrivilo in config.toml:  [summary]  llama_server = \"...\"",
         "summary.no_gguf": "Per {model} non e' pubblicato nessun GGUF.",
         "summary.downloading":
             "Scarico {model} ({quant}): una volta sola, adesso...",
