@@ -8,6 +8,27 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- **The llama.cpp engine now uses the graphics card, where there is one.** It
+  was written for a server with two cores and was asking for two cores
+  everywhere, including on a laptop whose `llama-server` had been built
+  against Vulkan and could see an Intel Arc.
+
+  Before loading anything the binary is asked what it can run on
+  (`--list-devices`), and the first device that is not a processor gets every
+  layer of the model. `device` in `[summary]` decides instead, when it should:
+  `cpu` to stay on the cores, or a name the binary printed. A build with no
+  backend, or one too old for the flag, runs exactly where it did before.
+
+  This is the way round the other engine's limit, too. OpenVINO has to convert
+  a model before it can run it, and the conversion is what fails on the larger
+  ones; llama.cpp runs the GGUF as it arrives, whatever backend is underneath.
+
+  Two smaller things that came with it: a summary run in this shape prefers
+  the binary that can see an accelerator over a Python binding that cannot,
+  and when `llama-server` refuses to start, what it wrote on its way out is
+  now repeated instead of discarded — until now a wrong flag, a file that was
+  not a GGUF and a driver that would not load all failed with the same line.
+
 - **A summary now says how much of the recording it is a summary of.** A page
   about a twenty-two minute meeting came back describing the first seven, and
   nothing anywhere said so: every pass had succeeded, the page was well

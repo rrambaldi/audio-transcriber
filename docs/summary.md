@@ -338,6 +338,37 @@ The model is downloaded once, into the managed model directory, and the
 download says so before it starts. It is the only moment this engine uses the
 network.
 
+### It is also the engine *with* an accelerator
+
+llama.cpp is built against a backend — Vulkan, SYCL, OpenVINO, CUDA — and a
+build that has one runs a GGUF on that device without converting anything.
+This matters more than it sounds: the OpenVINO engine above needs the model
+turned into IR first, and it is that conversion, not the hardware, that the
+larger models fail. So on an Intel laptop a Vulkan build of `llama-server`
+reaches models the other engine cannot open at all.
+
+Which device is a question put to the binary, not guessed here, because two
+builds on one machine answer differently:
+
+```
+> llama-server --list-devices
+Available devices:
+  Vulkan0: Intel(R) Arc(TM) 140V GPU (16GB) (18413 MiB, 17645 MiB free)
+```
+
+Whatever it lists, the first thing that is not a processor is used, and every
+layer goes on it — half a model on an integrated GPU is slower than all of it
+on the cores, because each token then crosses the bus twice. `device` in the
+configuration overrides that: `cpu` to stay on the processor, or a name from
+that list (`vulkan` will do for `Vulkan0`). A build too old for the flag, or
+one with no backend, answers nothing and runs where it always did.
+
+One warning about the memory those lines report. An integrated GPU has no
+memory of its own: the 17 GB Vulkan offers above is a budget against the same
+RAM everything else is using, of which that machine had 8 GB free. The plan
+sizes the model against *free system memory* for exactly this reason, and
+will not pick a bigger one because a driver was optimistic.
+
 ## How long
 
 Three lengths, by name rather than by number, the way the subtitle presets
@@ -362,7 +393,8 @@ engine = "auto"
 length = "medium"
 # auto, a Hugging Face id, a GGUF file, or a converted directory
 model = "auto"
-# auto | CPU | GPU | NPU   (the OpenVINO engine)
+# auto | CPU | GPU | NPU        (the OpenVINO engine)
+# auto | cpu | Vulkan0 | SYCL0  (llama.cpp: what --list-devices printed)
 device = "auto"
 # tokens of transcript per pass; unset, the plan works it out
 chunk_tokens = 6000
@@ -373,7 +405,7 @@ tier = "s"                 # force a size class: xs | s | m | l
 context_tokens = 4096      # bigger is not better: the cache grows with it
 kv_type = "q8_0/q4_0"      # key/value, or one type for both
 reduce_fanin = 6           # partials merged by one folding pass
-llama_server = "/opt/llama.cpp/llama-server"
+llama_server = "/opt/llama.cpp/llama-server"   # or C:\\llama\\vulkan-x64\\llama-server.exe
 ```
 
 `--engine`, `--length`, `--model`, `--device`, `--context-tokens`, `--kv-type`

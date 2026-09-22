@@ -18,6 +18,13 @@ What makes it fit where the other engine does not:
     which is where the plan's ``kv_k`` and ``kv_v`` go, and the reason they
     are two fields rather than one.
 
+It is also, and this was not the plan, the engine for a machine that *has*
+an accelerator. The other engine converts a model to OpenVINO IR first, and
+that conversion is where the larger models fail; llama.cpp takes the GGUF as
+it is and asks its own backend — Vulkan, SYCL, OpenVINO — to run it. So the
+same file that writes on two cores writes on an Arc, and which of the two
+happens is a question put to the binary rather than assumed here.
+
 Two ways in, and both are supported because they suit different machines. The
 Python binding is one ``pip install`` on a desktop. The ``llama-server``
 binary is a single file with no Python at all, which is what somebody
@@ -31,10 +38,12 @@ same promise the rest of the program makes, and the reason it exists.
 """
 import json
 import os
+import re
 import shutil
 import socket
 import subprocess
 import sys
+import tempfile
 import time
 import urllib.request
 
@@ -75,6 +84,138 @@ ANSWER_TIMEOUT = 1800.0
 #: names. Only the three the plan can produce are listed; anything else is a
 #: bug in the plan rather than a case to handle here.
 GGML_TYPES = {"f16": 1, "q4_0": 2, "q8_0": 8}
+
+#: How ``llama-server --list-devices`` announces one: an indent, a name, a
+#: colon, and a description.
+#:
+#:     Available devices:
+#:       Vulkan0: Intel(R) Arc(TM) 140V GPU (16GB) (18413 MiB, 17645 MiB free)
+#:
+#: The log lines it writes around them start at the left margin, so the indent
+#: is what tells a device from the rest of the output.
+_DEVICE_LINE = re.compile(r"^ {2,}([A-Za-z][A-Za-z0-9_.]*):\s+(\S.*?)\s*$")
+
+#: Names that are the processor under another name, and so are not a reason
+#: to prefer the binary over the binding.
+_PROCESSOR = ("cpu", "blas", "accelerate")
+
+#: What "all of them" is to llama.cpp: more layers than any model has.
+EVERY_LAYER = 999
+
+#: How long to wait for a binary to say what it can see. Asking is one short
+#: process, but it loads the backend to do it, and a cold Vulkan driver on a
+#: laptop takes its time.
+LIST_TIMEOUT = 30.0
+
+#: What each binary answered, so that a summary costs one such process and
+#: not one per chunk. Keyed by path and modification time: a binary replaced
+#: by another build is a different binary.
+_DEVICES = {}
+
+
+def read_devices(written):
+    """The devices named in what ``--list-devices`` wrote, as (name, what)."""
+    found = []
+    for line in str(written or "").splitlines():
+        match = _DEVICE_LINE.match(line)
+        if match:
+            found.append((match.group(1), match.group(2)))
+    return found
+
+
+def devices(binary):
+    """What this binary says it can run on.
+
+    Asked of the binary rather than worked out here, because two builds of
+    llama.cpp on one machine answer differently — a Vulkan build sees the
+    Arc, an OpenVINO build sees the OpenVINO runtime, a plain one sees
+    neither — and only the binary knows which it is. A build too old for the
+    flag answers nothing, which reads as a processor and is the truth as far
+    as this program can act on it."""
+    try:
+        stamp = os.path.getmtime(binary)
+    except OSError:
+        stamp = None
+    key = (binary, stamp)
+    if key in _DEVICES:
+        return _DEVICES[key]
+    try:
+        done = subprocess.run([binary, "--list-devices"], timeout=LIST_TIMEOUT,
+                              stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        written = (done.stdout or b"") + b"\n" + (done.stderr or b"")
+        found = read_devices(written.decode("utf-8", "replace"))
+    except (OSError, ValueError, subprocess.SubprocessError):
+        found = []
+    _DEVICES[key] = found
+    return found
+
+
+def is_processor(name):
+    """Whether a device name is the processor rather than an accelerator."""
+    return str(name).lower().startswith(_PROCESSOR)
+
+
+def resolve_device(binary, requested=None):
+    """Which device to run on: (name, what), or None for the processor.
+
+    ``auto`` takes the first accelerator the binary can see, because nobody
+    installs a Vulkan build of llama.cpp in order to run on two cores.
+    Anything else is matched against what it listed, by name or by the family
+    in front of the number, so that ``vulkan`` finds ``Vulkan0``."""
+    asked = str(requested or "auto").strip()
+    found = devices(binary) if binary else []
+    usable = [pair for pair in found if not is_processor(pair[0])]
+    if asked.lower() in ("", "auto"):
+        return usable[0] if usable else None
+    if asked.lower() in ("cpu", "none"):
+        return None
+    for name, what in found:
+        if name.lower() == asked.lower() or name.lower().startswith(asked.lower()):
+            return None if is_processor(name) else (name, what)
+    print(t("openvino.device_unavailable", requested=asked,
+            found=", ".join(name for name, _what in found) or "-",
+            fallback="CPU"), file=sys.stderr)
+    return None
+
+
+def device_for(binary, settings=None):
+    """The device and what to put on it: ``(device, gpu_layers)``.
+
+    All of the layers or none of them. A model with half its layers on an
+    integrated GPU is slower than a model wholly on the processor, because
+    every token then crosses the bus twice; and what fits is the plan's
+    business, which sizes against system memory — the same memory an
+    integrated GPU uses, whatever its driver reports as free.
+
+    ``gpu_layers`` of None means say nothing and let llama.cpp keep its own
+    default, which is what happens when nobody asked for anything and nothing
+    was found."""
+    asked = str((settings or {}).get("summary_device") or "auto").strip()
+    device = resolve_device(binary, asked)
+    if device:
+        return device, EVERY_LAYER
+    return None, 0 if asked.lower() in ("cpu", "none") else None
+
+
+def _binding_layers(settings=None):
+    """What to offload in process, which can only be what was asked for.
+
+    The binding cannot be asked what it can see the way the binary can, so
+    ``auto`` stays on the processor: the wheel ``pip`` installs is built for
+    one, and a number this module invented would be a promise it cannot
+    keep."""
+    asked = str((settings or {}).get("summary_device") or "auto").strip().lower()
+    return 0 if asked in ("", "auto", "cpu", "none") else EVERY_LAYER
+
+
+def device_label(device, chosen=None, gpu_layers=None):
+    """How the line on the screen names where the model went."""
+    if device:
+        return f"{device[0]} ({device[1]})"
+    if gpu_layers:
+        return "GPU"
+    threads = getattr(chosen, "threads", None)
+    return f"CPU x{threads}" if threads else "CPU"
 
 
 def server_path(settings=None):
@@ -178,22 +319,24 @@ def resolve_model(model=None, settings=None):
 class Binding:
     """The model in this process, through ``llama-cpp-python``."""
 
-    def __init__(self, path, chosen):
+    def __init__(self, path, chosen, gpu_layers=0):
         try:
             import llama_cpp
         except ImportError:                     # pragma: no cover - see Server
             raise SummaryError(t("summary.llamacpp_missing")) from None
+        where = device_label(None, chosen, gpu_layers)
         print(t("summary.loading_model", path=os.path.basename(path),
-                device=f"CPU x{chosen.threads}"), file=sys.stderr)
+                device=where), file=sys.stderr)
         try:
             self.model = llama_cpp.Llama(
                 model_path=path, n_ctx=chosen.context_tokens,
                 n_threads=chosen.threads, logits_all=False, verbose=False,
+                n_gpu_layers=int(gpu_layers or 0),
                 type_k=GGML_TYPES.get(chosen.kv_k, 1),
                 type_v=GGML_TYPES.get(chosen.kv_v, 1),
                 flash_attn=chosen.kv_k != "f16" or chosen.kv_v != "f16")
         except Exception as exc:
-            raise SummaryError(t("summary.load_failed", device="CPU",
+            raise SummaryError(t("summary.load_failed", device=where,
                                  error=exc)) from exc
         #: Whether this binding will pass arguments through to the chat
         #: template. Newer ones will and older ones raise; there is no way to
@@ -274,9 +417,10 @@ class Server:
     address is ``127.0.0.1`` — this must not become a way to serve a model to
     a network."""
 
-    def __init__(self, binary, path, chosen):
+    def __init__(self, binary, path, chosen, device=None, gpu_layers=None):
         self.port = _free_port()
         self.process = None
+        self.log = None
         command = [binary, "--model", path, "--host", "127.0.0.1",
                    "--port", str(self.port), "--ctx-size",
                    str(chosen.context_tokens), "--threads", str(chosen.threads),
@@ -286,13 +430,24 @@ class Server:
             # A quantised cache needs flash attention in llama.cpp; recent
             # builds pick it automatically, older ones have to be told.
             command += ["--flash-attn", "on"]
+        if device:
+            command += ["--device", device[0]]
+        if gpu_layers is not None:
+            command += ["--n-gpu-layers", str(int(gpu_layers))]
+        where = device_label(device, chosen, gpu_layers)
         print(t("summary.loading_model", path=os.path.basename(path),
-                device=f"CPU x{chosen.threads}"), file=sys.stderr)
+                device=where), file=sys.stderr)
         try:
+            # Kept rather than discarded: when a server will not start, what
+            # it wrote on its way out is the only thing that says why, and a
+            # temporary file cannot fill up and block the process the way a
+            # pipe nobody is reading does.
+            self.log = tempfile.TemporaryFile()
             self.process = subprocess.Popen(
-                command, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                command, stdout=subprocess.DEVNULL, stderr=self.log)
         except OSError as exc:
-            raise SummaryError(t("summary.load_failed", device="CPU",
+            self._forget_log()
+            raise SummaryError(t("summary.load_failed", device=where,
                                  error=exc)) from exc
         self._wait()
 
@@ -302,8 +457,10 @@ class Server:
         while time.time() < deadline:
             code = self.process.poll()
             if code is not None:
+                said = self._said()
                 self.close()
-                raise SummaryError(t("summary.server_stopped", code=code))
+                raise SummaryError(t("summary.server_stopped", code=code)
+                                   + said)
             try:
                 with urllib.request.urlopen(
                         f"http://127.0.0.1:{self.port}/health", timeout=2) as answer:
@@ -313,9 +470,10 @@ class Server:
                 pass
             time.sleep(delay)
             delay = min(2.0, delay * 1.6)
+        said = self._said()
         self.close()
         raise SummaryError(t("summary.server_silent",
-                             seconds=int(STARTUP_TIMEOUT)))
+                             seconds=int(STARTUP_TIMEOUT)) + said)
 
     def ask(self, system, user, max_new_tokens=None, think=False):
         """One prompt, one answer, over the loopback and nowhere else."""
@@ -337,9 +495,37 @@ class Server:
         choices = payload.get("choices") or [{}]
         return str(choices[0].get("message", {}).get("content") or "").strip()
 
+    def _said(self, lines=15):
+        """The last thing the server wrote, for when it will not start.
+
+        Its own words, in its own language, with ours in front of them: a
+        wrong flag, a file that is not a GGUF and a driver that would not
+        load all look the same from out here, and all three say so plainly in
+        that log."""
+        if self.log is None:
+            return ""
+        try:
+            self.log.seek(0)
+            written = self.log.read().decode("utf-8", "replace")
+        except (OSError, ValueError):           # pragma: no cover - closed
+            return ""
+        tail = [line for line in written.splitlines() if line.strip()][-lines:]
+        return "\n" + t("summary.server_said") + "\n" + "\n".join(
+            f"  {line}" for line in tail) if tail else ""
+
+    def _forget_log(self):
+        """Let go of the log file, which deletes it."""
+        log, self.log = self.log, None
+        if log is not None:
+            try:
+                log.close()
+            except OSError:                     # pragma: no cover - closed
+                pass
+
     def close(self):
         """Stop the process, and do not leave it behind if it will not stop."""
         process, self.process = self.process, None
+        self._forget_log()
         if process is None or process.poll() is not None:
             return
         process.terminate()
@@ -360,14 +546,19 @@ def _free_port():
 def open_pipeline(path, chosen, settings=None):
     """Load the model whichever way this machine offers.
 
-    The binding first: it needs no process, no port and no health check, and
-    on a desktop it is what is installed. The binary is the fallback and the
-    server's answer."""
-    if module_available("llama_cpp"):
-        return Binding(path, chosen)
+    An accelerator first, wherever it is: a binary that can see one beats a
+    binding that cannot, and the binding ``pip`` installs is built for the
+    processor. Then the binding, which needs no process, no port and no
+    health check. Then the binary on the processor, which is the machine this
+    engine was written for."""
     binary = server_path(settings)
+    device, layers = device_for(binary, settings) if binary else (None, None)
+    if binary and device:
+        return Server(binary, path, chosen, device, layers)
+    if module_available("llama_cpp"):
+        return Binding(path, chosen, _binding_layers(settings))
     if binary:
-        return Server(binary, path, chosen)
+        return Server(binary, path, chosen, device, layers)
     raise SummaryError(t("summary.llamacpp_missing"))
 
 

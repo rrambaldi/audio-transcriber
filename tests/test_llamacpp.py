@@ -8,6 +8,7 @@ that the server is never bound anywhere but the loopback, and that the process
 is stopped even when the summary fails.
 """
 import os
+import tempfile
 from pathlib import Path
 
 import pytest
@@ -236,6 +237,173 @@ def test_a_server_that_dies_before_answering_says_so(monkeypatch, tmp_path):
     with pytest.raises(SummaryError) as raised:
         engine.Server("/usr/bin/llama-server", str(tmp_path / "m.gguf"), chosen)
     assert "llama-server" in str(raised.value)
+
+
+# --- what the binary can run on -------------------------------------------
+
+#: What two builds of llama.cpp on one machine answered, copied from the
+#: machine that has both. The point of keeping them verbatim: the header, the
+#: indent and the log line in front are the whole of what the parsing has to
+#: tell apart.
+VULKAN = """0.00.000.844 I srv  llama_server: initializing ...
+Available devices:
+  Vulkan0: Intel(R) Arc(TM) 140V GPU (16GB) (18413 MiB, 17645 MiB free)
+"""
+OPENVINO = """0.00.000.698 I srv  llama_server: initializing ...
+Available devices:
+  OPENVINO0: OpenVINO Runtime (32304 MiB, 8687 MiB free)
+"""
+
+
+def test_a_device_is_read_out_of_what_the_binary_printed():
+    assert engine.read_devices(VULKAN) == [
+        ("Vulkan0", "Intel(R) Arc(TM) 140V GPU (16GB) (18413 MiB, 17645 MiB free)")]
+    assert engine.read_devices(OPENVINO)[0][0] == "OPENVINO0"
+
+
+def test_the_heading_and_the_log_are_not_devices():
+    """Both sit in the same output and neither is something to run on."""
+    names = [name for name, _what in engine.read_devices(VULKAN)]
+    assert "Available devices" not in names
+    assert not any(name.startswith("0") for name in names)
+
+
+def test_a_build_that_knows_no_such_flag_reports_nothing(monkeypatch, tmp_path):
+    binary = tmp_path / "llama-server"
+    binary.write_text("")
+
+    def refuse(command, **options):
+        raise OSError("unknown option")
+
+    monkeypatch.setattr(engine.subprocess, "run", refuse)
+    engine._DEVICES.clear()
+    assert engine.devices(str(binary)) == []
+
+
+def test_the_binary_is_asked_once_and_not_once_per_chunk(monkeypatch, tmp_path):
+    binary = tmp_path / "llama-server"
+    binary.write_text("")
+    asked = []
+
+    class Answer:
+        stdout = VULKAN.encode("utf-8")
+        stderr = b""
+
+    monkeypatch.setattr(engine.subprocess, "run",
+                        lambda command, **options: asked.append(command) or Answer())
+    engine._DEVICES.clear()
+    engine.devices(str(binary))
+    engine.devices(str(binary))
+    assert len(asked) == 1
+
+
+def test_the_accelerator_is_taken_without_being_asked_for(monkeypatch):
+    """Nobody installs a Vulkan build of llama.cpp to run on two cores."""
+    monkeypatch.setattr(engine, "devices",
+                        lambda binary: engine.read_devices(VULKAN))
+    device, layers = engine.device_for("/usr/bin/llama-server", {})
+    assert device[0] == "Vulkan0"
+    assert layers == engine.EVERY_LAYER
+
+
+def test_a_machine_with_no_accelerator_is_told_nothing_about_layers():
+    """The server that this engine exists for: whatever llama.cpp does by
+    default is what it did before any of this, and there is no reason to
+    start arguing with it."""
+    device, layers = engine.device_for(None, {})
+    assert device is None and layers is None
+
+
+def test_asking_for_the_processor_means_the_processor(monkeypatch):
+    monkeypatch.setattr(engine, "devices",
+                        lambda binary: engine.read_devices(VULKAN))
+    device, layers = engine.device_for("/usr/bin/llama-server",
+                                       {"summary_device": "cpu"})
+    assert device is None
+    assert layers == 0
+
+
+def test_a_family_name_finds_the_numbered_device(monkeypatch):
+    monkeypatch.setattr(engine, "devices",
+                        lambda binary: engine.read_devices(VULKAN))
+    device, _layers = engine.device_for("/usr/bin/llama-server",
+                                        {"summary_device": "vulkan"})
+    assert device[0] == "Vulkan0"
+
+
+def test_a_device_nobody_has_falls_back_and_says_so(monkeypatch, capsys):
+    monkeypatch.setattr(engine, "devices",
+                        lambda binary: engine.read_devices(VULKAN))
+    device, _layers = engine.device_for("/usr/bin/llama-server",
+                                        {"summary_device": "CUDA0"})
+    assert device is None
+    assert "CUDA0" in capsys.readouterr().err
+
+
+def test_the_device_reaches_the_command_line(monkeypatch, tmp_path):
+    seen = {}
+    monkeypatch.setattr(engine.subprocess, "Popen",
+                        lambda command, **kw: seen.setdefault("cmd", command)
+                        or _StoppedProcess())
+    monkeypatch.setattr(engine.Server, "_wait", lambda self: None)
+    chosen = plan.resolve_plan(plan.LLAMACPP, ram=32.0, total=64.0, cores=4)
+    engine.Server("/usr/bin/llama-server", str(tmp_path / "m.gguf"), chosen,
+                  ("Vulkan0", "Intel(R) Arc(TM) 140V GPU"), engine.EVERY_LAYER)
+    command = seen["cmd"]
+    assert command[command.index("--device") + 1] == "Vulkan0"
+    assert command[command.index("--n-gpu-layers") + 1] == str(engine.EVERY_LAYER)
+
+
+def test_a_run_on_the_processor_argues_with_nothing(monkeypatch, tmp_path):
+    seen = {}
+    monkeypatch.setattr(engine.subprocess, "Popen",
+                        lambda command, **kw: seen.setdefault("cmd", command)
+                        or _StoppedProcess())
+    monkeypatch.setattr(engine.Server, "_wait", lambda self: None)
+    chosen = plan.resolve_plan(plan.LLAMACPP, ram=32.0, total=64.0, cores=4)
+    engine.Server("/usr/bin/llama-server", str(tmp_path / "m.gguf"), chosen)
+    assert "--device" not in seen["cmd"]
+    assert "--n-gpu-layers" not in seen["cmd"]
+
+
+def test_a_binary_that_sees_an_accelerator_beats_a_binding_that_cannot(
+        monkeypatch, tmp_path):
+    """The binding pip installs is built for the processor, and a processor
+    in this process is still a processor."""
+    started = {}
+    monkeypatch.setattr(engine, "server_path",
+                        lambda settings=None: "/usr/bin/llama-server")
+    monkeypatch.setattr(engine, "devices",
+                        lambda binary: engine.read_devices(VULKAN))
+    monkeypatch.setattr(engine, "module_available", lambda name: True)
+    monkeypatch.setattr(engine, "Server",
+                        lambda *arguments: started.setdefault("as", arguments))
+    monkeypatch.setattr(engine, "Binding", lambda *arguments: pytest.fail(
+        "the binding cannot see the Arc"))
+    chosen = plan.resolve_plan(plan.LLAMACPP, ram=32.0, total=64.0, cores=4)
+    engine.open_pipeline(str(tmp_path / "m.gguf"), chosen, {})
+    assert started["as"][3][0] == "Vulkan0"
+
+
+def test_a_server_that_will_not_start_repeats_what_it_wrote(monkeypatch,
+                                                            tmp_path):
+    """A wrong flag, a file that is not a GGUF and a driver that would not
+    load all look the same from out here, and all three say so in that log."""
+    monkeypatch.setattr(engine.subprocess, "Popen",
+                        lambda command, **kw: _StoppedProcess())
+    chosen = plan.resolve_plan(plan.LLAMACPP, ram=32.0, total=64.0, cores=4)
+
+    make = tempfile.TemporaryFile          # before it is stood in for
+
+    def kept():
+        log = make()
+        log.write(b"error: invalid argument: --device\n")
+        return log
+
+    monkeypatch.setattr(engine.tempfile, "TemporaryFile", kept)
+    with pytest.raises(SummaryError) as raised:
+        engine.Server("/usr/bin/llama-server", str(tmp_path / "m.gguf"), chosen)
+    assert "--device" in str(raised.value)
 
 
 # --- the whole run, with the runtime stubbed ------------------------------

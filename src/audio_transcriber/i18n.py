@@ -948,6 +948,7 @@ MESSAGES = {
         "summary.server_stopped":
             "llama-server stopped before answering (exit {code}).",
         "summary.server_silent": "llama-server did not answer within {seconds}s.",
+        "summary.server_said": "  llama-server said:",
         "summary.server_failed": "llama-server refused the request: {error}",
         "summary.prefill_failed":
             "  Could not start the answer for the model ({error}); asking the\n"
@@ -1899,6 +1900,7 @@ MESSAGES = {
         "summary.server_stopped":
             "llama-server si e' fermato prima di rispondere (uscita {code}).",
         "summary.server_silent": "llama-server non ha risposto entro {seconds}s.",
+        "summary.server_said": "  llama-server ha scritto:",
         "summary.server_failed": "llama-server ha rifiutato la richiesta: {error}",
         "summary.prefill_failed":
             "  Non ho potuto avviare la risposta per il modello ({error}):\n"
