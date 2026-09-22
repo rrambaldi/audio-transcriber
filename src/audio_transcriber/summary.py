@@ -26,6 +26,7 @@ comes out. All of it is pure — text in, text out, no I/O and no model — whic
 is why the test suite can cover it on a machine with neither.
 """
 import re
+import sys
 import time
 import unicodedata
 from collections import namedtuple
@@ -654,6 +655,42 @@ def _failure_note(material, failed):
     return words["model_failed_note"].format(error=said or "-")
 
 
+def points_of(sections):
+    """Every point on the finished page, whichever heading it ended under."""
+    found = []
+    for field in ("points", "decisions", "actions"):
+        value = getattr(sections, field, None)
+        if isinstance(value, (list, tuple)):
+            found.extend(value)
+    return found
+
+
+def report_metrics(sections, material, settings=None, quoting=False):
+    """How much of the recording reached the page, and how much was quoted.
+
+    Said out loud whether or not anybody asked for diagnostics, and for every
+    engine, because the failure it catches looks exactly like success: a page
+    about the first seven minutes of a twenty-two minute meeting is a
+    well-formed summary of something nobody asked about, and nothing else on
+    it contradicts that."""
+    from .summarizers import trace as tracing
+
+    settings = settings or {}
+    points = points_of(sections)
+    share = tracing.coverage([point.start for point in points],
+                             material.duration)
+    copied = tracing.copy_rate(
+        [point.text for point in points],
+        " ".join(str(line) for line in material.sentences))
+    if share is not None and share < tracing.COVERAGE_FLOOR:
+        print(t("summary.low_coverage", percent=int(round(share * 100))),
+              file=sys.stderr)
+    if not quoting and copied is not None and copied > tracing.COPY_FLOOR:
+        print(t("summary.high_copy_rate", percent=int(round(copied * 100))),
+              file=sys.stderr)
+    return {"coverage": share, "copy_rate": copied}
+
+
 def summarize(material, settings=None, progress=None):
     """Summarise ``material`` with whichever engine the settings ask for.
 
@@ -700,6 +737,10 @@ def summarize(material, settings=None, progress=None):
         note = " ".join(part for part in (_failure_note(material, failed),
                                           note) if part)
     text = render(material, sections, engine.label(settings), note=note)
+    # The extractive engine quotes on purpose and the page says so: telling it
+    # that it quoted would be an alarm that is always on, which is an alarm
+    # nobody reads.
+    report_metrics(sections, material, settings, quoting=name == EXTRACTIVE)
 
     kept = len(sections.points) + len(sections.decisions) + len(sections.actions)
     return Summary(text=text, sections=sections, engine=name,

@@ -8,6 +8,30 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- **A summary now says how much of the recording it is a summary of.** A page
+  about a twenty-two minute meeting came back describing the first seven, and
+  nothing anywhere said so: every pass had succeeded, the page was well
+  formed, and the only way to find out was to read the transcript and compare.
+
+  Two numbers are computed from every summary, by every engine, and printed
+  whether or not anybody asked: what share of the recording's minutes reach
+  the page, and how much of the page is word for word out of the transcript.
+  Under four fifths of the recording, or over a third copied, and it says so.
+
+  Beside them, for the engine that reads in passes, an account of what each
+  pass did — `--debug` for all of it, and always the ones that went wrong: a
+  pass that produced nothing, a pass whose answer was the question and was
+  replaced by quoted speech, and a fold that produced nothing and kept only
+  the first of the partials it was handed. That last one says how many it
+  threw away. `--dump-notes` writes the lot to a JSON file, which is how a
+  problem of reading is told from a problem of writing without reading an
+  hour of audio again.
+
+  The share is measured twice on purpose — once over what the reading passes
+  wrote, once over what the finished page carries — because the interesting
+  failure is the difference between them. Read and then lost is a different
+  bug from never read, and it has its own line.
+
 - **A recording can be seen as well as read.** Two drawings of the same
   thing — how loud it was, moment by moment — in both the window and the page.
 

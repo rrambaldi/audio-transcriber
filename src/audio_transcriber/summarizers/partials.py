@@ -40,15 +40,55 @@ def directory(cache_dir=None):
     return os.path.join(cache_dir or paths.cache_dir(), NAMESPACE)
 
 
-def key(text, model, quant, stage, answer_tokens=0, language="it"):
+def settings_key(settings=None, chosen=None):
+    """What shapes an answer without appearing in the question.
+
+    Most of what could be listed here does not belong here, and the reason is
+    worth writing down once. The key is taken over the *whole prompt*, so
+    anything that changes the prompt already changes the key: a different
+    chunk length cuts different text, a different set of categories writes
+    different instructions, a longer overlap moves the seams. None of those
+    need naming twice.
+
+    What is left is the handful of things that leave the question identical
+    and the answer different. The context window is the one there is today: a
+    model asked the same thing with four thousand tokens of room and with
+    eight does not answer the same way, and nothing in the prompt says which
+    it had.
+
+    Deliberately absent: the length and the style. A reading pass does not
+    depend on either — only the page written at the end does — and asking
+    again at a different length re-using every pass is the point of this
+    cache on a machine where one pass is minutes. There is a test that says
+    so."""
+    settings = settings or {}
+    fields = {
+        "context": (settings.get("summary_context_tokens")
+                    or getattr(chosen, "context_tokens", None)),
+    }
+    return ",".join(f"{name}={'' if value is None else value}"
+                    for name, value in sorted(fields.items()))
+
+
+def key(text, model, quant, stage, answer_tokens=0, language="it",
+        settings_fingerprint=""):
     """The name one answer is filed under.
 
     Everything that could change the answer goes in: the material, the model
     and its precision, which stage asked, how much it was allowed to say, the
-    language it was asked in, and the version of the prompts themselves."""
+    language it was asked in, the version of the prompts themselves, and the
+    settings that decided the shape of the request.
+
+    That last one was missing, and it is not a small omission: two runs over
+    the same recording with different settings handed each other their
+    partials, so a run that had gone wrong came back out of the cache looking
+    like a fresh one and no comparison between two attempts meant anything.
+    Any diagnosis of what a change did has to start from a key that tells the
+    two apart."""
     digest = hashlib.sha256()
     for part in (str(prompting.PROMPT_VERSION), str(model), str(quant),
-                 str(stage), str(answer_tokens), str(language), text or ""):
+                 str(stage), str(answer_tokens), str(language),
+                 str(settings_fingerprint), text or ""):
         digest.update(part.encode("utf-8", "replace"))
         digest.update(b"\x00")
     return digest.hexdigest()

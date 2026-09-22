@@ -890,6 +890,27 @@ MESSAGES = {
         "summary.pass_echoed":
             "  Part {part} of {total} came back as the question; quoting "
             "that part instead.",
+        "summary.partials_lost":
+            "  {lost} partial summaries were thrown away: {folds} folds "
+            "produced nothing and kept only the first of what they were "
+            "given. That much of the recording is not on the page.",
+        "summary.echoed_chunks":
+            "  {chunks} parts were quoted rather than summarised, because "
+            "the model handed the question back. Those lines are speech, "
+            "not a summary of it.",
+        "summary.lost_on_the_way":
+            "  The reading passes covered {read}% of the recording and the "
+            "page carries {written}%. The difference did not survive the "
+            "folding, and nothing else would have said so.",
+        "summary.low_coverage":
+            "  This page mentions only {percent}% of the recording's "
+            "minutes. It reads like a summary of the whole of it and is not "
+            "one.",
+        "summary.high_copy_rate":
+            "  {percent}% of this page is word for word out of the "
+            "transcript: it was selected rather than written.",
+        "summary.dump_failed":
+            "  Could not write the notes to {path}: {error}",
         "summary.still_thinking":
             "  The model was still thinking when its answer ran out; "
             "asking again with {tokens} tokens.",
@@ -1812,6 +1833,26 @@ MESSAGES = {
         "summary.pass_echoed":
             "  La parte {part} di {total} e' tornata indietro come domanda: "
             "cito quella parte invece.",
+        "summary.partials_lost":
+            "  {lost} riassunti parziali buttati via: {folds} fusioni non "
+            "hanno prodotto nulla e hanno tenuto solo il primo di quello che "
+            "avevano. Quella parte della registrazione non e' sulla pagina.",
+        "summary.echoed_chunks":
+            "  {chunks} parti sono state citate invece che riassunte, perche' "
+            "il modello ha restituito la domanda. Quelle righe sono parlato, "
+            "non un riassunto del parlato.",
+        "summary.lost_on_the_way":
+            "  Le passate di lettura hanno coperto il {read}% della "
+            "registrazione, la pagina ne porta il {written}%. La differenza "
+            "non e' sopravvissuta alla fusione, e nessun altro l'avrebbe detto.",
+        "summary.low_coverage":
+            "  Questa pagina nomina solo il {percent}% dei minuti della "
+            "registrazione. Sembra il riassunto di tutta e non lo e'.",
+        "summary.high_copy_rate":
+            "  Il {percent}% di questa pagina e' parola per parola dalla "
+            "trascrizione: e' stata selezionata, non scritta.",
+        "summary.dump_failed":
+            "  Non ho potuto scrivere gli appunti in {path}: {error}",
         "summary.still_thinking":
             "  Il modello stava ancora ragionando quando la risposta e' "
             "finita: richiedo con {tokens} token.",
@@ -1917,6 +1958,10 @@ HELP = {
             "tokens of context to give the model (default: from the plan)",
         "help.sum_kv":
             "KV cache precision: q8_0, or q8_0/q4_0 for key and value apart",
+        "help.sum_debug": "say what every pass did, on the error stream",
+        "help.sum_dump_notes":
+            "write the passes and their numbers to this JSON file: it tells a "
+            "problem of reading from one of writing without reading again",
         "help.sum_tier": "force a size class: xs | s | m | l",
         "help.sum_device": "Intel device to run the model on: auto | CPU | GPU | NPU",
         "help.sum_out": "write the summary to this file instead of into the entry",
@@ -2051,6 +2096,10 @@ HELP = {
             "token di contesto da dare al modello (default: dal piano)",
         "help.sum_kv":
             "precisione della cache KV: q8_0, oppure q8_0/q4_0 per chiave e valore",
+        "help.sum_debug": "di' cosa ha fatto ogni passata, sullo stream degli errori",
+        "help.sum_dump_notes":
+            "scrivi le passate e i loro numeri in questo file JSON: distingue un "
+            "problema di lettura da uno di scrittura senza rileggere",
         "help.sum_tier": "forza una classe di dimensione: xs | s | m | l",
         "help.sum_device": "dispositivo Intel su cui eseguire il modello: auto | CPU | GPU | NPU",
         "help.sum_out": "scrivi il riassunto in questo file invece che nella voce",

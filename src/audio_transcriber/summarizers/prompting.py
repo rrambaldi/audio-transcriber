@@ -576,6 +576,32 @@ def _clock_seconds(text):
     return None
 
 
+def points_in(text):
+    """The bullet lines of an answer, in order.
+
+    How many notes a reading pass produced, which is the number that says
+    whether a chunk contributed anything. Counting them is not parsing them:
+    this is deliberately cheaper and looser than :func:`parse`, because it is
+    asked of every pass including the ones that went wrong."""
+    return [line for line in str(text or "").splitlines()
+            if _BULLET.match(line)]
+
+
+def point_starts(text):
+    """The minute each bullet of an answer carries, in seconds; None when a
+    bullet carries none.
+
+    What a reading pass covered, which is a different question from what the
+    finished page covers: between the two sits every fold, and the difference
+    is where a recording goes missing."""
+    found = []
+    for line in points_in(text):
+        stripped = _BULLET.match(line).group(1)
+        clock = _CLOCK.match(stripped)
+        found.append(_clock_seconds(clock.group(1)) if clock else None)
+    return found
+
+
 def _point(line):
     """One bullet from the model, back into a :class:`Point`."""
     start, speaker = None, None

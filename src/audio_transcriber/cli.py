@@ -322,6 +322,10 @@ def build_parser(defaults):
                     default=None, metavar="N", help=t("help.sum_context"))
     sm.add_argument("--kv-type", dest="summary_kv_type", default=None,
                     metavar="TYPE", help=t("help.sum_kv"))
+    sm.add_argument("--debug", dest="summary_debug", action="store_true",
+                    default=None, help=t("help.sum_debug"))
+    sm.add_argument("--dump-notes", dest="summary_dump_notes", default=None,
+                    metavar="PATH", help=t("help.sum_dump_notes"))
     sm.add_argument("--tier", dest="summary_tier", default=None,
                     metavar="TIER", help=t("help.sum_tier"))
     sm.add_argument("--out", dest="out", default=None, help=t("help.sum_out"))
@@ -1114,7 +1118,8 @@ def collect_cli_settings(args):
              "subtitle_lines", "subtitle_words", "output", "summarizer",
              "summary_length", "summary_style", "summary_model", "summary_device",
              "summary_chunk_tokens", "summary_context_tokens",
-             "summary_kv_type", "summary_tier", "summary_llama_server")
+             "summary_kv_type", "summary_tier", "summary_llama_server",
+             "summary_debug", "summary_dump_notes")
     values = {name: getattr(args, name, None) for name in names}
     # --srt and --vtt are flags; together they are the "save these formats"
     # setting, and neither given means the configured value stands.

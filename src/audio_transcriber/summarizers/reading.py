@@ -29,6 +29,7 @@ from ..summary import (
     STAGE_WRITING,
     NotEnoughMemory,
     SummaryError,
+    estimate_tokens,
     language_of,
     reduction_note,
 )
@@ -36,6 +37,7 @@ from ..summary import (
     reduce as reduce_sentences,
 )
 from . import partials, plan, prompting
+from . import trace as tracing
 
 #: The band of a progress bar the reading passes are mapped into. Loading and
 #: compiling the model own the first slice, and writing the final summary the
@@ -93,7 +95,7 @@ def ask(pipeline, system, prompt, budget, chosen, echo_prompt=None):
 
 
 def _map(pipeline, system, parts, language, chosen, report, band,
-         cache_dir=None):
+         cache_dir=None, fingerprint="", trace=None):
     """One answer per chunk, and the sentences behind each.
 
     The sentences are carried along because a fold above needs the source to
@@ -110,8 +112,9 @@ def _map(pipeline, system, parts, language, chosen, report, band,
         report(low + (high - low) * (index - 1) // len(parts), STAGE_READING)
         prompt = prompting.map_prompt(part, language, index, len(parts))
         name = partials.key(prompt, chosen.model.name, chosen.quant, "map",
-                            chosen.map_answer_tokens, language)
+                            chosen.map_answer_tokens, language, fingerprint)
         answer = partials.get(name, cache_dir)
+        status = tracing.OK
         if answer is None:
             print(t("summary.pass", part=index, total=len(parts)),
                   file=sys.stderr)
@@ -129,10 +132,22 @@ def _map(pipeline, system, parts, language, chosen, report, band,
                       file=sys.stderr)
                 answer = prompting.evidence_for(part, chosen.map_answer_tokens,
                                                 language)
+                # Not a summary of the chunk: the chunk's own sentences, put
+                # where the summary should have been. Recorded as such, so
+                # that copy_rate measures the model and not this.
+                status = tracing.ECHOED
             written = partials.put(name, answer, cache_dir) or written
         else:
             print(t("summary.pass_cached", part=index, total=len(parts)),
                   file=sys.stderr)
+            status = tracing.REUSED
+        if trace is not None:
+            trace.chunk(index=index, total=len(parts),
+                        in_tokens=estimate_tokens(prompt, language),
+                        out_tokens=estimate_tokens(answer, language),
+                        notes=len(prompting.points_in(answer)),
+                        status=status,
+                        starts=prompting.point_starts(answer))
         found.append((answer, list(part)))
     if written:
         # This program has no daemon, so the only moment anything can be
@@ -142,7 +157,8 @@ def _map(pipeline, system, parts, language, chosen, report, band,
     return found
 
 
-def _fold_to_root(pipeline, system, answers, language, chosen, report, band):
+def _fold_to_root(pipeline, system, answers, language, chosen, report, band,
+                  trace=None):
     """Fold every level except the root, and return what the root has to
     write from: the partial summaries in time order, and the evidence to
     check them against.
@@ -163,7 +179,7 @@ def _fold_to_root(pipeline, system, answers, language, chosen, report, band):
     for depth, level in enumerate(levels[:-1]):
         report(low + (high - low) * depth // max(1, len(levels)), STAGE_WRITING)
         folded = []
-        for group in level:
+        for number, group in enumerate(level, start=1):
             texts = [answers[index][0] for index in group]
             sentences = [line for index in group for line in answers[index][1]]
             evidence = prompting.evidence_for(sentences, evidence_tokens,
@@ -171,8 +187,26 @@ def _fold_to_root(pipeline, system, answers, language, chosen, report, band):
             print(t("summary.folding", groups=len(level), level=depth + 1),
                   file=sys.stderr)
             prompt = prompting.reduce_partial_prompt(texts, language, evidence)
-            answer = ask(pipeline, system, prompt,
-                         chosen.map_answer_tokens, chosen) or texts[0]
+            written_answer = ask(pipeline, system, prompt,
+                                 chosen.map_answer_tokens, chosen)
+            # The fallback is left exactly as it was — this pass only writes
+            # down what it costs. When the fold says nothing, the group keeps
+            # its *first* partial and the rest are gone, which is a silence
+            # this program can no longer afford.
+            answer = written_answer or texts[0]
+            if trace is not None:
+                out_tokens = estimate_tokens(written_answer, language)
+                if not written_answer:
+                    status, lost = tracing.COLLAPSED, max(0, len(texts) - 1)
+                elif out_tokens >= chosen.map_answer_tokens * tracing.BUDGET_MARGIN:
+                    status, lost = tracing.BUDGET_EXHAUSTED, 0
+                else:
+                    status, lost = tracing.OK, 0
+                trace.fold(level=depth + 1, group=number, groups=len(level),
+                           partials_in=len(texts),
+                           in_tokens=estimate_tokens("\n".join(texts), language),
+                           budget=chosen.map_answer_tokens,
+                           out_tokens=out_tokens, status=status, lost=lost)
             folded.append((answer, sentences))
         answers = folded
     report(low + (high - low) * (len(levels) - 1) // max(1, len(levels)),
@@ -293,6 +327,8 @@ def summarize_with(open_pipeline, chosen, material, settings=None,
         if progress:
             progress(percent, stage)
 
+    trace = tracing.Trace()
+    fingerprint = partials.settings_key(settings, chosen)
     budget = int(settings.get("summary_chunk_tokens") or chosen.chunk_tokens)
     parts = prompting.chunks(sentences, budget, chosen.chunk_overlap, language)
     if not parts:
@@ -336,9 +372,10 @@ def summarize_with(open_pipeline, chosen, material, settings=None,
             low, high = READING_BAND
             seam = int(low + (high - low) * FOLDING_FROM)
             answers = _map(pipeline, system, parts, language, chosen, report,
-                           (low, seam), settings.get("cache_dir"))
+                           (low, seam), settings.get("cache_dir"),
+                           fingerprint, trace)
             texts, evidence = _fold_to_root(pipeline, system, answers, language,
-                                            chosen, report, (seam, high))
+                                            chosen, report, (seam, high), trace)
             if style == "split":
                 sections, answer = _write_split(
                     pipeline, system, language, chosen,
@@ -358,7 +395,65 @@ def summarize_with(open_pipeline, chosen, material, settings=None,
         raise SummaryError(t("summary.model_said_nothing",
                              model=model_name or chosen.model.name,
                              detail=why_nothing(answer)))
+    report_trace(trace, sections, material, settings)
     return sections, note
+
+
+def points_of(sections):
+    """Every point on the finished page, whichever heading it ended under."""
+    found = []
+    for field in prompting.SECTION_FIELDS:
+        value = getattr(sections, field, None)
+        if isinstance(value, (list, tuple)):
+            found.extend(value)
+    return found
+
+
+def report_trace(trace, sections, material, settings=None):
+    """Say what the passes did, and how much of the recording came through.
+
+    Coverage and copy_rate are not here: they are computed from the finished
+    page, for every engine, in :func:`summary.report_metrics`. What belongs
+    here is what only the passes know — which of them produced nothing, and
+    what the folds threw away."""
+    settings = settings or {}
+    points = points_of(sections)
+    counts = trace.counts()
+    reading_share = trace.reading_coverage(material.duration)
+
+    if settings.get("summary_debug"):
+        for line in trace.lines():
+            print(line, file=sys.stderr)
+    for record in trace.failures():
+        print(record.line(), file=sys.stderr)
+    if counts["partials_lost"]:
+        print(t("summary.partials_lost", lost=counts["partials_lost"],
+                folds=counts["folds_collapsed"]), file=sys.stderr)
+    if counts["echoed_chunks"]:
+        print(t("summary.echoed_chunks", chunks=counts["echoed_chunks"]),
+              file=sys.stderr)
+    page_share = tracing.coverage([point.start for point in points],
+                                  material.duration)
+    if (reading_share is not None and page_share is not None
+            and reading_share - page_share > tracing.LOST_ON_THE_WAY):
+        # Read and then lost. The passes covered the recording; the page does
+        # not. Everything between them is the fold.
+        print(t("summary.lost_on_the_way",
+                read=int(round(reading_share * 100)),
+                written=int(round(page_share * 100))), file=sys.stderr)
+
+    where = settings.get("summary_dump_notes")
+    if where:
+        extra = {"metrics": dict(counts, reading_coverage=reading_share),
+                 "points": [{"start": point.start, "speaker": point.speaker,
+                             "text": point.text} for point in points]}
+        try:
+            with open(where, "w", encoding="utf-8") as handle:
+                handle.write(trace.as_document(extra))
+        except OSError as failure:
+            print(t("summary.dump_failed", path=where, error=failure),
+                  file=sys.stderr)
+    return counts
 
 
 def why_nothing(answer):
