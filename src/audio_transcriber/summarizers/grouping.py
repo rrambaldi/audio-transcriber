@@ -140,6 +140,11 @@ class Cluster:
     origin: str = "discovered"
     #: The kind, when a kind made it: the heading is then already known.
     kind: str | None = None
+    #: Where the title came from: ``model``, ``catalogue`` or ``keywords``.
+    #: The document's own title is made only of the ones a model wrote, so
+    #: that a run with no model does not end up titled after three filler
+    #: words that happened to repeat.
+    named_by: str = ""
     keywords: list = field(default_factory=list)
 
     @property
@@ -373,6 +378,38 @@ def _about(found, language="it", how_many=3):
     return [word for word, _ in
             sorted(counted.items(),
                    key=lambda pair: (-pair[1], -len(pair[0]), pair[0]))][:how_many]
+
+
+def split_oversize(sections, most_notes, language="it"):
+    """Break a section too big to write in one question into several.
+
+    Split rather than thinned, and the difference is the whole argument of
+    this package: a document with one section more is a correct document, and
+    a section that quietly lost a third of its notes is the failure everything
+    here was built to stop. Re-grouped tightly first, so that the pieces are
+    each about something; cut in order only when even that leaves one too big,
+    which happens when the notes really are all the same subject."""
+    if most_notes < 2:
+        return list(sections)
+    out = []
+    for section in sections:
+        if len(section.notes) <= most_notes:
+            out.append(section)
+            continue
+        tighter, _left = discover(section.notes, language, apart=0.60,
+                                  most=len(section.notes))
+        pieces = list(tighter)
+        if not pieces or any(len(piece.notes) > most_notes for piece in pieces):
+            pieces = [Cluster(notes=section.notes[at:at + most_notes],
+                              kind=section.kind,
+                              keywords=_about(section.notes[at:at + most_notes],
+                                              language))
+                      for at in range(0, len(section.notes), most_notes)]
+        for piece in pieces:
+            piece.origin = section.origin
+        out.extend(pieces)
+    out.sort(key=lambda section: section.ts_min)
+    return out
 
 
 def assign(found, mode=HYBRID, language="it", apart=None, orphaned=ORPHANED,

@@ -36,7 +36,7 @@ from ..summary import (
 from ..summary import (
     reduce as reduce_sentences,
 )
-from . import grouping, partials, plan, prompting
+from . import grouping, partials, plan, prompting, writing
 from . import notes as note_reading
 from . import trace as tracing
 
@@ -52,6 +52,21 @@ FOLDING_FROM = 2.0 / 3.0
 #: program does not have would count the prompt a little differently, and the
 #: failure that costs is the transcript losing its tail.
 CONTEXT_MARGIN = 128
+
+#: The shape of the finished page: sections the recording produced, or the
+#: five fixed headings this feature started with.
+#:
+#: The old one is still the default, and that is deliberate rather than
+#: timid. The new one has never been run against a model — the machine that
+#: can run one is not the machine this is written on — and replacing the only
+#: measured path with an unmeasured one is how a feature is lost rather than
+#: improved. It becomes the default the day a run says it is better, and the
+#: run is one flag away.
+SECTIONS = "sections"
+HEADINGS = "headings"
+
+#: A title is three to eight words. What this buys is a model that stops.
+LABEL_TOKENS = 60
 
 
 def cut_to_fit(sentences, budget, chosen, language="it", tries=3):
@@ -348,6 +363,8 @@ def summarize_with(open_pipeline, chosen, material, settings=None,
             progress(percent, stage)
 
     trace = tracing.Trace()
+    grouped = None
+    shape = str(settings.get("summary_shape") or HEADINGS).strip().lower()
     fingerprint = partials.settings_key(settings, chosen)
     budget = int(settings.get("summary_chunk_tokens") or chosen.chunk_tokens)
     # How much a reading pass may say. It comes from the plan, and it is worth
@@ -392,7 +409,16 @@ def summarize_with(open_pipeline, chosen, material, settings=None,
     pipeline = open_pipeline()
     try:
         system = prompting.prompts_for(language)["system"]
-        if len(parts) == 1:
+        if shape == SECTIONS:
+            low, high = READING_BAND
+            seam = int(low + (high - low) * FOLDING_FROM)
+            _map(pipeline, system, parts, language, chosen, report,
+                 (low, seam), settings.get("cache_dir"), fingerprint, trace)
+            sections, grouped = _write_sections(
+                trace.notes, pipeline, system, language, chosen, settings,
+                material, report, (seam, high))
+            answer = sections.abstract
+        elif len(parts) == 1:
             report(READING_BAND[0], STAGE_READING)
             if style == "split":
                 sections, answer = _write_split(
@@ -430,15 +456,44 @@ def summarize_with(open_pipeline, chosen, material, settings=None,
             close()
 
     if not (sections.abstract or sections.points or sections.decisions
-            or sections.actions):
+            or sections.actions or getattr(sections, "sections", ())):
         raise SummaryError(t("summary.model_said_nothing",
                              model=model_name or chosen.model.name,
                              detail=why_nothing(answer)))
-    report_trace(trace, sections, material, settings)
+    report_trace(trace, sections, material, settings, grouped)
     return sections, note
 
 
-def _section_shape(found, language, settings):
+def _write_sections(found, pipeline, system, language, chosen, settings,
+                    material, report, band):
+    """Group the notes, then write one section at a time.
+
+    Every question here is about one section's notes. Nothing sees the whole
+    recording, which is the difference between this and the fold it replaces:
+    a model answering a small question badly costs a section, where a model
+    answering an enormous one badly cost two thirds of a meeting and said
+    nothing about it."""
+    low, high = band
+    kept = grouping.dedupe(grouping.enrich(list(found), language), language)
+    body, tail = grouping.assign(
+        kept, settings.get("summary_sections_mode") or grouping.HYBRID,
+        language)
+    body = grouping.split_oversize(body, writing.NOTES_PER_SECTION, language)
+
+    def ask_for(budget):
+        return lambda prompt: ask(pipeline, system, prompt, budget, chosen)
+
+    def advance(done, total):
+        report(low + (high - low) * done // max(1, total), STAGE_WRITING)
+
+    written = writing.write(
+        body, tail, ask_for(chosen.map_answer_tokens), material, language,
+        advance, label_tokens=LABEL_TOKENS,
+        abstract_ask=ask_for(chosen.reduce_answer_tokens))
+    return written, (body, tail)
+
+
+def _section_shape(found, language, settings, grouped=None):
     """What the notes would be grouped into, as numbers and as words.
 
     Split in two on purpose: how many sections and how big they are is a
@@ -448,10 +503,15 @@ def _section_shape(found, language, settings):
     if not found:
         return empty
     try:
-        kept = grouping.dedupe(grouping.enrich(list(found), language), language)
-        body, tail = grouping.assign(
-            kept, settings.get("summary_sections_mode") or grouping.HYBRID,
-            language)
+        if grouped is not None:
+            body, tail = grouped
+            kept = [note for section in body for note in section.notes]
+        else:
+            kept = grouping.dedupe(grouping.enrich(list(found), language),
+                                   language)
+            body, tail = grouping.assign(
+                kept, settings.get("summary_sections_mode") or grouping.HYBRID,
+                language)
     except Exception:                   # noqa: BLE001 - a measurement, not the work
         return empty
     return {
@@ -480,7 +540,7 @@ def points_of(sections):
     return found
 
 
-def report_trace(trace, sections, material, settings=None):
+def report_trace(trace, sections, material, settings=None, grouped=None):
     """Say what the passes did, and how much of the recording came through.
 
     Coverage and copy_rate are not here: they are computed from the finished
@@ -497,7 +557,7 @@ def report_trace(trace, sections, material, settings=None):
     # costs one matrix multiplication to find out on every run rather than
     # only when somebody remembers to look.
     shape = _section_shape(trace.notes, language_of(material.language),
-                           settings)
+                           settings, grouped)
 
     if settings.get("summary_debug"):
         for line in trace.lines():

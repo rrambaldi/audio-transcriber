@@ -58,6 +58,36 @@ All notable changes to this project are documented here. The format follows
   against the old figure overflowed the window by the difference, silently,
   because what falls off the end is the end of the transcript.
 
+- **A summary can be written one section at a time, and nothing sees the
+  whole recording.** The shape this feature started with asks a model for a
+  page, then to merge pages, then to merge the merges — and every one of those
+  steps has to hold the entire recording in one window. Measured on a
+  twenty-two minute meeting: the reading covered 41% of it and the page
+  carried 14%, and giving the reading more room only moved the loss further
+  along. There is no setting of those numbers that gets the meeting onto the
+  page, because the throughput of the whole thing is one context window
+  applied three times.
+
+  So: a section is written from its own notes and no others, and the question
+  stays small however long the meeting was. A title is written from the same
+  handful. The opening paragraph is written from the section titles alone,
+  which is also what stops it repeating the bullets underneath it — it has
+  never seen them, and the page it replaces had an opening identical to its
+  own list of key points, word for word.
+
+  The page it makes has a heading per subject the recording actually had,
+  with a framing paragraph and its detail under it, and the decisions and the
+  actions collected at the foot. No minutes in the body: they are kept with
+  the notes, and `--timestamps` puts them back. The document is titled after
+  its own sections, never after a fragment of speech — the page this replaces
+  was called *"Ne va a Napoli Tutta una cosa"*.
+
+  It is not the default yet, and that is deliberate rather than timid: it has
+  never been run against a model, and replacing the only measured path with an
+  unmeasured one is how a feature is lost rather than improved. `summary.shape
+  = "sections"` turns it on, and it becomes the default the day a run says it
+  is better.
+
 - **Notes are grouped into sections by arithmetic, with no model involved.**
   Notes about one subject find each other by the words they share; the
   recording decides how many sections there are, and they come out in the

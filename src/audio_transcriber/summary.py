@@ -30,6 +30,7 @@ import sys
 import time
 import unicodedata
 from collections import namedtuple
+from dataclasses import dataclass
 from datetime import datetime
 
 import numpy as np
@@ -249,6 +250,32 @@ Material.__new__.__defaults__ = ("", (), "it", None)
 #: leaves out what it was not given rather than printing empty headings.
 Sections = namedtuple("Sections", "abstract points keywords decisions actions")
 Sections.__new__.__defaults__ = ("", (), (), (), ())
+
+@dataclass
+class Document:
+    """A record with sections of its own, rather than five fixed headings.
+
+    What the writing stage produces once sections come out of the recording
+    instead of out of a list written here. It quacks like :data:`Sections`
+    wherever something only wants to know what is on the page — the coverage
+    of a document is the coverage of its notes either way — so the metrics and
+    the emptiness check did not have to learn about it."""
+
+    title: str = ""
+    abstract: str = ""
+    #: ``(heading, markdown)`` per section, in the order the recording had.
+    sections: tuple = ()
+    decisions: tuple = ()
+    actions: tuple = ()
+    notes: tuple = ()
+    keywords: tuple = ()
+
+    @property
+    def points(self):
+        """Every note, as the points something counting them expects."""
+        return tuple(Point(note.ts_start, note.speaker, note.text)
+                     for note in self.notes)
+
 
 #: A point on the page: when it was said, who said it, what was said.
 Point = namedtuple("Point", "start speaker text")
@@ -530,7 +557,8 @@ def _bullet(point):
     return f"- {prefix}{point.text}".rstrip()
 
 
-def render(material, sections, engine, when=None, note=None):
+def render(material, sections, engine, when=None, note=None,
+           timestamps=False):
     """The finished ``summary.md``.
 
     Markdown, for the same reason the transcript is a ``.txt``: the entry has
@@ -538,7 +566,8 @@ def render(material, sections, engine, when=None, note=None):
     someone will paste into an email."""
     words = HEADINGS.get(language_of(material.language), HEADINGS["en"])
     when = when or datetime.now()
-    lines = [f"# {words['title']}: {material.title}".rstrip(": "), ""]
+    titled = getattr(sections, "title", "") or material.title
+    lines = [f"# {words['title']}: {titled}".rstrip(": "), ""]
 
     stamp = when.astimezone().strftime("%Y-%m-%d %H:%M")
     if material.duration:
@@ -555,6 +584,24 @@ def render(material, sections, engine, when=None, note=None):
 
     if sections.abstract:
         lines += [f"## {words['abstract']}", "", sections.abstract, ""]
+
+    written = getattr(sections, "sections", None)
+    if written:
+        # Sections the recording produced, each with its own heading and its
+        # own prose. No minute in the body: they are kept with the notes and
+        # in the record beside this page, and a bullet broken by a timestamp
+        # is a bullet read twice.
+        for at, (heading, body) in enumerate(written, start=1):
+            lines += [f"## {at}. {heading}", "", body.rstrip(), ""]
+        for field, heading in (("decisions", "decisions"),
+                               ("actions", "actions")):
+            entries = getattr(sections, field, ())
+            if entries:
+                lines += [f"## {words[heading]}", ""]
+                lines += [_note_bullet(entry, timestamps) for entry in entries]
+                lines.append("")
+        return "\n".join(lines).rstrip() + "\n"
+
     for field, heading in (("points", "points"), ("decisions", "decisions"),
                            ("actions", "actions")):
         entries = getattr(sections, field)
@@ -567,6 +614,14 @@ def render(material, sections, engine, when=None, note=None):
         lines += [f"## {words['keywords']}", "",
                   ", ".join(sections.keywords), ""]
     return "\n".join(lines).rstrip() + "\n"
+
+
+def _note_bullet(note, timestamps=False):
+    """One note in a list at the foot of the page."""
+    clock = (f"`[{format_clock(note.ts_start)}]` "
+             if timestamps and note.ts_start is not None else "")
+    who = f" — {note.speaker}" if getattr(note, "speaker", None) else ""
+    return f"- {clock}{note.text}{who}"
 
 
 def material_from_entry(entry):

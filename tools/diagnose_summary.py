@@ -208,6 +208,13 @@ def main(argv=None):
                              "is cut off, so this is the lever to try")
     parser.add_argument("--chunk-tokens", type=int, default=None, metavar="N",
                         help="how much transcript goes into one pass")
+    parser.add_argument("--shape", default=None,
+                        choices=["headings", "sections"],
+                        help="the five fixed headings, or sections the "
+                             "recording produced")
+    parser.add_argument("--sections-mode", default=None,
+                        choices=["discover", "fixed", "hybrid"],
+                        help="how notes are placed when the shape is sections")
     parser.add_argument("--keep-cache", action="store_true",
                         help="do not clear the partial answers first")
     args = parser.parse_args(argv)
@@ -227,6 +234,8 @@ def main(argv=None):
         "summary_context_tokens": args.context_tokens,
         "summary_map_tokens": args.map_tokens,
         "summary_chunk_tokens": args.chunk_tokens,
+        "summary_shape": args.shape,
+        "summary_sections_mode": args.sections_mode,
         "language": args.language,
     }
     settings = {name: value for name, value in settings.items()
@@ -287,7 +296,8 @@ def main(argv=None):
                   "length": args.length,
                   "context_tokens": args.context_tokens,
                   "map_tokens": args.map_tokens,
-                  "chunk_tokens": args.chunk_tokens},
+                  "chunk_tokens": args.chunk_tokens,
+                  "shape": args.shape, "sections_mode": args.sections_mode},
         "prompt_version": prompting.PROMPT_VERSION,
         "plan_asked_again": the_plan,
         "cache_cleared": None if args.keep_cache else clear_cache(settings),

@@ -171,6 +171,40 @@ PROMPTS = {
             "{fence_start}\n{transcript}\n{fence_end}",
         "map_speaker_rule":
             " Dopo il minuto, fra parentesi tonde, l'etichetta di chi parla.",
+        "label":
+            "Questi sono appunti che riguardano tutti lo stesso argomento.\n\n"
+            "{notes}\n\n"
+            "Rispondi SOLO con un titolo da tre a otto parole che dica qual e' "
+            "l'argomento. Niente punteggiatura finale, niente numerazione, "
+            "niente spiegazioni, niente virgolette.",
+        "section":
+            "Scrivi una sezione di un resoconto, in italiano, a partire da "
+            "questi appunti, che riguardano tutti lo stesso argomento.\n\n"
+            "{notes}\n\n"
+            "Struttura:\n"
+            "- un paragrafo iniziale di una o tre frasi che inquadra "
+            "l'argomento e dice cosa e' stato chiesto o deciso nel "
+            "complesso;\n"
+            "- sotto, un elenco puntato con i dettagli;\n"
+            "- se gli appunti descrivono casi, alternative o fasi distinte, "
+            "usa un elenco numerato con sotto-punti annidati invece di una "
+            "lista piatta.\n\n"
+            "Regole:\n"
+            "- usa solo quello che c'e' negli appunti, non aggiungere nulla;\n"
+            "- il paragrafo inquadra e i punti dettagliano: non ripetere nei "
+            "punti quello che hai gia' scritto nel paragrafo;\n"
+            "- non scrivere il titolo della sezione, lo mette qualcun "
+            "altro;\n"
+            "- niente minuti, niente nomi di chi parla, nessun riferimento al "
+            "fatto che si tratti di una trascrizione.",
+        "abstract_from":
+            "Questi sono gli argomenti di cui si e' parlato in una "
+            "registrazione, nell'ordine.\n\n"
+            "{titles}\n\n"
+            "Scrivi in italiano il paragrafo di apertura del resoconto, da "
+            "due a quattro frasi: di cosa si e' parlato nel complesso e quali "
+            "sono stati i temi principali. NON elencarli uno per uno, quelli "
+            "vengono subito dopo. Prosa continua, non un elenco travestito.",
         "map_example":
             "Esempio. Da questo estratto:\n\n"
             "{fence_start}\n"
@@ -291,6 +325,38 @@ PROMPTS = {
         "map_speaker_rule":
             " After the minute, in round brackets, the label of whoever is "
             "speaking.",
+        "label":
+            "These are notes that are all about one subject.\n\n"
+            "{notes}\n\n"
+            "Answer with NOTHING but a title of three to eight words saying "
+            "what the subject is. No full stop, no numbering, no explanation, "
+            "no quotation marks.",
+        "section":
+            "Write a section of a written record, in English, from these "
+            "notes, which are all about one subject.\n\n"
+            "{notes}\n\n"
+            "The shape:\n"
+            "- an opening paragraph of one to three sentences framing the "
+            "subject and saying what was asked or decided overall;\n"
+            "- under it, a bulleted list of the detail;\n"
+            "- where the notes describe cases, alternatives or distinct "
+            "stages, use a numbered list with nested sub-points rather than a "
+            "flat one.\n\n"
+            "Rules:\n"
+            "- use only what is in the notes, add nothing;\n"
+            "- the paragraph frames and the bullets detail: do not repeat in "
+            "the bullets what the paragraph already said;\n"
+            "- do not write the section's title, somebody else puts it "
+            "there;\n"
+            "- no minutes, no names of speakers, no reference to this being a "
+            "transcript.",
+        "abstract_from":
+            "These are the subjects a recording covered, in order.\n\n"
+            "{titles}\n\n"
+            "Write, in English, the opening paragraph of the record, two to "
+            "four sentences: what was discussed overall and what the main "
+            "themes were. Do NOT list them one by one, those follow straight "
+            "after. Continuous prose, not a list in disguise.",
         "map_example":
             "An example. From this extract:\n\n"
             "{fence_start}\n"
