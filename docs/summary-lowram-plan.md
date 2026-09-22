@@ -328,6 +328,34 @@ separates usable from not, rather than a leaderboard. And does the whole
 pipeline work end to end, with the page it produced and everything the run
 said along the way.
 
+## Diagnosing one summary
+
+`tools/diagnose_summary.py` is the other half of that: not "does this machine
+work" but "what did this one run do". It summarises a transcript with the
+trace switched on and writes down the plan, the timings, every reading pass
+and every fold, and what reached the page.
+
+```bash
+python tools/diagnose_summary.py path/to/meeting.srt
+python tools/diagnose_summary.py meeting.srt --engine openvino --style split
+```
+
+It writes two files, and the split is the point. `<name>.numbers.json` holds
+the plan, the passes and the metrics — numbers and status words, no sentence
+of the recording and no line of the summary — and is the one to send to
+somebody who is helping. `<name>.page.md` holds the summary itself, which is
+whatever the meeting was about, and stays with the transcript.
+
+The partial answers of earlier runs are cleared first, unless `--keep-cache`
+says otherwise: a pass that went wrong is filed under the same key as one that
+did not, and comes back looking fresh.
+
+What it is for: a summary can come back well-formed and be about the first
+third of the recording. The number that says so is the coverage, measured
+twice — over what the reading passes wrote, and over what the page carries.
+Both low means the recording was never read; the first high and the second low
+means it was read and lost on the way up, and the fold lines say how much.
+
 ### What it has said so far
 
 Measured on a two-core server with no accelerator, 15 articles, at the
