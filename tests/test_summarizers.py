@@ -479,8 +479,29 @@ def material(sentences, language="it"):
     return Material(title="Riunione", sentences=sentences, language=language)
 
 
+def folding(**extra):
+    """Settings that ask for the shape the fold belongs to.
+
+    The tests below are about reading a transcript in parts and folding the
+    parts into one answer, which is what the page made of fixed headings
+    does. It is no longer the default - a section is written from its own
+    notes now, and nothing folds - so these say which shape they mean. The
+    new one is measured in test_writing.py."""
+    return dict({"summary_shape": reading.HEADINGS}, **extra)
+
+
+def test_the_page_is_written_in_sections_unless_asked_otherwise(stubbed):
+    """The default, and the measurement that made it one. On the same
+    twenty-two minute recording the old shape read 41% of the minutes and
+    printed 14%; the new one read 36% and printed 36%. What the fold lost
+    between the reading and the page is what this is here to keep."""
+    sections, _ = engine.summarize(material(SENTENCES), {})
+    assert getattr(sections, "sections", ())
+    assert engine.summarize(material(SENTENCES), folding())[0].points
+
+
 def test_a_transcript_that_fits_is_summarised_in_one_prompt(stubbed):
-    sections, note = engine.summarize(material(SENTENCES), {})
+    sections, note = engine.summarize(material(SENTENCES), folding())
     assert len(stubbed.asked) == 1
     assert "Parliamo del budget." in prompts(stubbed)[0]
     assert sections.abstract == "Un riassunto vero."
@@ -489,7 +510,7 @@ def test_a_transcript_that_fits_is_summarised_in_one_prompt(stubbed):
 
 def test_a_long_transcript_is_read_in_parts_and_then_folded(stubbed):
     many = [Sentence(f"Frase numero {n} del verbale.", n * 10.0) for n in range(60)]
-    engine.summarize(material(many), {"summary_chunk_tokens": 120})
+    engine.summarize(material(many), folding(summary_chunk_tokens=120))
 
     asked = prompts(stubbed)
     assert "parte 1 di" in asked[0]
@@ -504,7 +525,7 @@ def test_a_long_transcript_is_read_in_parts_and_then_folded(stubbed):
 def test_the_passes_are_exactly_the_ones_the_tree_calls_for(stubbed, roomy):
     """Not one per chunk plus one: the folding levels are passes too."""
     many = [Sentence(f"Frase numero {n} del verbale.", n * 10.0) for n in range(400)]
-    engine.summarize(material(many), {"summary_chunk_tokens": 120})
+    engine.summarize(material(many), folding(summary_chunk_tokens=120))
 
     # Counted from what the run actually read, not from the chunker: which
     # model this machine gets decides the window, the budgets and how many
@@ -544,7 +565,7 @@ def test_the_model_is_told_not_to_think_while_reading_a_chunk(stubbed):
 
 def test_every_fold_is_given_the_transcript_to_check_itself_against(stubbed):
     many = [Sentence(f"Il budget vale {n} mila euro.", n * 10.0) for n in range(60)]
-    engine.summarize(material(many), {"summary_chunk_tokens": 120})
+    engine.summarize(material(many), folding(summary_chunk_tokens=120))
     folds = [call["prompt"] for call in stubbed.asked
              if call not in map_calls(stubbed)]
     assert folds
@@ -595,7 +616,7 @@ def test_split_style_asks_one_section_at_a_time(split_stubbed):
                   "- [0:08] Budget.\n\n## Decisioni\n- Approvato."),
     }
     sections, note = engine.summarize(material(SENTENCES),
-                                      {"summary_style": "split"})
+                                      folding(summary_style="split"))
     # Four single-section requests, plus one merge that checks them against
     # each other.
     assert len(split_stubbed.asked) == 5
@@ -612,7 +633,7 @@ def test_split_style_skips_the_merge_call_with_only_one_draft(split_stubbed):
     """Nothing to check a section against but itself, so nothing is asked."""
     split_stubbed.answers = {"abstract": "Un riassunto vero."}
     sections, _ = engine.summarize(material(SENTENCES),
-                                   {"summary_style": "split"})
+                                   folding(summary_style="split"))
     assert len(split_stubbed.asked) == 4
     assert sections.abstract == "Un riassunto vero."
     assert not sections.points
@@ -630,7 +651,7 @@ def test_split_style_falls_back_to_the_drafts_if_the_merge_answer_is_unusable(
         "merge": "boh",
     }
     sections, _ = engine.summarize(material(SENTENCES),
-                                   {"summary_style": "split"})
+                                   folding(summary_style="split"))
     assert len(split_stubbed.asked) == 5
     assert sections.abstract == "Un riassunto vero."
     assert [point.text for point in sections.points] == ["Budget."]
@@ -661,7 +682,7 @@ def test_split_style_reads_the_paraphrase_of_the_sentinel_too(split_stubbed):
                   "- [0:08] Budget."),
     }
     sections, _ = engine.summarize(material(SENTENCES),
-                                   {"summary_style": "split"})
+                                   folding(summary_style="split"))
     assert not sections.decisions
     assert not sections.actions
     assert sections.abstract == "Un riassunto vero."
@@ -701,7 +722,7 @@ def test_a_finding_is_not_thrown_away_for_opening_on_a_negation(answer):
 
 def test_combined_style_is_still_the_default(stubbed):
     """The one call this feature has always made, unless asked otherwise."""
-    engine.summarize(material(SENTENCES), {})
+    engine.summarize(material(SENTENCES), folding())
     assert len(stubbed.asked) == 1
 
 
@@ -716,8 +737,8 @@ def test_split_style_also_works_after_folding_a_long_transcript(split_stubbed):
     }
     many = [Sentence(f"Frase numero {n} del verbale.", n * 10.0) for n in range(60)]
     sections, _ = engine.summarize(material(many),
-                                   {"summary_style": "split",
-                                    "summary_chunk_tokens": 120})
+                                   folding(summary_style="split",
+                                            summary_chunk_tokens=120))
 
     mapped = map_calls(split_stubbed)
     assert mapped                                    # it did have to fold
@@ -835,7 +856,7 @@ def test_a_model_still_thinking_when_it_ran_out_is_asked_again(stubbed, roomy):
     monkeypatch = pytest.MonkeyPatch()
     monkeypatch.setattr(FakePipeline, "ask", thinking_once)
     try:
-        sections, _ = engine.summarize(material(SENTENCES), {})
+        sections, _ = engine.summarize(material(SENTENCES), folding())
     finally:
         monkeypatch.undo()
 
@@ -1203,8 +1224,8 @@ def test_a_reading_pass_can_be_given_more_room_than_the_plan_allows():
     # so. What is being checked is what the reading passes were allowed.
     with pytest.raises(SummaryError):
         reading.summarize_with(lambda: Pipeline(), chosen, material,
-                               {"summary_map_tokens": 1234,
-                                "summary_chunk_tokens": 400})
+                               folding(summary_map_tokens=1234,
+                                       summary_chunk_tokens=400))
     assert seen["budgets"][0] == 1234
     assert chosen.map_answer_tokens != 1234      # the plan itself is untouched
 

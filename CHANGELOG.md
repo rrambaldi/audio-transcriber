@@ -6,6 +6,21 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- **A summary is now the page the recording produced, not five fixed
+  headings.** One heading per subject, prose under each written from that
+  subject's own notes, and decisions and actions listed at the foot. The
+  shape that folded every reading pass into one answer is still there, under
+  `shape = "headings"` in `[summary]`.
+
+  The number that decided it is the distance between what the passes read and
+  what reached the page. Same twenty-two minute recording, same model, same
+  reading passes: the old shape read 41% of the minutes and printed 14% of
+  them; the new one read 36% and printed 36%. Measured twice, on two engines.
+  The fold had the whole recording to fit into one answer and dropped
+  whatever did not fit, and nothing on the finished page said so.
+
 ### Added
 
 - **The llama.cpp engine now uses the graphics card, where there is one.** It
@@ -208,6 +223,15 @@ All notable changes to this project are documented here. The format follows
   whether the engine was there was being asked without the settings that held
   the answer. The same was true of the engine list in the window and on the
   page, and of what `audio-transcriber hardware` reported about this machine.
+
+- **A heading in the wrong language no longer loses its notes.** Asked for
+  Italian headings, a small model answers in the nearest language it knows
+  better: a real run came back with `Decisões`, `Ações` and `Requisitos`, and
+  every note under them was demoted to a plain fact, which emptied the
+  decisions and actions at the foot of the page. A heading close enough to
+  one that was asked for now counts as that one — including `Questioni
+  apert`, which is the right language with the end missing — and a word that
+  is close to none of them still counts as none.
 
 - **Being told an engine is missing now says what would install it.** Both
   ways in for llama.cpp, the configuration key included, and the one `pip

@@ -61,7 +61,7 @@ DEFAULTS = {
     "summary_device": None,       # None/"auto": the Intel iGPU, then the CPU
     "summary_chunk_tokens": None,  # None: the module's default
     "summary_map_tokens": None,    # None: what the plan allows a pass to say
-    "summary_shape": None,         # None: "headings"; "sections" is the new one
+    "summary_shape": None,         # None: "sections"; "headings" is the old one
     "summary_sections_mode": None,  # None: "hybrid"
     "summary_context_tokens": None,  # None: the tier's own context window
     "summary_kv_type": None,      # None: the tier's own cache precision

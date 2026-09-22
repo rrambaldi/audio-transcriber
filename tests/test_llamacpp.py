@@ -15,7 +15,7 @@ import pytest
 
 from audio_transcriber import paths
 from audio_transcriber.summarizers import llamacpp as engine
-from audio_transcriber.summarizers import plan
+from audio_transcriber.summarizers import plan, reading
 from audio_transcriber.summary import Material, Sentence, SummaryError
 
 
@@ -467,7 +467,11 @@ def stubbed(monkeypatch, tmp_path):
 
 
 def test_a_transcript_is_summarised_and_the_model_is_let_go(stubbed):
-    sections, note = engine.summarize(material(), {})
+    # The old shape, because the fake answers with a whole page of headings
+    # and that is what reads it back. What is being checked here is the model
+    # being loaded once and let go, which is the same either way.
+    sections, note = engine.summarize(
+        material(), {"summary_shape": reading.HEADINGS})
     assert sections.abstract == "Un riassunto vero."
     assert len(stubbed.made) == 1
     assert stubbed.made[0].closed

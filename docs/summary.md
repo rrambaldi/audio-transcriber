@@ -158,6 +158,27 @@ constant work and the wrong one for reading a meeting.
 `--device NPU` is still honoured — somebody summarising a five-minute note on
 battery has a case — with a warning that says the above in three lines.
 
+### What the page is made of
+
+The page is **sections the recording produced**, one heading per subject, and
+under each of them prose written from that subject's own notes. A reading pass
+does not write prose at all: it writes notes, one thing said each, typed and
+dated. The notes are grouped afterwards, on the whole recording at once, and
+then every section is written from its own group — nothing is ever asked to
+hold the whole meeting in one answer.
+
+That last sentence is the whole point, and it has a number. The shape before
+this one read the transcript in parts and folded the parts together, and the
+fold is where a recording goes missing: on the same twenty-two minute meeting,
+with the same model and the same reading passes, the old shape **read 41% of
+the minutes and printed 14%**. The new one read 36% and printed 36% — the same
+measurement, taken twice on two different engines, and nothing lost in
+between. What reaches the page is what was read.
+
+`shape = "headings"` brings the old one back: an abstract, key points,
+decisions, actions, recurring terms, and the fold described below that makes
+them.
+
 ### How it reads a long transcript
 
 A transcript that fits in one pass goes to the model in one prompt. A longer
@@ -224,6 +245,15 @@ the summary is a page that looks finished and says nothing.
 And a heading written as `**Punti chiave**` rather than `## Punti chiave` is
 still a heading. Left unrecognised, every section the model wrote lands in the
 abstract.
+
+So is a heading in the wrong language, or one that stops half way. A small
+model asked for Italian headings answers in the nearest language it knows
+better: a real run came back with `Decisões`, `Ações`, `Requisitos` —
+Portuguese, every one of them — and another with `Questioni apert`, which is
+Italian with the end missing and which no catalogue of words would ever hold.
+A heading close enough to one that was asked for counts as that one; a word
+that is close to nothing, `Riassunto` or `Altro`, still counts as nothing,
+because guessing there would file bullets under a heading nobody wrote.
 
 When nothing survives all of that, you get "returned nothing usable — try
 another model, or `--engine extractive`" instead of a page that looks like a
@@ -398,6 +428,8 @@ model = "auto"
 device = "auto"
 # tokens of transcript per pass; unset, the plan works it out
 chunk_tokens = 6000
+# sections | headings   (sections: the page the recording produced)
+shape = "sections"
 
 # Everything below is worked out from this machine and is here for a
 # controlled deployment, or to reproduce somebody else's result.

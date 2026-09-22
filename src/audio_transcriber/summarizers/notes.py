@@ -26,8 +26,10 @@ The one addition is ``requirement``, which the catalogue lacked and the
 recordings this is built for are mostly made of: somebody saying what a thing
 must do is neither a decision, nor a proposal, nor a fact.
 """
+import difflib
 import hashlib
 import re
+import unicodedata
 from dataclasses import dataclass, field
 
 from ..formatting import format_clock
@@ -136,8 +138,22 @@ def heading_of(kind, language="it"):
     return words.get(kind) or HEADINGS["en"][kind]
 
 
+#: How close a heading has to be to one that was asked for before it counts
+#: as that one. Measured on a real run: every heading the model meant scored
+#: 0.67 or better, and every word it did not - "Riassunto", "Altro", "Note" -
+#: scored 0.50 or worse. The threshold sits in the gap.
+SAME_HEADING = 0.62
+
+
 def _plain(text):
-    return re.sub(r"[^\w\s]", "", str(text or "")).strip().lower()
+    """A heading with its punctuation, its accents and its case taken off.
+
+    Accents included because that is half of what the near misses are: a model
+    asked for "Decisioni" writes "Decisões", and the two are the same word
+    once the diacritics are gone."""
+    flat = unicodedata.normalize("NFKD", str(text or ""))
+    flat = "".join(letter for letter in flat if not unicodedata.combining(letter))
+    return re.sub(r"[^\w\s]", "", flat).strip().lower()
 
 
 def type_of(heading, language="it"):
@@ -145,16 +161,43 @@ def type_of(heading, language="it"):
 
     Both the language asked for and English are accepted: a model told to
     write "## Requisiti" writes "## Requirements" often enough, and losing a
-    whole kind to that would be a poor trade for strictness."""
+    whole kind to that would be a poor trade for strictness.
+
+    And not only those two, because a small model asked for Italian headings
+    answers in the nearest language it knows better. A real run came back with
+    "Decisões", "Ações", "Requisitos" - Portuguese, every one of them, and
+    every note under them demoted to a fact because the word did not match.
+    One came back as "Questioni apert", which is Italian with the end missing
+    and which no catalogue would ever hold. So the nearest heading wins when
+    it is near enough, and a word that is nothing like any of them still
+    matches nothing."""
     wanted = _plain(heading)
     if not wanted:
         return None
     language = language_of(language)
-    for words in (HEADINGS.get(language, HEADINGS["en"]), HEADINGS["en"]):
+    catalogues = (HEADINGS.get(language, HEADINGS["en"]), HEADINGS["en"])
+    for words in catalogues:
         for kind, written in words.items():
             if wanted == _plain(written):
                 return kind
-    return None
+
+    scores = {}
+    for words in catalogues:
+        for kind, written in words.items():
+            close = difflib.SequenceMatcher(None, wanted,
+                                            _plain(written)).ratio()
+            scores[kind] = max(scores.get(kind, 0.0), close)
+    if not scores:
+        return None
+    ranked = sorted(scores.items(), key=lambda pair: pair[1], reverse=True)
+    best, close = ranked[0]
+    if close < SAME_HEADING:
+        return None
+    # A tie is not a match: two kinds equally close means the word is near
+    # neither of them in particular.
+    if len(ranked) > 1 and ranked[1][1] >= close:
+        return None
+    return best
 
 
 def clock_seconds(stamp):

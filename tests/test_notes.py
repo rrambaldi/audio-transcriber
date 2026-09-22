@@ -56,6 +56,39 @@ def test_a_heading_is_read_back_in_either_language():
     assert notes.type_of("Qualcos'altro", "it") is None
 
 
+def test_a_heading_in_the_wrong_romance_language_is_still_read_back():
+    """What a real run came back with. Asked for Italian headings, a small
+    model answers in the nearest language it knows better, and every note
+    under "Decisões" was being demoted to a fact."""
+    for written, kind in (("Requisitos", "requirement"), ("Fatos", "fact"),
+                          ("Decisões", "decision"), ("Propostas", "proposal"),
+                          ("Ações", "action"), ("Problemas", "problem"),
+                          ("Questões Abertas", "open_question"),
+                          ("Opiniões", "opinion")):
+        assert notes.type_of(written, "it") == kind
+
+
+def test_a_heading_that_stops_half_way_is_still_that_heading():
+    """"Questioni apert" - Italian with the end missing, which no catalogue
+    of words would ever hold."""
+    assert notes.type_of("Questioni apert", "it") == "open_question"
+    assert notes.type_of("Opinões", "it") == "opinion"
+
+
+def test_a_word_that_is_no_heading_matches_nothing():
+    """The other half of being tolerant: a page that says "Riassunto" has not
+    named a kind of note, and guessing one would file its bullets under a
+    heading nobody wrote."""
+    for written in ("Riassunto", "Sommario", "Note", "Altro",
+                    "Punti chiave", "Partecipanti"):
+        assert notes.type_of(written, "it") is None
+
+
+def test_two_kinds_equally_close_is_no_match():
+    """Near neither of them in particular."""
+    assert notes.type_of("xxxxxx", "it") is None
+
+
 # --- reading one pass ------------------------------------------------------
 
 def test_a_pass_is_read_into_one_note_per_bullet():

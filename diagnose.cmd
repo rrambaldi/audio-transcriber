@@ -91,19 +91,18 @@ call :devices "vulkan" "%AT_LLAMA_VULKAN%"
 call :devices "openvino" "%AT_LLAMA_OPENVINO%"
 
 rem --- the runs this round ---------------------------------------------------
-rem What was settled in the round before: "BUDGET_EXHAUSTED" was a false
-rem alarm. Saying 900 tokens instead of 500 changed not one note - the two
-rem reading passes came back with the same twelve and the same nine - so the
-rem allowance is not what is holding the reading down, and neither run needs
-rem repeating.
+rem What was settled in the round before: how much a pass is given to read
+rem is the whole game. Halving it, from 4500 tokens to 2000, took the share
+rem of the meeting that reaches the page from 36% to 68% - twenty-one notes
+rem became fifty-eight - and cost eighty seconds. Nothing else changed.
 rem
-rem What is being asked now: twenty-one notes for twenty-two minutes is one
-rem note a minute, and a pass reading eleven minutes at a time cannot do
-rem better. So the second run halves how much a pass is given to read, and
-rem nothing else differs. The first is the one that finally reaches the end:
-rem it is the number the other is compared against.
-call :measure "L-vulkan" "%AT_LLAMA_VULKAN%" ""
-call :measure "M-vulkan-2000" "%AT_LLAMA_VULKAN%" "--chunk-tokens 2000"
+rem What is being asked now: where that stops paying. 2000 is measured and is
+rem the number these two are compared against; each of them halves again, and
+rem the last one is a pass reading about two minutes of meeting at a time.
+rem Somewhere down here the notes start repeating each other instead of
+rem covering more, and the point of the round is to find out where.
+call :measure "N-vulkan-1200" "%AT_LLAMA_VULKAN%" "--chunk-tokens 1200"
+call :measure "O-vulkan-700" "%AT_LLAMA_VULKAN%" "--chunk-tokens 700"
 
 echo.
 echo === done. These are this round's, and carry no meeting in them:
