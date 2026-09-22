@@ -32,6 +32,14 @@ All notable changes to this project are documented here. The format follows
   failure is the difference between them. Read and then lost is a different
   bug from never read, and it has its own line.
 
+- **A subtitle file can be summarised as what it is.** `summarize` on an
+  `.srt` or a `.vtt` read it as prose, which shreds every time it carries into
+  the middle of the text and leaves the summary unable to say when anything
+  was said — or how much of the recording it covers. They are read as cues
+  now, whatever the file is called: the minutes survive, a cue that names its
+  voice hands the name over, and the length of the recording comes from the
+  last cue.
+
 - **A recording can be seen as well as read.** Two drawings of the same
   thing — how loud it was, moment by moment — in both the window and the page.
 

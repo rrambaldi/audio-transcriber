@@ -602,9 +602,15 @@ def command_summarize(args, settings):
     if os.path.isfile(source):
         with open(source, encoding="utf-8") as handle:
             text = handle.read()
-        material = summarising.material_from_text(
-            text, title=os.path.splitext(os.path.basename(source))[0],
-            language=settings.get("language") or "")
+        title = os.path.splitext(os.path.basename(source))[0]
+        language = settings.get("language") or ""
+        # Cues, not prose: read as text an .srt loses every minute it carries,
+        # and a summary that cannot say when something was said cannot say how
+        # much of the recording it covers either.
+        if summarising.looks_like_subtitles(text):
+            material = summarising.material_from_subtitles(text, title, language)
+        else:
+            material = summarising.material_from_text(text, title, language)
     else:
         try:
             entry = Library(settings.get("library_dir")).get(args.query)

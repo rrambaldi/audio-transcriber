@@ -592,6 +592,29 @@ def material_from_text(text, title="", language="", duration=None):
                     language=language, duration=duration)
 
 
+def material_from_subtitles(text, title="", language=""):
+    """The same again, for a transcript that arrived as subtitles.
+
+    Worth its own door rather than being read as prose: an .srt read as text
+    is a transcript with the times shredded into it, and without the times a
+    summary cannot say which minute anything was said in, nor how much of the
+    recording it covers. Read as cues, all of that survives, and the length of
+    the recording comes for free from the last one."""
+    from .subtitles import from_srt
+
+    segments = from_srt(text)
+    return Material(title=title, sentences=sentences_of(segments),
+                    language=language,
+                    duration=segments[-1]["end"] if segments else None)
+
+
+def looks_like_subtitles(text):
+    """Whether this file is cues rather than prose, whatever it is called."""
+    from .subtitles import looks_like_cues
+
+    return looks_like_cues(text)
+
+
 def reduction_note(before, after, language="it"):
     """What to print when only part of the transcript reached the model.
 

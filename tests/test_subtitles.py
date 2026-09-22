@@ -440,3 +440,78 @@ def test_remarks_are_counted_by_kind():
                 ("subtitles.too_short", 3, 0.4)]
     assert subtitles.tally(problems) == {"subtitles.too_fast": 2,
                                          "subtitles.too_short": 1}
+
+
+# --- reading them back ------------------------------------------------------
+
+def test_a_file_this_program_wrote_can_be_read_back():
+    """A transcript that left as cues is still a transcript. Round trip, so
+    the reader cannot drift from the writer."""
+    from audio_transcriber.subtitles import Cue, from_srt, to_srt
+
+    written = to_srt([Cue(1, 0.0, 5.336, ["Tu hai la modalità per dire"]),
+                      Cue(2, 5.419, 10.345, ["oppure ho aggiunto gli utenti"])])
+    read = from_srt(written)
+    assert [cue["text"] for cue in read] == ["Tu hai la modalità per dire",
+                                             "oppure ho aggiunto gli utenti"]
+    assert read[0]["start"] == 0.0
+    assert read[0]["end"] == pytest.approx(5.336)
+
+
+def test_the_times_survive_the_trip_in_both_dialects():
+    from audio_transcriber.subtitles import seconds_of
+
+    assert seconds_of("00:01:15,300") == pytest.approx(75.3)
+    assert seconds_of("00:01:15.300") == pytest.approx(75.3)
+    assert seconds_of("01:02:03,004") == pytest.approx(3723.004)
+    assert seconds_of("1:15,300") == pytest.approx(75.3)     # no hour written
+
+
+def test_a_webvtt_header_and_the_cue_numbers_are_not_content():
+    from audio_transcriber.subtitles import from_srt
+
+    read = from_srt("WEBVTT\n\n1\n00:00:00.000 --> 00:00:02.000\nBuongiorno.\n")
+    assert [cue["text"] for cue in read] == ["Buongiorno."]
+
+
+def test_a_cue_that_names_its_voice_hands_the_name_over_separately():
+    from audio_transcriber.subtitles import from_srt
+
+    read = from_srt("1\n00:00:00,000 --> 00:00:02,000\n[Anna] Buongiorno.\n\n"
+                    "2\n00:00:02,000 --> 00:00:04,000\nPaolo: Ciao.\n")
+    assert [(cue["speaker"], cue["text"]) for cue in read] == [
+        ("Anna", "Buongiorno."), ("Paolo", "Ciao.")]
+
+
+def test_the_dialogue_mark_is_taken_back_off():
+    from audio_transcriber.subtitles import SPEAKER_MARK, from_srt
+
+    read = from_srt(f"1\n00:00:00,000 --> 00:00:02,000\n{SPEAKER_MARK}Buongiorno.\n")
+    assert read[0]["text"] == "Buongiorno."
+
+
+def test_a_cue_over_two_lines_is_one_line_of_transcript():
+    from audio_transcriber.subtitles import from_srt
+
+    read = from_srt("1\n00:00:00,000 --> 00:00:03,000\nTu hai la modalità\n"
+                    "per dire appena ti ho aggiunto\n")
+    assert read[0]["text"] == "Tu hai la modalità per dire appena ti ho aggiunto"
+
+
+def test_prose_is_not_mistaken_for_subtitles():
+    from audio_transcriber.subtitles import looks_like_cues
+
+    assert looks_like_cues("1\n00:00:00,000 --> 00:00:02,000\nCiao.\n")
+    assert not looks_like_cues("Questa e' una frase e non una battuta.")
+
+
+def test_a_summary_read_from_cues_knows_how_long_the_recording_was():
+    """Without this the coverage of a summary cannot be computed at all."""
+    from audio_transcriber import summary as summarising
+
+    material = summarising.material_from_subtitles(
+        "1\n00:00:00,000 --> 00:00:02,000\nBuongiorno a tutti.\n\n"
+        "2\n00:05:00,000 --> 00:05:04,000\nAllora cominciamo.\n", "verbale", "it")
+    assert len(material.sentences) == 2
+    assert material.duration == pytest.approx(304.0)
+    assert material.sentences[1].start == pytest.approx(300.0)

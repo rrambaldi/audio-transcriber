@@ -586,6 +586,85 @@ def to_srt(cue_list, line_ending="\n"):
     return text.replace("\n", line_ending) if line_ending != "\n" else text
 
 
+#: The times on a cue's own line, SRT's comma or WebVTT's dot, with the hour
+#: optional because plenty of writers leave it off on a short recording.
+_TIMES = re.compile(
+    r"(?P<from>(?:\d{1,3}:)?\d{1,2}:\d{2}[.,]\d{1,3})\s*-->\s*"
+    r"(?P<to>(?:\d{1,3}:)?\d{1,2}:\d{2}[.,]\d{1,3})")
+
+#: ``[Anna]`` or ``Anna:`` at the head of a cue, which is how a diarized
+#: transcript names a voice when it is written out as subtitles.
+_NAMED = re.compile(r"^\s*(?:\[(?P<bracket>[^\]]{1,40})\]|"
+                    r"(?P<plain>[^\s:][^:\n]{0,39}):)\s*")
+
+
+def seconds_of(stamp):
+    """``00:01:15,300`` back into seconds. The inverse of :func:`timestamp`."""
+    head, _, fraction = stamp.strip().replace(",", ".").partition(".")
+    parts = [int(part) for part in head.split(":")]
+    while len(parts) < 3:
+        parts.insert(0, 0)
+    hours, minutes, secs = parts[-3:]
+    return hours * 3600 + minutes * 60 + secs + int((fraction or "0")[:3].ljust(3, "0")) / 1000.0
+
+
+def looks_like_cues(text, sample=4000):
+    """Whether a file is subtitles rather than prose, whatever it is called.
+
+    One pair of times is enough, and looking only at the head of the file
+    keeps it cheap on a transcript of two hours."""
+    return bool(_TIMES.search(str(text or "")[:sample]))
+
+
+def from_srt(text):
+    """Read an SRT or a WebVTT back into segments, the shape the rest reads.
+
+    Written so that a subtitle file can be summarised: a transcript that left
+    this program as cues is still a transcript, and read back as plain text it
+    would lose the one thing the summary most needs — when each line was said.
+    A page cannot say how much of a recording it covers if nothing it reads
+    carries a minute.
+
+    Tolerant on purpose. Cue numbers, a ``WEBVTT`` header, blank lines,
+    Windows line endings and a missing hour are all allowed; anything before
+    the first pair of times is ignored. A cue that names its speaker —
+    ``[Anna]`` or ``Anna:`` — hands the name over separately, and the mark a
+    dialogue cue carries is taken back off."""
+    found, times, lines = [], None, []
+
+    def close():
+        if times and lines:
+            body = " ".join(line.strip() for line in lines if line.strip())
+            if body.startswith(SPEAKER_MARK):
+                body = body[len(SPEAKER_MARK):].lstrip()
+            speaker = None
+            named = _NAMED.match(body)
+            if named:
+                speaker = (named.group("bracket") or named.group("plain")).strip()
+                body = body[named.end():]
+            if body:
+                found.append({"text": body, "start": times[0], "end": times[1],
+                              "speaker": speaker})
+
+    for line in str(text or "").splitlines():
+        stamps = _TIMES.search(line)
+        if stamps:
+            close()
+            times = (seconds_of(stamps.group("from")),
+                     seconds_of(stamps.group("to")))
+            lines = []
+            continue
+        if not line.strip():
+            close()
+            times, lines = None, []
+            continue
+        if times is None:
+            continue                # a cue number, a header, or a stray line
+        lines.append(line)
+    close()
+    return found
+
+
 def to_vtt(cue_list):
     """The same cues as WebVTT: a header, and dots instead of commas."""
     blocks = ["WEBVTT\n"]
