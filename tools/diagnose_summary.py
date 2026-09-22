@@ -117,7 +117,8 @@ def engines_here(settings):
 
 #: The engine says which model it is loading, and that is the only place the
 #: name of the one that actually ran can be read from out here.
-_LOADING = re.compile(r"Loading\s+(\S+)\s+on\s+(\S+?)\.{0,3}\s*$")
+_LOADING = re.compile(
+    r"(?:Loading|Carico)\s+(\S+)\s+(?:on|su)\s+(.+?)\.{0,3}\s*$")
 
 
 def what_ran(said):
@@ -215,6 +216,14 @@ def main(argv=None):
     parser.add_argument("--sections-mode", default=None,
                         choices=["discover", "fixed", "hybrid"],
                         help="how notes are placed when the shape is sections")
+    parser.add_argument("--device", default=None, metavar="NAME",
+                        help="where the model runs: auto, cpu, or a name "
+                             "'llama-server --list-devices' printed "
+                             "(Vulkan0, OPENVINO0); the OpenVINO engine takes "
+                             "CPU, GPU or NPU")
+    parser.add_argument("--llama-server", default=None, metavar="PATH",
+                        help="which llama-server to run, when more than one "
+                             "build is installed")
     parser.add_argument("--keep-cache", action="store_true",
                         help="do not clear the partial answers first")
     args = parser.parse_args(argv)
@@ -236,6 +245,8 @@ def main(argv=None):
         "summary_chunk_tokens": args.chunk_tokens,
         "summary_shape": args.shape,
         "summary_sections_mode": args.sections_mode,
+        "summary_device": args.device,
+        "summary_llama_server": args.llama_server,
         "language": args.language,
     }
     settings = {name: value for name, value in settings.items()
