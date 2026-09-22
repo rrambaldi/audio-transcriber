@@ -125,6 +125,26 @@ def put(name, answer, cache_dir=None):
         return False
 
 
+def clear(cache_dir=None):
+    """Throw the whole cache away, and say how many answers went.
+
+    It belongs here and not in whoever asks, because the layout is here: the
+    files are filed two levels deep, and a caller that lists the top of the
+    directory finds two-character folders, fails to unlink them, and reports
+    that it cleared nothing while every answer is still there. That is exactly
+    what happened the first time a diagnosis was run against a stale cache."""
+    root = directory(cache_dir)
+    gone = 0
+    for here, _folders, files in os.walk(root):
+        for name in files:
+            try:
+                os.unlink(os.path.join(here, name))
+                gone += 1
+            except OSError:
+                pass
+    return gone
+
+
 def sweep(cache_dir=None, days=KEEP_DAYS):
     """Drop answers nobody has come back for, and return how many.
 

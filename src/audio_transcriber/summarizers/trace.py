@@ -146,11 +146,14 @@ class Trace:
 
     def chunk(self, budget=None, **fields):
         record = ChunkRecord(**fields)
-        if (record.status == OK and budget
+        if (record.status in (OK, REUSED) and budget
                 and record.out_tokens >= budget * BUDGET_MARGIN):
             # It stopped where it ran out, not where it had finished. On a
             # bullet list that is invisible: what comes back parses perfectly
-            # and is simply missing the rest of the chunk.
+            # and is simply missing the rest of the chunk. A cache hit is
+            # marked too — an answer that was cut off when it was written is
+            # still cut off when it is read back, and a control run against a
+            # stale cache is exactly where that would have been missed.
             record.status = BUDGET_EXHAUSTED
         self.chunks.append(record)
         return record

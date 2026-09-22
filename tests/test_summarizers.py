@@ -1193,3 +1193,21 @@ def test_a_reading_pass_can_be_given_more_room_than_the_plan_allows():
                                 "summary_chunk_tokens": 400})
     assert seen["budgets"][0] == 1234
     assert chosen.map_answer_tokens != 1234      # the plan itself is untouched
+
+
+def test_clearing_the_cache_reaches_the_answers_it_files(tmp_path):
+    """They are filed two levels deep. A caller that lists the top of the
+    directory finds folders, cannot unlink them, and reports that it cleared
+    nothing while every answer is still there — which is what a control run
+    against a stale cache looks like from the outside."""
+    from audio_transcriber.summarizers import partials
+
+    cache = str(tmp_path / "cache")
+    names = [partials.key(f"prompt {n}", "m", "q", "map", 400, "it")
+             for n in range(3)]
+    for name in names:
+        partials.put(name, f"risposta {name[:4]}", cache)
+    assert all(partials.get(name, cache) for name in names)
+
+    assert partials.clear(cache) == 3
+    assert not any(partials.get(name, cache) for name in names)

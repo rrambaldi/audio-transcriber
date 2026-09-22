@@ -188,3 +188,14 @@ def test_a_pass_whose_notes_carry_no_minute_covers_nothing_measurable():
                          span=(0, 420))
     assert record.covered is None
     assert "covered=" not in record.line()
+
+
+def test_an_answer_read_back_from_the_cache_is_still_a_truncated_one():
+    """The control run of the first diagnosis reused every pass and reported
+    none of them as cut off, which is how a stale cache hides the finding."""
+    found = tracing.Trace()
+    found.chunk(index=2, total=4, budget=400, in_tokens=2155, out_tokens=401,
+                notes=18, status=tracing.REUSED, starts=[382, 455],
+                span=(382, 789))
+    assert found.chunks[0].status == tracing.BUDGET_EXHAUSTED
+    assert found.counts()["chunks_exhausted"] == 1

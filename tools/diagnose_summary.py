@@ -31,7 +31,6 @@ It writes **two** files, and the split is the point:
 import argparse
 import io
 import json
-import os
 import platform
 import sys
 import time
@@ -159,18 +158,7 @@ def clear_cache(settings):
     Not politeness: a run that went wrong is filed under the same key as one
     that did not, and comes back looking like a fresh pass. Every comparison
     between two attempts starts here."""
-    directory = partials.directory(settings.get("cache_dir"))
-    removed = 0
-    try:
-        for name in os.listdir(directory):
-            try:
-                os.unlink(os.path.join(directory, name))
-                removed += 1
-            except OSError:
-                pass
-    except OSError:
-        return None
-    return removed
+    return partials.clear(settings.get("cache_dir"))
 
 
 def main(argv=None):
