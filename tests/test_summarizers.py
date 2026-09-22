@@ -1211,3 +1211,15 @@ def test_clearing_the_cache_reaches_the_answers_it_files(tmp_path):
 
     assert partials.clear(cache) == 3
     assert not any(partials.get(name, cache) for name in names)
+
+
+def test_the_minute_of_a_note_is_found_wherever_the_model_put_it():
+    """Told to put the minute on every row, a model is not told where, and
+    puts it at the end as often as at the front. Counted only at the front,
+    a whole reading pass reads as one that carried no minute at all — which
+    is a pass that failed, not one that answered in the other order."""
+    answer = ("- `[0:27]` Serve una dashboard.\n"
+              "- Dopo l'avvio della campagna servono i ticket. [1:15]\n"
+              "- Una prova ha richiesto 22 minuti (14:11).\n"
+              "- Un punto senza nessun minuto.\n")
+    assert prompting.point_starts(answer) == [27, 75, 851, None]

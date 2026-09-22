@@ -297,11 +297,13 @@ def main(argv=None):
             report["passes"] = json.loads(passes.read_text(encoding="utf-8"))
         except ValueError as unreadable:
             report["passes"] = {"error": str(unreadable)}
-        # Its "points" carry the summary's own sentences: content, not numbers.
+        # Its "points" and "answers" carry what was said: content, not
+        # numbers, so they go to the other file.
         content = report["passes"].pop("points", None)
+        answers = report["passes"].pop("answers", None)
         passes.unlink()
     else:
-        content, report["passes"] = None, None
+        content = answers = report["passes"] = None
 
     if result is not None and result.engine == EXTRACTIVE \
             and engine_name != EXTRACTIVE:
@@ -356,6 +358,12 @@ def main(argv=None):
         body.append("\n\n<!-- what the page says, point by point -->\n")
         for point in content:
             body.append(f"- [{point.get('start')}] {point.get('text')}\n")
+    if answers:
+        # Kept so that a question about how an answer was *read* can be
+        # settled without asking the graphics card to read the hour again.
+        for index, answer in enumerate(answers, start=1):
+            body.append(f"\n\n<!-- reading pass {index}, as it came back -->\n")
+            body.append(answer if answer.endswith("\n") else answer + "\n")
     page.write_text("".join(body), encoding="utf-8")
 
     print(f"\nnumbers  -> {numbers}      (no meeting content: send this one)",

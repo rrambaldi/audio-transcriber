@@ -151,6 +151,7 @@ def _map(pipeline, system, parts, language, chosen, report, band,
                         starts=prompting.point_starts(answer),
                         span=(part[0].start if part else None,
                               (part[-1].end or part[-1].start) if part else None))
+            trace.answers.append(answer)
         found.append((answer, list(part)))
     if written:
         # This program has no daemon, so the only moment anything can be
@@ -460,6 +461,7 @@ def report_trace(trace, sections, material, settings=None):
     where = settings.get("summary_dump_notes")
     if where:
         extra = {"metrics": dict(counts, reading_coverage=reading_share),
+                 "answers": list(trace.answers),
                  "points": [{"start": point.start, "speaker": point.speaker,
                              "text": point.text} for point in points]}
         try:

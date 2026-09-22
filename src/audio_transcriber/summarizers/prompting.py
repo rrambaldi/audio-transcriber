@@ -118,6 +118,13 @@ _BULLET = re.compile(r"^\s*(?:[-*•]|\d{1,2}[.)])\s+(.*)$")
 #: with or without the backticks the page puts around it.
 _CLOCK = re.compile(r"^`?\[?(\d{1,2}:\d{2}(?::\d{2})?)\]?`?[\s:—-]*")
 
+#: The same clock, wherever on the line it sits. A model told to put the
+#: minute on every row is not told where, and puts it at the end as often as
+#: at the front. Measuring coverage with the strict one above counted a whole
+#: reading pass as carrying no minute at all, which read as a pass that had
+#: failed rather than one that had answered in the other order.
+_ANY_CLOCK = re.compile(r"`?\[?(\d{1,2}:\d{2}(?::\d{2})?)\]?`?")
+
 #: A speaker in bold, as the page writes them.
 _SPEAKER = re.compile(r"^\*\*(.+?)\*\*[\s:—-]*")
 
@@ -597,7 +604,7 @@ def point_starts(text):
     found = []
     for line in points_in(text):
         stripped = _BULLET.match(line).group(1)
-        clock = _CLOCK.match(stripped)
+        clock = _CLOCK.match(stripped) or _ANY_CLOCK.search(stripped)
         found.append(_clock_seconds(clock.group(1)) if clock else None)
     return found
 

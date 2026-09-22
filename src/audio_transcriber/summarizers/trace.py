@@ -79,6 +79,9 @@ class ChunkRecord:
     in_tokens: int
     out_tokens: int
     notes: int
+    #: What the pass was allowed to say. Without it "out=630" is a number
+    #: with no scale: generous on one budget and the ceiling on another.
+    budget: int = 0
     status: str = OK
     #: The minutes this pass wrote about. Kept so that what the *reading*
     #: covered can be compared with what the *page* covers: the first says
@@ -109,7 +112,8 @@ class ChunkRecord:
             return f"{head}  cache-hit{'':22}{REUSED}"
         covered = self.covered
         share = "" if covered is None else f"  covered={covered * 100:.0f}%"
-        return (f"{head}  in={self.in_tokens} tok  out={self.out_tokens} tok  "
+        return (f"{head}  in={self.in_tokens} tok  "
+                f"out={self.out_tokens}/{self.budget} tok  "
                 f"note={self.notes}{share}  {self.status}")
 
 
@@ -141,11 +145,16 @@ class Trace:
     def __init__(self):
         self.chunks = []
         self.folds = []
+        #: What each reading pass actually wrote. Content, so it never goes
+        #: near the numbers: it is kept so that a question about the *parsing*
+        #: can be answered without asking a graphics card to read an hour of
+        #: meeting again.
+        self.answers = []
 
     # --- recording ---------------------------------------------------------
 
     def chunk(self, budget=None, **fields):
-        record = ChunkRecord(**fields)
+        record = ChunkRecord(budget=int(budget or 0), **fields)
         if (record.status in (OK, REUSED) and budget
                 and record.out_tokens >= budget * BUDGET_MARGIN):
             # It stopped where it ran out, not where it had finished. On a
@@ -204,6 +213,8 @@ class Trace:
                                    if record.status == BUDGET_EXHAUSTED),
             "chunks_exhausted": sum(1 for record in self.chunks
                                     if record.status == BUDGET_EXHAUSTED),
+            "map_budget": max((record.budget for record in self.chunks),
+                              default=0),
             "least_covered_chunk": min(
                 [record.covered for record in self.chunks
                  if record.covered is not None], default=None),
