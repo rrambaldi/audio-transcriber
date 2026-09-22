@@ -31,6 +31,7 @@ from ..summary import (
     SummaryError,
     estimate_tokens,
     language_of,
+    points_of,
     reduction_note,
 )
 from ..summary import (
@@ -555,16 +556,6 @@ def _section_shape(found, language, settings, grouped=None):
                       "ts_min": section.ts_min, "notes": len(section.notes),
                       "about": section.keywords} for section in body + tail],
     }
-
-
-def points_of(sections):
-    """Every point on the finished page, whichever heading it ended under."""
-    found = []
-    for field in prompting.SECTION_FIELDS:
-        value = getattr(sections, field, None)
-        if isinstance(value, (list, tuple)):
-            found.extend(value)
-    return found
 
 
 def report_trace(trace, sections, material, settings=None, grouped=None):

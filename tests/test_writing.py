@@ -292,3 +292,21 @@ def test_a_document_a_model_named_is_titled_after_its_sections():
                   if "titolo" in prompt else "Del testo.")
     document = writing.write(body, [], asked, material, "it")
     assert document.title.startswith("Dashboard di monitoraggio")
+
+
+def test_the_passes_can_be_reported_on_a_document_with_decisions():
+    """The same crash as above, one function earlier and in the other copy of
+    it: the run that measures what the passes did counts minutes too, and it
+    was reading them off the notes at the foot of the page."""
+    from audio_transcriber.summarizers import reading, trace as tracing
+
+    material = summarising.Material(title="riunione", sentences=(),
+                                    language="it", duration=1320.0)
+    document = writing.write(
+        [cluster(DASHBOARD)],
+        [cluster(["Il documentale va su Aruba."], kind="decision")],
+        Asked("Titolo"), material, "it")
+    found = tracing.Trace()
+    found.chunk(index=1, total=1, in_tokens=3180, out_tokens=412, notes=4)
+    counts = reading.report_trace(found, document, material)
+    assert counts["chunks"] == 1

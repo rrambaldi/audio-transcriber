@@ -197,7 +197,9 @@ All notable changes to this project are documented here. The format follows
   crashed measuring how much of the recording it had covered — because the
   decisions and actions at the foot of the page are notes, and a note says
   when it happened in a field of its own. Minutes on the page are counted the
-  same way whichever shape the page has.
+  same way whichever shape the page has, and in one place rather than two —
+  there were two copies of that count, and fixing the first left the run
+  ending in the same line a step earlier.
 
 - **A llama-server named in the configuration now counts as installed.**
   Asking for the engine by name was refused — "summary engine 'llamacpp' is

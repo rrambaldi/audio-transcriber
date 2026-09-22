@@ -91,16 +91,19 @@ call :devices "vulkan" "%AT_LLAMA_VULKAN%"
 call :devices "openvino" "%AT_LLAMA_OPENVINO%"
 
 rem --- the runs this round ---------------------------------------------------
-rem What was settled in the round before: Vulkan runs the same model on the
-rem Arc four times faster than the eight cores do, and the OpenVINO build
-rem gives up after six seconds on this model - so both of those are measured
-rem and neither needs measuring again.
+rem What was settled in the round before: "BUDGET_EXHAUSTED" was a false
+rem alarm. Saying 900 tokens instead of 500 changed not one note - the two
+rem reading passes came back with the same twelve and the same nine - so the
+rem allowance is not what is holding the reading down, and neither run needs
+rem repeating.
 rem
-rem What is being asked now: the reading passes are being cut off mid-list
-rem ("BUDGET_EXHAUSTED"), so the second run says more and nothing else
-rem differs.
-call :measure "J-vulkan" "%AT_LLAMA_VULKAN%" ""
-call :measure "K-vulkan-900" "%AT_LLAMA_VULKAN%" "--map-tokens 900"
+rem What is being asked now: twenty-one notes for twenty-two minutes is one
+rem note a minute, and a pass reading eleven minutes at a time cannot do
+rem better. So the second run halves how much a pass is given to read, and
+rem nothing else differs. The first is the one that finally reaches the end:
+rem it is the number the other is compared against.
+call :measure "L-vulkan" "%AT_LLAMA_VULKAN%" ""
+call :measure "M-vulkan-2000" "%AT_LLAMA_VULKAN%" "--chunk-tokens 2000"
 
 echo.
 echo === done. These are this round's, and carry no meeting in them:
