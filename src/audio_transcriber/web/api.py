@@ -37,6 +37,7 @@ from ..diarization import availability as diarization_availability
 from ..jobs import MAX_UPLOAD_BYTES, JobQueue, safe_filename
 from ..library import MAX_NOTES, LibraryError
 from ..summarizers import CHOICES as SUMMARY_ENGINES
+from ..summarizers import templates as summary_templates
 from ..summary import LENGTHS as SUMMARY_LENGTHS
 from ..summary import STYLES as SUMMARY_STYLES
 from ..summary import SummaryError
@@ -97,6 +98,9 @@ def register_routes(app):
 
     def vocab_dir(request):
         return request.app.state.settings.get("vocab_dir")
+
+    def template_dir(request):
+        return request.app.state.settings.get("summary_templates_dir")
 
     # --- the page ---------------------------------------------------------
 
@@ -239,6 +243,18 @@ def register_routes(app):
                 "auto": installed[0] if installed else None,
                 "lengths": list(SUMMARY_LENGTHS),
                 "styles": list(SUMMARY_STYLES)}
+
+    @app.get("/api/summary/templates")
+    def summary_template_list(request: Request, language: str = ""):
+        """The sections a page can be made of, ready for a menu.
+
+        Filtered by language when one is asked for: a template's headings are
+        words, and offering an Italian one for an English recording would put
+        Italian headings on an English page."""
+        found = summary_templates.available(template_dir(request),
+                                            language or None)
+        return {"templates": [item.as_dict() for item in found],
+                "directory": summary_templates.user_dir()}
 
     @app.get("/api/vocabularies")
     def list_vocabularies(request: Request):
@@ -493,7 +509,9 @@ def register_routes(app):
     def summarise_entry(entry_id: str, request: Request,
                         engine: str = Body("", embed=True),
                         length: str = Body("", embed=True),
-                        style: str = Body("", embed=True)):
+                        style: str = Body("", embed=True),
+                        template: str = Body("", embed=True),
+                        template_text: str = Body("", embed=True)):
         """Queue a summary of this entry.
 
         It goes in the same queue as the transcriptions, and for the same
@@ -511,11 +529,24 @@ def register_routes(app):
         if style and style not in SUMMARY_STYLES:
             raise HTTPException(status_code=400,
                                 detail=f"unknown summary style '{style}'")
+        # Refused here rather than in the job: a template that does not parse
+        # is a typing mistake, and finding out about it three minutes into a
+        # reading pass is the wrong place to find out.
+        try:
+            summary_templates.resolve(
+                {"summary_template": template or None,
+                 "summary_template_text": template_text or None,
+                 "summary_templates_dir": template_dir(request)})
+        except summary_templates.TemplateError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
         try:
             job = request.app.state.queue.summarize(
                 entry.id, overrides={"summarizer": engine or None,
                                      "summary_length": length or None,
-                                     "summary_style": style or None})
+                                     "summary_style": style or None,
+                                     "summary_template": template or None,
+                                     "summary_template_text":
+                                         template_text or None})
         except (LibraryError, SummaryError) as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
         return job.as_dict()

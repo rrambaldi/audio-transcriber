@@ -838,6 +838,47 @@ def test_an_engine_or_a_length_that_does_not_exist_is_refused(client, filed):
                        json={"style": "parallel-universe"}).status_code == 400
 
 
+def test_the_templates_are_listed_for_a_menu(client):
+    data = client.get("/api/summary/templates?language=it").json()
+    names = {item["name"] for item in data["templates"]}
+    assert "minutes-it" in names
+    # Not the English ones: a template's headings are words, and Italian
+    # headings on an English page would be nobody's idea of a choice.
+    assert not any(item["language"] != "it" for item in data["templates"])
+    minutes = next(item for item in data["templates"]
+                   if item["name"] == "minutes-it")
+    assert [section["heading"] for section in minutes["sections"]] == [
+        "Decisioni", "Azioni", "Questioni aperte"]
+
+
+def test_a_template_is_carried_through_to_the_job(client, filed):
+    response = client.post(f"/api/library/{filed.id}/summary",
+                           json={"engine": "extractive", "template": "minutes"})
+    assert response.status_code == 202
+    assert response.json()["kind"] == "summary"
+
+
+def test_a_template_that_does_not_parse_is_refused_before_the_job(client, filed):
+    """Three minutes into a reading pass is the wrong place to find out
+    about a typing mistake."""
+    assert client.post(f"/api/library/{filed.id}/summary",
+                       json={"template": "does-not-exist"}).status_code == 400
+    assert client.post(f"/api/library/{filed.id}/summary",
+                       json={"template_text": "Una sola sezione:"}
+                       ).status_code == 400
+    assert client.post(f"/api/library/{filed.id}/summary",
+                       json={"template_text": "# layout: storto\nUna:\nDue:"}
+                       ).status_code == 400
+
+
+def test_my_own_sections_reach_the_job(client, filed):
+    written = "Rischi privacy: un trattamento forse non lecito\nCosti: una cifra"
+    response = client.post(f"/api/library/{filed.id}/summary",
+                           json={"engine": "extractive",
+                                 "template_text": written})
+    assert response.status_code == 202
+
+
 def test_the_split_style_can_be_asked_for(client, queue, filed):
     """Extractive ignores the style, but the request must still be accepted
     and passed through to the queue rather than rejected."""

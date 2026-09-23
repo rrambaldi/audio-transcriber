@@ -560,6 +560,32 @@ def summary_default_style():
     return DEFAULT_STYLE
 
 
+#: What the last entry of the sections menu carries. Not a template name -
+#: names are slugs - so it cannot collide with one.
+SUMMARY_OWN_TEMPLATE = "__own__"
+
+
+def summary_template_choices(settings=None, language="it"):
+    """Which sections the page can be made of, by name.
+
+    Two of the entries are not files: the empty one, which is the page the
+    recording decides for itself, and the last, which is the box underneath.
+    A directory that cannot be read is no templates rather than an error -
+    the window has to open on a machine where nothing has been set up."""
+    from ..summarizers import templates
+
+    settings = settings or {}
+    try:
+        found = templates.available(settings.get("summary_templates_dir"),
+                                    language)
+    except Exception:               # noqa: BLE001 - a menu, not the work
+        found = []
+    choices = [("", t("gui.summary_template_auto"))]
+    choices.extend((item.name, item.title) for item in found)
+    choices.append((SUMMARY_OWN_TEMPLATE, t("gui.summary_template_mine")))
+    return choices
+
+
 def summary_state(entry):
     """What the summary tab should show for this entry: the text and a caption.
 

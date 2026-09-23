@@ -26,6 +26,12 @@ All notable changes to this project are documented here. The format follows
   nobody had written into the source could not exist. It is a value now, and
   it travels with the run.
 
+  In the page and in the window it is a menu beside "how much to keep", whose
+  last entry opens a box to write the sections into for one summary rather
+  than saving them — the same bargain the terms box makes. A template that
+  does not parse is refused when it is asked for, not three minutes into a
+  reading pass.
+
   Worth knowing before restricting them: a template restricts the *reading*,
   not only the page. A pass that is not asked for opinions does not write
   them down, and reading the same recording again under another template

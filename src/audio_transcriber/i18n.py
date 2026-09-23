@@ -417,6 +417,13 @@ MESSAGES = {
         "gui.summary_again": "Summarise again",
         "gui.summary_engine": "Written by",
         "gui.summary_length": "How much to keep",
+        "gui.summary_template": "Which sections",
+        "gui.summary_template_auto": "whatever the recording was about",
+        "gui.summary_template_mine": "my own sections\u2026",
+        "gui.summary_template_own": "My sections",
+        "gui.summary_template_help":
+            "One section a line: the heading, a colon, and what belongs "
+            "under it. Restricting them restricts the reading too.",
         "gui.summary_short": "short",
         "gui.summary_medium": "medium",
         "gui.summary_long": "long",
@@ -1384,6 +1391,13 @@ MESSAGES = {
         "gui.summary_again": "Riassumi di nuovo",
         "gui.summary_engine": "Scritto da",
         "gui.summary_length": "Quanto tenere",
+        "gui.summary_template": "Quali sezioni",
+        "gui.summary_template_auto": "quelle di cui si e' parlato",
+        "gui.summary_template_mine": "le mie sezioni\u2026",
+        "gui.summary_template_own": "Le mie sezioni",
+        "gui.summary_template_help":
+            "Una sezione per riga: l'intestazione, due punti, e cosa ci va "
+            "sotto. Restringerle restringe anche la lettura.",
         "gui.summary_short": "corto",
         "gui.summary_medium": "medio",
         "gui.summary_long": "lungo",

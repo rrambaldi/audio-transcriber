@@ -51,6 +51,7 @@ from ..formatting import format_clock
 from ..i18n import t
 from ..jobs import DONE, FAILED, FINISHED, RUNNING
 from ..library import MAX_NOTES, Entry, LibraryError
+from ..summarizers import templates as summary_templates
 from ..summary import SummaryError
 from . import multimedia, options, symbols, theme, widgets
 from .speakers_dialog import SpeakersDialog, first_lines
@@ -208,6 +209,14 @@ class LibraryPanel(QWidget):
         self.summary_engine = QComboBox()
         self.summary_length = QComboBox()
         self.summary_style = QComboBox()
+        self.summary_template = QComboBox()
+        # Revealed by the last entry of the menu: a page wanted once and not
+        # saved under a name, the same bargain the terms box makes.
+        self.summary_template_text = QPlainTextEdit()
+        self.summary_template_text.setPlaceholderText(
+            t("gui.summary_template_help"))
+        self.summary_template_text.setMaximumHeight(110)
+        self.summary_template_text.hide()
         self.copy_summary = _copy_button(self._copy_summary)
         self.summarise = QPushButton(t("gui.summary_run"))
         self.summarise.clicked.connect(self.summarise_entry)
@@ -216,6 +225,7 @@ class LibraryPanel(QWidget):
         summary_layout.addLayout(_with_copy(self.summary, self.copy_summary), 1)
         summary_layout.addWidget(self.summary_note)
         summary_layout.addWidget(self.summary_progress)
+        summary_layout.addWidget(self.summary_template_text)
         summary_row = QHBoxLayout()
         engines = options.summary_engine_choices(self.settings)
         for name, label in engines:
@@ -238,6 +248,12 @@ class LibraryPanel(QWidget):
         summary_row.addWidget(self.summary_length)
         summary_row.addWidget(QLabel(t("gui.summary_style")))
         summary_row.addWidget(self.summary_style)
+        for name, label in options.summary_template_choices(
+                self.settings, self.settings.get("language") or "it"):
+            self.summary_template.addItem(label, name)
+        self.summary_template.currentIndexChanged.connect(self._show_own_sections)
+        summary_row.addWidget(QLabel(t("gui.summary_template")))
+        summary_row.addWidget(self.summary_template)
         summary_row.addStretch(1)
         summary_row.addWidget(self.summarise)
         summary_layout.addLayout(summary_row)
@@ -796,9 +812,25 @@ class LibraryPanel(QWidget):
         if self.entry is None or self.queue is None or self._summary_job:
             return
         title = self.entry.metadata.get("title") or self.entry.id
-        overrides = {"summarizer": self.summary_engine.currentData(),
-                     "summary_length": self.summary_length.currentData(),
-                     "summary_style": self.summary_style.currentData()}
+        picked = self.summary_template.currentData()
+        own = picked == options.SUMMARY_OWN_TEMPLATE
+        overrides = {
+            "summarizer": self.summary_engine.currentData(),
+            "summary_length": self.summary_length.currentData(),
+            "summary_style": self.summary_style.currentData(),
+            "summary_template": None if own else (picked or None),
+            "summary_template_text":
+                self.summary_template_text.toPlainText().strip() if own else None,
+        }
+        # Refused here rather than three minutes into a reading pass: a
+        # template that does not parse is a typing mistake.
+        try:
+            summary_templates.resolve(dict(self.settings, **{
+                name: value for name, value in overrides.items()
+                if value is not None}))
+        except summary_templates.TemplateError as wrong:
+            self.message.emit(t("gui.summary_failed", title=title, error=wrong))
+            return
         try:
             self._summary_job = self.queue.summarize(self.entry.id, overrides)
         except (LibraryError, SummaryError) as exc:
@@ -807,6 +839,12 @@ class LibraryPanel(QWidget):
         self.summarise.setEnabled(False)
         self.message.emit(t("gui.summary_queued", title=title))
         self.summary_timer.start(SUMMARY_POLL_MS)
+
+    def _show_own_sections(self):
+        """The box under the row, shown only when the menu asks for it."""
+        self.summary_template_text.setVisible(
+            self.summary_template.currentData()
+            == options.SUMMARY_OWN_TEMPLATE)
 
     def _check_summary(self):
         """Has the queued summary finished? Say so, and show it."""

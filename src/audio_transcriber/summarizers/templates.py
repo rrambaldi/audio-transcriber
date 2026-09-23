@@ -138,6 +138,20 @@ class Template:
     def types(self):
         return self.catalogue.names
 
+    def as_dict(self):
+        """What a menu needs to show one, and a form to send it back."""
+        return {
+            "name": self.name,
+            "title": self.title,
+            "language": self.language,
+            "layout": self.layout,
+            "source": self.source,
+            "sections": [{"heading": kind.heading,
+                          "instruction": kind.instruction}
+                         for kind in self.catalogue.kinds],
+            "lists": [self.catalogue.heading(name) for name in self.tail],
+        }
+
 
 def valid_name(name):
     """True if ``name`` is a usable template name."""

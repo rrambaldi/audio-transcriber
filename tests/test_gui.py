@@ -500,6 +500,27 @@ def test_the_summary_menus_say_what_each_choice_does():
     assert options.summary_default_length() == "medium"
 
 
+def test_the_sections_menu_opens_on_the_page_the_recording_decides():
+    """First entry the one that asks for nothing, last the box underneath,
+    and the bundled templates of the spoken language in between."""
+    choices = options.summary_template_choices(language="it")
+    names = [name for name, _label in choices]
+    assert names[0] == ""
+    assert names[-1] == options.SUMMARY_OWN_TEMPLATE
+    assert "minutes-it" in names
+    assert "minutes-en" not in names
+    for _name, label in choices:
+        assert label and not label.startswith("gui.")
+
+
+def test_a_templates_directory_that_cannot_be_read_is_no_templates(tmp_path):
+    """The window has to open on a machine where nothing has been set up."""
+    choices = options.summary_template_choices(
+        {"summary_templates_dir": str(tmp_path / "nowhere")}, "it")
+    assert [name for name, _ in choices][0] == ""
+    assert len(choices) >= 2
+
+
 def test_an_entry_with_no_summary_says_so_rather_than_showing_nothing(tmp_path):
     from audio_transcriber.library import Library
 

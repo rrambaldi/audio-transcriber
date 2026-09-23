@@ -289,10 +289,11 @@ using it directly. `GET /api/docs` serves the generated schema.
 | `GET /api/library/{id}/subtitles.srt` · `.vtt` | the entry cut into subtitles on the spot; `?preset=`, `?chars=`, `?words=` |
 | `GET /api/library/{id}/audio` | the recording, with range requests so seeking works |
 | `GET /api/library/{id}/waveform` | how loud it is slice by slice, measuring it once if nobody has yet |
-| `POST /api/library/{id}/summary` | queue a summary (`{"engine": "", "length": ""}`); returns a job to poll |
+| `POST /api/library/{id}/summary` | queue a summary (`{"engine": "", "length": "", "template": "", "template_text": ""}`); returns a job to poll |
 | `GET /api/library/{id}/summary.md` | the summary as a download |
 | `DELETE /api/library/{id}/summary` | throw the summary away; the transcript is untouched |
 | `GET /api/summary/engines` | which summary engines this machine has, and which one `auto` picks |
+| `GET /api/summary/templates` | which sections a page can be made of; `?language=it` for the ones written in Italian |
 
 Only a recording the entry actually holds is served: an entry created with
 `--library-store reference` points at a file elsewhere on disk, and the page is

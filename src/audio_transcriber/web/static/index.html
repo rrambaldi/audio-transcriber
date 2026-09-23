@@ -410,6 +410,18 @@
           <option value="split" data-t="summary_style_split">one per section</option>
         </select>
       </div>
+      <div class="field">
+        <label for="summary-template" data-t="summary_template">Which sections</label>
+        <select id="summary-template"></select>
+      </div>
+    </div>
+    <!-- Revealed by the last entry of the menu above. A page wanted once and
+         not saved under a name: the same bargain the terms box makes. -->
+    <div class="field" id="summary-template-own" hidden>
+      <label for="summary-template-text" data-t="summary_template_own">My sections</label>
+      <textarea id="summary-template-text" rows="5" spellcheck="false"
+                aria-describedby="summary-template-note"></textarea>
+      <p class="note" id="summary-template-note" data-t="summary_template_help">One section a line: the heading, a colon, and what belongs under it. Two at least, twelve at most. Restricting the sections restricts the reading as well as the page — a pass not asked for opinions does not write them down.</p>
     </div>
     <p class="note" id="summary-status" aria-live="polite"></p>
     <!-- A summary reads an hour of transcript on this machine: the panel says

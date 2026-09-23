@@ -183,6 +183,11 @@ const I18N = {
     summary_style: "Written as",
     summary_style_combined: "one request",
     summary_style_split: "one per section",
+    summary_template: "Which sections",
+    summary_template_auto: "whatever the recording was about",
+    summary_template_own: "My sections",
+    summary_template_mine: "my own sections\u2026",
+    summary_template_help: "One section a line: the heading, a colon, and what belongs under it. Two at least, twelve at most. Restricting the sections restricts the reading as well as the page \u2014 a pass not asked for opinions does not write them down.",
     summary_run: "Summarise",
     summary_again: "Summarise again",
     summary_delete: "delete the summary",
@@ -417,6 +422,11 @@ const I18N = {
     summary_style: "Scritto come",
     summary_style_combined: "una richiesta",
     summary_style_split: "una per sezione",
+    summary_template: "Quali sezioni",
+    summary_template_auto: "quelle di cui si e' parlato",
+    summary_template_own: "Le mie sezioni",
+    summary_template_mine: "le mie sezioni\u2026",
+    summary_template_help: "Una sezione per riga: l'intestazione, due punti, e cosa ci va sotto. Due come minimo, dodici come massimo. Restringere le sezioni restringe anche la lettura \u2014 un passaggio a cui non si chiedono le opinioni non le scrive.",
     summary_run: "Riassumi",
     summary_again: "Riassumi di nuovo",
     summary_delete: "elimina il riassunto",
@@ -1766,7 +1776,41 @@ async function loadSummaryEngines() {
   }
   select.value = auto || (engines[0] || "");
   $("summary-engine").closest(".field").hidden = engines.length < 2;
+  await loadSummaryTemplates();
 }
+
+/* The value the "my own sections" entry of the menu carries. Not a template
+   name: names are slugs, and this one has to be impossible to collide with. */
+const OWN_TEMPLATE = "__own__";
+
+async function loadSummaryTemplates() {
+  /* Which pages this machine offers, plus the two that are not files: the
+     one the recording decides, and the one typed into the box below. */
+  let found = [];
+  try {
+    ({ templates: found } =
+      await fetch(api(`summary/templates?language=${encodeURIComponent(lang)}`))
+        .then((r) => r.json()));
+  } catch {
+    found = [];
+  }
+  const select = $("summary-template");
+  select.textContent = "";
+  select.append(el("option", { value: "", textContent: t("summary_template_auto") }));
+  for (const item of found) {
+    select.append(el("option", { value: item.name, textContent: item.title }));
+  }
+  select.append(el("option", { value: OWN_TEMPLATE,
+                               textContent: t("summary_template_mine") }));
+  select.value = "";
+  showOwnTemplate();
+}
+
+function showOwnTemplate() {
+  $("summary-template-own").hidden = $("summary-template").value !== OWN_TEMPLATE;
+}
+
+$("summary-template").addEventListener("change", showOwnTemplate);
 
 function showSummary(entry) {
   summaryPresent = Boolean((entry.summary || "").trim());
@@ -1949,7 +1993,9 @@ $("summary-run").addEventListener("click", async () => {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ engine: $("summary-engine").value || "",
                            length: $("summary-length").value || "",
-                           style: $("summary-style").value || "" }),
+                           style: $("summary-style").value || "",
+                           template: chosenTemplate(),
+                           template_text: chosenTemplateText() }),
   });
   if (!response.ok) {
     const problem = await response.json().catch(() => ({}));
@@ -1962,6 +2008,16 @@ $("summary-run").addEventListener("click", async () => {
   refreshJobs();
   watchSummaryJob(job.id);
 });
+
+function chosenTemplate() {
+  const picked = $("summary-template").value;
+  return picked === OWN_TEMPLATE ? "" : picked;
+}
+
+function chosenTemplateText() {
+  return $("summary-template").value === OWN_TEMPLATE
+    ? $("summary-template-text").value.trim() : "";
+}
 
 $("summary-delete").addEventListener("click", async () => {
   const sure = await ask({
