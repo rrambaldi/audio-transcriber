@@ -52,7 +52,7 @@ TITLE_WORDS = 12
 Page = namedtuple("Page", "sections answer")
 
 PAGES = {
-    "short":  Page(sections=6, answer=0.7),
+    "short":  Page(sections=5, answer=0.45),
     "medium": Page(sections=None, answer=1.0),
     "long":   Page(sections=18, answer=1.6),
 }

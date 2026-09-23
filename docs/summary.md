@@ -475,7 +475,7 @@ that produces a broken section rather than a brief one — so:
 
 | length | a section is asked for as | sections at most | opening paragraph |
 |---|---|---|---|
-| `short` | one paragraph, no list | 6 | one or two sentences |
+| `short` | one paragraph of one or two sentences, no list | 5 | one or two sentences |
 | `medium` | a paragraph and a list of the detail | 12 | two to four sentences |
 | `long` | a paragraph and a bullet per note | 18 | four to six sentences |
 

@@ -242,9 +242,12 @@ All notable changes to this project are documented here. The format follows
   the same page, word for word.
 
   They now change the questions and never the answers. A short section is
-  asked for as one paragraph with no list, a long one as a paragraph with a
-  bullet per note, and the opening paragraph and the number of sections move
-  with them. What does not move: the reading, which covers the whole
+  asked for as one paragraph of one or two sentences with no list, a long one
+  as a paragraph with a bullet per note, and the opening paragraph and the
+  number of sections move with them. Short is asked in those words and held
+  to them by its allowance as well: told merely to keep it brief, a model
+  writes the bullets anyway and the page comes out a little shorter instead
+  of short. What does not move: the reading, which covers the whole
   recording at every length — asking again for a longer page re-uses every
   pass, which is what the pass cache was keyed without the length for — and
   the decisions and the actions, because there were as many of them as there

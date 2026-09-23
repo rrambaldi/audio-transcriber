@@ -447,13 +447,15 @@ PAGE_DETAIL = {
     "it": {
         "short": {
             "shape":
-                "- un solo paragrafo, da due a quattro frasi, che dice di "
-                "cosa si e' parlato e cosa e' stato chiesto o deciso;\n"
-                "- niente elenchi: quello che non sta nel paragrafo resta "
-                "fuori.",
+                "- UN SOLO paragrafo di UNA O DUE frasi, non di piu';\n"
+                "- dice cosa si e' chiesto o deciso su questo argomento, "
+                "non come ci si e' arrivati;\n"
+                "- niente elenchi puntati, niente elenchi numerati, niente "
+                "titoli: quello che non sta in due frasi resta fuori.",
             "rules":
-                "- tieni solo quello che conta davvero, e' un riassunto "
-                "breve;\n",
+                "- e' un riassunto breve: tieni solo quello che un lettore "
+                "deve sapere per forza, e lascia fuori il resto;\n"
+                "- non elencare i dettagli nemmeno dentro la frase;\n",
             "span": "una o due frasi",
             "abstract": "Un paragrafo di due o tre righe.",
             "points":
@@ -502,13 +504,15 @@ PAGE_DETAIL = {
     "en": {
         "short": {
             "shape":
-                "- one paragraph only, two to four sentences, saying what "
-                "the subject was and what was asked or decided;\n"
-                "- no lists: whatever does not fit in the paragraph stays "
-                "out.",
+                "- ONE paragraph of ONE OR TWO sentences, no more;\n"
+                "- it says what was asked or decided about this subject, "
+                "not how it was arrived at;\n"
+                "- no bulleted lists, no numbered lists, no headings: "
+                "whatever does not fit in two sentences stays out.",
             "rules":
-                "- keep only what really matters, this is a short "
-                "summary;\n",
+                "- this is a short summary: keep only what a reader has to "
+                "know, and leave the rest out;\n"
+                "- do not list the detail inside the sentence either;\n",
             "span": "one or two sentences",
             "abstract": "One paragraph of two or three lines.",
             "points":
