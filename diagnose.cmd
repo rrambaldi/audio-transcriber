@@ -91,25 +91,23 @@ call :devices "vulkan" "%AT_LLAMA_VULKAN%"
 call :devices "openvino" "%AT_LLAMA_OPENVINO%"
 
 rem --- the runs this round ---------------------------------------------------
-rem What was settled in the round before: the defaults are right. P, asked
-rem for nothing at all, read 96% of the meeting and printed 96% of it - the
-rem same run as the best one of the round before, with no flags. And hybrid
-rem against discover came out identical in every number, because the only
-rem difference between them is whether decisions and actions are repeated in
-rem lists at the foot. That one is a matter of taste and the pages decide it,
-rem not this file.
+rem What was settled in the round before: a finer copy of the model is a
+rem worse reader of the meeting, not a better one. Q4_K_M put 96% of the
+rem minutes on the page, Q6_K 77%, Q8_0 86% - and the finer files repeated
+rem themselves three times as often and were cut off mid-list. They write
+rem longer notes, so they fit fewer of them in a pass.
 rem
-rem What is being asked now: the last knob nobody has touched. Every run so
-rem far has read the model out of its smallest file, Q4_K_M, because that is
-rem the one that fits everywhere - and this machine has room for better. The
-rem weights get finer, nothing else changes. Expect coverage to stay where it
-rem is: what could move is how the notes are written, which is a thing to
-rem read rather than a number.
+rem Two things that round could not answer, and both are cheap now that the
+rem files are on the disk. The times were measured with a five and a seven
+rem gigabyte download inside them, so they are not times at all. And the
+rem cutting off has an obvious suspect: the pass's allowance.
 rem
-rem NOTE: each of these downloads a model of its own the first time - about
-rem 5 GB for Q6_K and 7 GB for Q8_0, once, into the usual models folder.
-call :measure "R-q6" "%AT_LLAMA_VULKAN%" "--quant Q6_K"
-call :measure "S-q8" "%AT_LLAMA_VULKAN%" "--quant Q8_0"
+rem So: the first run is the one from last time with nothing downloading,
+rem which is the honest clock. The second gives the same file more room to
+rem answer in, and nothing else differs. If 900 brings the coverage back,
+rem the finer weights were never the problem.
+call :measure "T-q8" "%AT_LLAMA_VULKAN%" "--quant Q8_0"
+call :measure "U-q8-900" "%AT_LLAMA_VULKAN%" "--quant Q8_0 --map-tokens 900"
 
 echo.
 echo === done. These are this round's, and carry no meeting in them:

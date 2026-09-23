@@ -197,6 +197,24 @@ the extra passes buy time and repetition rather than recording — a quarter of
 the notes at 700 were things already written down. `chunk_tokens` in
 `[summary]` overrides it, which is how the table was made.
 
+**A finer copy of the same model is not a better reader of it**, which is
+worth knowing before spending seven gigabytes finding out. The same recording
+again, only the precision of the weights changed:
+
+| weights | of the recording | notes repeated | passes cut off |
+| :--- | ---: | ---: | ---: |
+| **Q4_K_M** | **96%** | 6 | 0 |
+| Q6_K | 77% | 22 | 2 |
+| Q8_0 | 86% | 16 | 1 |
+
+The mechanism is visible in the passes: the finer files write *longer* notes,
+spend the pass's allowance sooner and get cut off mid-list, so each pass comes
+back with fewer distinct things and repeats more of them. The coarse file is
+terser and covers more of the meeting, which is what this is for. It is also
+several times faster. `quant` exists for a machine where the finer file
+genuinely reads better — that is a thing to measure on your own recordings,
+not to assume.
+
 On a machine small enough to have a limit on how many passes it will spend,
 that limit is scaled by the same factor. What a tier decides is how much
 transcript this machine should read, not how finely; without the scaling,

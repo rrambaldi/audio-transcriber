@@ -121,6 +121,22 @@ _LOADING = re.compile(
     r"(?:Loading|Carico)\s+(\S+)\s+(?:on|su)\s+(.+?)\.{0,3}\s*$")
 
 
+#: A run that had to fetch the model first. The download is minutes and is
+#: not the thing being measured, so a time that includes one is not a time.
+_FETCHING = re.compile(r"(?:Downloading|Scarico)\b")
+
+
+def fetched_first(said):
+    """Whether this run spent part of its time downloading a model.
+
+    It bit once, and the numbers looked like a finding: two runs at a finer
+    precision came back seven and ten times slower than the one before them,
+    and both had fetched five and seven gigabytes inside the measurement.
+    Saying so in the report costs a line; leaving it out costs a wrong
+    conclusion about hardware."""
+    return any(_FETCHING.search(line) for line in said or [])
+
+
 def what_ran(said):
     """The model the run really loaded, out of what it printed.
 
@@ -341,6 +357,14 @@ def main(argv=None):
     report["failed"] = failure
     report["said"] = [line for line in heard.getvalue().splitlines() if line.strip()]
     report["ran"] = what_ran(report["said"])
+    # Downloading a model happens inside the timing and is not the run. Said
+    # out loud, because a time that silently holds a five gigabyte download
+    # is not comparable with the one printed next to it.
+    report["downloaded_a_model"] = fetched_first(report["said"])
+    if report["downloaded_a_model"]:
+        print("\nNOTE: this run fetched its model first, so elapsed_s is a "
+              "download\nand a summary together. Run it again to time the "
+              "summary alone.", file=sys.stderr)
 
     # The passes, as the program itself wrote them down.
     passes = Path(settings["summary_dump_notes"])
