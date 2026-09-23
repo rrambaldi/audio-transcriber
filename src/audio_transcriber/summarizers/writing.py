@@ -20,9 +20,10 @@ section, where a model answering an enormous one badly cost two thirds of a
 meeting and said nothing about it.
 """
 import re
+from collections import namedtuple
 
 from ..formatting import format_clock
-from ..summary import Document, language_of
+from ..summary import DEFAULT_LENGTH, Document, language_of
 from . import notes as note_kinds
 from . import prompting
 
@@ -34,6 +35,33 @@ NOTES_PER_SECTION = 24
 
 #: What a title may run to before it is not a title.
 TITLE_WORDS = 12
+
+#: The numbers the asked length moves, beside the wording in
+#: :data:`~audio_transcriber.summarizers.prompting.PAGE_DETAIL`.
+#:
+#: ``sections`` is the cap the grouping searches against — ``None`` meaning
+#: whatever the grouping's own default is, so that "medium" is exactly the
+#: page that was measured. Fewer sections is not fewer notes: the same notes
+#: are grouped more coarsely, and a section that ends up too big for one
+#: question is still split by :func:`grouping.split_oversize`.
+#:
+#: ``answer`` scales what one section may say. It has to move with the
+#: wording and not instead of it: asking for a bullet per note and then
+#: stopping the model at the allowance it had for a paragraph is how a page
+#: ends mid-sentence.
+Page = namedtuple("Page", "sections answer")
+
+PAGES = {
+    "short":  Page(sections=6, answer=0.7),
+    "medium": Page(sections=None, answer=1.0),
+    "long":   Page(sections=18, answer=1.6),
+}
+
+
+def page_for(length=None):
+    """The numbers one length asks for."""
+    return PAGES.get(str(length or DEFAULT_LENGTH).strip().lower(),
+                     PAGES[DEFAULT_LENGTH])
 
 #: What a title is made of when the sections have none: the date and the
 #: length, which are true of every recording and invent nothing.
@@ -103,20 +131,27 @@ def from_keywords(cluster, language="it"):
                      for at, word in enumerate(words[:3]))
 
 
-def section(cluster, ask, language="it"):
+def section(cluster, ask, language="it", detail=None):
     """The body of one section: a paragraph and the detail under it.
 
     The model sees this section's notes and no others, which is the whole
     point: whatever it does with them, it cannot lose a part of the recording
-    it was never shown."""
+    it was never shown.
+
+    ``detail`` is what the asked length wants of it — a paragraph on its own,
+    or a paragraph with a bullet per note. It arrives already chosen, because
+    the length is resolved once for the whole page and not once per
+    section."""
     language = language_of(language)
+    detail = detail or prompting.detail_for(language)
     prompt = prompting.prompts_for(language)["section"].format(
-        notes=_lines(cluster.notes, language))
+        notes=_lines(cluster.notes, language),
+        shape=detail["shape"], rules=detail["rules"])
     written = prompting.usable_answer(ask(prompt), prompt)
     return written.strip() or _lines(cluster.notes, language)
 
 
-def abstract(titles, ask, language="it"):
+def abstract(titles, ask, language="it", detail=None):
     """The opening paragraph, written from the section titles alone.
 
     It never sees the bullets, and that is not an economy: the page it
@@ -127,8 +162,10 @@ def abstract(titles, ask, language="it"):
     named = [title for title in titles if title]
     if not named:
         return ""
+    detail = detail or prompting.detail_for(language)
     prompt = prompting.prompts_for(language)["abstract_from"].format(
-        titles="\n".join(f"- {title}" for title in named))
+        titles="\n".join(f"- {title}" for title in named),
+        span=detail["span"])
     written = prompting.usable_answer(ask(prompt), prompt)
     return " ".join(written.split())
 
@@ -161,14 +198,19 @@ def derive_title(titles, material=None, language="it"):
 
 
 def write(body, tail, ask, material=None, language="it", progress=None,
-          label_tokens=None, abstract_ask=None):
+          label_tokens=None, abstract_ask=None, length=None):
     """Every question this stage asks, in order, and the document they make.
 
     ``ask(prompt)`` writes a section; ``abstract_ask`` writes the opening
     paragraph, which wants more room than a section and is asked for less
     often. ``progress(done, total)`` is called as the sections are written,
-    because on a small model each one is seconds and there may be a dozen."""
+    because on a small model each one is seconds and there may be a dozen.
+
+    ``length`` is the one thing here a reader chose, and it is resolved once:
+    every section of one page is asked for at the same length, and the title
+    of a section is a title at every length."""
     language = language_of(language)
+    detail = prompting.detail_for(language, length)
     label_ask = ask if label_tokens is None else ask
     total = max(1, len(body) * 2 + 1)
     done = 0
@@ -178,7 +220,8 @@ def write(body, tail, ask, material=None, language="it", progress=None,
         done += 1
         if progress:
             progress(done, total)
-        written.append((cluster, cluster.title, section(cluster, ask, language)))
+        written.append((cluster, cluster.title,
+                        section(cluster, ask, language, detail)))
         done += 1
         if progress:
             progress(done, total)
@@ -186,7 +229,7 @@ def write(body, tail, ask, material=None, language="it", progress=None,
     # Only what a model named: see derive_title.
     by_model = [title for cluster, title, _body in written
                 if cluster.named_by == "model"]
-    opening = abstract(titles, abstract_ask or ask, language)
+    opening = abstract(titles, abstract_ask or ask, language, detail)
     if progress:
         progress(total, total)
 

@@ -25,6 +25,7 @@ import re
 
 from ..formatting import format_clock
 from ..summary import (
+    DEFAULT_LENGTH,
     HEADINGS,
     Point,
     Sections,
@@ -181,18 +182,10 @@ PROMPTS = {
             "Scrivi una sezione di un resoconto, in italiano, a partire da "
             "questi appunti, che riguardano tutti lo stesso argomento.\n\n"
             "{notes}\n\n"
-            "Struttura:\n"
-            "- un paragrafo iniziale di una o tre frasi che inquadra "
-            "l'argomento e dice cosa e' stato chiesto o deciso nel "
-            "complesso;\n"
-            "- sotto, un elenco puntato con i dettagli;\n"
-            "- se gli appunti descrivono casi, alternative o fasi distinte, "
-            "usa un elenco numerato con sotto-punti annidati invece di una "
-            "lista piatta.\n\n"
+            "Struttura:\n{shape}\n\n"
             "Regole:\n"
             "- usa solo quello che c'e' negli appunti, non aggiungere nulla;\n"
-            "- il paragrafo inquadra e i punti dettagliano: non ripetere nei "
-            "punti quello che hai gia' scritto nel paragrafo;\n"
+            "{rules}"
             "- non scrivere il titolo della sezione, lo mette qualcun "
             "altro;\n"
             "- niente minuti, niente nomi di chi parla, nessun riferimento al "
@@ -201,8 +194,8 @@ PROMPTS = {
             "Questi sono gli argomenti di cui si e' parlato in una "
             "registrazione, nell'ordine.\n\n"
             "{titles}\n\n"
-            "Scrivi in italiano il paragrafo di apertura del resoconto, da "
-            "due a quattro frasi: di cosa si e' parlato nel complesso e quali "
+            "Scrivi in italiano il paragrafo di apertura del resoconto, "
+            "{span}: di cosa si e' parlato nel complesso e quali "
             "sono stati i temi principali. NON elencarli uno per uno, quelli "
             "vengono subito dopo. Prosa continua, non un elenco travestito.",
         "map_example":
@@ -249,8 +242,8 @@ PROMPTS = {
             "Scrivi ora il riassunto finale in italiano, con esattamente "
             "queste intestazioni e in quest'ordine, saltando quelle che non "
             "hanno contenuto:\n\n"
-            "## {abstract}\nUn paragrafo di tre o quattro righe.\n\n"
-            "## {points}\nUn elenco puntato, ogni riga con il minuto.\n\n"
+            "## {abstract}\n{abstract_detail}\n\n"
+            "## {points}\n{points_detail}\n\n"
             "## {decisions}\nSolo le decisioni effettivamente prese.\n\n"
             "## {actions}\nChi si e' impegnato a fare cosa, ed entro quando "
             "se e' stato detto.",
@@ -260,8 +253,8 @@ PROMPTS = {
             "Scrivi il riassunto in italiano, con esattamente queste "
             "intestazioni e in quest'ordine, saltando quelle che non hanno "
             "contenuto:\n\n"
-            "## {abstract}\nUn paragrafo di tre o quattro righe.\n\n"
-            "## {points}\nUn elenco puntato, ogni riga con il minuto.\n\n"
+            "## {abstract}\n{abstract_detail}\n\n"
+            "## {points}\n{points_detail}\n\n"
             "## {decisions}\nSolo le decisioni effettivamente prese.\n\n"
             "## {actions}\nChi si e' impegnato a fare cosa, ed entro quando "
             "se e' stato detto.",
@@ -335,17 +328,10 @@ PROMPTS = {
             "Write a section of a written record, in English, from these "
             "notes, which are all about one subject.\n\n"
             "{notes}\n\n"
-            "The shape:\n"
-            "- an opening paragraph of one to three sentences framing the "
-            "subject and saying what was asked or decided overall;\n"
-            "- under it, a bulleted list of the detail;\n"
-            "- where the notes describe cases, alternatives or distinct "
-            "stages, use a numbered list with nested sub-points rather than a "
-            "flat one.\n\n"
+            "The shape:\n{shape}\n\n"
             "Rules:\n"
             "- use only what is in the notes, add nothing;\n"
-            "- the paragraph frames and the bullets detail: do not repeat in "
-            "the bullets what the paragraph already said;\n"
+            "{rules}"
             "- do not write the section's title, somebody else puts it "
             "there;\n"
             "- no minutes, no names of speakers, no reference to this being a "
@@ -353,8 +339,8 @@ PROMPTS = {
         "abstract_from":
             "These are the subjects a recording covered, in order.\n\n"
             "{titles}\n\n"
-            "Write, in English, the opening paragraph of the record, two to "
-            "four sentences: what was discussed overall and what the main "
+            "Write, in English, the opening paragraph of the record, "
+            "{span}: what was discussed overall and what the main "
             "themes were. Do NOT list them one by one, those follow straight "
             "after. Continuous prose, not a list in disguise.",
         "map_example":
@@ -400,8 +386,8 @@ PROMPTS = {
             "Now write the final summary in English, under exactly these "
             "headings and in this order, leaving out any that would be "
             "empty:\n\n"
-            "## {abstract}\nOne paragraph of three or four lines.\n\n"
-            "## {points}\nA bulleted list, every line carrying its minute.\n\n"
+            "## {abstract}\n{abstract_detail}\n\n"
+            "## {points}\n{points_detail}\n\n"
             "## {decisions}\nOnly decisions actually taken.\n\n"
             "## {actions}\nWho committed to what, and by when if it was "
             "said.",
@@ -410,8 +396,8 @@ PROMPTS = {
             "{fence_start}\n{transcript}\n{fence_end}\n\n"
             "Write the summary in English, under exactly these headings and "
             "in this order, leaving out any that would be empty:\n\n"
-            "## {abstract}\nOne paragraph of three or four lines.\n\n"
-            "## {points}\nA bulleted list, every line carrying its minute.\n\n"
+            "## {abstract}\n{abstract_detail}\n\n"
+            "## {points}\n{points_detail}\n\n"
             "## {decisions}\nOnly decisions actually taken.\n\n"
             "## {actions}\nWho committed to what, and by when if it was "
             "said.",
@@ -440,6 +426,141 @@ PROMPTS = {
             "already written above.",
     },
 }
+
+
+#: What the asked length changes in the questions, per language.
+#:
+#: It changes the question and never the answer, and that is the whole of the
+#: design. A page is not made short by cutting its prose off at a word count —
+#: that produces a broken section, not a brief one — so a short page asks for
+#: a paragraph and no list, and a long one asks for a bullet per note. The
+#: notes themselves are the same notes at every length: what was read is read
+#: once and kept, and only how much of it is written down moves.
+#:
+#: ``shape`` and ``rules`` go into the section prompt of the page written in
+#: sections, ``span`` into its opening paragraph, and ``abstract``/``points``
+#: into the two headings of the old shape that can honestly be longer or
+#: shorter. Decisions and actions are not here on purpose: there were as many
+#: of them as there were, and a "short" page that leaves two of them out is
+#: not shorter, it is wrong.
+PAGE_DETAIL = {
+    "it": {
+        "short": {
+            "shape":
+                "- un solo paragrafo, da due a quattro frasi, che dice di "
+                "cosa si e' parlato e cosa e' stato chiesto o deciso;\n"
+                "- niente elenchi: quello che non sta nel paragrafo resta "
+                "fuori.",
+            "rules":
+                "- tieni solo quello che conta davvero, e' un riassunto "
+                "breve;\n",
+            "span": "una o due frasi",
+            "abstract": "Un paragrafo di due o tre righe.",
+            "points":
+                "Un elenco puntato dei punti principali, non piu' di cinque "
+                "righe, ogni riga con il minuto.",
+        },
+        "medium": {
+            "shape":
+                "- un paragrafo iniziale di una o tre frasi che inquadra "
+                "l'argomento e dice cosa e' stato chiesto o deciso nel "
+                "complesso;\n"
+                "- sotto, un elenco puntato con i dettagli;\n"
+                "- se gli appunti descrivono casi, alternative o fasi "
+                "distinte, usa un elenco numerato con sotto-punti annidati "
+                "invece di una lista piatta.",
+            "rules":
+                "- il paragrafo inquadra e i punti dettagliano: non ripetere "
+                "nei punti quello che hai gia' scritto nel paragrafo;\n",
+            "span": "da due a quattro frasi",
+            "abstract": "Un paragrafo di tre o quattro righe.",
+            "points": "Un elenco puntato, ogni riga con il minuto.",
+        },
+        "long": {
+            "shape":
+                "- un paragrafo iniziale di due o tre frasi che inquadra "
+                "l'argomento e dice cosa e' stato chiesto o deciso nel "
+                "complesso;\n"
+                "- sotto, un elenco puntato con i dettagli: un punto per "
+                "ogni appunto, senza lasciarne fuori nessuno;\n"
+                "- se gli appunti descrivono casi, alternative o fasi "
+                "distinte, usa un elenco numerato con sotto-punti annidati "
+                "invece di una lista piatta.",
+            "rules":
+                "- il paragrafo inquadra e i punti dettagliano: non ripetere "
+                "nei punti quello che hai gia' scritto nel paragrafo;\n"
+                "- dove gli appunti danno numeri, date, nomi o condizioni, "
+                "riportali per intero;\n",
+            "span": "da quattro a sei frasi",
+            "abstract": "Un paragrafo di cinque o sei righe.",
+            "points":
+                "Un elenco puntato esteso, senza lasciare fuori nulla di "
+                "quello che c'e' nei riassunti parziali, ogni riga con il "
+                "minuto.",
+        },
+    },
+    "en": {
+        "short": {
+            "shape":
+                "- one paragraph only, two to four sentences, saying what "
+                "the subject was and what was asked or decided;\n"
+                "- no lists: whatever does not fit in the paragraph stays "
+                "out.",
+            "rules":
+                "- keep only what really matters, this is a short "
+                "summary;\n",
+            "span": "one or two sentences",
+            "abstract": "One paragraph of two or three lines.",
+            "points":
+                "A bulleted list of the main points, no more than five "
+                "lines, every line carrying its minute.",
+        },
+        "medium": {
+            "shape":
+                "- an opening paragraph of one to three sentences framing "
+                "the subject and saying what was asked or decided "
+                "overall;\n"
+                "- under it, a bulleted list of the detail;\n"
+                "- where the notes describe cases, alternatives or distinct "
+                "stages, use a numbered list with nested sub-points rather "
+                "than a flat one.",
+            "rules":
+                "- the paragraph frames and the bullets detail: do not "
+                "repeat in the bullets what the paragraph already said;\n",
+            "span": "two to four sentences",
+            "abstract": "One paragraph of three or four lines.",
+            "points": "A bulleted list, every line carrying its minute.",
+        },
+        "long": {
+            "shape":
+                "- an opening paragraph of two or three sentences framing "
+                "the subject and saying what was asked or decided "
+                "overall;\n"
+                "- under it, a bulleted list of the detail: one bullet per "
+                "note, leaving none of them out;\n"
+                "- where the notes describe cases, alternatives or distinct "
+                "stages, use a numbered list with nested sub-points rather "
+                "than a flat one.",
+            "rules":
+                "- the paragraph frames and the bullets detail: do not "
+                "repeat in the bullets what the paragraph already said;\n"
+                "- where the notes give figures, dates, names or "
+                "conditions, carry them over in full;\n",
+            "span": "four to six sentences",
+            "abstract": "One paragraph of five or six lines.",
+            "points":
+                "A long bulleted list, leaving out nothing that is in the "
+                "partial summaries, every line carrying its minute.",
+        },
+    },
+}
+
+
+def detail_for(language, length=None):
+    """How much the page is asked to say, in the language that was spoken."""
+    catalogue = PAGE_DETAIL.get(language_of(language), PAGE_DETAIL["en"])
+    return catalogue.get(str(length or DEFAULT_LENGTH).strip().lower(),
+                         catalogue[DEFAULT_LENGTH])
 
 
 #: The four fields a model can be asked to write, in page order. ``keywords``
@@ -1044,14 +1165,16 @@ def _not_an_echo(text, prompt=None):
     return "" if echoed and len(text) < MIN_ANSWER else text
 
 
-def single_prompt(sentences, language):
+def single_prompt(sentences, language, length=None):
     """The one-pass prompt: the whole transcript, and what to write about it."""
     words = HEADINGS.get(language_of(language), HEADINGS["en"])
+    detail = detail_for(language, length)
     return prompts_for(language)["single"].format(
         transcript=transcript_for(sentences),
         fence_start=FENCE_START, fence_end=FENCE_END,
         abstract=words["abstract"], points=words["points"],
-        decisions=words["decisions"], actions=words["actions"])
+        decisions=words["decisions"], actions=words["actions"],
+        abstract_detail=detail["abstract"], points_detail=detail["points"])
 
 
 def note_headings(language, types=None):
@@ -1135,16 +1258,21 @@ def reduce_partial_prompt(partials, language, evidence=None):
         evidence=_evidence_block(evidence, language))
 
 
-def reduce_prompt(partials, language, evidence=None):
+def reduce_prompt(partials, language, evidence=None, length=None):
     """The prompt that turns the chunk summaries into one summary.
 
-    The root of the tree, and the only level that writes the page."""
+    The root of the tree, and the only level that writes the page — which is
+    why the asked length arrives here and nowhere below it: the levels
+    underneath are merging notes, and a merge that keeps less than it was
+    given loses the recording rather than shortening the page."""
     words = HEADINGS.get(language_of(language), HEADINGS["en"])
+    detail = detail_for(language, length)
     return prompts_for(language)["reduce"].format(
         partials=_numbered(partials),
         evidence=_evidence_block(evidence, language),
         abstract=words["abstract"], points=words["points"],
-        decisions=words["decisions"], actions=words["actions"])
+        decisions=words["decisions"], actions=words["actions"],
+        abstract_detail=detail["abstract"], points_detail=detail["points"])
 
 
 def _section_instruction(field, language):

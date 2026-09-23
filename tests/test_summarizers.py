@@ -12,7 +12,13 @@ import pytest
 
 from audio_transcriber import paths
 from audio_transcriber.summarizers import openvino_genai as engine
-from audio_transcriber.summarizers import plan, prompting, reading
+from audio_transcriber.summarizers import (
+    grouping,
+    plan,
+    prompting,
+    reading,
+    writing,
+)
 from audio_transcriber.summary import NotEnoughMemory, Sentence, SummaryError
 
 
@@ -1353,3 +1359,107 @@ def test_reading_more_finely_does_not_read_less_of_it():
     coarsely = sentences_read(passes_of(
         {"summary_chunk_tokens": small.chunk_tokens}, small, count=1200))
     assert len(finely) >= len(coarsely)
+
+
+# --- how much of it is written down ----------------------------------------
+
+class Everything(Reader):
+    """A Reader that also keeps the questions asked while the page is written."""
+
+    def __init__(self):
+        super().__init__()
+        self.asked = []
+
+    def ask(self, system, prompt, max_new_tokens=0, think=False):
+        self.asked.append({"prompt": prompt, "tokens": max_new_tokens})
+        return super().ask(system, prompt, max_new_tokens, think)
+
+
+def run_at(length, cache=None, count=120):
+    """One run at one length. ``cache`` is given a directory of its own where
+    a run has to actually read, and shared where the point is that it does
+    not."""
+    model = Everything()
+    chosen = plan.resolve_plan(plan.LLAMACPP, ram=32.0, total=64.0, cores=4)
+    settings = {} if length is None else {"summary_length": length}
+    if cache is not None:
+        settings["cache_dir"] = str(cache)
+    reading.summarize_with(lambda: model, chosen, long_material(count), settings)
+    return model
+
+
+def test_the_asked_length_reaches_the_page_it_was_asked_about(tmp_path):
+    """The report that started this: short, medium and long produced exactly
+    the same page, because nothing but the extractive engine had ever read
+    the setting."""
+    short = run_at("short", tmp_path / "a")
+    long = run_at("long", tmp_path / "b")
+    written = lambda model: [call["prompt"] for call in model.asked
+                             if "Struttura:" in call["prompt"]]
+    assert written(short) and written(long)
+    assert all("niente elenchi" in prompt for prompt in written(short))
+    assert all("un punto per ogni appunto" in prompt for prompt in written(long))
+
+
+def test_a_longer_page_is_allowed_to_say_more_before_it_is_cut_off():
+    """The wording and the allowance move together: asking for a bullet per
+    note and then stopping the model where a paragraph would have ended is
+    how a page finishes mid-sentence."""
+    room = lambda model: max(call["tokens"] for call in model.asked
+                             if "Struttura:" in call["prompt"])
+    assert room(run_at("short")) < room(run_at("long"))
+
+
+def test_asking_for_a_different_length_does_not_read_the_recording_again(
+        tmp_path):
+    """Which is why the pass cache is keyed without the length. On a machine
+    where one pass is minutes, asking for the same recording again at a
+    different length has to cost the writing and nothing else."""
+    assert run_at("short", tmp_path).read
+    assert run_at("long", tmp_path).read == []
+
+
+def test_a_length_that_reads_the_same_words_asks_the_same_questions(tmp_path):
+    """The other half of it: what reaches the model in a reading pass is the
+    same at every length, which is what makes the cached pass reusable rather
+    than merely reused."""
+    assert (run_at("short", tmp_path / "a").read
+            == run_at("long", tmp_path / "b").read)
+
+
+def test_nothing_asked_is_the_page_that_was_measured(tmp_path):
+    assert (run_at(None, tmp_path / "a").asked
+            == run_at("medium", tmp_path / "b").asked)
+
+
+def test_a_short_page_is_grouped_more_coarsely_than_a_long_one(monkeypatch,
+                                                              tmp_path):
+    """Fewer sections, not fewer notes. The grouping searches from tight to
+    loose and stops at the first distance under the cap, so a lower cap is a
+    coarser page made of exactly the same notes - nothing is thrown away at
+    any length, which is the rule this whole package is written around."""
+    caps = []
+    real = grouping.assign
+    monkeypatch.setattr(grouping, "assign", lambda *args, **kw: (
+        caps.append(kw.get("most")) or real(*args, **kw)))
+    run_at("short", tmp_path / "a")
+    run_at("long", tmp_path / "b")
+    assert caps == [writing.PAGES["short"].sections,
+                    writing.PAGES["long"].sections]
+    assert caps[0] < grouping.MAX_SECTIONS < caps[1]
+
+
+def test_the_old_shape_asks_for_the_length_too():
+    """It is not the default any more, but a setting that works on one shape
+    and is ignored on the other is worse than one that does nothing."""
+    short = prompting.single_prompt(SENTENCES, "it", "short")
+    long = prompting.single_prompt(SENTENCES, "it", "long")
+    assert "non piu' di cinque righe" in short
+    assert "senza lasciare fuori nulla" in long
+    assert prompting.single_prompt(SENTENCES, "it") == prompting.single_prompt(
+        SENTENCES, "it", "medium")
+
+
+def test_an_unknown_length_is_the_default_one_and_not_a_crash():
+    assert prompting.detail_for("it", "enormous") == prompting.detail_for("it")
+    assert writing.page_for("enormous") == writing.page_for(None)

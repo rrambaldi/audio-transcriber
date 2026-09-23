@@ -8,7 +8,7 @@ whichever model happens to be loaded.
 import pytest
 
 from audio_transcriber import summary as summarising
-from audio_transcriber.summarizers import grouping, writing
+from audio_transcriber.summarizers import grouping, prompting, writing
 from audio_transcriber.summarizers import notes as note_kinds
 
 
@@ -310,3 +310,60 @@ def test_the_passes_can_be_reported_on_a_document_with_decisions():
     found.chunk(index=1, total=1, in_tokens=3180, out_tokens=412, notes=4)
     counts = reading.report_trace(found, document, material)
     assert counts["chunks"] == 1
+
+
+# --- how much of it is written down ----------------------------------------
+
+def test_the_three_lengths_are_the_same_three_everywhere():
+    """One list of names, kept in three places because each holds a different
+    kind of thing: the extractive engine's ratios, the numbers a written page
+    moves, and the wording it is asked with. A name in one and not the others
+    is a length that silently does nothing."""
+    assert set(writing.PAGES) == set(summarising.LENGTHS)
+    for language in ("it", "en"):
+        assert set(prompting.PAGE_DETAIL[language]) == set(summarising.LENGTHS)
+
+
+def test_a_short_section_is_asked_for_as_a_paragraph_without_a_list():
+    asked = Asked("Un paragrafo.")
+    writing.section(cluster(DASHBOARD), asked, "it",
+                    prompting.detail_for("it", "short"))
+    assert "niente elenchi" in asked.prompts[0]
+
+
+def test_a_long_section_is_asked_for_a_bullet_per_note():
+    asked = Asked("Un paragrafo.\n\n- Un dettaglio.")
+    writing.section(cluster(DASHBOARD), asked, "it",
+                    prompting.detail_for("it", "long"))
+    assert "un punto per ogni appunto" in asked.prompts[0]
+
+
+def test_the_opening_paragraph_is_asked_for_at_the_asked_length():
+    short, long = Asked("In breve."), Asked("Piu' a lungo.")
+    writing.abstract(["Dashboard"], short, "it",
+                     prompting.detail_for("it", "short"))
+    writing.abstract(["Dashboard"], long, "it",
+                     prompting.detail_for("it", "long"))
+    assert "una o due frasi" in short.prompts[0]
+    assert "da quattro a sei frasi" in long.prompts[0]
+
+
+def test_every_section_of_one_page_is_asked_for_at_the_same_length():
+    """The length is resolved once. Two sections of the same page asked for
+    at two different lengths is a page that reads as if two people wrote it."""
+    asked = Asked("Un paragrafo.")
+    writing.write([cluster(DASHBOARD), cluster(DOCUMENTALE)], [], asked,
+                  language="it", length="short")
+    sections = [prompt for prompt in asked.prompts if "Struttura:" in prompt]
+    assert len(sections) == 2
+    assert all("niente elenchi" in prompt for prompt in sections)
+
+
+def test_nothing_says_which_length_and_the_page_is_the_measured_one():
+    """Medium is the default and the default is what was measured, so the
+    page written when nobody asked has to be the page written for medium."""
+    quiet, named = Asked("Un paragrafo."), Asked("Un paragrafo.")
+    writing.write([cluster(DASHBOARD)], [], quiet, language="it")
+    writing.write([cluster(DASHBOARD)], [], named, language="it",
+                  length="medium")
+    assert quiet.prompts == named.prompts

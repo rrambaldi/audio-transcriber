@@ -55,7 +55,7 @@ DEFAULTS = {
     "subtitle_lines": None,       # lines per cue
     "subtitle_words": None,       # words per cue, if you would rather cap that
     "summarizer": "auto",         # "auto": the best engine this machine has
-    "summary_length": None,       # None: the module's default (medium)
+    "summary_length": None,       # None: "medium", on every engine
     "summary_style": None,        # None: the module's default (combined)
     "summary_model": None,        # None/"auto": the largest one this machine holds
     "summary_device": None,       # None/"auto": the Intel iGPU, then the CPU

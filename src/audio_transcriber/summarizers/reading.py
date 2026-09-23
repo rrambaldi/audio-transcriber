@@ -25,6 +25,7 @@ import sys
 
 from ..i18n import t
 from ..summary import (
+    DEFAULT_LENGTH,
     DEFAULT_STYLE,
     STAGE_READING,
     STAGE_WRITING,
@@ -469,6 +470,12 @@ def summarize_with(open_pipeline, chosen, material, settings=None,
         sentences = kept
 
     style = str(settings.get("summary_style") or DEFAULT_STYLE).strip().lower()
+    # How much of what was read reaches the page. Asked for after the passes
+    # are decided and never before them: every length reads the same words,
+    # which is why the pass cache is keyed without it and why asking again
+    # for a longer page costs the writing only.
+    length = str(settings.get("summary_length")
+                 or DEFAULT_LENGTH).strip().lower()
 
     report(4, "stage.loading_model")
     pipeline = open_pipeline()
@@ -481,7 +488,7 @@ def summarize_with(open_pipeline, chosen, material, settings=None,
                  (low, seam), settings.get("cache_dir"), fingerprint, trace)
             sections, grouped = _write_sections(
                 trace.notes, pipeline, system, language, chosen, settings,
-                material, report, (seam, high))
+                material, report, (seam, high), length)
             answer = sections.abstract
         elif len(parts) == 1:
             report(READING_BAND[0], STAGE_READING)
@@ -495,7 +502,7 @@ def summarize_with(open_pipeline, chosen, material, settings=None,
                 # against it a well-shaped answer looks copied. What a
                 # one-pass answer can wrongly reproduce is the transcript,
                 # and the fence catches that.
-                prompt = prompting.single_prompt(parts[0], language)
+                prompt = prompting.single_prompt(parts[0], language, length)
                 sections, answer = _write_combined(pipeline, system, language,
                                                    prompt, chosen)
         else:
@@ -512,7 +519,8 @@ def summarize_with(open_pipeline, chosen, material, settings=None,
                     lambda field: prompting.section_reduce_prompt(
                         field, texts, language, evidence))
             else:
-                prompt = prompting.reduce_prompt(texts, language, evidence)
+                prompt = prompting.reduce_prompt(texts, language, evidence,
+                                                 length)
                 sections, answer = _write_combined(pipeline, system, language,
                                                    prompt, chosen)
     finally:
@@ -525,12 +533,12 @@ def summarize_with(open_pipeline, chosen, material, settings=None,
         raise SummaryError(t("summary.model_said_nothing",
                              model=model_name or chosen.model.name,
                              detail=why_nothing(answer)))
-    report_trace(trace, sections, material, settings, grouped)
+    report_trace(trace, sections, material, settings, grouped, length)
     return sections, note
 
 
 def _write_sections(found, pipeline, system, language, chosen, settings,
-                    material, report, band):
+                    material, report, band, length=None):
     """Group the notes, then write one section at a time.
 
     Every question here is about one section's notes. Nothing sees the whole
@@ -539,14 +547,20 @@ def _write_sections(found, pipeline, system, language, chosen, settings,
     answering an enormous one badly cost two thirds of a meeting and said
     nothing about it."""
     low, high = band
+    page = writing.page_for(length)
     kept = grouping.dedupe(grouping.enrich(list(found), language), language)
     body, tail = grouping.assign(
         kept, settings.get("summary_sections_mode") or grouping.HYBRID,
-        language)
+        language, most=page.sections or grouping.MAX_SECTIONS)
     body = grouping.split_oversize(body, writing.NOTES_PER_SECTION, language)
 
     def ask_for(budget):
-        return lambda prompt: ask(pipeline, system, prompt, budget, chosen)
+        # Never more than half the window: a section prompt is two dozen
+        # notes, so there is room, but a long page on the smallest tier must
+        # not ask for an answer the context cannot hold.
+        room = max(1, min(int(budget * page.answer),
+                          int(chosen.context_tokens) // 2))
+        return lambda prompt: ask(pipeline, system, prompt, room, chosen)
 
     def advance(done, total):
         report(low + (high - low) * done // max(1, total), STAGE_WRITING)
@@ -554,11 +568,11 @@ def _write_sections(found, pipeline, system, language, chosen, settings,
     written = writing.write(
         body, tail, ask_for(chosen.map_answer_tokens), material, language,
         advance, label_tokens=LABEL_TOKENS,
-        abstract_ask=ask_for(chosen.reduce_answer_tokens))
+        abstract_ask=ask_for(chosen.reduce_answer_tokens), length=length)
     return written, (body, tail)
 
 
-def _section_shape(found, language, settings, grouped=None):
+def _section_shape(found, language, settings, grouped=None, length=None):
     """What the notes would be grouped into, as numbers and as words.
 
     Split in two on purpose: how many sections and how big they are is a
@@ -576,7 +590,8 @@ def _section_shape(found, language, settings, grouped=None):
                                    language)
             body, tail = grouping.assign(
                 kept, settings.get("summary_sections_mode") or grouping.HYBRID,
-                language)
+                language,
+                most=writing.page_for(length).sections or grouping.MAX_SECTIONS)
     except Exception:                   # noqa: BLE001 - a measurement, not the work
         return empty
     return {
@@ -595,7 +610,8 @@ def _section_shape(found, language, settings, grouped=None):
     }
 
 
-def report_trace(trace, sections, material, settings=None, grouped=None):
+def report_trace(trace, sections, material, settings=None, grouped=None,
+                 length=None):
     """Say what the passes did, and how much of the recording came through.
 
     Coverage and copy_rate are not here: they are computed from the finished
@@ -612,7 +628,7 @@ def report_trace(trace, sections, material, settings=None, grouped=None):
     # costs one matrix multiplication to find out on every run rather than
     # only when somebody remembers to look.
     shape = _section_shape(trace.notes, language_of(material.language),
-                           settings, grouped)
+                           settings, grouped, length)
 
     if settings.get("summary_debug"):
         for line in trace.lines():

@@ -235,6 +235,21 @@ All notable changes to this project are documented here. The format follows
 
 ### Fixed
 
+- **`short`, `medium` and `long` now do something on a model engine.** They
+  had only ever reached the extractive one: on the two engines that write
+  prose the setting was read, carried through the settings, printed in the
+  job's description, and then never looked at — so all three names produced
+  the same page, word for word.
+
+  They now change the questions and never the answers. A short section is
+  asked for as one paragraph with no list, a long one as a paragraph with a
+  bullet per note, and the opening paragraph and the number of sections move
+  with them. What does not move: the reading, which covers the whole
+  recording at every length — asking again for a longer page re-uses every
+  pass, which is what the pass cache was keyed without the length for — and
+  the decisions and the actions, because there were as many of them as there
+  were.
+
 - **A summary in the new shape no longer falls over at the last step.** It
   read the recording, grouped what it found, wrote every section, and then
   crashed measuring how much of the recording it had covered — because the

@@ -91,17 +91,21 @@ call :devices "vulkan" "%AT_LLAMA_VULKAN%"
 call :devices "openvino" "%AT_LLAMA_OPENVINO%"
 
 rem --- the runs this round ---------------------------------------------------
-rem The measuring campaign is over and the defaults carry what it found:
-rem Vulkan, sections, 1200 tokens a pass, Q4_K_M weights. Nothing here is
-rem asked for any more, because the program does it by itself.
+rem The question this round: "short", "medium" and "long" used to produce the
+rem same page word for word, because only the engine with no model had ever
+rem read the setting. Three runs, one difference between them, and the three
+rem pages to read side by side.
 rem
-rem What is left is a run of the shipped thing, end to end, on whatever
-rem recording is handed to it - the check that the numbers on this machine
-rem still look like the ones in docs/summary.md, and the page to read.
+rem The first one reads the recording; the other two re-use its passes and
+rem only write, which is the other half of the claim - asking again at a
+rem different length is supposed to cost the writing and nothing else. So
+rem watch the elapsed_s of the second and the third: much shorter than the
+rem first, or the cache is not doing what it says.
 rem
-rem To ask a new question, put it back to two runs with one difference
-rem between them. Everything above this line stays as it is.
-call :measure "run" "%AT_LLAMA_VULKAN%" ""
+rem To ask a new question, edit these lines. Everything above stays as it is.
+call :measure "short" "%AT_LLAMA_VULKAN%" "--length short"
+call :measure "medium" "%AT_LLAMA_VULKAN%" "--length medium --keep-cache"
+call :measure "long" "%AT_LLAMA_VULKAN%" "--length long --keep-cache"
 
 echo.
 echo === done. These are this round's, and carry no meeting in them:

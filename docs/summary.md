@@ -455,7 +455,10 @@ will not pick a bigger one because a driver was optimistic.
 ## How long
 
 Three lengths, by name rather than by number, the way the subtitle presets
-work:
+work. What the name does depends on which engine is writing, because the two
+have nothing in common but the name.
+
+**The extractive engine** keeps a share of the transcript's own sentences:
 
 | length | share of the sentences | fewest | most |
 |---|---|---|---|
@@ -466,13 +469,35 @@ work:
 The floor keeps a five-minute note from summarising to nothing; the ceiling
 keeps an all-day recording from producing a second transcript.
 
+**A model engine** changes the question it asks, and never the answer it
+got. A page is not made short by cutting its prose off at a word count —
+that produces a broken section rather than a brief one — so:
+
+| length | a section is asked for as | sections at most | opening paragraph |
+|---|---|---|---|
+| `short` | one paragraph, no list | 6 | one or two sentences |
+| `medium` | a paragraph and a list of the detail | 12 | two to four sentences |
+| `long` | a paragraph and a bullet per note | 18 | four to six sentences |
+
+Three things this deliberately does not do. It does not read less: every
+length reads the whole recording in the same passes, which is why asking
+again for a longer page costs the writing only and not the reading — the
+pass cache is keyed without the length on purpose. It does not keep fewer
+notes: a short page has the same notes grouped into fewer, coarser sections,
+and none of them are thrown away. And it does not shorten the decisions or
+the actions: there were as many of them as there were, and a short page that
+leaves two of them out is not shorter, it is wrong.
+
+On the old `headings` shape the same names move the opening paragraph and
+the key points, and leave decisions and actions alone for the same reason.
+
 ## Configuration
 
 ```toml
 [summary]
 # auto | openvino | llamacpp | extractive
 engine = "auto"
-# short | medium | long  (the extractive engine)
+# short | medium | long   (see "How long": it works on every engine)
 length = "medium"
 # auto, a Hugging Face id, a GGUF file, or a converted directory
 model = "auto"
