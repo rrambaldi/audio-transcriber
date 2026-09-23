@@ -1463,3 +1463,48 @@ def test_the_old_shape_asks_for_the_length_too():
 def test_an_unknown_length_is_the_default_one_and_not_a_crash():
     assert prompting.detail_for("it", "enormous") == prompting.detail_for("it")
     assert writing.page_for("enormous") == writing.page_for(None)
+
+
+# --- the sections somebody asked for ----------------------------------------
+
+def run_with(settings, cache=None, count=120):
+    model = Everything()
+    chosen = plan.resolve_plan(plan.LLAMACPP, ram=32.0, total=64.0, cores=4)
+    settings = dict(settings)
+    if cache is not None:
+        settings["cache_dir"] = str(cache)
+    reading.summarize_with(lambda: model, chosen, long_material(count), settings)
+    return model
+
+
+def test_a_template_changes_what_the_reading_looks_for(tmp_path):
+    """Not only what the page prints, and this is the trade worth knowing:
+    a pass that is not asked for opinions does not write them down, and
+    asking again later does not bring them back."""
+    asked = run_with({"summary_template": "minutes"}, tmp_path).read[0]
+    assert "## Decisioni" in asked
+    assert "## Opinioni" not in asked
+
+
+def test_a_template_typed_in_by_hand_reaches_the_reading_pass(tmp_path):
+    written = ("# layout: fixed\n"
+               "Rischi privacy: un trattamento che potrebbe non essere lecito\n"
+               "Costi: una cifra o un canone detto ad alta voce\n")
+    asked = run_with({"summary_template_text": written}, tmp_path).read[0]
+    assert "## Rischi privacy" in asked
+    assert "## Costi" in asked
+    # The worked example is headed with the template's own sections too.
+    assert "## Requisiti" not in asked
+
+
+def test_a_template_that_does_not_exist_is_refused_with_the_ones_that_do():
+    with pytest.raises(SummaryError, match="minutes"):
+        run_with({"summary_template": "verbale-che-non-ce"})
+
+
+def test_nothing_asked_for_is_the_page_the_program_makes_by_itself(tmp_path):
+    """The bundled "meeting" template says the same thing, and it is still
+    not what a run with no template uses: a measured default does not become
+    a file somebody could edit under it."""
+    quiet = run_with({}, tmp_path / "a").read[0]
+    assert "## Opinioni" in quiet

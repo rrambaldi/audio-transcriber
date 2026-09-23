@@ -39,7 +39,7 @@ from ..summary import (
 from ..summary import (
     reduce as reduce_sentences,
 )
-from . import grouping, partials, plan, prompting, writing
+from . import grouping, partials, plan, prompting, templates, writing
 from . import notes as note_reading
 from . import trace as tracing
 
@@ -138,7 +138,7 @@ def ask(pipeline, system, prompt, budget, chosen, echo_prompt=None):
 
 
 def _map(pipeline, system, parts, language, chosen, report, band,
-         cache_dir=None, fingerprint="", trace=None):
+         cache_dir=None, fingerprint="", trace=None, catalogue=None):
     """One answer per chunk, and the sentences behind each.
 
     The sentences are carried along because a fold above needs the source to
@@ -153,7 +153,8 @@ def _map(pipeline, system, parts, language, chosen, report, band,
     found, written = [], False
     for index, part in enumerate(parts, start=1):
         report(low + (high - low) * (index - 1) // len(parts), STAGE_READING)
-        prompt = prompting.map_prompt(part, language, index, len(parts))
+        prompt = prompting.map_prompt(part, language, index, len(parts),
+                                      catalogue)
         name = partials.key(prompt, chosen.model.name, chosen.quant, "map",
                             chosen.map_answer_tokens, language, fingerprint)
         answer = partials.get(name, cache_dir)
@@ -186,7 +187,8 @@ def _map(pipeline, system, parts, language, chosen, report, band,
             status = tracing.REUSED
         span = (part[0].start if part else None,
                 (part[-1].end or part[-1].start) if part else None)
-        written, unknown = note_reading.read(answer, language, index, span)
+        written, unknown = note_reading.read(answer, language, index, span,
+                                             catalogue=catalogue)
         if trace is not None:
             trace.chunk(index=index, total=len(parts),
                         budget=chosen.map_answer_tokens,
@@ -413,6 +415,15 @@ def summarize_with(open_pipeline, chosen, material, settings=None,
 
     trace = tracing.Trace()
     grouped = None
+    # Which sections this page is made of. Resolved here and not deeper,
+    # because it decides what the *reading* looks for and not only what the
+    # page prints - a pass never asked for opinions does not write them down,
+    # and asking later does not bring them back.
+    try:
+        template = templates.resolve(settings, language)
+    except templates.TemplateError as wrong:
+        raise SummaryError(str(wrong)) from wrong
+    catalogue = template.catalogue if template else None
     shape = str(settings.get("summary_shape") or SECTIONS).strip().lower()
     fingerprint = partials.settings_key(settings, chosen)
     budget = int(settings.get("summary_chunk_tokens") or chosen.chunk_tokens)
@@ -430,7 +441,7 @@ def summarize_with(open_pipeline, chosen, material, settings=None,
     # the old guess overflows the window by the difference — silently, because
     # what falls off the end is the end of the transcript.
     room = (int(chosen.context_tokens) - answer_tokens
-            - prompting.map_overhead(language) - CONTEXT_MARGIN)
+            - prompting.map_overhead(language, catalogue) - CONTEXT_MARGIN)
     if room > 0 and budget > room:
         print(t("summary.no_room_for_answer", chunk=budget, answer=answer_tokens,
                 context=chosen.context_tokens, room=room), file=sys.stderr)
@@ -485,10 +496,11 @@ def summarize_with(open_pipeline, chosen, material, settings=None,
             low, high = READING_BAND
             seam = int(low + (high - low) * FOLDING_FROM)
             _map(pipeline, system, parts, language, chosen, report,
-                 (low, seam), settings.get("cache_dir"), fingerprint, trace)
+                 (low, seam), settings.get("cache_dir"), fingerprint, trace,
+                 catalogue)
             sections, grouped = _write_sections(
                 trace.notes, pipeline, system, language, chosen, settings,
-                material, report, (seam, high), length)
+                material, report, (seam, high), length, template)
             answer = sections.abstract
         elif len(parts) == 1:
             report(READING_BAND[0], STAGE_READING)
@@ -510,7 +522,7 @@ def summarize_with(open_pipeline, chosen, material, settings=None,
             seam = int(low + (high - low) * FOLDING_FROM)
             answers = _map(pipeline, system, parts, language, chosen, report,
                            (low, seam), settings.get("cache_dir"),
-                           fingerprint, trace)
+                           fingerprint, trace, catalogue)
             texts, evidence = _fold_to_root(pipeline, system, answers, language,
                                             chosen, report, (seam, high), trace)
             if style == "split":
@@ -533,12 +545,13 @@ def summarize_with(open_pipeline, chosen, material, settings=None,
         raise SummaryError(t("summary.model_said_nothing",
                              model=model_name or chosen.model.name,
                              detail=why_nothing(answer)))
-    report_trace(trace, sections, material, settings, grouped, length)
+    report_trace(trace, sections, material, settings, grouped, length,
+                 template)
     return sections, note
 
 
 def _write_sections(found, pipeline, system, language, chosen, settings,
-                    material, report, band, length=None):
+                    material, report, band, length=None, template=None):
     """Group the notes, then write one section at a time.
 
     Every question here is about one section's notes. Nothing sees the whole
@@ -550,8 +563,10 @@ def _write_sections(found, pipeline, system, language, chosen, settings,
     page = writing.page_for(length)
     kept = grouping.dedupe(grouping.enrich(list(found), language), language)
     body, tail = grouping.assign(
-        kept, settings.get("summary_sections_mode") or grouping.HYBRID,
-        language, most=page.sections or grouping.MAX_SECTIONS)
+        kept, _mode(settings, template), language,
+        most=page.sections or grouping.MAX_SECTIONS,
+        kinds=template.types if template else None,
+        tail_kinds=template.tail if template else None)
     body = grouping.split_oversize(body, writing.NOTES_PER_SECTION, language)
 
     def ask_for(budget):
@@ -568,11 +583,22 @@ def _write_sections(found, pipeline, system, language, chosen, settings,
     written = writing.write(
         body, tail, ask_for(chosen.map_answer_tokens), material, language,
         advance, label_tokens=LABEL_TOKENS,
-        abstract_ask=ask_for(chosen.reduce_answer_tokens), length=length)
+        abstract_ask=ask_for(chosen.reduce_answer_tokens), length=length,
+        catalogue=template.catalogue if template else None)
     return written, (body, tail)
 
 
-def _section_shape(found, language, settings, grouped=None, length=None):
+def _mode(settings, template):
+    """How the notes become sections. The setting wins, because it is the
+    older and more specific way of saying it and somebody may have it in a
+    config file; then the template's layout; then the default."""
+    return (settings.get("summary_sections_mode")
+            or (template.mode if template else None)
+            or grouping.HYBRID)
+
+
+def _section_shape(found, language, settings, grouped=None, length=None,
+                   template=None):
     """What the notes would be grouped into, as numbers and as words.
 
     Split in two on purpose: how many sections and how big they are is a
@@ -589,9 +615,10 @@ def _section_shape(found, language, settings, grouped=None, length=None):
             kept = grouping.dedupe(grouping.enrich(list(found), language),
                                    language)
             body, tail = grouping.assign(
-                kept, settings.get("summary_sections_mode") or grouping.HYBRID,
-                language,
-                most=writing.page_for(length).sections or grouping.MAX_SECTIONS)
+                kept, _mode(settings, template), language,
+                most=writing.page_for(length).sections or grouping.MAX_SECTIONS,
+                kinds=template.types if template else None,
+                tail_kinds=template.tail if template else None)
     except Exception:                   # noqa: BLE001 - a measurement, not the work
         return empty
     return {
@@ -611,7 +638,7 @@ def _section_shape(found, language, settings, grouped=None, length=None):
 
 
 def report_trace(trace, sections, material, settings=None, grouped=None,
-                 length=None):
+                 length=None, template=None):
     """Say what the passes did, and how much of the recording came through.
 
     Coverage and copy_rate are not here: they are computed from the finished
@@ -628,7 +655,7 @@ def report_trace(trace, sections, material, settings=None, grouped=None,
     # costs one matrix multiplication to find out on every run rather than
     # only when somebody remembers to look.
     shape = _section_shape(trace.notes, language_of(material.language),
-                           settings, grouped, length)
+                           settings, grouped, length, template)
 
     if settings.get("summary_debug"):
         for line in trace.lines():

@@ -100,7 +100,7 @@ def _tidy_title(written, language="it"):
     return line
 
 
-def label(cluster, ask, language="it"):
+def label(cluster, ask, language="it", catalogue=None):
     """A title for one section, from its own notes and nothing else.
 
     ``ask(prompt)`` is how a question reaches whichever model is loaded; this
@@ -111,7 +111,7 @@ def label(cluster, ask, language="it"):
     language = language_of(language)
     if cluster.kind and cluster.kind != "other":
         cluster.named_by = "catalogue"
-        return note_kinds.heading_of(cluster.kind, language)
+        return note_kinds.heading_of(cluster.kind, language, catalogue)
     if cluster.kind == "other":
         cluster.named_by = "catalogue"
         return OTHER.get(language, OTHER["en"])
@@ -198,7 +198,7 @@ def derive_title(titles, material=None, language="it"):
 
 
 def write(body, tail, ask, material=None, language="it", progress=None,
-          label_tokens=None, abstract_ask=None, length=None):
+          label_tokens=None, abstract_ask=None, length=None, catalogue=None):
     """Every question this stage asks, in order, and the document they make.
 
     ``ask(prompt)`` writes a section; ``abstract_ask`` writes the opening
@@ -216,7 +216,7 @@ def write(body, tail, ask, material=None, language="it", progress=None,
     done = 0
     written = []
     for cluster in body:
-        cluster.title = label(cluster, label_ask, language)
+        cluster.title = label(cluster, label_ask, language, catalogue)
         done += 1
         if progress:
             progress(done, total)

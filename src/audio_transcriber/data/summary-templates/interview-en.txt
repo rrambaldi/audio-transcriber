@@ -1,0 +1,11 @@
+# title: Interview
+# language: en
+# layout: discovered
+
+# One person talking, not a table deciding. It looks for facts, opinions
+# and questions left open, and the page's sections are the subjects they
+# talked about - with no lists at the foot, because an interview has
+# nothing in it to carry out.
+Facts:
+Opinions:
+Open questions:

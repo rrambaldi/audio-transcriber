@@ -39,6 +39,7 @@ ENV_CACHE_DIR = "AUDIO_TRANSCRIBER_CACHE_DIR"
 ENV_MODELS_DIR = "AUDIO_TRANSCRIBER_MODELS_DIR"
 ENV_LIBRARY_DIR = "AUDIO_TRANSCRIBER_LIBRARY_DIR"
 ENV_VOCAB_DIR = "AUDIO_TRANSCRIBER_VOCABULARIES_DIR"
+ENV_TEMPLATES_DIR = "AUDIO_TRANSCRIBER_SUMMARY_TEMPLATES_DIR"
 ENV_LOG_DIR = "AUDIO_TRANSCRIBER_LOG_DIR"
 
 # Folders written by versions <= 0.2 in the working directory.
@@ -162,6 +163,18 @@ def vocabularies_dir():
     if override:
         return override
     return os.path.join(config_dir(), "vocabularies")
+
+
+def summary_templates_dir():
+    """Directory holding the summary templates added by hand.
+
+    Beside the keyword sets, and for the same reason: a template is a page
+    somebody decided they wanted, written once and used for years. It is
+    configuration, not data."""
+    override = _env_path(ENV_TEMPLATES_DIR)
+    if override:
+        return override
+    return os.path.join(config_dir(), "summary-templates")
 
 
 def log_dir():

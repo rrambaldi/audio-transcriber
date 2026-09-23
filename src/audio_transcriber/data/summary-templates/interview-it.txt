@@ -1,0 +1,11 @@
+# title: Intervista
+# language: it
+# layout: discovered
+
+# Una persona che racconta, non un tavolo che decide. Si cercano fatti,
+# opinioni e domande rimaste aperte, e le sezioni della pagina sono gli
+# argomenti di cui ha parlato - senza elenchi in fondo, perche' in
+# un'intervista non c'e' niente da eseguire.
+Fatti:
+Opinioni:
+Questioni aperte:

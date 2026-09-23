@@ -1,0 +1,13 @@
+# title: Verbale operativo
+# language: it
+# layout: fixed
+
+# Tre intestazioni fisse e nient'altro: cosa si e' deciso, chi fa cosa,
+# cosa e' rimasto aperto. La pagina da mandare dopo la riunione.
+#
+# Attenzione: un passaggio a cui non si chiedono i fatti e le opinioni non
+# le scrive, e quelle parole non tornano. E' il compromesso giusto qui, ed
+# e' sbagliato se la stessa registrazione va riletta con un altro template.
+Decisioni:
+Azioni:
+Questioni aperte:

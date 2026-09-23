@@ -1,0 +1,15 @@
+# title: Riassunto puro
+# language: it
+# layout: discovered
+
+# Solo il racconto: un paragrafo di apertura e una sezione per argomento,
+# nell'ordine in cui se ne e' parlato. Cerca tutto, come la riunione, ma
+# non ripete niente in fondo alla pagina.
+Requisiti:
+Fatti:
+Decisioni:
+Proposte:
+Azioni:
+Problemi:
+Questioni aperte:
+Opinioni:

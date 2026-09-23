@@ -1,0 +1,10 @@
+# title: Requisiti del cliente
+# language: it
+# layout: fixed
+
+# La call in cui il cliente dice cosa gli serve: cosa deve fare la cosa,
+# cosa non va oggi, cosa e' stato proposto e cosa si e' chiuso.
+Requisiti:
+Problemi:
+Proposte:
+Decisioni:

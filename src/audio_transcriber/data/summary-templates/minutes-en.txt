@@ -1,0 +1,13 @@
+# title: Operative minutes
+# language: en
+# layout: fixed
+
+# Three fixed headings and nothing else: what was decided, who does what,
+# what was left open. The page you send round after the meeting.
+#
+# A warning: a pass that is not asked for facts and opinions does not write
+# them down, and those words do not come back. That is the right trade here
+# and the wrong one if the same recording is to be read again.
+Decisions:
+Actions:
+Open questions:

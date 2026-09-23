@@ -97,6 +97,123 @@ INSTRUCTIONS = {
     },
 }
 
+#: Where the bullets of a heading nobody asked for end up. The kind that
+#: claims least, and the one every built-in catalogue has; a catalogue written
+#: by hand may not, and then they go under "other", which the page prints as
+#: "Other points" rather than pretending they were decisions.
+FALLBACK = "fact"
+OTHER = "other"
+
+
+@dataclass(frozen=True)
+class Kind:
+    """One kind of note: what it is called, and what belongs under it."""
+
+    name: str
+    heading: str
+    instruction: str
+
+
+@dataclass(frozen=True)
+class Catalogue:
+    """Which kinds of note a run collects, in the language being spoken.
+
+    This used to be three module-level dictionaries, and it stopped being
+    them the day the sections became something a reader could choose. A
+    catalogue written by hand has headings no dictionary in here knows, and
+    the code that asks for them, reads them back and prints them all has to
+    take them from somewhere that is not a global.
+
+    ``also`` is what a heading is *additionally* allowed to match: for the
+    built-in catalogue that is its own English twin, because a model told to
+    write "## Requisiti" writes "## Requirements" often enough that losing a
+    whole kind to it would be a poor trade. A catalogue somebody wrote has no
+    twin, so it matches only itself."""
+
+    kinds: tuple
+    also: tuple = ()
+
+    @property
+    def names(self):
+        return tuple(kind.name for kind in self.kinds)
+
+    def heading(self, name):
+        for kind in self.kinds:
+            if kind.name == name:
+                return kind.heading
+        return HEADINGS["en"].get(name) or name
+
+    def instruction(self, name):
+        for kind in self.kinds:
+            if kind.name == name:
+                return kind.instruction
+        return ""
+
+    @property
+    def fallback(self):
+        """The kind an unrecognised heading's bullets are filed under."""
+        return FALLBACK if FALLBACK in self.names else OTHER
+
+    def select(self, names=None):
+        """The same catalogue restricted to some of its kinds, in its order."""
+        if not names:
+            return self
+        wanted = tuple(names)
+        return Catalogue(
+            kinds=tuple(kind for kind in self.kinds if kind.name in wanted),
+            also=self.also)
+
+    def type_of(self, heading):
+        """Which kind a heading the model wrote belongs to, if any.
+
+        Exact first, then nearest, and a tie is no match. See
+        :data:`SAME_HEADING` for what the threshold was measured against."""
+        wanted = _plain(heading)
+        if not wanted:
+            return None
+        written = [{kind.name: kind.heading for kind in self.kinds}]
+        written.extend(dict(pair) for pair in self.also)
+        for words in written:
+            for name, word in words.items():
+                if wanted == _plain(word):
+                    return name
+
+        scores = {}
+        for words in written:
+            for name, word in words.items():
+                close = difflib.SequenceMatcher(None, wanted,
+                                                _plain(word)).ratio()
+                scores[name] = max(scores.get(name, 0.0), close)
+        if not scores:
+            return None
+        ranked = sorted(scores.items(), key=lambda pair: pair[1], reverse=True)
+        best, close = ranked[0]
+        if close < SAME_HEADING:
+            return None
+        # A tie is not a match: two kinds equally close means the word is near
+        # neither of them in particular.
+        if len(ranked) > 1 and ranked[1][1] >= close:
+            return None
+        return best
+
+
+def catalogue_for(language="it", types=None):
+    """The built-in catalogue, in the language being spoken.
+
+    ``types`` restricts it, which is how a template that wants three kinds
+    out of the eight asks for them without writing their headings again."""
+    language = language_of(language)
+    words = HEADINGS.get(language, HEADINGS["en"])
+    says = INSTRUCTIONS.get(language, INSTRUCTIONS["en"])
+    built = Catalogue(
+        kinds=tuple(Kind(name=name,
+                         heading=words.get(name) or HEADINGS["en"][name],
+                         instruction=says.get(name) or INSTRUCTIONS["en"][name])
+                    for name in TYPES),
+        also=(tuple(HEADINGS["en"].items()),))
+    return built.select(types)
+
+
 #: A heading in the answer: ``## Requisiti``, ``**Requisiti**``, ``Requisiti:``.
 _HEADING = re.compile(r"^\s{0,3}(?:#{1,6}\s*(.+?)\s*#*|\*\*(.+?)\*\*|(.+?):)\s*$")
 
@@ -132,10 +249,9 @@ class Note:
     numbers: list = field(default_factory=list)
 
 
-def heading_of(kind, language="it"):
+def heading_of(kind, language="it", catalogue=None):
     """The heading a kind is written under, in the language being spoken."""
-    words = HEADINGS.get(language_of(language), HEADINGS["en"])
-    return words.get(kind) or HEADINGS["en"][kind]
+    return (catalogue or catalogue_for(language)).heading(kind)
 
 
 #: How close a heading has to be to one that was asked for before it counts
@@ -156,7 +272,7 @@ def _plain(text):
     return re.sub(r"[^\w\s]", "", flat).strip().lower()
 
 
-def type_of(heading, language="it"):
+def type_of(heading, language="it", catalogue=None):
     """Which kind a heading the model wrote belongs to, if any.
 
     Both the language asked for and English are accepted: a model told to
@@ -171,33 +287,7 @@ def type_of(heading, language="it"):
     and which no catalogue would ever hold. So the nearest heading wins when
     it is near enough, and a word that is nothing like any of them still
     matches nothing."""
-    wanted = _plain(heading)
-    if not wanted:
-        return None
-    language = language_of(language)
-    catalogues = (HEADINGS.get(language, HEADINGS["en"]), HEADINGS["en"])
-    for words in catalogues:
-        for kind, written in words.items():
-            if wanted == _plain(written):
-                return kind
-
-    scores = {}
-    for words in catalogues:
-        for kind, written in words.items():
-            close = difflib.SequenceMatcher(None, wanted,
-                                            _plain(written)).ratio()
-            scores[kind] = max(scores.get(kind, 0.0), close)
-    if not scores:
-        return None
-    ranked = sorted(scores.items(), key=lambda pair: pair[1], reverse=True)
-    best, close = ranked[0]
-    if close < SAME_HEADING:
-        return None
-    # A tie is not a match: two kinds equally close means the word is near
-    # neither of them in particular.
-    if len(ranked) > 1 and ranked[1][1] >= close:
-        return None
-    return best
+    return (catalogue or catalogue_for(language)).type_of(heading)
 
 
 def clock_seconds(stamp):
@@ -225,7 +315,8 @@ def note_id(chunk_idx, start, text):
     return "n" + digest.hexdigest()[:10]
 
 
-def read(answer, language="it", chunk_idx=0, span=(None, None), types=None):
+def read(answer, language="it", chunk_idx=0, span=(None, None), types=None,
+         catalogue=None):
     """Read one pass's markdown back into notes.
 
     The shape asked for is a heading per kind and a bullet per note, which is
@@ -241,7 +332,9 @@ def read(answer, language="it", chunk_idx=0, span=(None, None), types=None):
     minute inherits the one above it, or the start of the chunk, because a
     note whose minute is missing is still a note and losing it would be the
     same silence this package spent a week taking out."""
-    kinds = tuple(types or DEFAULT_TYPES)
+    catalogue = (catalogue or catalogue_for(language)).select(types)
+    kinds = catalogue.names
+    fallback = catalogue.fallback
     found, kind, last_start = [], None, None
     unknown_headings = []
     for line in str(answer or "").splitlines():
@@ -249,10 +342,10 @@ def read(answer, language="it", chunk_idx=0, span=(None, None), types=None):
         if heading and not _BULLET.match(line):
             written = next((group for group in heading.groups()
                             if group is not None), "")
-            named = type_of(written, language)
+            named = catalogue.type_of(written)
             if named is None and _plain(written):
                 unknown_headings.append(written.strip())
-            kind = named or ("fact" if _plain(written) else kind)
+            kind = named or (fallback if _plain(written) else kind)
             continue
         bullet = _BULLET.match(line)
         if not bullet:
@@ -276,7 +369,7 @@ def read(answer, language="it", chunk_idx=0, span=(None, None), types=None):
             start = last_start if last_start is not None else span[0]
         last_start = start
         found.append(Note(id=note_id(chunk_idx, start, text),
-                          type=kind if kind in kinds else "fact",
+                          type=kind if kind in kinds else fallback,
                           text=text, ts_start=start, ts_end=None,
                           speaker=speaker or None, chunk_idx=chunk_idx))
     return found, unknown_headings

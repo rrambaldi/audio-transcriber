@@ -6,6 +6,31 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- **The sections of a summary can be chosen, by name or by hand.** A
+  template says *these* are the sections I want and this is what goes under
+  each; `audio-transcriber template list` shows the ones that ship —
+  `meeting` (what the program does by itself), `minutes` (decisions, actions,
+  open questions and nothing else), `requirements`, `interview`, `narrative`
+  — and `--template minutes`, `[summary] template`, or the box in the web
+  interface picks one. Written by hand they are plain text files in
+  `<config>/summary-templates`, a heading and what belongs under it per
+  line, shadowing a bundled one of the same name. The same object the keyword
+  sets are, on purpose.
+
+  The machinery for it was already in the program and connected to nothing:
+  every reading pass looked for the same eight kinds of note, and which ones
+  to look for was a parameter no setting ever set. What was missing is that
+  the catalogue of kinds was three dictionaries at module level, so a heading
+  nobody had written into the source could not exist. It is a value now, and
+  it travels with the run.
+
+  Worth knowing before restricting them: a template restricts the *reading*,
+  not only the page. A pass that is not asked for opinions does not write
+  them down, and reading the same recording again under another template
+  starts from the transcript. Length is the opposite, deliberately.
+
 ### Changed
 
 - **A summary is now the page the recording produced, not five fixed

@@ -309,6 +309,21 @@ MESSAGES = {
         "vocab.unknown": "Unknown keyword set '{name}'.",
         "vocab.show_stats": "{source}  {language}  {terms} terms  {chars} characters",
 
+        # --- summary templates ----------------------------------------------
+        "tpl.none":
+            "No summary template is available.\n"
+            "  Create one with: audio-transcriber template new my-page\n"
+            "  They live in {path}",
+        "tpl.created": "Summary template created: {path}",
+        "tpl.header_name": "NAME",
+        "tpl.header_source": "SOURCE",
+        "tpl.header_language": "LANG",
+        "tpl.header_layout": "LAYOUT",
+        "tpl.header_sections": "SECTIONS",
+        "tpl.header_title": "TITLE",
+        "tpl.show_stats": "{source}  {language}  {layout}  {sections} sections",
+        "tpl.show_lists": "repeated at the foot: {lists}",
+
         # --- stages of one run, shown while it is under way -----------------
         "stage.starting": "starting",
         "stage.decoded": "audio decoded",
@@ -1268,6 +1283,21 @@ MESSAGES = {
         "vocab.unknown": "Set di parole chiave '{name}' sconosciuto.",
         "vocab.show_stats": "{source}  {language}  {terms} termini  {chars} caratteri",
 
+        # --- template dei riassunti ------------------------------------------
+        "tpl.none":
+            "Nessun template di riassunto disponibile.\n"
+            "  Creane uno con: audio-transcriber template new mia-pagina\n"
+            "  Stanno in {path}",
+        "tpl.created": "Template di riassunto creato: {path}",
+        "tpl.header_name": "NOME",
+        "tpl.header_source": "ORIGINE",
+        "tpl.header_language": "LINGUA",
+        "tpl.header_layout": "IMPAGINAZIONE",
+        "tpl.header_sections": "SEZIONI",
+        "tpl.header_title": "TITOLO",
+        "tpl.show_stats": "{source}  {language}  {layout}  {sections} sezioni",
+        "tpl.show_lists": "ripetute in fondo: {lists}",
+
         # --- stages of one run, shown while it is under way -----------------
         "stage.starting": "avvio",
         "stage.decoded": "audio decodificato",
@@ -2066,6 +2096,21 @@ HELP = {
         "help.vocab_language": "language of the terms, e.g. it, en",
         "help.vocab_from": "start from an existing text file instead of an empty template",
         "help.vocab_force": "overwrite the set if it already exists",
+        "help.sum_template":
+            "which sections the page is made of, by name; see 'template list'",
+        "help.cmd_template":
+            "list, inspect and create the named sets of summary sections",
+        "help.tpl_dir": "look for templates in this directory as well, first",
+        "help.tpl_list": "list the templates that can be selected",
+        "help.tpl_show": "show one template and the sections it asks for",
+        "help.tpl_path":
+            "print the path of a template, or of the directory holding them",
+        "help.tpl_new": "create a new template in the user directory",
+        "help.tpl_name": "name of the template",
+        "help.tpl_title": "human-readable title, shown in the listings and in the web interface",
+        "help.tpl_language": "language of the headings, e.g. it, en",
+        "help.tpl_from": "start from an existing text file instead of an empty template",
+        "help.tpl_force": "overwrite the template if it already exists",
         "help.web_host": "address to listen on (default: 127.0.0.1, this machine only)",
         "help.web_port": "port to listen on (default: 8765)",
         "help.web_root_path": "prefix a reverse proxy strips, e.g. /transcriber (only the API docs need it)",
@@ -2208,6 +2253,21 @@ HELP = {
         "help.vocab_language": "lingua dei termini, es. it, en",
         "help.vocab_from": "parti da un file di testo esistente invece che da un modello vuoto",
         "help.vocab_force": "sovrascrivi il set se esiste gia'",
+        "help.sum_template":
+            "di quali sezioni e' fatta la pagina, per nome; vedi 'template list'",
+        "help.cmd_template":
+            "elenca, ispeziona e crea i set di sezioni per i riassunti",
+        "help.tpl_dir": "cerca i template anche in questa cartella, per prima",
+        "help.tpl_list": "elenca i template selezionabili",
+        "help.tpl_show": "mostra un template e le sezioni che chiede",
+        "help.tpl_path":
+            "stampa il percorso di un template, o della cartella che li contiene",
+        "help.tpl_new": "crea un nuovo template nella cartella dell'utente",
+        "help.tpl_name": "nome del template",
+        "help.tpl_title": "titolo leggibile, mostrato negli elenchi e nell'interfaccia web",
+        "help.tpl_language": "lingua delle intestazioni, es. it, en",
+        "help.tpl_from": "parti da un file di testo esistente invece che da un modello vuoto",
+        "help.tpl_force": "sovrascrivi il template se esiste gia'",
         "help.web_host": "indirizzo su cui ascoltare (default: 127.0.0.1, solo questa macchina)",
         "help.web_port": "porta su cui ascoltare (default: 8765)",
         "help.web_root_path": "prefisso che un reverse proxy toglie, es. /transcriber (serve solo alla documentazione API)",

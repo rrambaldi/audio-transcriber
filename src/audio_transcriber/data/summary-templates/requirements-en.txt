@@ -1,0 +1,10 @@
+# title: Client requirements
+# language: en
+# layout: fixed
+
+# The call where the client says what they need: what the thing has to do,
+# what is wrong today, what was suggested and what was settled.
+Requirements:
+Problems:
+Proposals:
+Decisions:

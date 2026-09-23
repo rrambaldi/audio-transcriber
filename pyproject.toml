@@ -102,7 +102,8 @@ where = ["src"]
 # modules. The icons and the typefaces are shared: the browser and the desktop
 # window both take theirs from data/brand.
 [tool.setuptools.package-data]
-audio_transcriber = ["data/vocabularies/*.txt", "data/brand/*",
+audio_transcriber = ["data/vocabularies/*.txt",
+                     "data/summary-templates/*.txt", "data/brand/*",
                      "data/brand/fonts/*", "data/brand/symbols/*",
                      "web/static/*"]
 

@@ -1,0 +1,16 @@
+# title: Meeting
+# language: en
+# layout: hybrid
+# lists: Decisions, Actions
+
+# What the program does when nobody asks for anything: it looks for all of
+# it, the page's sections are the subjects actually discussed, and decisions
+# and actions are repeated as two lists at the foot.
+Requirements:
+Facts:
+Decisions:
+Proposals:
+Actions:
+Problems:
+Open questions:
+Opinions:

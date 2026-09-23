@@ -452,6 +452,74 @@ RAM everything else is using, of which that machine had 8 GB free. The plan
 sizes the model against *free system memory* for exactly this reason, and
 will not pick a bigger one because a driver was optimistic.
 
+## Which sections
+
+Left alone, the page's sections are whatever the recording turned out to be
+about. A **template** is the other way of saying it: *these* are the sections
+I want, and this is what goes under each.
+
+```
+audio-transcriber template list
+audio-transcriber summarize 2026-09-04 --template minutes
+```
+
+Five ship with the program, in Italian and in English:
+
+| name | the page | sections |
+|---|---|---|
+| `meeting` | the subjects discussed, decisions and actions listed at the foot | all eight |
+| `minutes` | three fixed headings and nothing else | decisions, actions, open questions |
+| `requirements` | four fixed headings: the call where a client says what they need | requirements, problems, proposals, decisions |
+| `interview` | the subjects discussed, no lists at the foot | facts, opinions, open questions |
+| `narrative` | the account and nothing else: an opening paragraph and one section per subject | all eight |
+
+The name to type is the same whoever is talking — `minutes` finds
+`minutes-it` for an Italian recording and `minutes-en` for an English one,
+the way the keyword sets are named.
+
+### Your own
+
+A template is a plain text file, `<name>.txt`, in
+`<config>/summary-templates`, and it shadows a bundled one of the same name:
+
+```
+# title: Privacy e costi
+# language: it
+# layout: hybrid
+# lists: Rischi privacy
+
+Rischi privacy: un trattamento di dati personali che potrebbe non essere lecito
+Costi: una cifra, un canone o una stima detta ad alta voce
+Tempi: una data o una durata su cui ci si è impegnati
+```
+
+One section a line: the heading, a colon, and what belongs under it. Leave
+the explanation off and a heading the program already knows — Decisioni,
+Azioni, Fatti and the rest — keeps its own, which is what lets a template be
+three words a line. Two sections at least, twelve at most.
+
+`layout` is where the notes end up. `fixed` is one section per heading above,
+in that order. `discovered` means the headings are only what the reading
+looks *for*, and the page's sections are the subjects the recording turned
+out to have. `hybrid` is discovered with the kinds named in `lists` repeated
+at the foot, and is the default.
+
+`audio-transcriber template new my-page` writes an empty one to edit, and
+`template show <name>` prints what one asks for. The text can also go
+straight into `config.toml` as `[summary] template_text`, or into the box in
+the web interface and the window, for a page wanted once rather than saved.
+
+**The one thing to know before restricting the sections:** it restricts the
+*reading*, not only the page. A pass that is not asked for opinions does not
+write them down, and those words do not come back — reading the same
+recording again under another template starts from the transcript. That is
+the right trade for a verbale operativo, where the opinions are the noise,
+and the wrong one if the same recording is going to be read several ways.
+Length is the opposite and deliberately so: every length reads everything.
+
+A template changes nothing for the extractive engine, which has no model to
+ask for sections and prints the transcript's own weightiest sentences.
+
 ## How long
 
 Three lengths, by name rather than by number, the way the subtitle presets
@@ -508,6 +576,9 @@ device = "auto"
 chunk_tokens = 6000
 # sections | headings   (sections: the page the recording produced)
 shape = "sections"
+# which sections the page is made of: see "template list". Unset: whatever
+# the recording turned out to be about.
+template = "minutes"
 # Q8_0 | Q6_K | Q5_K_M | Q4_K_M; unset, the best one that fits
 quant = "Q8_0"
 
@@ -520,8 +591,9 @@ reduce_fanin = 6           # partials merged by one folding pass
 llama_server = "/opt/llama.cpp/llama-server"   # or C:\\llama\\vulkan-x64\\llama-server.exe
 ```
 
-`--engine`, `--length`, `--model`, `--device`, `--context-tokens`, `--kv-type`,
-`--quant` and `--tier` on the command line win over all of it.
+`--engine`, `--length`, `--template`, `--model`, `--device`,
+`--context-tokens`, `--kv-type`, `--quant` and `--tier` on the command line
+win over all of it.
 
 ## The reduction stage
 

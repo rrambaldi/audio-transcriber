@@ -62,6 +62,8 @@ DEFAULTS = {
     "summary_chunk_tokens": None,  # None: the module's default
     "summary_map_tokens": None,    # None: what the plan allows a pass to say
     "summary_shape": None,         # None: "sections"; "headings" is the old one
+    "summary_template": None,      # None: no template, the page made by itself
+    "summary_template_text": None,  # a template typed in rather than named
     "summary_sections_mode": None,  # None: "hybrid"
     "summary_context_tokens": None,  # None: the tier's own context window
     "summary_kv_type": None,      # None: the tier's own cache precision
@@ -74,6 +76,7 @@ DEFAULTS = {
     "models_dir": None,
     "library_dir": None,
     "vocab_dir": None,
+    "summary_templates_dir": None,
     "cache_dir": None,
 }
 
@@ -108,6 +111,8 @@ SCHEMA = {
     ("summary", "map_tokens"): ("summary_map_tokens", int),
     ("summary", "quant"): ("summary_quant", str),
     ("summary", "shape"): ("summary_shape", str),
+    ("summary", "template"): ("summary_template", str),
+    ("summary", "template_text"): ("summary_template_text", str),
     ("summary", "sections_mode"): ("summary_sections_mode", str),
     ("summary", "context_tokens"): ("summary_context_tokens", int),
     ("summary", "kv_type"): ("summary_kv_type", str),
@@ -122,6 +127,7 @@ SCHEMA = {
     ("paths", "models"): ("models_dir", str),
     ("paths", "library"): ("library_dir", str),
     ("paths", "vocabularies"): ("vocab_dir", str),
+    ("paths", "summary_templates"): ("summary_templates_dir", str),
     ("paths", "cache"): ("cache_dir", str),
 }
 

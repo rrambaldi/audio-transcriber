@@ -211,14 +211,14 @@ PROMPTS = {
             "quella nuova quattro minuti e dodici secondi\n"
             "{fence_end}\n\n"
             "si scrive:\n\n"
-            "## Requisiti\n"
+            "## {first}\n"
             "- Serve poter monitorare gli utenti a cui e' stata inviata la "
             "mail di invito e verificare se hanno fatto il primo accesso. "
             "[0:27]\n"
             "- Dopo l'avvio di una campagna occorre sapere se gli utenti a "
             "cui sono stati assegnati i ticket hanno fatto il login per "
             "vederli. [0:35]\n"
-            "## Fatti\n"
+            "## {second}\n"
             "- Creare una checklist fornitore reale ha richiesto 22 minuti "
             "con la vecchia interfaccia e 4 minuti e 12 secondi con la "
             "nuova. [14:11]\n\n"
@@ -356,14 +356,14 @@ PROMPTS = {
             "twelve seconds on the new one\n"
             "{fence_end}\n\n"
             "one writes:\n\n"
-            "## Requirements\n"
+            "## {first}\n"
             "- There has to be a way to see which users the invitation mail "
             "went to and whether they have signed in for the first time. "
             "[0:27]\n"
             "- Once a campaign has started, it has to be possible to tell "
             "whether the users its tickets were assigned to have logged in to "
             "see them. [0:35]\n"
-            "## Facts\n"
+            "## {second}\n"
             "- Building a real supplier checklist took 22 minutes on the old "
             "interface and 4 minutes 12 seconds on the new one. [14:11]\n\n"
             "The barking dog is not a note, and the two sentences about the "
@@ -673,7 +673,20 @@ def prompts_for(language):
 _SCAFFOLDS = {}
 
 
-def scaffold(language, types=None):
+def catalogue_for(language, given=None):
+    """Whatever a caller had to hand for "which kinds of note".
+
+    A catalogue, a list of kind names out of the built-in one, or nothing at
+    all. Everything in this module that used to take a tuple of names still
+    does, and a template hands it the whole catalogue instead."""
+    from . import notes
+
+    if isinstance(given, notes.Catalogue):
+        return given
+    return notes.catalogue_for(language, given)
+
+
+def scaffold(language, catalogue=None):
     """Every line this program's own prompts are made of, as literal text.
 
     What it is for is recognising those lines coming back: a model that
@@ -686,17 +699,18 @@ def scaffold(language, types=None):
     model answer, which is exactly what a model that has understood nothing
     hands back. Neither would be recognised, and both would reach the page.
 
-    Kept per language *and per set of kinds*, because the block depends on
+    Kept per language *and per catalogue*, because the block depends on
     both: memoised on the language alone, two runs in one process with
-    different kinds would share the wrong scaffold."""
+    different kinds would share the wrong scaffold. The key is the headings
+    themselves and not their names - two catalogues can call the same kind by
+    two different words, and it is the words that end up in the prompt."""
     code = language_of(language)
-    from . import notes
-
-    kinds = tuple(types or notes.DEFAULT_TYPES)
+    catalogue = catalogue_for(code, catalogue)
+    kinds = tuple((kind.name, kind.heading) for kind in catalogue.kinds)
     if (code, kinds) not in _SCAFFOLDS:
         lines = set()
         written = list(prompts_for(code).values())
-        written.append(note_headings(code, kinds))
+        written.append(note_headings(code, catalogue))
         for template in written:
             for line in re.sub(r"\{[^}]*\}", "", template).splitlines():
                 line = line.strip()
@@ -1181,25 +1195,21 @@ def single_prompt(sentences, language, length=None):
         abstract_detail=detail["abstract"], points_detail=detail["points"])
 
 
-def note_headings(language, types=None):
+def note_headings(language, catalogue=None):
     """The headings a reading pass is asked for, each with what belongs there.
 
     Generated rather than written into the template, because which kinds are
     asked for is a setting: the block is the only part of the prompt that
     changes between two runs over the same recording, and :func:`scaffold`
     has to be told so."""
-    from . import notes
-
-    language = language_of(language)
     lines = []
-    for kind in (types or notes.DEFAULT_TYPES):
-        lines.append(f"## {notes.heading_of(kind, language)}")
-        lines.append(notes.INSTRUCTIONS.get(language, notes.INSTRUCTIONS["en"])
-                     .get(kind, ""))
+    for kind in catalogue_for(language, catalogue).kinds:
+        lines.append(f"## {kind.heading}")
+        lines.append(kind.instruction)
     return "\n".join(lines)
 
 
-def map_overhead(language, types=None):
+def map_overhead(language, catalogue=None):
     """How many tokens of a reading prompt are not the transcript.
 
     Measured rather than assumed. The default guess of four hundred was right
@@ -1207,11 +1217,11 @@ def map_overhead(language, types=None):
     more than twice that, and a chunk sized against the old figure overflows
     the window by the difference — silently, because what overflows is the end
     of the transcript and nothing counts it."""
-    empty = map_prompt([], language, 1, 1, types)
+    empty = map_prompt([], language, 1, 1, catalogue)
     return estimate_tokens(empty, language)
 
 
-def map_prompt(sentences, language, part, total, types=None):
+def map_prompt(sentences, language, part, total, catalogue=None):
     """The prompt for one chunk of a transcript too long to read at once.
 
     It carries a worked example, and that is not decoration. Told to put the
@@ -1220,18 +1230,22 @@ def map_prompt(sentences, language, part, total, types=None):
     however much room it was given. A small model copies the shape of an
     example far more reliably than it obeys a sentence describing one.
 
-    The example shows two of the headings, and it is fixed text. While every
-    kind is asked for that is a sample; the day a caller asks for a subset
-    that leaves one of the two out, the example will be showing a heading the
-    rules above forbid, and it will have to be built from the kinds like the
-    block is."""
+    The example shows two headings, and they are the catalogue's own first
+    two - which for the built-in catalogue are the two it always showed. That
+    is not tidiness: an example headed with a word the rules above forbid is
+    the one thing in this prompt a small model copies more reliably than the
+    rules, and a template with its own sections would have hit it on the
+    first run."""
     prompts = prompts_for(language)
+    kinds = catalogue_for(language, catalogue).kinds
     speakers = any(getattr(line, "speaker", None) for line in sentences)
     return prompts["map"].format(
         part=part, total=total, transcript=transcript_for(sentences),
-        sections_block=note_headings(language, types),
-        examples=prompts["map_example"].format(fence_start=FENCE_START,
-                                               fence_end=FENCE_END),
+        sections_block=note_headings(language, catalogue),
+        examples=prompts["map_example"].format(
+            fence_start=FENCE_START, fence_end=FENCE_END,
+            first=kinds[0].heading if kinds else "",
+            second=kinds[1].heading if len(kinds) > 1 else ""),
         speaker_rule=prompts["map_speaker_rule"] if speakers else "",
         fence_start=FENCE_START, fence_end=FENCE_END)
 

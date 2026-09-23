@@ -22,9 +22,11 @@ from .summarizers import CHOICES as SUMMARY_ENGINES
 from .summary import LENGTHS as SUMMARY_LENGTHS
 from .summary import STYLES as SUMMARY_STYLES
 from .transcription import BACKENDS
+from .summarizers.templates import TemplateError
 from .vocabularies import MAX_PROMPT_CHARS, VocabularyError
 
-COMMANDS = ("transcribe", "summarize", "library", "vocab", "diarize", "web",
+COMMANDS = ("transcribe", "summarize", "library", "vocab", "template",
+            "diarize", "web",
             "gui", "hardware", "paths", "config")
 
 CONFIG_TEMPLATE = '''\
@@ -102,9 +104,23 @@ keep_fillers = false
 #   extractive  no model at all: the sentences that carry the transcript,
 #               printed as they were said. Works everywhere, downloads nothing.
 engine = "auto"
-# How much of the transcript to keep, with the extractive engine:
-# short | medium | long.
+# How much of the page to write: short | medium | long. It works on every
+# engine - the extractive one keeps a share of the sentences, a model engine
+# asks for a shorter or a longer section. It never changes what is read.
 # length = "medium"
+# Which sections the page is made of, by name: see "audio-transcriber
+# template list". Left unset, the page is whatever the recording turned out
+# to be about. A template restricts the reading as well as the page: a pass
+# not asked for opinions does not write them down.
+# template = "minutes"
+# ...or written out here instead of saved under a name. One section a line,
+# the heading, a colon, and what belongs under it.
+# template_text = """
+# # layout: fixed
+# Decisioni:
+# Azioni:
+# Rischi privacy: un trattamento di dati personali che potrebbe non essere lecito
+# """
 # How a model engine asks for the four sections of the final page.
 # "combined" (default) asks for all four in one request. "split" asks for
 # one section at a time and checks the four drafts against each other
@@ -162,6 +178,9 @@ enabled = false
 # models = "~/whisper-models"
 # library = "~/recordings"
 # vocabularies = "~/shared/vocabularies"
+# Where the summary templates written by hand are looked for, before the
+# managed directory and the bundled examples.
+# summary_templates = "~/shared/summary-templates"
 # cache = "/mnt/volume/audio-transcriber/cache"
 '''
 
@@ -319,6 +338,8 @@ def build_parser(defaults):
                     choices=list(SUMMARY_LENGTHS), help=t("help.sum_length"))
     sm.add_argument("--style", dest="summary_style", default=None,
                     choices=list(SUMMARY_STYLES), help=t("help.sum_style"))
+    sm.add_argument("--template", dest="summary_template", default=None,
+                    metavar="NAME", help=t("help.sum_template"))
     sm.add_argument("--model", dest="summary_model", default=None,
                     help=t("help.sum_model"))
     sm.add_argument("--device", dest="summary_device", default=None,
@@ -359,6 +380,28 @@ def build_parser(defaults):
     remove.add_argument("-y", "--yes", action="store_true", help=t("help.lib_yes"))
     entry_path = lib_sub.add_parser("path", help=t("help.lib_path"))
     entry_path.add_argument("query", nargs="?", help=t("help.lib_query"))
+
+    # --- template ----------------------------------------------------------
+    tpl = subparsers.add_parser("template", help=t("help.cmd_template"),
+                                description=t("help.cmd_template"))
+    add_language_option(tpl)
+    tpl.add_argument("--template-dir", dest="summary_templates_dir",
+                     default=None, help=t("help.tpl_dir"))
+    tpl_sub = tpl.add_subparsers(dest="subcommand")
+    tpl_sub.add_parser("list", help=t("help.tpl_list"))
+    tpl_show = tpl_sub.add_parser("show", help=t("help.tpl_show"))
+    tpl_show.add_argument("name", help=t("help.tpl_name"))
+    tpl_path = tpl_sub.add_parser("path", help=t("help.tpl_path"))
+    tpl_path.add_argument("name", nargs="?", help=t("help.tpl_name"))
+    tpl_new = tpl_sub.add_parser("new", help=t("help.tpl_new"))
+    tpl_new.add_argument("name", help=t("help.tpl_name"))
+    tpl_new.add_argument("--title", default=None, help=t("help.tpl_title"))
+    tpl_new.add_argument("--language", dest="tpl_language", default="it",
+                         help=t("help.tpl_language"))
+    tpl_new.add_argument("--from", dest="source_file", default=None,
+                         help=t("help.tpl_from"))
+    tpl_new.add_argument("--force", action="store_true",
+                         help=t("help.tpl_force"))
 
     # --- vocab ------------------------------------------------------------
     voc = subparsers.add_parser("vocab", help=t("help.cmd_vocab"),
@@ -895,6 +938,78 @@ def command_vocab(args, settings):
     print(item.text)
 
 
+def command_template(args, settings):
+    """List, inspect or create the named sets of summary sections."""
+    from .summarizers import templates
+
+    extra = (getattr(args, "summary_templates_dir", None)
+             or settings.get("summary_templates_dir"))
+    subcommand = getattr(args, "subcommand", None) or "list"
+    language = settings.get("language") or "it"
+
+    if subcommand == "path" and not getattr(args, "name", None):
+        print(templates.user_dir())
+        return
+
+    if subcommand == "list":
+        found = templates.available(extra)
+        if not found:
+            print(t("tpl.none", path=templates.user_dir()))
+            return
+        rows = [[item.name, item.source, item.language, item.layout,
+                 len(item.catalogue.kinds), item.title] for item in found]
+        print_table(rows, headers=[
+            t("tpl.header_name"), t("tpl.header_source"),
+            t("tpl.header_language"), t("tpl.header_layout"),
+            t("tpl.header_sections"), t("tpl.header_title")])
+        return
+
+    if subcommand == "new":
+        body = template_body_or_file(args)
+        try:
+            path = templates.create(args.name, body, overwrite=args.force)
+        except TemplateError as exc:
+            sys.exit(str(exc))
+        print(t("tpl.created", path=path))
+        return
+
+    try:
+        item = templates.get(args.name, extra, language)
+    except TemplateError as exc:
+        sys.exit(str(exc))
+
+    if subcommand == "path":
+        print(item.path)
+        return
+
+    print(f"{item.title}  [{item.name}]")
+    print("  " + t("tpl.show_stats", source=item.source,
+                   language=item.language, layout=item.layout,
+                   sections=len(item.catalogue.kinds)))
+    if item.tail:
+        print("  " + t("tpl.show_lists", lists=", ".join(
+            item.catalogue.heading(name) for name in item.tail)))
+    print(f"  {item.path}")
+    print()
+    for kind in item.catalogue.kinds:
+        print(f"  {kind.heading}: {kind.instruction}")
+
+
+def template_body_or_file(args):
+    """Body of a new template: an existing text file, or the empty one."""
+    from .summarizers import templates
+
+    language = getattr(args, "tpl_language", None) or "it"
+    if not args.source_file:
+        return templates.template(args.name, args.title, language)
+    source = os.path.abspath(os.path.expanduser(args.source_file))
+    try:
+        with open(source, encoding="utf-8") as handle:
+            return handle.read()
+    except OSError as exc:
+        sys.exit(f"--from: {exc}")
+
+
 def template_or_file(args):
     """Body of a new vocabulary: an existing file, or the empty template."""
     from . import vocabularies
@@ -1106,6 +1221,9 @@ def main(argv=None):
         return command_paths(settings)
     if command == "vocab":
         return command_vocab(args, settings)
+
+    if command == "template":
+        return command_template(args, settings)
     if command == "diarize":
         return command_diarize(args, settings)
     if command == "web":
@@ -1132,7 +1250,8 @@ def collect_cli_settings(args):
              "models_dir",
              "library_dir", "vocab_dir", "subtitle_preset", "subtitle_chars",
              "subtitle_lines", "subtitle_words", "output", "summarizer",
-             "summary_length", "summary_style", "summary_model", "summary_device",
+             "summary_length", "summary_style", "summary_template",
+             "summary_model", "summary_device",
              "summary_chunk_tokens", "summary_context_tokens",
              "summary_kv_type", "summary_quant", "summary_tier",
              "summary_llama_server",

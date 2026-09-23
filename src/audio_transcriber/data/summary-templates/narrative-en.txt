@@ -1,0 +1,15 @@
+# title: Plain summary
+# language: en
+# layout: discovered
+
+# The account and nothing else: an opening paragraph and one section per
+# subject, in the order they came up. It looks for all of it, like the
+# meeting template, and repeats none of it at the foot of the page.
+Requirements:
+Facts:
+Decisions:
+Proposals:
+Actions:
+Problems:
+Open questions:
+Opinions:

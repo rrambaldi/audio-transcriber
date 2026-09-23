@@ -1,0 +1,16 @@
+# title: Riunione
+# language: it
+# layout: hybrid
+# lists: Decisioni, Azioni
+
+# Come il programma fa quando non gli si chiede niente: cerca tutto, le
+# sezioni della pagina sono gli argomenti di cui si e' parlato davvero, e
+# decisioni e azioni sono ripetute in due elenchi in fondo.
+Requisiti:
+Fatti:
+Decisioni:
+Proposte:
+Azioni:
+Problemi:
+Questioni aperte:
+Opinioni:

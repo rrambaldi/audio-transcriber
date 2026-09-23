@@ -349,19 +349,31 @@ def discover(found, language="it", apart=None, orphaned=ORPHANED,
     return sections, [found[at] for at in sorted(left)]
 
 
-def route(found, kinds=None):
+def route(found, kinds=None, language="it", keep_rest=False):
     """One section per kind, in the order the catalogue has them.
 
     No distances: a note of kind ``decision`` belongs under "Decisions", and
     working that out by measuring how far it is from the other decisions is a
-    lossy way of arriving where it already was."""
+    lossy way of arriving where it already was.
+
+    ``keep_rest`` is for when this routing *is* the page - a template with its
+    own fixed headings. A note whose heading the model invented is filed under
+    the kind that claims least, and if that kind is not one of the template's
+    the note would be dropped here, silently, which is the one thing this
+    package does not do. It goes under "other" instead, which the page prints
+    as "Other points"."""
     wanted = tuple(kinds or note_kinds.TYPES)
     sections = []
     for kind in wanted:
         mine = [note for note in found if note.type == kind]
         if mine:
             sections.append(Cluster(notes=mine, origin="routed", kind=kind,
-                                    keywords=_about(mine)))
+                                    keywords=_about(mine, language)))
+    if keep_rest:
+        left = [note for note in found if note.type not in wanted]
+        if left:
+            sections.append(Cluster(notes=left, origin="routed", kind="other",
+                                    keywords=_about(left, language)))
     return sections
 
 
@@ -413,7 +425,7 @@ def split_oversize(sections, most_notes, language="it"):
 
 
 def assign(found, mode=HYBRID, language="it", apart=None, orphaned=ORPHANED,
-           most=MAX_SECTIONS, kinds=None):
+           most=MAX_SECTIONS, kinds=None, tail_kinds=None):
     """Notes in, sections out. ``(body, tail)``.
 
     ``tail`` is empty in every mode but :data:`HYBRID`, where it carries the
@@ -429,13 +441,14 @@ def assign(found, mode=HYBRID, language="it", apart=None, orphaned=ORPHANED,
         return [], []
 
     if mode == FIXED:
-        return route(found, kinds), []
+        return route(found, kinds, language, keep_rest=True), []
 
     body_notes = found
     tail = []
-    if mode == HYBRID:
-        tail = route([note for note in found if note.type in TAIL_TYPES],
-                     TAIL_TYPES)
+    repeated = tuple(TAIL_TYPES if tail_kinds is None else tail_kinds)
+    if mode == HYBRID and repeated:
+        tail = route([note for note in found if note.type in repeated],
+                     repeated, language)
         # Left in the body as well, on purpose: the section is where a
         # decision is explained, and the list is where it is acted on.
         body_notes = found
