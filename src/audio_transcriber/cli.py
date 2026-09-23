@@ -135,6 +135,11 @@ engine = "auto"
 # never taken below q8_0 whatever is written here: a q4 key does not fail
 # loudly, it quietly stops being faithful to the transcript.
 # kv_type = "q8_0/q4_0"
+# Precision of the weights themselves: Q8_0 | Q6_K | Q5_K_M | Q4_K_M. Left
+# unset, the best one that fits alongside the cache. A coarser file is a
+# smaller and faster one; a finer file is the same model reading more
+# carefully.
+# quant = "Q8_0"
 # How many partial summaries one folding pass may merge. Left unset, as many
 # as the model's context can hold.
 # reduce_fanin = 6
@@ -322,6 +327,8 @@ def build_parser(defaults):
                     default=None, metavar="N", help=t("help.sum_context"))
     sm.add_argument("--kv-type", dest="summary_kv_type", default=None,
                     metavar="TYPE", help=t("help.sum_kv"))
+    sm.add_argument("--quant", dest="summary_quant", default=None,
+                    metavar="QUANT", help=t("help.sum_quant"))
     sm.add_argument("--debug", dest="summary_debug", action="store_true",
                     default=None, help=t("help.sum_debug"))
     sm.add_argument("--dump-notes", dest="summary_dump_notes", default=None,
@@ -1127,7 +1134,8 @@ def collect_cli_settings(args):
              "subtitle_lines", "subtitle_words", "output", "summarizer",
              "summary_length", "summary_style", "summary_model", "summary_device",
              "summary_chunk_tokens", "summary_context_tokens",
-             "summary_kv_type", "summary_tier", "summary_llama_server",
+             "summary_kv_type", "summary_quant", "summary_tier",
+             "summary_llama_server",
              "summary_debug", "summary_dump_notes")
     values = {name: getattr(args, name, None) for name in names}
     # --srt and --vtt are flags; together they are the "save these formats"

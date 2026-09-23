@@ -217,6 +217,20 @@ def tier_named(name):
     return None
 
 
+def quant_named(name):
+    """The weight precision ``name`` refers to, or None for anything else.
+
+    Case is not the person's problem: ``q8_0`` and ``Q8_0`` are the same
+    precision, and the catalogue spells it one way."""
+    wanted = str(name or "").strip().upper()
+    if not wanted or wanted == "AUTO":
+        return None
+    for quant in QUANT_LADDER:
+        if quant.upper() == wanted:
+            return quant
+    return None
+
+
 def kv_pair(value, fallback=("q8_0", "q8_0")):
     """``"q8_0"`` or ``"q8_0/q4_0"`` read into ``(key, value)`` types.
 
@@ -461,6 +475,7 @@ def resolve_plan(engine, settings=None, ram=None, total=None, cores=None,
     overrides = (settings.get("summary_model"), settings.get("summary_tier"),
                  settings.get("summary_context_tokens"),
                  settings.get("summary_kv_type"),
+                 settings.get("summary_quant"),
                  settings.get("summary_device"))
     if total is None:
         total = total_ram_gb()
@@ -490,6 +505,7 @@ def _resolve(engine, settings, available, total, cores, skip=()):
     asked_tier = tier_named(settings.get("summary_tier"))
     asked_context = settings.get("summary_context_tokens")
     asked_kv = settings.get("summary_kv_type")
+    asked_quant = quant_named(settings.get("summary_quant"))
 
     asked_model = str(settings.get("summary_model") or "").strip()
     if asked_model and asked_model.lower() != "auto":
@@ -503,7 +519,9 @@ def _resolve(engine, settings, available, total, cores, skip=()):
                             None, threads)
         context = min(int(asked_context or tier.context), wanted.context)
         quant = quants_for(wanted)
-        quant = "Q4_K_M" if "Q4_K_M" in quant else (quant[-1] if quant else None)
+        quant = (asked_quant if asked_quant in quant else
+                 "Q4_K_M" if "Q4_K_M" in quant else
+                 (quant[-1] if quant else None))
         estimate = estimate_ram_gb(wanted, quant, context, *kv)
         return _plan_of(wanted, tier, quant, context, kv[0], kv[1],
                         estimate, threads)
@@ -514,7 +532,7 @@ def _resolve(engine, settings, available, total, cores, skip=()):
         if asked_tier is None and usable < tier.floor:
             continue
         for model in candidates(tier, engine, usable, skip):
-            fitted = _fit(model, tier, usable,
+            fitted = _fit(model, tier, usable, quant=asked_quant,
                           context=asked_context,
                           kv=kv_pair(asked_kv, tier.kv) if asked_kv else None)
             if fitted:

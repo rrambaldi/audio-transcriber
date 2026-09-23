@@ -65,6 +65,7 @@ DEFAULTS = {
     "summary_sections_mode": None,  # None: "hybrid"
     "summary_context_tokens": None,  # None: the tier's own context window
     "summary_kv_type": None,      # None: the tier's own cache precision
+    "summary_quant": None,        # None: the best precision that fits
     "summary_reduce_fanin": None,  # None: as many partials as the context holds
     "summary_tier": None,         # None: worked out from this machine's memory
     "summary_llama_server": None,  # None: 'llama-server' on the PATH
@@ -105,6 +106,7 @@ SCHEMA = {
     ("summary", "device"): ("summary_device", str),
     ("summary", "chunk_tokens"): ("summary_chunk_tokens", int),
     ("summary", "map_tokens"): ("summary_map_tokens", int),
+    ("summary", "quant"): ("summary_quant", str),
     ("summary", "shape"): ("summary_shape", str),
     ("summary", "sections_mode"): ("summary_sections_mode", str),
     ("summary", "context_tokens"): ("summary_context_tokens", int),

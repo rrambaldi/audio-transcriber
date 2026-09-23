@@ -209,6 +209,11 @@ def main(argv=None):
                              "is cut off, so this is the lever to try")
     parser.add_argument("--chunk-tokens", type=int, default=None, metavar="N",
                         help="how much transcript goes into one pass")
+    parser.add_argument("--quant", default=None, metavar="QUANT",
+                        help="weight precision to load the model from: "
+                             "Q8_0, Q6_K, Q5_K_M, Q4_K_M. A finer file is "
+                             "the same model reading more carefully, and a "
+                             "download of its own")
     parser.add_argument("--shape", default=None,
                         choices=["headings", "sections"],
                         help="the five fixed headings, or sections the "
@@ -243,6 +248,7 @@ def main(argv=None):
         "summary_context_tokens": args.context_tokens,
         "summary_map_tokens": args.map_tokens,
         "summary_chunk_tokens": args.chunk_tokens,
+        "summary_quant": args.quant,
         "summary_shape": args.shape,
         "summary_sections_mode": args.sections_mode,
         "summary_device": args.device,
@@ -308,6 +314,7 @@ def main(argv=None):
                   "context_tokens": args.context_tokens,
                   "map_tokens": args.map_tokens,
                   "chunk_tokens": args.chunk_tokens,
+                  "quant": args.quant,
                   "shape": args.shape, "sections_mode": args.sections_mode},
         "prompt_version": prompting.PROMPT_VERSION,
         "plan_asked_again": the_plan,

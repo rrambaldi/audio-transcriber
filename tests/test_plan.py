@@ -239,6 +239,49 @@ def test_a_tier_asked_for_by_name_is_the_only_one_considered():
     assert chosen.tier == "xs"
 
 
+def test_a_weight_precision_asked_for_by_name_is_the_one_loaded():
+    """The default is the coarse file, because it is the one that fits
+    everywhere. A machine with room to spare can ask for the model to be
+    read out of a finer one."""
+    chosen = plan.resolve_plan(plan.LLAMACPP, {"summary_quant": "Q8_0"},
+                               ram=12.5, total=31.5, cores=8)
+    assert chosen.quant == "Q8_0"
+    plan.forget()
+    assert plan.resolve_plan(plan.LLAMACPP, ram=12.5, total=31.5,
+                             cores=8).quant == "Q4_K_M"
+
+
+def test_the_case_of_a_precision_is_not_the_person_s_problem():
+    chosen = plan.resolve_plan(plan.LLAMACPP, {"summary_quant": "q6_k"},
+                               ram=12.5, total=31.5, cores=8)
+    assert chosen.quant == "Q6_K"
+
+
+def test_a_precision_that_does_not_fit_steps_down_rather_than_refusing():
+    """The same ladder every other concession uses. Asked for a file this
+    machine cannot hold, it loads the best one it can rather than declining
+    to summarise - and it is a starting point, so a machine with room keeps
+    what it was asked for."""
+    model = plan.named("LFM2.5-1.2B")
+    tier = plan.tier_named("xs")
+    assert plan._fit(model, tier, 2.0, quant="Q8_0")[0] == "Q8_0"
+    assert plan._fit(model, tier, 1.4, quant="Q8_0")[0] == "Q6_K"
+    assert plan._fit(model, tier, 1.1, quant="Q8_0")[0] == "Q4_K_M"
+
+
+def test_a_precision_nobody_publishes_is_no_precision():
+    """A word that names nothing leaves the plan as it was, rather than
+    becoming a filename that cannot be downloaded."""
+    for asked in ("nonsense", "", "auto", None):
+        plan.forget()
+        chosen = plan.resolve_plan(plan.LLAMACPP, {"summary_quant": asked},
+                                   ram=12.5, total=31.5, cores=8)
+        assert chosen.quant == "Q4_K_M", asked
+    assert plan.quant_named("Q3_K_M") == "Q3_K_M"
+    assert plan.quant_named("q3_k_m") == "Q3_K_M"
+    assert plan.quant_named("F16") is None
+
+
 def test_a_context_asked_for_by_hand_is_not_exceeded():
     chosen = plan.resolve_plan(plan.LLAMACPP, {"summary_context_tokens": 4096},
                                ram=32.0, total=64.0, cores=8)

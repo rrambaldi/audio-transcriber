@@ -454,6 +454,8 @@ device = "auto"
 chunk_tokens = 6000
 # sections | headings   (sections: the page the recording produced)
 shape = "sections"
+# Q8_0 | Q6_K | Q5_K_M | Q4_K_M; unset, the best one that fits
+quant = "Q8_0"
 
 # Everything below is worked out from this machine and is here for a
 # controlled deployment, or to reproduce somebody else's result.
@@ -464,8 +466,8 @@ reduce_fanin = 6           # partials merged by one folding pass
 llama_server = "/opt/llama.cpp/llama-server"   # or C:\\llama\\vulkan-x64\\llama-server.exe
 ```
 
-`--engine`, `--length`, `--model`, `--device`, `--context-tokens`, `--kv-type`
-and `--tier` on the command line win over all of it.
+`--engine`, `--length`, `--model`, `--device`, `--context-tokens`, `--kv-type`,
+`--quant` and `--tier` on the command line win over all of it.
 
 ## The reduction stage
 

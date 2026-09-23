@@ -91,21 +91,25 @@ call :devices "vulkan" "%AT_LLAMA_VULKAN%"
 call :devices "openvino" "%AT_LLAMA_OPENVINO%"
 
 rem --- the runs this round ---------------------------------------------------
-rem What was settled in the round before: 1200 tokens a pass. It put 96% of
-rem the meeting on the page against 36% at the old 4500, and going below it
-rem bought nothing - 700 covered the same 96% for twice the time, and a
-rem quarter of its extra notes were things already written down. It is the
-rem default now, along with the shape and the near-miss headings, so this
-rem round asks for none of them.
+rem What was settled in the round before: the defaults are right. P, asked
+rem for nothing at all, read 96% of the meeting and printed 96% of it - the
+rem same run as the best one of the round before, with no flags. And hybrid
+rem against discover came out identical in every number, because the only
+rem difference between them is whether decisions and actions are repeated in
+rem lists at the foot. That one is a matter of taste and the pages decide it,
+rem not this file.
 rem
-rem What is being asked now: the layout. The reading is settled; what is not
-rem is how the notes are laid out once they are taken. "hybrid", the default,
-rem groups them by subject and keeps decisions and actions in lists of their
-rem own at the foot; "discover" has no foot and sorts everything by subject.
-rem The numbers to compare are sections, section_sizes and orphans - and then
-rem the two .page.md, which is the part no number answers.
-call :measure "P-default" "%AT_LLAMA_VULKAN%" ""
-call :measure "Q-discover" "%AT_LLAMA_VULKAN%" "--sections-mode discover"
+rem What is being asked now: the last knob nobody has touched. Every run so
+rem far has read the model out of its smallest file, Q4_K_M, because that is
+rem the one that fits everywhere - and this machine has room for better. The
+rem weights get finer, nothing else changes. Expect coverage to stay where it
+rem is: what could move is how the notes are written, which is a thing to
+rem read rather than a number.
+rem
+rem NOTE: each of these downloads a model of its own the first time - about
+rem 5 GB for Q6_K and 7 GB for Q8_0, once, into the usual models folder.
+call :measure "R-q6" "%AT_LLAMA_VULKAN%" "--quant Q6_K"
+call :measure "S-q8" "%AT_LLAMA_VULKAN%" "--quant Q8_0"
 
 echo.
 echo === done. These are this round's, and carry no meeting in them:

@@ -21,6 +21,13 @@ All notable changes to this project are documented here. The format follows
   The fold had the whole recording to fit into one answer and dropped
   whatever did not fit, and nothing on the finished page said so.
 
+- **The precision the weights are read at can be asked for.** `quant` in
+  `[summary]`, or `--quant`, taking `Q8_0`, `Q6_K`, `Q5_K_M` or `Q4_K_M`. The
+  plan loads the coarsest file by default because it is the one that fits
+  everywhere, and a machine with memory to spare had no way to say so. Asked
+  for one it cannot hold, it steps down the same ladder it already uses for
+  the context and the cache rather than refusing to summarise.
+
 - **A reading pass is given a chunk it can actually read.** It was handed
   4500 tokens of transcript — eleven minutes of meeting — and it wrote down
   twelve things and stopped. The same recording read 1200 tokens at a time

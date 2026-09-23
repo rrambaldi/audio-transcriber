@@ -1981,6 +1981,9 @@ HELP = {
             "tokens of context to give the model (default: from the plan)",
         "help.sum_kv":
             "KV cache precision: q8_0, or q8_0/q4_0 for key and value apart",
+        "help.sum_quant":
+            "weight precision to load: Q8_0 | Q6_K | Q5_K_M | Q4_K_M "
+            "(default: the best that fits)",
         "help.sum_debug": "say what every pass did, on the error stream",
         "help.sum_dump_notes":
             "write the passes and their numbers to this JSON file: it tells a "
@@ -2119,6 +2122,9 @@ HELP = {
             "token di contesto da dare al modello (default: dal piano)",
         "help.sum_kv":
             "precisione della cache KV: q8_0, oppure q8_0/q4_0 per chiave e valore",
+        "help.sum_quant":
+            "precisione dei pesi da caricare: Q8_0 | Q6_K | Q5_K_M | Q4_K_M "
+            "(default: la migliore che ci sta)",
         "help.sum_debug": "di' cosa ha fatto ogni passata, sullo stream degli errori",
         "help.sum_dump_notes":
             "scrivi le passate e i loro numeri in questo file JSON: distingue un "
