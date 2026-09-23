@@ -20,6 +20,7 @@ think=False)`` and a ``close()``, and nothing else is asked of it.
 Like the modules it leans on, this one imports no runtime — the engines do
 that, behind the factory they pass in.
 """
+import math
 import sys
 
 from ..i18n import t
@@ -70,6 +71,23 @@ HEADINGS = "headings"
 
 #: A title is three to eight words. What this buys is a model that stops.
 LABEL_TOKENS = 60
+
+#: How much transcript one reading pass is given when the page is written in
+#: sections. Not a memory figure - it is a quarter of what the window holds -
+#: and not a guess either. The same twenty-two minute recording, the same
+#: model, the same everything but this number:
+#:
+#:     4500 tokens   2 passes   21 notes    36% of the minutes    83 s
+#:     2000 tokens   4 passes   58 notes    68%                  152 s
+#:     1200 tokens   7 passes   82 notes    96%                  187 s
+#:      700 tokens  12 passes  141 notes    96%                  326 s
+#:
+#: A pass does not read proportionally to what it is given: eleven minutes of
+#: meeting in front of it and it writes down twelve things and stops. Halving
+#: the chunk buys most of the recording back; halving it again buys nothing
+#: but time, and a quarter of the extra notes are repetitions of the ones
+#: already taken - 29 duplicates against 6.
+READING_CHUNK_TOKENS = 1200
 
 
 def cut_to_fit(sentences, budget, chosen, language="it", tries=3):
@@ -416,6 +434,23 @@ def summarize_with(open_pipeline, chosen, material, settings=None,
         print(t("summary.no_room_for_answer", chunk=budget, answer=answer_tokens,
                 context=chosen.context_tokens, room=room), file=sys.stderr)
         budget = room
+    if shape == SECTIONS and not settings.get("summary_chunk_tokens"):
+        finer = min(budget, READING_CHUNK_TOKENS)
+        if finer < budget:
+            # More passes over the same words, and that must not cost words:
+            # what a tier limits is how much transcript this machine should
+            # read, not how finely it may read it. Reading it in smaller
+            # pieces without this would hit the cap and the transcript would
+            # be cut to fit - the coverage bought by the smaller chunk, spent
+            # again immediately.
+            if chosen.max_passes:
+                # Rounded up, because the overlap repeats a tenth of every
+                # chunk and rounding down would read a little less than the
+                # tier already allows - which is the whole thing this is
+                # here to prevent, in miniature.
+                chosen = chosen._replace(max_passes=max(
+                    1, math.ceil(chosen.max_passes * budget / finer)))
+            budget = finer
     parts = prompting.chunks(sentences, budget, chosen.chunk_overlap, language)
     if not parts:
         raise SummaryError(t("summary.empty"))

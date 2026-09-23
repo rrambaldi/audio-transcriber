@@ -91,18 +91,21 @@ call :devices "vulkan" "%AT_LLAMA_VULKAN%"
 call :devices "openvino" "%AT_LLAMA_OPENVINO%"
 
 rem --- the runs this round ---------------------------------------------------
-rem What was settled in the round before: how much a pass is given to read
-rem is the whole game. Halving it, from 4500 tokens to 2000, took the share
-rem of the meeting that reaches the page from 36% to 68% - twenty-one notes
-rem became fifty-eight - and cost eighty seconds. Nothing else changed.
+rem What was settled in the round before: 1200 tokens a pass. It put 96% of
+rem the meeting on the page against 36% at the old 4500, and going below it
+rem bought nothing - 700 covered the same 96% for twice the time, and a
+rem quarter of its extra notes were things already written down. It is the
+rem default now, along with the shape and the near-miss headings, so this
+rem round asks for none of them.
 rem
-rem What is being asked now: where that stops paying. 2000 is measured and is
-rem the number these two are compared against; each of them halves again, and
-rem the last one is a pass reading about two minutes of meeting at a time.
-rem Somewhere down here the notes start repeating each other instead of
-rem covering more, and the point of the round is to find out where.
-call :measure "N-vulkan-1200" "%AT_LLAMA_VULKAN%" "--chunk-tokens 1200"
-call :measure "O-vulkan-700" "%AT_LLAMA_VULKAN%" "--chunk-tokens 700"
+rem What is being asked now: the layout. The reading is settled; what is not
+rem is how the notes are laid out once they are taken. "hybrid", the default,
+rem groups them by subject and keeps decisions and actions in lists of their
+rem own at the foot; "discover" has no foot and sorts everything by subject.
+rem The numbers to compare are sections, section_sizes and orphans - and then
+rem the two .page.md, which is the part no number answers.
+call :measure "P-default" "%AT_LLAMA_VULKAN%" ""
+call :measure "Q-discover" "%AT_LLAMA_VULKAN%" "--sections-mode discover"
 
 echo.
 echo === done. These are this round's, and carry no meeting in them:
@@ -132,11 +135,16 @@ goto :eof
 :measure
 rem One run: a name for the files, the binary to run it with, and anything
 rem else to say on the command line.
+rem
+rem Nothing is asked for here that the program would not do on its own, bar
+rem the engine and the binary - a run whose every setting is spelled out on
+rem the command line measures the command line. "--shape headings" and the
+rem rest go in the third argument, per run.
 if "%~2"=="" goto :measure_skipped
 echo.
 echo === %~1 - starting at %TIME%
 set "AT_MADE=%AT_MADE% %AT_OUT%\%~1.numbers.json"
-python tools\diagnose_summary.py "%AT_SRT%" --out "%AT_OUT%\%~1" --shape sections --engine llamacpp --llama-server "%~2" %~3
+python tools\diagnose_summary.py "%AT_SRT%" --out "%AT_OUT%\%~1" --engine llamacpp --llama-server "%~2" %~3
 if errorlevel 1 echo   %~1: this run did not finish - the lines above say why.
 echo === %~1 - finished at %TIME%
 goto :eof

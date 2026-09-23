@@ -1276,3 +1276,80 @@ def test_nothing_is_said_when_the_best_model_is_already_loaded(capsys):
     assert not reading.say_what_more_room_would_buy(plan.LLAMACPP, chosen,
                                                     30.0, 32.0)
     assert capsys.readouterr().err == ""
+
+
+# --- how much a reading pass is given ---------------------------------------
+
+class Reader:
+    """A model that writes one note per pass and remembers what it was given."""
+
+    def __init__(self):
+        self.read = []
+
+    def ask(self, system, prompt, max_new_tokens=0, think=False):
+        if prompt.startswith("Questa e' la parte"):
+            self.read.append(prompt)
+            return "- Si e' parlato del budget. [0:10]\n"
+        return "Un titolo\n"
+
+    def close(self):
+        pass
+
+
+def long_material(count=400):
+    from audio_transcriber.summary import Material, sentences_of
+    return Material(
+        title="prova", language="it", duration=count * 4.0,
+        sentences=sentences_of([{"text": f"Frase numero {n} del verbale.",
+                                 "start": n * 4.0, "end": n * 4.0 + 3.0}
+                                for n in range(count)]))
+
+
+def passes_of(settings, chosen=None, count=400):
+    model = Reader()
+    chosen = chosen or plan.resolve_plan(plan.LLAMACPP, ram=32.0, total=64.0,
+                                         cores=4)
+    reading.summarize_with(lambda: model, chosen, long_material(count),
+                           settings)
+    return model.read
+
+
+def test_a_reading_pass_is_given_a_chunk_it_can_actually_read(tmp_path):
+    """The measurement in READING_CHUNK_TOKENS: given eleven minutes of
+    meeting a pass writes down twelve things and stops, so it is given less
+    than the plan would allow and the recording is read in more pieces."""
+    chosen = plan.resolve_plan(plan.LLAMACPP, ram=32.0, total=64.0, cores=4)
+    assert chosen.chunk_tokens > reading.READING_CHUNK_TOKENS
+    read = passes_of({})
+    biggest = max(prompting.estimate_tokens(prompt, "it") for prompt in read)
+    assert biggest < chosen.chunk_tokens
+
+
+def test_a_chunk_that_was_asked_for_is_the_one_used():
+    """The cap is a default, not a policy: the number is reachable, which is
+    how it was measured in the first place."""
+    read = passes_of({"summary_chunk_tokens": 4000})
+    assert len(read) < len(passes_of({}))
+
+
+def sentences_read(prompts):
+    """Which of the transcript's sentences a run actually put in front of
+    the model, however many passes it took."""
+    return {int(number) for prompt in prompts
+            for number in re.findall(r"Frase numero (\d+)", prompt)}
+
+
+def test_reading_more_finely_does_not_read_less_of_it():
+    """The trap the cap would otherwise spring. A tier allows so many passes
+    and cuts the transcript to fit them - on a small machine that is the
+    right thing to do. But smaller chunks mean more passes for the same
+    words, so without scaling that allowance the coverage bought by the
+    smaller chunk is spent again immediately on a shorter transcript."""
+    small = plan.resolve_plan(plan.LLAMACPP, ram=3.6, total=8.0, cores=2)
+    assert small.max_passes and small.prereduce
+    assert small.chunk_tokens > reading.READING_CHUNK_TOKENS
+
+    finely = sentences_read(passes_of({}, small, count=1200))
+    coarsely = sentences_read(passes_of(
+        {"summary_chunk_tokens": small.chunk_tokens}, small, count=1200))
+    assert len(finely) >= len(coarsely)

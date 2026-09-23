@@ -21,6 +21,18 @@ All notable changes to this project are documented here. The format follows
   The fold had the whole recording to fit into one answer and dropped
   whatever did not fit, and nothing on the finished page said so.
 
+- **A reading pass is given a chunk it can actually read.** It was handed
+  4500 tokens of transcript — eleven minutes of meeting — and it wrote down
+  twelve things and stopped. The same recording read 1200 tokens at a time
+  went from 36% of its minutes on the page to 96%, for a hundred seconds
+  more. Below that the extra passes buy repetition rather than recording, so
+  1200 it is, and `chunk_tokens` still overrides it.
+
+  On a machine with a limit on how many passes it will spend, that limit is
+  scaled to match. A tier decides how much transcript to read, not how finely
+  — without the scaling, the finer reading would hit the cap and the
+  transcript would be cut to fit, spending the coverage it had just bought.
+
 ### Added
 
 - **The llama.cpp engine now uses the graphics card, where there is one.** It

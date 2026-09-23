@@ -179,6 +179,30 @@ between. What reaches the page is what was read.
 decisions, actions, recurring terms, and the fold described below that makes
 them.
 
+**How much a pass is given to read** decides how much of the recording ends up
+on the page, and it is not the number the window allows. A pass does not read
+proportionally to what it is handed: given eleven minutes of meeting it writes
+down twelve things and stops. The same recording, the same model, one number
+changed:
+
+| tokens per pass | passes | notes | of the recording | time |
+| ---: | ---: | ---: | ---: | ---: |
+| 4500 | 2 | 21 | 36% | 83 s |
+| 2000 | 4 | 58 | 68% | 152 s |
+| **1200** | 7 | 82 | **96%** | 187 s |
+| 700 | 12 | 141 | 96% | 326 s |
+
+So a reading pass gets 1200 tokens, whatever the window would hold. Below that
+the extra passes buy time and repetition rather than recording — a quarter of
+the notes at 700 were things already written down. `chunk_tokens` in
+`[summary]` overrides it, which is how the table was made.
+
+On a machine small enough to have a limit on how many passes it will spend,
+that limit is scaled by the same factor. What a tier decides is how much
+transcript this machine should read, not how finely; without the scaling,
+reading in smaller pieces would hit the cap and the transcript would be cut to
+fit, spending the coverage the smaller chunk just bought.
+
 ### How it reads a long transcript
 
 A transcript that fits in one pass goes to the model in one prompt. A longer
