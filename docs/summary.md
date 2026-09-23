@@ -185,12 +185,12 @@ proportionally to what it is handed: given eleven minutes of meeting it writes
 down twelve things and stops. The same recording, the same model, one number
 changed:
 
-| tokens per pass | passes | notes | of the recording | time |
+| tokens per pass | passes | notes | minutes on the page | time |
 | ---: | ---: | ---: | ---: | ---: |
-| 4500 | 2 | 21 | 36% | 83 s |
-| 2000 | 4 | 58 | 68% | 152 s |
-| **1200** | 7 | 82 | **96%** | 187 s |
-| 700 | 12 | 141 | 96% | 326 s |
+| 4500 | 2 | 21 | 8 of 22 | 83 s |
+| 2000 | 4 | 58 | 15 of 22 | 152 s |
+| **1200** | 7 | 82 | **21 of 22** | 187 s |
+| 700 | 12 | 141 | 21 of 22 | 326 s |
 
 So a reading pass gets 1200 tokens, whatever the window would hold. Below that
 the extra passes buy time and repetition rather than recording — a quarter of
@@ -199,21 +199,32 @@ the notes at 700 were things already written down. `chunk_tokens` in
 
 **A finer copy of the same model is not a better reader of it**, which is
 worth knowing before spending seven gigabytes finding out. The same recording
-again, only the precision of the weights changed:
+again, only the precision of the weights changed — and, in the last row, the
+allowance a pass may answer in:
 
-| weights | of the recording | notes repeated | passes cut off |
-| :--- | ---: | ---: | ---: |
-| **Q4_K_M** | **96%** | 6 | 0 |
-| Q6_K | 77% | 22 | 2 |
-| Q8_0 | 86% | 16 | 1 |
+| weights | minutes on the page | distinct notes | repeated | passes cut off | time |
+| :--- | ---: | ---: | ---: | ---: | ---: |
+| **Q4_K_M** | **21 of 22** | 82 | 6 | 0 | 182 s |
+| Q6_K | 17 of 22 | 87 | 22 | 2 | — |
+| Q8_0 | 19 of 22 | 77 | 16 | 1 | 184 s |
+| Q8_0, 900-token answers | 20 of 22 | 83 | 22 | 0 | 178 s |
 
-The mechanism is visible in the passes: the finer files write *longer* notes,
-spend the pass's allowance sooner and get cut off mid-list, so each pass comes
-back with fewer distinct things and repeats more of them. The coarse file is
-terser and covers more of the meeting, which is what this is for. It is also
-several times faster. `quant` exists for a machine where the finer file
-genuinely reads better — that is a thing to measure on your own recordings,
-not to assume.
+Two things that table is careful about. **The finer file is not slower**: the
+first measurement said it was seven times slower and that was a five gigabyte
+download inside the clock — read to the end of this section before believing
+a number of this kind. And **minutes are a coarse ruler**: coverage counts
+minute-long buckets, so on a twenty-two minute recording it moves in steps of
+4.5 points and one bucket is not a finding.
+
+What is left is the repetition, which is not quantised and does not move: the
+coarse file wrote 82 notes of which 6 repeated something, the fine one 83 of
+which 22 did. The mechanism is visible in the passes — the finer files write
+*longer* notes, spend the pass's allowance sooner and get cut off mid-list,
+and where the allowance was raised to stop that, they filled it with the same
+things said again. The coarse file is terser, and terser is the job.
+
+`quant` exists for a machine where that goes the other way. It is a thing to
+measure on your own recordings, not to assume.
 
 On a machine small enough to have a limit on how many passes it will spend,
 that limit is scaled by the same factor. What a tier decides is how much

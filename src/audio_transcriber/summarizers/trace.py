@@ -271,7 +271,13 @@ def coverage(starts, duration_seconds, bucket=BUCKET_SECONDS):
     scores 0.34, and that is the whole of the bug it was written to catch.
 
     ``None`` when the recording's length is unknown: an invented denominator
-    would be worse than no number."""
+    would be worse than no number.
+
+    A coarse ruler on purpose, and worth remembering when reading it: the
+    buckets are a minute wide, so a twenty-minute recording is scored out of
+    twenty and the number moves in steps of five points. It answers "did the
+    page forget the second half", which is what it was written for, and it
+    does not answer "is this page better than that one by two percent"."""
     if not duration_seconds or duration_seconds <= 0:
         return None
     buckets = max(1, int((float(duration_seconds) + bucket - 1) // bucket))

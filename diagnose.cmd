@@ -91,23 +91,17 @@ call :devices "vulkan" "%AT_LLAMA_VULKAN%"
 call :devices "openvino" "%AT_LLAMA_OPENVINO%"
 
 rem --- the runs this round ---------------------------------------------------
-rem What was settled in the round before: a finer copy of the model is a
-rem worse reader of the meeting, not a better one. Q4_K_M put 96% of the
-rem minutes on the page, Q6_K 77%, Q8_0 86% - and the finer files repeated
-rem themselves three times as often and were cut off mid-list. They write
-rem longer notes, so they fit fewer of them in a pass.
+rem The measuring campaign is over and the defaults carry what it found:
+rem Vulkan, sections, 1200 tokens a pass, Q4_K_M weights. Nothing here is
+rem asked for any more, because the program does it by itself.
 rem
-rem Two things that round could not answer, and both are cheap now that the
-rem files are on the disk. The times were measured with a five and a seven
-rem gigabyte download inside them, so they are not times at all. And the
-rem cutting off has an obvious suspect: the pass's allowance.
+rem What is left is a run of the shipped thing, end to end, on whatever
+rem recording is handed to it - the check that the numbers on this machine
+rem still look like the ones in docs/summary.md, and the page to read.
 rem
-rem So: the first run is the one from last time with nothing downloading,
-rem which is the honest clock. The second gives the same file more room to
-rem answer in, and nothing else differs. If 900 brings the coverage back,
-rem the finer weights were never the problem.
-call :measure "T-q8" "%AT_LLAMA_VULKAN%" "--quant Q8_0"
-call :measure "U-q8-900" "%AT_LLAMA_VULKAN%" "--quant Q8_0 --map-tokens 900"
+rem To ask a new question, put it back to two runs with one difference
+rem between them. Everything above this line stays as it is.
+call :measure "run" "%AT_LLAMA_VULKAN%" ""
 
 echo.
 echo === done. These are this round's, and carry no meeting in them:

@@ -28,11 +28,14 @@ All notable changes to this project are documented here. The format follows
   for one it cannot hold, it steps down the same ladder it already uses for
   the context and the cache rather than refusing to summarise.
 
-  Measured straight away, and the default holds: on the same recording the
-  coarse file put 96% of the minutes on the page, Q6_K 77% and Q8_0 86%. The
-  finer files write longer notes, spend a pass's allowance sooner and get cut
-  off mid-list. The setting is there for a machine where that goes the other
-  way, which is a thing to measure rather than assume.
+  Measured straight away, and the default holds — though not for the reason
+  it first looked like. The finer file is exactly as fast (184 s against
+  182 s; the seven-times-slower first reading was a download inside the
+  clock), and it reaches within one minute-bucket of the same coverage once
+  its answers are given room. What does not move is the repetition: 6 of the
+  coarse file's 82 notes said something already written down, against 22 of
+  the fine one's 83. The setting is there for a machine where that goes the
+  other way, which is a thing to measure rather than assume.
 
 - **A reading pass is given a chunk it can actually read.** It was handed
   4500 tokens of transcript — eleven minutes of meeting — and it wrote down
