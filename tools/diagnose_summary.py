@@ -230,6 +230,9 @@ def main(argv=None):
                              "Q8_0, Q6_K, Q5_K_M, Q4_K_M. A finer file is "
                              "the same model reading more carefully, and a "
                              "download of its own")
+    parser.add_argument("--template", default=None, metavar="NAME",
+                        help="which sections the page is made of; see "
+                             "'audio-transcriber template list'")
     parser.add_argument("--shape", default=None,
                         choices=["headings", "sections"],
                         help="the five fixed headings, or sections the "
@@ -265,6 +268,7 @@ def main(argv=None):
         "summary_map_tokens": args.map_tokens,
         "summary_chunk_tokens": args.chunk_tokens,
         "summary_quant": args.quant,
+        "summary_template": args.template,
         "summary_shape": args.shape,
         "summary_sections_mode": args.sections_mode,
         "summary_device": args.device,

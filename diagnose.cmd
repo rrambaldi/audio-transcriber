@@ -91,21 +91,29 @@ call :devices "vulkan" "%AT_LLAMA_VULKAN%"
 call :devices "openvino" "%AT_LLAMA_OPENVINO%"
 
 rem --- the runs this round ---------------------------------------------------
-rem The question this round: "short", "medium" and "long" used to produce the
-rem same page word for word, because only the engine with no model had ever
-rem read the setting. Three runs, one difference between them, and the three
-rem pages to read side by side.
+rem Five pages to read, not one comparison: each run is the default plus
+rem exactly one thing, so each page answers for the thing it names.
 rem
-rem The first one reads the recording; the other two re-use its passes and
-rem only write, which is the other half of the claim - asking again at a
-rem different length is supposed to cost the writing and nothing else. So
-rem watch the elapsed_s of the second and the third: much shorter than the
-rem first, or the cache is not doing what it says.
+rem  medium    the shipped default, the page to judge the others against
+rem  short     asked again in the words a small model obeys - a paragraph
+rem            and no list. It came out only slightly shorter before.
+rem  long      a bullet per note
+rem  minutes   the "verbale operativo" template: decisions, actions, open
+rem            questions, three fixed headings and nothing else
+rem  narrative the "riassunto puro" template: the account, no lists at the
+rem            foot
+rem
+rem Only "medium" and "minutes" read the recording; the other three re-use
+rem the passes, because nothing they change is in the reading prompt. Their
+rem elapsed_s should be a fraction of the first, and if it is not, the cache
+rem is not doing what it says.
 rem
 rem To ask a new question, edit these lines. Everything above stays as it is.
-call :measure "short" "%AT_LLAMA_VULKAN%" "--length short"
-call :measure "medium" "%AT_LLAMA_VULKAN%" "--length medium --keep-cache"
+call :measure "medium" "%AT_LLAMA_VULKAN%" ""
+call :measure "short" "%AT_LLAMA_VULKAN%" "--length short --keep-cache"
 call :measure "long" "%AT_LLAMA_VULKAN%" "--length long --keep-cache"
+call :measure "minutes" "%AT_LLAMA_VULKAN%" "--template minutes --keep-cache"
+call :measure "narrative" "%AT_LLAMA_VULKAN%" "--template narrative --keep-cache"
 
 echo.
 echo === done. These are this round's, and carry no meeting in them:
