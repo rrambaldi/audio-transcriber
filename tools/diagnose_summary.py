@@ -228,6 +228,10 @@ def main(argv=None):
     parser.add_argument("--model", default=None, metavar="NAME",
                         help="a model from the catalogue by name, instead of "
                              "the one the plan would choose")
+    parser.add_argument("--tier", default=None, choices=["xs", "s", "m", "l"],
+                        help="the size class to run in, whatever memory is "
+                             "free: two models compared in two classes are "
+                             "two things changed")
     parser.add_argument("--quant", default=None, metavar="QUANT",
                         help="weight precision to load the model from: "
                              "Q8_0, Q6_K, Q5_K_M, Q4_K_M. A finer file is "
@@ -271,6 +275,7 @@ def main(argv=None):
         "summary_map_tokens": args.map_tokens,
         "summary_chunk_tokens": args.chunk_tokens,
         "summary_model": args.model,
+        "summary_tier": args.tier,
         "summary_quant": args.quant,
         "summary_template": args.template,
         "summary_shape": args.shape,

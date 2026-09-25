@@ -125,24 +125,30 @@ call :devices "vulkan" "%AT_LLAMA_VULKAN%"
 call :devices "openvino" "%AT_LLAMA_OPENVINO%"
 
 rem --- the runs this round ---------------------------------------------------
-rem One question: does Spark-X2.5-4B write this page better than the model the
-rem program chooses by itself, which on this machine is Granite 4.0 H-Tiny?
+rem The question of the round before - does Spark-X2.5-4B write this page
+rem better than Granite 4.0 H-Tiny? - asked again without the three things that
+rem spoiled the answer: the control ran on H-Micro, because only 6.8 GB were
+rem free when it started; both Spark times included a download; and Spark ran
+rem out of room in five reading passes of seven, so part of what it read never
+rem reached the page.
 rem
-rem  V-granite    the shipped default, the control: the same code and the same
-rem               build as the two after it, so what differs is the model
-rem  W-spark      the same, with the model named - Spark-X2.5-4B at Q4_K_M,
-rem               2.4 GB, downloaded on the first run and kept
-rem  X-spark-q8   Spark again, from the finer file (Q8_0, 4.1 GB): the same
-rem               model reading more carefully. Against W, not against V.
+rem  Y-granite     Granite 4.0 H-Tiny, named rather than left to the plan, so a
+rem                busy machine cannot swap it for a smaller one
+rem  Z-spark       Spark-X2.5-4B at Q4_K_M: against Y, only the model differs.
+rem                Downloaded last round, so the time is the model's own
+rem  Z2-spark-800  the same with 800 tokens for each reading pass instead of
+rem                500: against Z, only the room differs
+rem
+rem All three in the largest size class, "--tier l", whatever memory is free:
+rem two models in two classes would be two things changed. Close what is not
+rem needed first - a machine that swaps measures the swapping.
 rem
 rem Each run clears the cached passes first, so each one reads the recording.
-rem The templates round (short, long, minutes, narrative) is in the history,
-rem in feb8485, for when this question has an answer.
 rem
 rem To ask a new question, edit these lines. Everything above stays as it is.
-call :measure "V-granite" "%AT_LLAMA_VULKAN%" ""
-call :measure "W-spark" "%AT_LLAMA_VULKAN%" "--model Spark-X2.5-4B"
-call :measure "X-spark-q8" "%AT_LLAMA_VULKAN%" "--model Spark-X2.5-4B --quant Q8_0"
+call :measure "Y-granite" "%AT_LLAMA_VULKAN%" "--tier l --model ibm-granite/granite-4.0-h-tiny"
+call :measure "Z-spark" "%AT_LLAMA_VULKAN%" "--tier l --model Spark-X2.5-4B"
+call :measure "Z2-spark-800" "%AT_LLAMA_VULKAN%" "--tier l --model Spark-X2.5-4B --map-tokens 800"
 
 echo.
 echo === done. These are this round's, and carry no meeting in them:
