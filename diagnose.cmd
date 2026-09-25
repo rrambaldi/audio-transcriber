@@ -194,22 +194,23 @@ endlocal & exit /b 0
 rem --- the routines -----------------------------------------------------------
 
 rem --- the runs this round ---------------------------------------------------
-rem The question of the round before - does Spark-X2.5-4B write this page
-rem better than Granite 4.0 H-Tiny? - asked again without the three things that
-rem spoiled the answer: the control ran on H-Micro, because only 6.8 GB were
-rem free when it started; both Spark times included a download; and Spark ran
-rem out of room in five reading passes of seven, so part of what it read never
-rem reached the page.
+rem What the last two rounds settled, on the same recording:
 rem
-rem  Y-granite     Granite 4.0 H-Tiny, named rather than left to the plan, so a
-rem                busy machine cannot swap it for a smaller one
-rem  Z-spark       Spark-X2.5-4B at Q4_K_M: against Y, only the model differs.
-rem                Downloaded last round, so the time is the model's own
-rem  Z2-spark-800  the same with 800 tokens for each reading pass instead of
-rem                500: against Z, only the room differs
+rem   Granite 4.0 H-Tiny Q4   240 s   coverage 95%   18 of 21 facts, one invented
+rem   Spark-X2.5-4B Q4        415 s   coverage 91%   17 of 21, verbose, garbled
+rem   Spark, 800 per pass     556 s   coverage 91%   17 of 21, only longer
+rem   Spark-X2.5-4B Q8        ?       coverage 95%   20 of 21, nothing invented
 rem
-rem All three in the largest size class, "--tier l", whatever memory is free:
-rem two models in two classes would be two things changed.
+rem Spark at Q4 is out. Spark at Q8 wrote the best page of all, and its time
+rem is the one number missing: the run that measured it also downloaded it.
+rem This round measures it again, now that the file is here, next to the
+rem control, so the two times come from the same machine on the same day.
+rem
+rem  Z3-granite    Granite 4.0 H-Tiny at Q4_K_M, named: the control
+rem  Z3-spark-q8   Spark-X2.5-4B at Q8_0: against Z3-granite, only the model
+rem                and its precision differ - which is the choice to be made
+rem
+rem Both in the largest size class, "--tier l", whatever memory is free.
 rem
 rem Before each run, if more free memory would change it - a better model
 rem for a run left to the plan, or room for a named one that does not fit -
@@ -221,9 +222,8 @@ rem Each run clears the cached passes first, so each one reads the recording.
 rem
 rem To ask a new question, edit these lines. Everything else stays as it is.
 :round
-call :measure "Y-granite" "%AT_LLAMA_VULKAN%" "--tier l --model ibm-granite/granite-4.0-h-tiny"
-call :measure "Z-spark" "%AT_LLAMA_VULKAN%" "--tier l --model Spark-X2.5-4B"
-call :measure "Z2-spark-800" "%AT_LLAMA_VULKAN%" "--tier l --model Spark-X2.5-4B --map-tokens 800"
+call :measure "Z3-granite" "%AT_LLAMA_VULKAN%" "--tier l --model ibm-granite/granite-4.0-h-tiny"
+call :measure "Z3-spark-q8" "%AT_LLAMA_VULKAN%" "--tier l --model Spark-X2.5-4B --quant Q8_0"
 goto :eof
 
 :devices
