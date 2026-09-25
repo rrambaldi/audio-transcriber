@@ -514,6 +514,17 @@ def test_a_model_this_build_cannot_load_makes_way_for_the_next(stubbed, monkeypa
         engine.summarize(material(), {"summary_model": "Spark-X2.5-4B"})
 
 
+def test_a_page_is_read_back_only_when_asked(stubbed):
+    many = [Sentence(f"Frase numero {n} del verbale.", n * 10.0) for n in range(60)]
+    engine.summarize(material(many), {"summary_chunk_tokens": 120})
+    assert not any("SEZIONE:" in call["prompt"] for call in stubbed.made[0].asked)
+
+    engine.summarize(material(many), {"summary_chunk_tokens": 120,
+                                      "summary_review": True})
+    reviews = [call for call in stubbed.made[1].asked if "SEZIONE:" in call["prompt"]]
+    assert reviews and all(call["tokens"] == reading.REVIEW_TOKENS for call in reviews)
+
+
 def test_the_page_is_told_which_model_wrote_it(stubbed):
     assert engine.LABEL in engine.label({})
     assert "MiniCPM" in engine.label({"summary_model": "MiniCPM5-1B"})

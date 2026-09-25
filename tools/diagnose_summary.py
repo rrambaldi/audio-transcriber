@@ -297,6 +297,8 @@ def main(argv=None):
                              "build is installed")
     parser.add_argument("--keep-cache", action="store_true",
                         help="do not clear the partial answers first")
+    parser.add_argument("--review", action="store_true",
+                        help="have the model read every section back")
     args = parser.parse_args(argv)
 
     source = Path(args.transcript).expanduser().resolve()
@@ -322,6 +324,7 @@ def main(argv=None):
         "summary_sections_mode": args.sections_mode,
         "summary_device": args.device,
         "summary_llama_server": args.llama_server,
+        "summary_review": args.review or None,
         "language": args.language,
     }
     settings = {name: value for name, value in settings.items()
@@ -389,7 +392,8 @@ def main(argv=None):
                   "map_tokens": args.map_tokens,
                   "chunk_tokens": args.chunk_tokens,
                   "quant": args.quant,
-                  "shape": args.shape, "sections_mode": args.sections_mode},
+                  "shape": args.shape, "sections_mode": args.sections_mode,
+                  "review": args.review},
         "prompt_version": prompting.PROMPT_VERSION,
         "plan_asked_again": the_plan,
         "cache_cleared": None if args.keep_cache else clear_cache(settings),
@@ -485,6 +489,15 @@ def main(argv=None):
                 " ".join(str(line) for line in material.sentences)),
         }
         report["metrics"].update((report.get("passes") or {}).get("metrics") or {})
+        # How many bullets the page said twice, and what a reviewer found, by
+        # kind: counts only, the lines themselves are meeting and stay on the
+        # page.
+        found = getattr(result.sections, "review", ()) or ()
+        report["metrics"]["page_repeats"] = getattr(result.sections, "repeats", 0)
+        report["metrics"]["review"] = (
+            {kind: sum(1 for *_, seen in found if seen == kind)
+             for kind in ("unsupported", "repeated", "garbled")}
+            if args.review else None)
 
     numbers = Path(str(prefix) + ".numbers.json")
     numbers.write_text(json.dumps(report, ensure_ascii=False, indent=2),

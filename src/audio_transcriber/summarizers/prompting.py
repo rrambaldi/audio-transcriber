@@ -198,6 +198,22 @@ PROMPTS = {
             "{span}: di cosa si e' parlato nel complesso e quali "
             "sono stati i temi principali. NON elencarli uno per uno, quelli "
             "vengono subito dopo. Prosa continua, non un elenco travestito.",
+        "review":
+            "Questi sono gli appunti da cui e' stata scritta una sezione di un "
+            "resoconto, e sotto c'e' la sezione.\n\n"
+            "APPUNTI:\n{notes}\n\n"
+            "SEZIONE:\n{text}\n\n"
+            "Rileggi la sezione. Per ogni sua riga che ha uno di questi "
+            "problemi scrivi una riga cosi', copiando la riga della sezione "
+            "esattamente com'e':\n"
+            "INVENTATA: la riga\n"
+            "DOPPIA: la riga\n"
+            "SCORRETTA: la riga\n\n"
+            "INVENTATA: dice qualcosa che negli appunti non c'e'. DOPPIA: "
+            "ripete quello che dice un'altra riga. SCORRETTA: non e' italiano "
+            "corretto, o non si capisce.\n"
+            "Se non c'e' nessun problema rispondi solo NESSUNO. Niente "
+            "spiegazioni.",
         "map_example":
             "Esempio. Da questo estratto:\n\n"
             "{fence_start}\n"
@@ -343,6 +359,21 @@ PROMPTS = {
             "{span}: what was discussed overall and what the main "
             "themes were. Do NOT list them one by one, those follow straight "
             "after. Continuous prose, not a list in disguise.",
+        "review":
+            "These are the notes a section of a written record was written "
+            "from, and below them is the section.\n\n"
+            "NOTES:\n{notes}\n\n"
+            "SECTION:\n{text}\n\n"
+            "Read the section again. For each of its lines with one of these "
+            "problems write one line like this, copying the section's line "
+            "exactly as it is:\n"
+            "INVENTED: the line\n"
+            "REPEATED: the line\n"
+            "GARBLED: the line\n\n"
+            "INVENTED: it says something the notes do not. REPEATED: it says "
+            "what another line already says. GARBLED: it is not correct "
+            "English, or cannot be understood.\n"
+            "If there is no problem answer only NONE. No explanations.",
         "map_example":
             "An example. From this extract:\n\n"
             "{fence_start}\n"

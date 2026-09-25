@@ -8,6 +8,15 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- **A summary can be read back.** With `review = true` in `[summary]`,
+  `--review`, or *Read it back* in the window, the model reads every section
+  again beside the notes it was written from and lists at the foot, under
+  *Da ricontrollare* / *To check*, the lines it doubts: one the notes do not
+  say, one that repeats another, one that does not read as a sentence.
+  Nothing is rewritten, and a finding counts only if it quotes a line that is
+  on the page. Off by default: one pass more per section, and `diagnose.cmd`
+  now measures it on Spark and on Granite.
+
 - **The About box links to the source on GitHub**, in the window and in the
   page, under the version.
 
@@ -317,6 +326,13 @@ All notable changes to this project are documented here. The format follows
   a drawing of nothing anybody is still looking at.
 
 ### Fixed
+
+- **A summary no longer says the same line twice.** The notes were
+  deduplicated before the page was written, and the models still put one
+  point on it twice — once in a row, once said two ways. The finished page's
+  bullets are now measured the way the notes are, and the later of two alike
+  goes. The decisions and actions at the foot still repeat the body, on
+  purpose.
 
 - **No blank band between the recorder's buttons and the queue.** The two
   message lines under the buttons each kept two lines reserved, empty, so

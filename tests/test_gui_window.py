@@ -1563,9 +1563,12 @@ def test_the_model_picked_is_the_one_the_summary_is_asked_for(window, queue,
     asked = {}
     monkeypatch.setattr(queue, "summarize",
                         lambda entry_id, overrides: asked.update(overrides))
+    assert not library.summary_review.isChecked()
+    library.summary_review.setChecked(True)
     library.summarise.click()
     assert asked["summarizer"] == "llamacpp"
     assert asked["summary_model"] == "XHToken/Spark-X2.5-4B"
+    assert asked["summary_review"] is True
 
 
 def test_a_summary_that_fails_says_so_and_frees_the_button(window, queue):

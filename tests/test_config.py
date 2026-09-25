@@ -179,9 +179,11 @@ def test_the_summary_plan_can_be_pinned_from_the_file():
                  'context_tokens = 4096\n'
                  'kv_type = "q8_0/q4_0"\n'
                  'reduce_fanin = 4\n'
-                 'llama_server = "/opt/llama.cpp/llama-server"\n')
+                 'llama_server = "/opt/llama.cpp/llama-server"\n'
+                 'review = true\n')
     settings, _, warnings = config.load_config()
     assert settings["summary_tier"] == "s"
+    assert settings["summary_review"] is True
     assert settings["summary_context_tokens"] == 4096
     assert settings["summary_kv_type"] == "q8_0/q4_0"
     assert settings["summary_reduce_fanin"] == 4

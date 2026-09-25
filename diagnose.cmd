@@ -202,12 +202,17 @@ rem   Spark, 800 per pass     556 s   coverage 91%   17 of 21, only longer
 rem   Spark-X2.5-4B Q8   1990 s   coverage 95%   20 of 21, nothing invented
 rem
 rem Spark at Q4 is out. Spark at Q8 wrote the best page of all, and is now
-rem what the plan chooses on llama.cpp: slower, and worth it. The round below
-rem is the one that measured its time, next to the control, on the same day.
+rem what the plan chooses on llama.cpp: slower, and worth it.
 rem
-rem  Z3-granite    Granite 4.0 H-Tiny at Q4_K_M, named: the control
-rem  Z3-spark-q8   Spark-X2.5-4B at Q8_0: against Z3-granite, only the model
-rem                and its precision differ - which is the choice to be made
+rem This round measures the read-back, "--review": once the page is written
+rem the model reads every section again beside its notes and lists at the
+rem foot, under "Da ricontrollare", the lines it doubts - one the notes do
+rem not say, one that repeats another, one that does not read as a sentence.
+rem What to look at: how many minutes it adds, and whether what it lists is
+rem right. The pages of Z3 are the same pages without it, to compare.
+rem
+rem  Z4-spark-review     Spark-X2.5-4B at Q8_0, read back by itself
+rem  Z4-granite-review   Granite 4.0 H-Tiny at Q4_K_M, read back by itself
 rem
 rem Both in the largest size class, "--tier l", whatever memory is free.
 rem
@@ -221,8 +226,8 @@ rem Each run clears the cached passes first, so each one reads the recording.
 rem
 rem To ask a new question, edit these lines. Everything else stays as it is.
 :round
-call :measure "Z3-granite" "%AT_LLAMA_VULKAN%" "--tier l --model ibm-granite/granite-4.0-h-tiny"
-call :measure "Z3-spark-q8" "%AT_LLAMA_VULKAN%" "--tier l --model Spark-X2.5-4B --quant Q8_0"
+call :measure "Z4-spark-review" "%AT_LLAMA_VULKAN%" "--tier l --model Spark-X2.5-4B --quant Q8_0 --review"
+call :measure "Z4-granite-review" "%AT_LLAMA_VULKAN%" "--tier l --model ibm-granite/granite-4.0-h-tiny --review"
 goto :eof
 
 :devices

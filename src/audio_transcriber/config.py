@@ -70,6 +70,7 @@ DEFAULTS = {
     "summary_quant": None,        # None: the best precision that fits
     "summary_reduce_fanin": None,  # None: as many partials as the context holds
     "summary_tier": None,         # None: worked out from this machine's memory
+    "summary_review": False,      # True: a model reads each section back
     "summary_llama_server": None,  # None: 'llama-server' on the PATH
     "speakers": None,
     "diar_model": None,
@@ -118,6 +119,7 @@ SCHEMA = {
     ("summary", "kv_type"): ("summary_kv_type", str),
     ("summary", "reduce_fanin"): ("summary_reduce_fanin", int),
     ("summary", "tier"): ("summary_tier", str),
+    ("summary", "review"): ("summary_review", bool),
     ("summary", "llama_server"): ("summary_llama_server", str),
     ("diarization", "enabled"): ("diarize", bool),
     ("summary", "with_transcription"): ("summary_after", bool),

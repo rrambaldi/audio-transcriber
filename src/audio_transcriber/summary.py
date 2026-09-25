@@ -191,6 +191,10 @@ HEADINGS = {
         "decisions": "Decisions",
         "actions": "Actions",
         "keywords": "Recurring terms",
+        "review": "To check",
+        "review_unsupported": "not in the notes it was written from",
+        "review_repeated": "repeats another line",
+        "review_garbled": "does not read as a sentence",
         "made_by": "{engine}, {when} — from a {minutes}-minute recording",
         "made_by_untimed": "{engine}, {when}",
         "extractive_note":
@@ -213,6 +217,10 @@ HEADINGS = {
         "decisions": "Decisioni",
         "actions": "Azioni",
         "keywords": "Termini ricorrenti",
+        "review": "Da ricontrollare",
+        "review_unsupported": "non e' negli appunti da cui e' scritta",
+        "review_repeated": "ripete un'altra riga",
+        "review_garbled": "non si legge come una frase",
         "made_by": "{engine}, {when} — da una registrazione di {minutes} minuti",
         "made_by_untimed": "{engine}, {when}",
         "extractive_note":
@@ -269,6 +277,10 @@ class Document:
     actions: tuple = ()
     notes: tuple = ()
     keywords: tuple = ()
+    #: Bullets the page said twice and now says once.
+    repeats: int = 0
+    #: ``(section heading, line, kind)`` a reviewer found worth checking.
+    review: tuple = ()
 
     @property
     def points(self):
@@ -600,6 +612,17 @@ def render(material, sections, engine, when=None, note=None,
                 lines += [f"## {words[heading]}", ""]
                 lines += [_note_bullet(entry, timestamps) for entry in entries]
                 lines.append("")
+        found = getattr(sections, "review", ())
+        if found:
+            # What a model reading the page back thinks is wrong with it. Said,
+            # never applied: the lines above are the page as it was written.
+            numbered = {heading: at for at, (heading, _body)
+                        in enumerate(written, start=1)}
+            lines += [f"## {words['review']}", ""]
+            lines += [f"- _{line}_ \u2014 {words['review_' + kind]} "
+                      f"({numbered.get(heading, '?')}. {heading})"
+                      for heading, line, kind in found]
+            lines.append("")
         return "\n".join(lines).rstrip() + "\n"
 
     for field, heading in (("points", "points"), ("decisions", "decisions"),

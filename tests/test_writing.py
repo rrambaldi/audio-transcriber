@@ -392,3 +392,85 @@ def test_nothing_says_which_length_and_the_page_is_the_measured_one():
     writing.write([cluster(DASHBOARD)], [], named, language="it",
                   length="medium")
     assert quiet.prompts == named.prompts
+
+
+# --- a line said twice, and a page read back ---------------------------------
+
+def test_a_bullet_the_page_says_twice_is_kept_once():
+    """Two notes that said it two ways, or two sections that each got a
+    telling of it: the page keeps the first and says how many went."""
+    written = [(cluster(DASHBOARD), "Dashboard",
+                "Un paragrafo.\n\n- Ha fatto tutti i test da meta' settimana.\n"
+                "- Ha fatto tutti i test da meta' settimana.\n"
+                "- La dashboard mostra gli inviti."),
+               (cluster(DOCUMENTALE), "Documentale",
+                "Un altro paragrafo.\n\n- Ha fatto tutti i test da meta' settimana.\n"
+                "- Il documentale va su Aruba.")]
+    kept, dropped = writing.without_repeats(written, "it")
+    assert dropped == 2
+    first, second = kept[0][2], kept[1][2]
+    assert first.count("tutti i test") == 1 and "Un paragrafo." in first
+    assert "tutti i test" not in second and "Aruba" in second
+    assert writing.without_repeats(kept, "it")[1] == 0
+
+
+def test_a_document_says_nothing_twice_and_keeps_its_foot():
+    """The decisions and actions at the foot repeat the body on purpose."""
+    document = writing.write(
+        [cluster(DASHBOARD), cluster(DOCUMENTALE)],
+        [cluster(["Il documentale va su Aruba."], kind="decision")],
+        Asked("- Il documentale va su Aruba."), language="it")
+    bodies = [text for _title, text in document.sections]
+    assert sum(text.count("Aruba") for text in bodies) == 1
+    assert document.repeats == 1
+    assert [note.text for note in document.decisions] == ["Il documentale va su Aruba."]
+
+
+def test_a_reviewer_is_believed_only_about_lines_that_are_on_the_page():
+    """It lists; it does not rewrite. A finding that quotes a line the page
+    does not have is the reviewer's own invention and is dropped."""
+    text = ("Si e' parlato della dashboard.\n\n"
+            "- La dashboard mostra a chi e' partita la mail.\n"
+            "- La dashboard mostra chi e' partita la mail di invito.\n"
+            "- Il 20% degli utenti e' stressato.\n"
+            "- Sollecito parte da chi non entrato dashboard.")
+    answer = ("DOPPIA: La dashboard mostra chi e' partita la mail di invito.\n"
+              "- INVENTATA: \"Il 20% degli utenti e' stressato.\" (non c'e')\n"
+              "SCORRETTA: Sollecito parte da chi non entrato dashboard\n"
+              "INVENTATA: Il budget e' di diecimila euro.\n"
+              "INVENTATA: la riga")
+    asked = Asked(answer)
+    found = writing.review([(cluster(DASHBOARD), "Dashboard", text)], asked, "it")
+    assert [kind for *_, kind in found] == ["repeated", "unsupported", "garbled"]
+    assert all(line in text for _title, line, _kind in found)
+    assert found[0][0] == "Dashboard"
+    assert DASHBOARD[0] in asked.prompts[0] and text in asked.prompts[0]
+    assert writing.review([(cluster(DASHBOARD), "D", text)], Asked("NESSUNO"), "it") == ()
+
+
+def test_the_review_is_asked_only_when_wanted_and_lands_at_the_foot():
+    material = summarising.Material(title="riunione", sentences=(),
+                                    language="it", duration=1320.0)
+    body = [cluster(DASHBOARD)]
+    plain = writing.write(body, [], Asked("- La dashboard mostra gli inviti."),
+                          material, "it")
+    assert plain.review == ()
+
+    reviews = Asked("SCORRETTA: La dashboard mostra gli inviti.")
+    document = writing.write([cluster(DASHBOARD)], [],
+                             Asked("- La dashboard mostra gli inviti."),
+                             material, "it", review_ask=reviews)
+    assert len(reviews.prompts) == 1
+    assert document.review == (
+        (document.sections[0][0], "La dashboard mostra gli inviti.", "garbled"),)
+    page = summarising.render(material, document, "un motore")
+    foot = page.split("## Da ricontrollare")[1]
+    assert "_La dashboard mostra gli inviti._" in foot
+    assert "non si legge come una frase" in foot and "(1. " in foot
+
+
+@pytest.mark.parametrize("language", ["it", "en"])
+def test_both_languages_can_ask_for_a_review(language):
+    prompt = prompting.prompts_for(language)["review"].format(notes="- a", text="b")
+    assert "- a" in prompt and "b" in prompt
+    assert summarising.HEADINGS[language]["review"]

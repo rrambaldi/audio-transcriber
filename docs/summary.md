@@ -175,6 +175,26 @@ the minutes and printed 14%**. The new one read 36% and printed 36% — the same
 measurement, taken twice on two different engines, and nothing lost in
 between. What reaches the page is what was read.
 
+**A line said twice is said once.** The notes lose their repeats before any
+section is written, and a model still puts one thing on the page twice: in one
+section, from two notes that said it two ways, or in two sections that each
+got a telling of it. The finished page is measured the way the notes are, on
+its own bullets, and the later of two alike goes. The decisions and actions
+at the foot are left alone: they repeat the body on purpose, because the
+section is where a decision is explained and the list is where it is acted on.
+
+**The page can be read back** (`review = true`, `--review`, or *Read it back*
+in the window). Once it is written, the model reads every section again
+beside the notes it was written from and lists, under **Da ricontrollare** /
+**To check** at the foot, the lines it doubts: one the notes do not say, one
+that repeats another, one that does not read as a sentence. Nothing on the
+page is changed — a four-billion-parameter model is a poor judge, and a page
+it rewrote would be a page nobody could trust. For the same reason a finding
+counts only if it quotes a line that is on the page; one that quotes nothing
+is the reviewer's own invention and is dropped. It costs one pass more per
+section, which on a slow model is minutes, so it is off until
+`diagnose.cmd` has measured whether what it lists is right.
+
 `shape = "headings"` brings the old one back: an abstract, key points,
 decisions, actions, recurring terms, and the fold described below that makes
 them.
@@ -590,6 +610,8 @@ shape = "sections"
 template = "minutes"
 # Q8_0 | Q6_K | Q5_K_M | Q4_K_M; unset, the best one that fits
 quant = "Q8_0"
+# read every section back and list the lines to check at the foot
+review = false
 
 # Everything below is worked out from this machine and is here for a
 # controlled deployment, or to reproduce somebody else's result.
@@ -601,8 +623,8 @@ llama_server = "/opt/llama.cpp/llama-server"   # or C:\\llama\\vulkan-x64\\llama
 ```
 
 `--engine`, `--length`, `--template`, `--model`, `--device`,
-`--context-tokens`, `--kv-type`, `--quant` and `--tier` on the command line
-win over all of it.
+`--context-tokens`, `--kv-type`, `--quant`, `--tier` and `--review` on the
+command line win over all of it.
 
 ## The reduction stage
 

@@ -19,13 +19,14 @@ the right way round: a model answering a small question badly costs one
 section, where a model answering an enormous one badly cost two thirds of a
 meeting and said nothing about it.
 """
+import difflib
 import re
 from collections import namedtuple
 
 from ..formatting import format_clock
-from ..summary import DEFAULT_LENGTH, Document, language_of
+from ..summary import DEFAULT_LENGTH, Document, Point, language_of
+from . import grouping, prompting
 from . import notes as note_kinds
-from . import prompting
 
 #: How many notes a section may be written from in one go. Past it the section
 #: is split — see grouping.split_oversize — rather than the notes thinned: a
@@ -84,6 +85,24 @@ _CITED = re.compile(r"[ \t]*\[\d{1,3}:\d{2}(?::\d{2})?\]")
 #: together, each after the first starting with a capital. Three lower-case
 #: letters before the capital, so "GitHub" is left as it is.
 _RUN_TOGETHER = re.compile(r"(?<=[a-zà-ù]{3})(?=[A-Z][a-zà-ù]{2})")
+
+#: A bullet on the page, and the marker in front of it.
+_BULLET = re.compile(r"^\s*(?:[-*\u2022]|\d{1,2}[.)])\s+")
+
+#: What a reviewer answers, one finding a line: the kind, then the line of the
+#: page it is about, copied. Both languages' words, whichever was asked.
+_FINDING = re.compile(
+    r"^\s*(?:[-*\u2022]\s*)?\**\s*(INVENTATA|DOPPIA|SCORRETTA|INVENTED|REPEATED"
+    r"|GARBLED)\s*\**\s*[:\-\u2013\u2014]\s*(.+?)\s*$", re.IGNORECASE)
+KINDS = {"inventata": "unsupported", "invented": "unsupported",
+         "doppia": "repeated", "repeated": "repeated",
+         "scorretta": "garbled", "garbled": "garbled"}
+
+#: How close a quoted line has to be to one on the page to be about it. A
+#: reviewer copies a line with its punctuation changed or its end missing; one
+#: it paraphrases is not a quotation, and a finding that quotes nothing on
+#: the page is the reviewer's own invention.
+QUOTED = 0.85
 
 
 def _lines(found, language="it", minutes=False):
@@ -221,8 +240,93 @@ def derive_title(titles, material=None, language="it"):
                                                 else "")
 
 
+def without_repeats(written, language="it"):
+    """The sections' texts with each bullet said twice kept once.
+
+    The notes lose their repeats before any section is written, and a model
+    still puts one line on the page twice: in one section, from two notes
+    that said it two ways, or in two sections that each got a telling of it.
+    Measured the way the notes are, on the page's own bullets; the first
+    stays, since the page is in the order the recording had. The decisions
+    and actions at the foot repeat the body on purpose, and are not here."""
+    lines = [(at, row, _BULLET.sub("", line))
+             for at, (_cluster, _title, text) in enumerate(written)
+             for row, line in enumerate(text.split("\n")) if _BULLET.match(line)]
+    if len(lines) < 2:
+        return list(written), 0
+    alike = grouping.similarity([Point(None, None, bare) for *_, bare in lines],
+                                language)
+    dropped = set()
+    for first in range(len(lines)):
+        if (lines[first][0], lines[first][1]) in dropped:
+            continue
+        for second in range(first + 1, len(lines)):
+            if alike[first, second] >= grouping.SAME_NOTE:
+                dropped.add((lines[second][0], lines[second][1]))
+    kept = [(cluster, title, "\n".join(line for row, line in enumerate(text.split("\n"))
+                                        if (at, row) not in dropped))
+            for at, (cluster, title, text) in enumerate(written)]
+    return kept, len(dropped)
+
+
+def _plain(text):
+    """A line as compared: no marker, no quotation marks, one space, lower."""
+    text = _BULLET.sub("", str(text or ""))
+    return " ".join(text.strip(" \t\"'\u00ab\u00bb\u201c\u201d*.;:").split()).lower()
+
+
+def _on_the_page(quoted, text):
+    """The line of ``text`` a reviewer quoted, as the page has it, or None."""
+    wanted = _plain(quoted)
+    if len(wanted) < 8:
+        return None
+    best, score = None, 0.0
+    for line in text.split("\n"):
+        plain = _plain(line)
+        if not plain:
+            continue
+        if wanted in plain:
+            # A sentence out of a paragraph: the sentence is the finding.
+            return _BULLET.sub("", quoted).strip(" \t\"'\u00ab\u00bb\u201c\u201d*")
+        # The line with the reviewer's reason after it.
+        ratio = 1.0 if plain in wanted and len(plain) >= 0.6 * len(wanted) \
+            else difflib.SequenceMatcher(None, wanted, plain).ratio()
+        if ratio > score:
+            best, score = _BULLET.sub("", line).strip(), ratio
+    return best if score >= QUOTED else None
+
+
+def review(written, ask, language="it"):
+    """What a model reading each section back finds wrong with it.
+
+    Every section is read again beside the notes it was written from, and
+    the model is asked for three things only a reader sees: a line the notes
+    do not say, a line that repeats another, a line that does not read as a
+    sentence. Nothing is changed: the page stays as written and says, at the
+    foot, what to check. A finding has to quote a line that is on the page -
+    one that quotes nothing is the reviewer's invention, and is dropped.
+
+    ``[(title, line, kind)]``, kind one of :data:`KINDS`' values."""
+    language = language_of(language)
+    template = prompting.prompts_for(language)["review"]
+    found = []
+    for cluster, title, text in written:
+        prompt = template.format(notes=_lines(cluster.notes, language), text=text)
+        answer = prompting.usable_answer(ask(prompt), prompt)
+        for line in answer.split("\n"):
+            match = _FINDING.match(line)
+            if not match:
+                continue
+            quoted = _on_the_page(match.group(2), text)
+            finding = (title, quoted, KINDS[match.group(1).lower()])
+            if quoted and finding not in found:
+                found.append(finding)
+    return tuple(found)
+
+
 def write(body, tail, ask, material=None, language="it", progress=None,
-          label_tokens=None, abstract_ask=None, length=None, catalogue=None):
+          label_tokens=None, abstract_ask=None, length=None, catalogue=None,
+          review_ask=None):
     """Every question this stage asks, in order, and the document they make.
 
     ``ask(prompt)`` writes a section; ``abstract_ask`` writes the opening
@@ -232,11 +336,14 @@ def write(body, tail, ask, material=None, language="it", progress=None,
 
     ``length`` is the one thing here a reader chose, and it is resolved once:
     every section of one page is asked for at the same length, and the title
-    of a section is a title at every length."""
+    of a section is a title at every length.
+
+    ``review_ask``, when given, reads every section back once it is written:
+    see :func:`review`."""
     language = language_of(language)
     detail = prompting.detail_for(language, length)
     label_ask = ask if label_tokens is None else ask
-    total = max(1, len(body) * 2 + 1)
+    total = max(1, len(body) * (3 if review_ask else 2) + 1)
     done = 0
     written = []
     for cluster in body:
@@ -254,6 +361,17 @@ def write(body, tail, ask, material=None, language="it", progress=None,
     by_model = [title for cluster, title, _body in written
                 if cluster.named_by == "model"]
     opening = abstract(titles, abstract_ask or ask, language, detail)
+    written, repeats = without_repeats(written, language)
+    found = ()
+    if review_ask:
+        def reviewed(prompt):
+            nonlocal done
+            answer = review_ask(prompt)
+            done += 1
+            if progress:
+                progress(min(done, total), total)
+            return answer
+        found = review(written, reviewed, language)
     if progress:
         progress(total, total)
 
@@ -267,4 +385,6 @@ def write(body, tail, ask, material=None, language="it", progress=None,
         decisions=tuple(lists.get("decision") or ()),
         actions=tuple(lists.get("action") or ()),
         notes=tuple(note for cluster in body for note in cluster.notes),
+        repeats=repeats,
+        review=found,
     )

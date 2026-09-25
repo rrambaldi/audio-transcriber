@@ -128,6 +128,11 @@ engine = "auto"
 # afterwards: costs more requests, and is worth trying if "combined" keeps
 # losing a section into the wrong one on a weak model.
 # style = "combined"
+# Whether the model reads every section back once it is written, and lists at
+# the foot of the page the lines to check: one the notes do not say, one that
+# repeats another, one that does not read as a sentence. Nothing is changed.
+# A pass more per section: minutes on a slow model.
+# review = false
 # Which model writes it: "auto" picks the largest recommended one that fits in
 # this machine's free memory. Any Hugging Face id works, as does the path of a
 # directory already converted to OpenVINO IR.
@@ -357,6 +362,8 @@ def build_parser(defaults):
                     metavar="PATH", help=t("help.sum_dump_notes"))
     sm.add_argument("--tier", dest="summary_tier", default=None,
                     metavar="TIER", help=t("help.sum_tier"))
+    sm.add_argument("--review", dest="summary_review", action="store_true",
+                    default=None, help=t("help.sum_review"))
     sm.add_argument("--out", dest="out", default=None, help=t("help.sum_out"))
     sm.add_argument("--print", dest="show", action="store_true",
                     help=t("help.sum_print"))
@@ -1263,6 +1270,7 @@ def collect_cli_settings(args):
              "summary_model", "summary_device",
              "summary_chunk_tokens", "summary_context_tokens",
              "summary_kv_type", "summary_quant", "summary_tier",
+             "summary_review",
              "summary_llama_server",
              "summary_debug", "summary_dump_notes")
     values = {name: getattr(args, name, None) for name in names}

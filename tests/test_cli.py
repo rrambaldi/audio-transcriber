@@ -284,6 +284,14 @@ def test_cli_settings_collect_the_inverted_vad_flag():
     assert cli.collect_cli_settings(args)["vad"] is None
 
 
+def test_a_summary_can_be_read_back_from_the_command_line():
+    parser = cli.build_parser(dict(DEFAULTS))
+    args = parser.parse_args(["summarize", "riunione", "--review"])
+    assert cli.collect_cli_settings(args)["summary_review"] is True
+    args = parser.parse_args(["summarize", "riunione"])
+    assert cli.collect_cli_settings(args)["summary_review"] is None
+
+
 def test_the_output_option_settles_the_flags_under_it():
     """One option that says what the run is for, as in the two graphical
     front ends, instead of a command line that lists the flags adding up to

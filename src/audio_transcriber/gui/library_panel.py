@@ -22,6 +22,7 @@ from PySide6.QtCore import Qt, QTimer, QUrl, Signal
 from PySide6.QtGui import QDesktopServices, QFont, QGuiApplication
 from PySide6.QtWidgets import (
     QAbstractItemView,
+    QCheckBox,
     QComboBox,
     QDialog,
     QFileDialog,
@@ -210,6 +211,9 @@ class LibraryPanel(QWidget):
         self.summary_progress.hide()
         self.summary_model = FreshMenu(self._fill_models)
         self.summary_model.setToolTip(t("gui.summary_model_tip"))
+        self.summary_review = QCheckBox(t("gui.summary_review"))
+        self.summary_review.setToolTip(t("gui.summary_review_tip"))
+        self.summary_review.setChecked(bool(self.settings.get("summary_review")))
         self.summary_model_label = QLabel(t("gui.summary_model"))
         self.summary_length = QComboBox()
         self.summary_style = QComboBox()
@@ -245,6 +249,7 @@ class LibraryPanel(QWidget):
         model_row = QHBoxLayout()
         model_row.addWidget(self.summary_model_label)
         model_row.addWidget(self.summary_model)
+        model_row.addWidget(self.summary_review)
         model_row.addStretch(1)
         summary_layout.addLayout(model_row)
         self._where = {}
@@ -823,6 +828,7 @@ class LibraryPanel(QWidget):
         overrides = {
             "summarizer": engine or None,
             "summary_model": model or None,
+            "summary_review": self.summary_review.isChecked(),
             "summary_length": self.summary_length.currentData(),
             "summary_style": self.summary_style.currentData(),
             "summary_template": None if own else (picked or None),

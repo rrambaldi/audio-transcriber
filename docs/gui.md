@@ -181,7 +181,9 @@ engine sees — with *No model* last, for the sentences that carry the
 transcript. Each model says how much memory it needs and whether that fits
 in what is usable now (free, less a margin for the system); the figures are
 measured again every time the menu opens. A model that does not fit can
-still be picked. Below, how much to keep and **which sections** the page is
+still be picked. Beside it, **Read it back** has the model read every section
+again once the page is written and list at the foot the lines to check —
+see [summary.md](summary.md#what-the-page-is-made-of). Below, how much to keep and **which sections** the page is
 made of: the templates installed for the language being spoken, or the
 last entry of that menu, which opens a box to write the sections in for this
 page only. What comes back says who wrote it and when: a page that does not

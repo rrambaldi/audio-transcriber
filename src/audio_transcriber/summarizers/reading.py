@@ -73,6 +73,10 @@ HEADINGS = "headings"
 #: A title is three to eight words. What this buys is a model that stops.
 LABEL_TOKENS = 60
 
+#: What a reviewer may say about one section: a line per finding, a handful
+#: of findings. More than this is a reviewer rewriting the section.
+REVIEW_TOKENS = 300
+
 #: How much transcript one reading pass is given when the page is written in
 #: sections. Not a memory figure - it is a quarter of what the window holds -
 #: and not a guess either. The same twenty-two minute recording, the same
@@ -581,11 +585,17 @@ def _write_sections(found, pipeline, system, language, chosen, settings,
     def advance(done, total):
         report(low + (high - low) * done // max(1, total), STAGE_WRITING)
 
+    review_ask = None
+    if settings.get("summary_review"):
+        def review_ask(prompt):
+            return ask(pipeline, system, prompt, REVIEW_TOKENS, chosen)
+
     written = writing.write(
         body, tail, ask_for(chosen.map_answer_tokens), material, language,
         advance, label_tokens=LABEL_TOKENS,
         abstract_ask=ask_for(chosen.reduce_answer_tokens), length=length,
-        catalogue=template.catalogue if template else None)
+        catalogue=template.catalogue if template else None,
+        review_ask=review_ask)
     return written, (body, tail)
 
 

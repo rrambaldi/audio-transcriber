@@ -426,6 +426,12 @@ MESSAGES = {
         "gui.summary_run": "Summarise",
         "gui.summary_again": "Summarise again",
         "gui.summary_model": "Model",
+        "gui.summary_review": "Read it back",
+        "gui.summary_review_tip":
+            "Once the page is written, the model reads every section again "
+            "beside its notes and lists at the foot the lines to check: one "
+            "the notes do not say, one that repeats another, one that does not "
+            "read as a sentence. Nothing is changed. A pass more per section.",
         "gui.summary_model_auto": "automatic \u2014 now {model}",
         "gui.summary_model_nothing_fits": "no model fits",
         "gui.summary_model_group": "{where} \u00b7 {engine}",
@@ -1418,6 +1424,13 @@ MESSAGES = {
         "gui.summary_run": "Riassumi",
         "gui.summary_again": "Riassumi di nuovo",
         "gui.summary_model": "Modello",
+        "gui.summary_review": "Ricontrolla",
+        "gui.summary_review_tip":
+            "Scritta la pagina, il modello rilegge ogni sezione accanto ai suoi "
+            "appunti ed elenca in fondo le righe da ricontrollare: una che gli "
+            "appunti non dicono, una che ne ripete un'altra, una che non si "
+            "legge come una frase. Non cambia niente. Una passata in piu' per "
+            "sezione.",
         "gui.summary_model_auto": "automatico \u2014 adesso {model}",
         "gui.summary_model_nothing_fits": "nessun modello ci sta",
         "gui.summary_model_group": "{where} \u00b7 {engine}",
@@ -2079,6 +2092,9 @@ HELP = {
             "write the passes and their numbers to this JSON file: it tells a "
             "problem of reading from one of writing without reading again",
         "help.sum_tier": "force a size class: xs | s | m | l",
+        "help.sum_review":
+            "have the model read every section back and list, at the foot of "
+            "the page, the lines to check; nothing is changed",
         "help.sum_device": "Intel device to run the model on: auto | CPU | GPU | NPU",
         "help.sum_out": "write the summary to this file instead of into the entry",
         "help.sum_print": "print the summary instead of saving it anywhere",
@@ -2235,6 +2251,9 @@ HELP = {
             "scrivi le passate e i loro numeri in questo file JSON: distingue un "
             "problema di lettura da uno di scrittura senza rileggere",
         "help.sum_tier": "forza una classe di dimensione: xs | s | m | l",
+        "help.sum_review":
+            "fai rileggere al modello ogni sezione ed elenca in fondo alla "
+            "pagina le righe da ricontrollare; non cambia niente",
         "help.sum_device": "dispositivo Intel su cui eseguire il modello: auto | CPU | GPU | NPU",
         "help.sum_out": "scrivi il riassunto in questo file invece che nella voce",
         "help.sum_print": "stampa il riassunto invece di salvarlo",
