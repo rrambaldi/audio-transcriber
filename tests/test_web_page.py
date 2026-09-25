@@ -620,9 +620,11 @@ def test_the_page_calls_nobody(page, script, stylesheet):
     """'Nothing leaves this machine' includes the fonts: no CDN, no analytics.
 
     Only what the browser would actually load counts, so an address written in
-    a comment as an example is not a finding."""
+    a comment as an example is not a finding, and neither is a link, which
+    goes nowhere until somebody clicks it."""
+    loaded = re.sub(r"<a\s[^>]*>", "", page)
     loads = re.findall(r'(?:src|href)=["\']([^"\']+)|url\((["\']?)([^)"\']+)',
-                       page + stylesheet)
+                       loaded + stylesheet)
     remote = [url or third for url, _, third in loads
               if (url or third).startswith(("http:", "//"))
               or (url or third).startswith("https:")]
