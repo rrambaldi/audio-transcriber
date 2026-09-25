@@ -587,6 +587,14 @@ def test_the_licence_text_comes_from_the_server_not_from_the_markup(page, script
     assert '$("about-licence").textContent' in script
 
 
+def test_the_about_box_links_to_the_source(page, script):
+    from audio_transcriber import about
+
+    assert f'<a href="{about.REPOSITORY}" target="_blank" rel="noopener">' in page
+    assert 'data-t="about_source"' in page
+    assert script.count("about_source:") == 4
+
+
 def test_the_about_box_opens_on_the_banner(page):
     """The picture the README opens with, served from the package like the
     icons, and not the page's own offline banner, which shares the word."""

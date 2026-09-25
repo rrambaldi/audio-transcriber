@@ -26,6 +26,9 @@ from . import __version__, branding
 #: wish adds no condition, so the answer to "what may I do with this" is MIT.
 SPDX = "MIT"
 
+#: Where the source is, for the About boxes.
+REPOSITORY = "https://github.com/rrambaldi/audio-transcriber"
+
 #: The name of the licence file, as the repository and the metadata have it.
 FILENAME = "LICENSE"
 

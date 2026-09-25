@@ -568,6 +568,7 @@ MESSAGES = {
         "gui.language_next_time": "The window will be in {language} the next time it opens.",
         "about.title": "About audio-transcriber",
         "about.version": "Version {version}",
+        "about.source": "Source code:",
         "about.licence": "License",
         "about.licence_missing":
             "This copy has no licence file to show. The terms are the MIT license.",
@@ -1549,6 +1550,7 @@ MESSAGES = {
         "gui.language_next_time": "La finestra sara' in {language} la prossima volta che la apri.",
         "about.title": "Informazioni su audio-transcriber",
         "about.version": "Versione {version}",
+        "about.source": "Codice sorgente:",
         "about.licence": "Licenza",
         "about.licence_missing":
             "Questa copia non ha un file di licenza da mostrare. I termini sono "

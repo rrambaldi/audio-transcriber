@@ -266,6 +266,7 @@ MESSAGES = {
     "gui.language_next_time": "Das Fenster ist beim nächsten Öffnen auf {language}.",
     "about.title": "Über audio-transcriber",
     "about.version": "Version {version}",
+    "about.source": "Quellcode:",
     "about.licence": "Lizenz",
     "about.licence_missing": "Diese Kopie hat keine Lizenzdatei zum Anzeigen. Die Bedingungen sind die der MIT-Lizenz.",
     "about.open_licence": "Lizenzdatei öffnen",

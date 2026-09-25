@@ -338,6 +338,14 @@ def test_the_language_is_picked_in_the_masthead_and_kept_for_next_time(window):
         window.store.remove("interface_language")
 
 
+def test_the_about_box_links_to_the_source(window):
+    from audio_transcriber import about
+
+    dialog = AboutDialog(parent=window)
+    assert f'href="{about.REPOSITORY}"' in dialog.source.text()
+    assert dialog.source.openExternalLinks()
+
+
 def test_f1_asks_for_the_about_box_too(window):
     """The key somebody presses looking for help, on a window with no help."""
     keys = [shortcut.key() for shortcut in window.findChildren(QShortcut)]

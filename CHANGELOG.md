@@ -8,6 +8,9 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- **The About box links to the source on GitHub**, in the window and in the
+  page, under the version.
+
 - **The window lets you pick the exact summary model.** The *Summary* tab
   of the library has a *Model* menu beside *Written by*: automatic, as
   before, or any catalogue model the chosen engine can load — Spark-X2.5-4B,

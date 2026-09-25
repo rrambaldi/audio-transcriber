@@ -64,6 +64,12 @@ class AboutDialog(QDialog):
         version = QLabel(t("about.version", version=__version__))
         style.note(version)
 
+        self.source = QLabel(
+            f'{t("about.source")} <a href="{about.REPOSITORY}">'
+            f'{about.REPOSITORY.removeprefix("https://")}</a>')
+        self.source.setOpenExternalLinks(True)
+        style.note(self.source)
+
         licence_heading = QLabel(t("about.licence"))
         licence_heading.setFont(theme.label_font(self.font()))
         style.note(licence_heading)
@@ -113,6 +119,7 @@ class AboutDialog(QDialog):
         layout.setSpacing(10)
         outer.addLayout(layout, 1)
         layout.addWidget(version)
+        layout.addWidget(self.source)
         layout.addWidget(licence_heading)
         layout.addWidget(self.licence_name)
         layout.addWidget(self.licence, 1)
