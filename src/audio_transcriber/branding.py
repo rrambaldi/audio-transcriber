@@ -48,6 +48,12 @@ MARK_SVG = "icon-mark.svg"
 #: What a browser asks for at ``/favicon.ico`` if it ignores the SVG.
 FAVICON = "favicon.ico"
 
+#: The mark with the name set beside it, on its own dark ground: the head of
+#: the About box, in the page and in the window. The same picture the README
+#: opens with, ``docs/assets/banner.png``, at 1280 by 320 - twice the width
+#: either box shows it at.
+BANNER = "banner.png"
+
 #: Where the button symbols are, under :data:`DIR`.
 SYMBOL_SUBDIR = "symbols"
 

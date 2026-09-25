@@ -573,6 +573,17 @@ def test_the_licence_text_comes_from_the_server_not_from_the_markup(page, script
     assert '$("about-licence").textContent' in script
 
 
+def test_the_about_box_opens_on_the_banner(page):
+    """The picture the README opens with, served from the package like the
+    icons, and not the page's own offline banner, which shares the word."""
+    from audio_transcriber import branding
+
+    assert '<img class="about-head" src="brand/banner.png"' in page
+    assert os.path.isfile(branding.path(branding.BANNER))
+    # The heading stays, for a screen reader: the picture says the same.
+    assert 'id="about-title" class="visually-hidden"' in page
+
+
 def test_the_about_box_says_what_is_bundled(page, script):
     """Two typefaces under somebody else's licence, and the packages it
     depends on which are nobody's to relicense here."""

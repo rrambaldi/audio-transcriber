@@ -278,11 +278,16 @@ def test_the_masthead_is_the_way_into_the_about_box(window):
 def test_the_about_box_is_where_the_version_number_lives(window):
     """It left the masthead, so this is the one place in the window that
     writes it down apart from the title bar."""
-    dialog = AboutDialog(icon=window.windowIcon(), parent=window)
+    dialog = AboutDialog(parent=window)
     try:
         written = [label.text() for label in dialog.findChildren(QLabel)]
         assert any(__version__ in text for text in written)
-        assert i18n.t("gui.wordmark") in written
+        # The name is in the banner at the head, and named for a reader
+        # that cannot see it.
+        assert not dialog.banner.pixmap().isNull()
+        assert dialog.banner.accessibleName() == i18n.t("gui.wordmark")
+        assert dialog.banner.pixmap().deviceIndependentSize().width() == (
+            dialog.width())
     finally:
         dialog.deleteLater()
 
@@ -297,7 +302,7 @@ def test_f1_asks_for_the_about_box_too(window):
 def test_the_about_box_shows_the_whole_licence(window):
     """Not its name: the licence is the MIT license with a wish in front of
     it, and the wish is the half worth a screen."""
-    dialog = AboutDialog(icon=window.windowIcon(), parent=window)
+    dialog = AboutDialog(parent=window)
     try:
         text = dialog.licence.toPlainText()
 
@@ -323,7 +328,7 @@ def test_the_about_box_survives_a_build_with_no_licence_file(window, monkeypatch
     monkeypatch.setattr(about, "_CHECKOUT", "/nowhere/LICENSE")
     about.licence_text.cache_clear()
     try:
-        dialog = AboutDialog(icon=window.windowIcon(), parent=window)
+        dialog = AboutDialog(parent=window)
         assert i18n.t("about.licence_missing") in dialog.licence.toPlainText()
         # Nothing to open, and the button says so by being off.
         assert dialog.open_file.isEnabled() is False

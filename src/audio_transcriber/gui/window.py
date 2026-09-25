@@ -206,7 +206,7 @@ class MainWindow(QMainWindow):
         transcription - and which makes anything that opens this box
         unanswerable, tests included. Qt owns the dialog through its parent
         and lets it go when it closes."""
-        dialog = AboutDialog(icon=self.windowIcon(), parent=self)
+        dialog = AboutDialog(parent=self)
         dialog.finished.connect(dialog.deleteLater)
         dialog.open()
         return dialog

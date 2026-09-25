@@ -16,7 +16,7 @@ selectable and read-only, because the one thing somebody may actually want to
 do with a licence is copy it.
 """
 from PySide6.QtCore import Qt, QUrl
-from PySide6.QtGui import QDesktopServices
+from PySide6.QtGui import QDesktopServices, QPixmap
 from PySide6.QtWidgets import (
     QDialog,
     QHBoxLayout,
@@ -26,49 +26,43 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
 )
 
-from .. import __version__, about
+from .. import __version__, about, branding
 from ..i18n import t
-from . import masthead, style, theme
+from . import style, theme
 
 #: How tall the licence gets to be before it starts scrolling. The file is
 #: forty lines; this shows about half of it, which is enough to see that it
 #: begins with something other than boilerplate.
 LICENCE_LINES = 16
 
+#: How wide the banner is drawn, in logical pixels, and so how wide the box
+#: is: the banner runs edge to edge, and a box wider than its head would show
+#: where the picture stops.
+BANNER_WIDTH = 640
+
 
 class AboutDialog(QDialog):
     """The mark, the version, the licence, and what is bundled."""
 
-    def __init__(self, icon=None, parent=None):
+    def __init__(self, parent=None):
         super().__init__(parent)
         self.facts = about.facts()
         self.setWindowTitle(t("about.title"))
         self.setModal(True)
+        self.setFixedWidth(BANNER_WIDTH)
 
-        head = QHBoxLayout()
-        head.setSpacing(14)
-        if icon is not None and not icon.isNull():
-            mark = QLabel()
-            mark.setPixmap(masthead.mark_pixmap(icon, self))
-            head.addWidget(mark, 0, Qt.AlignmentFlag.AlignTop)
-        titles = QVBoxLayout()
-        titles.setSpacing(2)
-        name = QLabel(t("gui.wordmark"))
-        name.setFont(theme.title_font(self.font(), theme.TITLE_SCALE,
-                                      display=theme.DISPLAY,
-                                      tracking=theme.TITLE_TRACKING))
-        titles.addWidget(name)
-        tagline = QLabel(t("gui.tagline"))
-        tagline.setFont(theme.title_font(self.font(), masthead.TAGLINE_SCALE,
-                                         italic=True,
-                                         weight=masthead.TAGLINE_WEIGHT))
+        # The mark and the name, drawn once for the README and used here as
+        # they are. It carries the name, so the label is named after it for
+        # whoever cannot see the picture.
+        self.banner = QLabel()
+        self.banner.setPixmap(self._banner_pixmap())
+        self.banner.setAccessibleName(t("gui.wordmark"))
+
         # The version goes directly under the name, where somebody looking for
         # it looks; the licence's own name goes under the "license" heading,
         # with the text it names.
         version = QLabel(t("about.version", version=__version__))
-        titles.addWidget(style.note(version))
-        titles.addWidget(style.note(tagline))
-        head.addLayout(titles, 1)
+        style.note(version)
 
         licence_heading = QLabel(t("about.licence"))
         licence_heading.setFont(theme.label_font(self.font()))
@@ -109,17 +103,38 @@ class AboutDialog(QDialog):
         buttons.addStretch(1)
         buttons.addWidget(close)
 
-        layout = QVBoxLayout(self)
+        outer = QVBoxLayout(self)
+        outer.setContentsMargins(0, 0, 0, 0)
+        outer.setSpacing(0)
+        outer.addWidget(self.banner)
+        layout = QVBoxLayout()
         layout.setContentsMargins(theme.GUTTER, theme.GUTTER,
                                   theme.GUTTER, theme.GUTTER)
         layout.setSpacing(10)
-        layout.addLayout(head)
+        outer.addLayout(layout, 1)
+        layout.addWidget(version)
         layout.addWidget(licence_heading)
         layout.addWidget(self.licence_name)
         layout.addWidget(self.licence, 1)
         layout.addWidget(bundled_heading)
         layout.addWidget(self.bundled)
         layout.addLayout(buttons)
+        # A top-level window is sized from its layout's minimum, which knows
+        # nothing of text that wraps: the paragraph under "what is bundled"
+        # was given one line and drawn over the licence. The width is fixed,
+        # so the height that width needs can be asked for outright.
+        self.setMinimumHeight(outer.totalHeightForWidth(BANNER_WIDTH))
+
+    def _banner_pixmap(self):
+        """The banner at the box's width, sharp on a high-DPI screen."""
+        ratio = self.devicePixelRatioF() or 1.0
+        pixmap = QPixmap(branding.path(branding.BANNER))
+        if pixmap.isNull():
+            return pixmap
+        pixmap = pixmap.scaledToWidth(round(BANNER_WIDTH * ratio),
+                                      Qt.TransformationMode.SmoothTransformation)
+        pixmap.setDevicePixelRatio(ratio)
+        return pixmap
 
     def _bundled_text(self):
         """One sentence about somebody else's work that ships in here.

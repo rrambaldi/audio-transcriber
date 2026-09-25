@@ -627,9 +627,11 @@ The version number is *not* in the masthead: apart from the title bar, the
 About box is the only place the window writes it down. A band somebody reads
 all day is not where a build number belongs, and it is one click from it.
 
-What it shows is the version, the licence *whole* — the mark, the name and the
-tagline above it, then the text in a read-only field that grows with the
-dialog — and a line about what is bundled: the two typefaces, which are
+It opens on the banner the README opens with — the mark, the name and the
+tagline in one picture, edge to edge, `data/brand/banner.png` — and the page's
+About box opens on the same one. Under it: the version, the licence *whole*,
+in a read-only field that grows with the dialog, and a line about what is
+bundled: the two typefaces, which are
 somebody else's work under OFL, and the Python packages, which are installed
 separately and are nobody's to relicense here. A button opens the licence file
 in whatever the desktop opens text with, and is disabled when this copy has no

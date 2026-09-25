@@ -601,13 +601,22 @@ legend { color: var(--muted); padding: 0; }
 
 dialog {
   --field-bg: var(--sheet);
+  --dialog-pad: clamp(1.4rem, 4vw, 2.4rem);
   border: 1px solid var(--ink);
   background: var(--sheet);
   color: var(--ink);
   max-width: min(52rem, 92vw);
   width: 100%;
-  padding: clamp(1.4rem, 4vw, 2.4rem);
+  padding: var(--dialog-pad);
   font-family: var(--sans);
+}
+/*  The About box's head: the banner, out to the dialog's border.  */
+dialog .about-head {
+  display: block;
+  width: calc(100% + 2 * var(--dialog-pad));
+  max-width: none;
+  height: auto;
+  margin: calc(-1 * var(--dialog-pad)) calc(-1 * var(--dialog-pad)) 1.2rem;
 }
 dialog::backdrop { background: rgba(6, 10, 19, 0.62); }
 dialog h2 {

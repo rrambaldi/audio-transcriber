@@ -51,6 +51,12 @@ All notable changes to this project are documented here. The format follows
 
 ### Changed
 
+- **The About box opens on the banner**, in the window and in the page: the
+  mark, the name and the tagline as the README shows them, edge to edge,
+  instead of the mark and the name set in type. In the window the box now
+  also leaves room for the paragraph about what is bundled, which it used to
+  draw over the licence.
+
 - **A summary is now the page the recording produced, not five fixed
   headings.** One heading per subject, prose under each written from that
   subject's own notes, and decisions and actions listed at the foot. The

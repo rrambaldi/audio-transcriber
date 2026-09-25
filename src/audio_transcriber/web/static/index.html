@@ -284,10 +284,11 @@
 
 <!-- --------------------------------------------------------- dialogs -->
 <dialog id="about" aria-labelledby="about-title">
-  <div class="viewer-head">
-    <h2 id="about-title" data-t="about_title">About</h2>
-    <p class="note" id="about-standfirst" data-t="tagline">Local transcription. Nothing leaves this machine.</p>
-  </div>
+  <!-- The banner the README opens with, edge to edge: it carries the mark,
+       the name and the tagline, so the heading is there for a screen reader
+       and nobody else. -->
+  <img class="about-head" src="brand/banner.png" width="1280" height="320" alt="">
+  <h2 id="about-title" class="visually-hidden" data-t="about_title">About</h2>
   <p class="note" id="about-version"></p>
   <h3 data-t="about_licence">License</h3>
   <!-- The licence's own name belongs with the text it names, not on the
