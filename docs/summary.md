@@ -335,6 +335,12 @@ layers, a tenth of what a dense model of the same depth would keep.
 "Usable" is the free memory less a reserve for the operating system and for
 the rest of this program, which is holding a transcript while the model runs.
 
+One model is in the catalogue without a class: **Spark-X2.5-4B**, on trial.
+`auto` never chooses it; `--model Spark-X2.5-4B` does, on the llama.cpp engine
+only, and wants llama.cpp b10828 or later for its architecture. It stays out of
+the table until a measurement against Granite 4.0 H-Tiny on the same recording
+says where it belongs.
+
 The smallest class is LFM2.5-1.2B and not MiniCPM5-1B, and the reason is worth
 recording: asked in Italian to summarise a news article in three sentences,
 MiniCPM5-1B at Q4_K_M returns the article. Not a poor summary — no summary: it

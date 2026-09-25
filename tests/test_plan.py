@@ -379,3 +379,20 @@ def test_a_model_that_cannot_be_loaded_is_never_advised():
     for memory in (2.0, 8.0):
         better = plan.better_with_more(plan.OPENVINO, memory, 64.0, 8)
         assert better is None or plan.runnable(better[0], plan.OPENVINO)
+
+
+def test_a_model_on_trial_runs_when_named_and_never_by_itself():
+    """Spark-X2.5-4B is in the catalogue to be measured, not to be chosen:
+    no amount of memory makes ``auto`` pick it, and naming it gets its GGUF."""
+    for memory in (4.0, 10.0, 32.0, 96.0):
+        for engine in (plan.LLAMACPP, plan.OPENVINO):
+            chosen = plan.resolve_plan(engine, ram=memory, total=128.0, cores=8)
+            assert chosen is None or chosen.model.name != "Spark-X2.5-4B"
+    named = plan.resolve_plan(plan.LLAMACPP, {"summary_model": "Spark-X2.5-4B"},
+                              ram=14.9, total=31.5, cores=8)
+    assert named.model.gguf_repo == "XHToken/Spark-X2.5-4B-GGUF"
+    assert named.quant == "Q4_K_M" and named.tier == "l"
+    finer = plan.resolve_plan(plan.LLAMACPP, {"summary_model": "Spark-X2.5-4B",
+                                              "summary_quant": "Q8_0"},
+                              ram=14.9, total=31.5, cores=8)
+    assert finer.quant == "Q8_0"

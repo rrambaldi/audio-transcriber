@@ -37,6 +37,12 @@ All notable changes to this project are documented here. The format follows
   them down, and reading the same recording again under another template
   starts from the transcript. Length is the opposite, deliberately.
 
+- **Spark-X2.5-4B can be asked for by name**, on trial: `--model
+  Spark-X2.5-4B` on the llama.cpp engine (build b10828 or later), at Q4_K_M or
+  Q8_0. `auto` does not choose it until it has been measured, and
+  `diagnose.cmd` now measures it against the default on the same recording,
+  fetching a new enough llama.cpp build when the installed one is older.
+
 ### Changed
 
 - **A summary is now the page the recording produced, not five fixed

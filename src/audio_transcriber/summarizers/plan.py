@@ -170,6 +170,20 @@ CATALOGUE = (
           weights={"Q4_K_M": 2.6},
           tier="l", floor=6.0,
           note="weights estimated; no GGUF published"),
+    # On trial, so no tier: ``auto`` never chooses it and it runs only when
+    # named, until a measurement says where it belongs. Nine of its 36 layers
+    # are full attention; the other 27 slide over 512 tokens and hold a cache
+    # too small to count. Its architecture, ``spark2_5``, needs llama.cpp
+    # b10828 or later. Read from config.json and the published files on
+    # 2026-09-25.
+    Model(name="Spark-X2.5-4B",
+          hf_id="XHToken/Spark-X2.5-4B",
+          gguf_repo="XHToken/Spark-X2.5-4B-GGUF",
+          gguf_file="Spark-X2.5-4B-{quant}.gguf",
+          context=1048576, attn_layers=9, kv_heads=4, head_dim=256,
+          weights={"Q4_K_M": 2.42, "Q8_0": 4.07},
+          tier=None, floor=6.0,
+          note="on trial: chosen only by name"),
 )
 
 #: Still accepted by name, no longer chosen by ``auto``. Somebody who
@@ -314,6 +328,7 @@ OPENVINO_INCOMPATIBLE = {
     "ibm-granite/granite-4.0-h-tiny",
     "LiquidAI/LFM2.5-1.2B-Instruct",
     "Qwen/Qwen3.5-4B",
+    "XHToken/Spark-X2.5-4B",
 }
 
 

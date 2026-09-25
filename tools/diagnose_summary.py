@@ -225,6 +225,9 @@ def main(argv=None):
                              "is cut off, so this is the lever to try")
     parser.add_argument("--chunk-tokens", type=int, default=None, metavar="N",
                         help="how much transcript goes into one pass")
+    parser.add_argument("--model", default=None, metavar="NAME",
+                        help="a model from the catalogue by name, instead of "
+                             "the one the plan would choose")
     parser.add_argument("--quant", default=None, metavar="QUANT",
                         help="weight precision to load the model from: "
                              "Q8_0, Q6_K, Q5_K_M, Q4_K_M. A finer file is "
@@ -267,6 +270,7 @@ def main(argv=None):
         "summary_context_tokens": args.context_tokens,
         "summary_map_tokens": args.map_tokens,
         "summary_chunk_tokens": args.chunk_tokens,
+        "summary_model": args.model,
         "summary_quant": args.quant,
         "summary_template": args.template,
         "summary_shape": args.shape,
