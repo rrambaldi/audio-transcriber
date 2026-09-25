@@ -44,7 +44,10 @@ All notable changes to this project are documented here. The format follows
   fetching a new enough llama.cpp build when the installed one is older.
   Before each run it also says when more free memory would change the run —
   a better model, or room for the one named — and asks whether to close
-  things and check again or to go on as it is.
+  things and check again or to go on as it is. At the end it sends the files
+  of the round to the server with the `scp` Windows ships with, and a round
+  already measured on that machine is not measured again unasked: R runs it
+  again, S only sends.
 
 ### Changed
 

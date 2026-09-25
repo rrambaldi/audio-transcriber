@@ -36,6 +36,15 @@ rem  A Vulkan build older than the round needs (AT_NEED_BUILD, below) is not
 rem  replaced: the one that is needed is fetched once from the llama.cpp
 rem  releases on GitHub into %AT_LLAMA_DIR%\vulkan-bNNNNN, and used instead.
 rem
+rem  At the end the files of the round - numbers and pages - go to the server,
+rem  into the same folder of the checkout there, with the scp that ships with
+rem  Windows. When the round has been measured here already, it asks first:
+rem  R runs it again, S only sends what there is.
+rem
+rem      set AT_SERVER=me@another.host
+rem      set AT_SERVER_DIR=/where/they/go
+rem      set AT_SERVER=none              keep them here
+rem
 rem  The control flow is flat and the runs go through a subroutine, because
 rem  cmd parses the parentheses in a device description as block delimiters.
 rem ---------------------------------------------------------------------------
@@ -55,6 +64,8 @@ if "%AT_SRT%"=="" set "AT_SRT=.local\summary\gold.srt"
 if not exist "%AT_SRT%" goto :no_transcript
 
 set "AT_MADE="
+set "AT_SENT="
+set "AT_FOUND="
 set "AT_OUT=%~2"
 if "%AT_OUT%"=="" set "AT_OUT=.local\summary"
 if not exist "%AT_OUT%" mkdir "%AT_OUT%"
@@ -76,6 +87,20 @@ echo === bringing the checkout up to date
 git pull --ff-only
 if errorlevel 1 echo   WARNING: the pull failed. Measuring the code as it is here.
 
+rem --- a round that has been measured already --------------------------------
+rem Measuring is the better part of an hour and sending is seconds, so when the
+rem files of this round are here already the choice is asked for, not made.
+set "AT_MODE=check"
+call :round
+if not defined AT_FOUND goto :measuring
+echo.
+echo === this round has been measured here already:%AT_FOUND%
+echo     R  run it again - those files are replaced
+echo     S  only send them to the server
+choice /c RS /n /m "  R or S? "
+if errorlevel 2 goto :sending_only
+
+:measuring
 rem --- which builds of llama.cpp are on this machine -------------------------
 if "%AT_LLAMA_DIR%"=="" set "AT_LLAMA_DIR=C:\llama"
 
@@ -124,6 +149,48 @@ echo === what each build can see
 call :devices "vulkan" "%AT_LLAMA_VULKAN%"
 call :devices "openvino" "%AT_LLAMA_OPENVINO%"
 
+set "AT_MODE=run"
+call :round
+
+echo.
+echo === done. These are this round's, and carry no meeting in them:
+echo  %AT_MADE%
+goto :send
+
+:sending_only
+set "AT_MODE=send"
+call :round
+
+rem --- the files of the round, to the server ---------------------------------
+rem Both files of each run, pages included: they go to the machine the
+rem recording came from and to no other. If ssh asks for a password, or for a
+rem first "yes" to a host it has not met, answer it here.
+:send
+if "%AT_SERVER%"=="" set "AT_SERVER=rrambaldi@www.progettazionisoftware.it"
+if "%AT_SERVER_DIR%"=="" set "AT_SERVER_DIR=/home/rrambaldi/progetti/audio-transcriber/audio-transcriber/.local/summary"
+if /i "%AT_SERVER%"=="none" goto :done
+if not defined AT_SENT goto :done
+echo.
+echo === sending them to %AT_SERVER%
+"%SystemRoot%\System32\OpenSSH\scp.exe" %AT_SENT% "%AT_SERVER%:%AT_SERVER_DIR%/"
+if errorlevel 1 goto :send_failed
+echo   sent: on the server they are in %AT_SERVER_DIR%
+goto :done
+
+:send_failed
+echo   WARNING: they did not get there - the lines above say why. They are
+echo   still here, in %AT_OUT%. To try again without measuring: run this
+echo   again and answer S.
+
+:done
+if not defined AT_CLICKED goto :quit
+echo.
+pause
+:quit
+endlocal & exit /b 0
+
+rem --- the routines -----------------------------------------------------------
+
 rem --- the runs this round ---------------------------------------------------
 rem The question of the round before - does Spark-X2.5-4B write this page
 rem better than Granite 4.0 H-Tiny? - asked again without the three things that
@@ -150,23 +217,12 @@ rem the swapping.
 rem
 rem Each run clears the cached passes first, so each one reads the recording.
 rem
-rem To ask a new question, edit these lines. Everything above stays as it is.
+rem To ask a new question, edit these lines. Everything else stays as it is.
+:round
 call :measure "Y-granite" "%AT_LLAMA_VULKAN%" "--tier l --model ibm-granite/granite-4.0-h-tiny"
 call :measure "Z-spark" "%AT_LLAMA_VULKAN%" "--tier l --model Spark-X2.5-4B"
 call :measure "Z2-spark-800" "%AT_LLAMA_VULKAN%" "--tier l --model Spark-X2.5-4B --map-tokens 800"
-
-echo.
-echo === done. These are this round's, and carry no meeting in them:
-echo  %AT_MADE%
-
-:done
-if not defined AT_CLICKED goto :quit
-echo.
-pause
-:quit
-endlocal & exit /b 0
-
-rem --- the routines -----------------------------------------------------------
+goto :eof
 
 :devices
 rem What one build says it can run on, which is the thing to read before the
@@ -188,13 +244,30 @@ rem Nothing is asked for here that the program would not do on its own, bar
 rem the engine and the binary - a run whose every setting is spelled out on
 rem the command line measures the command line. "--shape headings" and the
 rem rest go in the third argument, per run.
+if "%AT_MODE%"=="check" goto :measure_check
+if "%AT_MODE%"=="send" goto :measure_keep
 if "%~2"=="" goto :measure_skipped
 echo.
 echo === %~1 - starting at %TIME%
-set "AT_MADE=%AT_MADE% %AT_OUT%\%~1.numbers.json"
+rem The files of an earlier run of the same name go first: a run that stops
+rem before writing must not leave them behind to be sent as its own.
+if exist "%AT_OUT%\%~1.numbers.json" del "%AT_OUT%\%~1.numbers.json"
+if exist "%AT_OUT%\%~1.page.md" del "%AT_OUT%\%~1.page.md"
 python tools\diagnose_summary.py "%AT_SRT%" --out "%AT_OUT%\%~1" --engine llamacpp --llama-server "%~2" %~3
 if errorlevel 1 echo   %~1: this run did not finish - the lines above say why.
 echo === %~1 - finished at %TIME%
+
+:measure_keep
+rem What there is of one run, for the server.
+if not exist "%AT_OUT%\%~1.numbers.json" goto :measure_page
+set "AT_MADE=%AT_MADE% %AT_OUT%\%~1.numbers.json"
+set AT_SENT=%AT_SENT% "%AT_OUT%\%~1.numbers.json"
+:measure_page
+if exist "%AT_OUT%\%~1.page.md" set AT_SENT=%AT_SENT% "%AT_OUT%\%~1.page.md"
+goto :eof
+
+:measure_check
+if exist "%AT_OUT%\%~1.numbers.json" set "AT_FOUND=%AT_FOUND% %~1"
 goto :eof
 
 :measure_skipped
