@@ -781,15 +781,35 @@ def test_the_audio_test_says_when_it_hears_speech(tmp_path, application):
     recorder.deleteLater()
 
 
-def test_the_verdict_has_room_for_two_lines_before_there_is_one(tmp_path, application):
-    """A word-wrapped label starts one line tall and the box is sized from
-    that, so the first verdict had its second line cut off. Reserved height is
-    the fix, and this is the assertion that would have caught it."""
+def test_the_lines_under_the_buttons_take_room_only_when_they_speak(
+        tmp_path, application, queue, monkeypatch):
+    """Two lines kept empty for each message that might come were four blank
+    lines between the buttons and the queue. A message still gets every line
+    its words need when it arrives, in a window short enough to make it
+    fight the queue for them: the first verdict once had its second line cut
+    off, and this is the assertion that would have caught it."""
+    from audio_transcriber.gui import transcribe_panel
+
     recorder, _ = make_device_recorder(tmp_path, application)
-    two_lines = 2 * recorder.verdict.fontMetrics().height()
-    assert recorder.verdict.minimumHeight() >= two_lines
-    assert recorder.message.minimumHeight() >= two_lines
-    recorder.deleteLater()
+    monkeypatch.setattr(transcribe_panel, "make_recorder",
+                        lambda *args, **kwargs: recorder)
+    window = MainWindow(SETTINGS, queue=queue)
+    window.resize(700, 560)
+    window.show()
+    application.processEvents()
+    assert recorder.verdict.isHidden() and recorder.message.isHidden()
+    assert recorder.height() - recorder.button.geometry().bottom() < 10
+
+    recorder.message.setText("Saved, but nothing was heard from this device. " * 3)
+    application.processEvents()
+    line = recorder.message
+    assert not line.isHidden()
+    assert line.height() >= line.heightForWidth(line.width()) > line.fontMetrics().height()
+    recorder.message.setText("")
+    assert recorder.message.isHidden()
+    window.transcribe.shutdown()
+    window.library.shutdown()
+    window.deleteLater()
 
 
 def test_starting_a_recording_takes_the_device_back_from_the_test(tmp_path, application):

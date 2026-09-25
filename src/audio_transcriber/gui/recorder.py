@@ -122,18 +122,14 @@ class DeviceRecorder(QWidget):
         self.folder_button = QPushButton(t("gui.open_folder"))
         self.folder_button.setToolTip(t("gui.rec_open_folder_tip"))
         self.folder_button.clicked.connect(self.open_folder)
-        self.verdict = QLabel("")
-        self.verdict.setWordWrap(True)
-        _reserve_two_lines(self.verdict)
+        self.verdict = _Line()
         self.button = QPushButton(t("gui.rec_start"))
         self.button.clicked.connect(self.toggle)
         self.pause_button = QPushButton(t("gui.rec_pause"))
         self.pause_button.clicked.connect(self.toggle_pause)
         self.pause_button.setEnabled(False)
         self.elapsed = QLabel(format_clock(0))
-        self.message = QLabel("")
-        self.message.setWordWrap(True)
-        _reserve_two_lines(self.message)
+        self.message = _Line()
 
         self._assemble()
         self.refresh_devices()
@@ -472,14 +468,23 @@ class DeviceRecorder(QWidget):
         self._store.setValue("record_mix_enabled", self.mix_enabled.isChecked())
 
 
-def _reserve_two_lines(label):
-    """Keep room for a wrapped sentence before there is one.
+class _Line(QLabel):
+    """A line under the buttons that takes room only while it says something.
 
-    A word-wrapped label starts one line tall, and the box around it is sized
-    from that: the moment a verdict arrives it needs two lines and the second
-    one is simply cut off, which is how the first version of this shipped."""
-    label.setMinimumHeight(2 * label.fontMetrics().height() + 2)
-    return label
+    Two of them used to keep two lines each reserved, empty, so that a
+    wrapped sentence would not be cut in half: four blank lines between the
+    buttons and the queue, all day. Shown when it has text, it is laid out
+    again at the height its words need, which is the same fix without the
+    gap."""
+
+    def __init__(self):
+        super().__init__("")
+        self.setWordWrap(True)
+        self.hide()
+
+    def setText(self, text):
+        super().setText(text)
+        self.setVisible(bool(text))
 
 
 def _level_bar():

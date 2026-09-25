@@ -318,6 +318,12 @@ All notable changes to this project are documented here. The format follows
 
 ### Fixed
 
+- **No blank band between the recorder's buttons and the queue.** The two
+  message lines under the buttons each kept two lines reserved, empty, so
+  that a wrapped sentence would not be cut: four blank lines, all day. They
+  now take room only while they say something, and a long message still
+  gets every line it needs.
+
 - **A model named by hand no longer hears about a better one.** The note
   that more free memory would buy a better model was said even when the
   model had been chosen by name, where no amount of free memory changes
