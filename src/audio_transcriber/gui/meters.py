@@ -14,6 +14,8 @@ from PySide6.QtWidgets import QHBoxLayout, QLabel, QProgressBar, QWidget
 
 from ..hardware import Meter
 from ..i18n import t
+from ..summarizers import plan, resolve_summarizer
+from ..summary import SummaryError
 from . import style
 
 #: How often the meters are read. Slower than a progress bar on purpose: this
@@ -71,6 +73,9 @@ class MachineMeters(QWidget):
         self.cpu_text = QLabel("")
         self.ram_text = QLabel("")
         self.device = QLabel("")
+        self.room = QLabel("")
+        self.room.setToolTip(t("gui.free_for_better_tip"))
+        self._summarizer = False
         self.setToolTip(t("gui.meter_tip"))
 
         line = QHBoxLayout(self)
@@ -85,6 +90,7 @@ class MachineMeters(QWidget):
             line.addWidget(meter_bar)
             line.addWidget(style.note(reading))
         line.addWidget(style.note(self.device))
+        line.addWidget(self.room)
 
         self.timer = QTimer(self)
         self.timer.setInterval(SAMPLE_MS)
@@ -106,6 +112,7 @@ class MachineMeters(QWidget):
                               f"{gib(reading['ram_used_gb'])}/"
                               f"{gib(reading['ram_total_gb'])} GiB")
         self.device.setText(self._device_line())
+        self.room.setText(self._room_line(reading))
 
     def _device_line(self):
         """What a transcription would run on. Asked once: it cannot change."""
@@ -119,6 +126,30 @@ class MachineMeters(QWidget):
         if device is None:
             return engine
         return t("gui.meter_device", engine=engine, device=device)
+
+    def _room_line(self, reading):
+        """How much to free for a better summary model, or nothing.
+
+        Only for a model left to the plan: one named by hand is the model
+        that runs whatever is free."""
+        if self._summarizer is False:
+            try:
+                self._summarizer = resolve_summarizer(
+                    self.settings.get("summarizer"), self.settings)
+            except SummaryError:
+                self._summarizer = None
+        free = reading["ram_free_gb"]
+        named = str(self.settings.get("summary_model") or "auto").strip().lower()
+        if (self._summarizer not in (plan.LLAMACPP, plan.OPENVINO)
+                or free is None or named != "auto"):
+            return ""
+        helps = plan.freeing_would_help(self._summarizer, self.settings, free,
+                                        reading["ram_total_gb"])
+        if helps is None:
+            return ""
+        model, needed = helps
+        return t("gui.free_for_better", gb=gib(max(needed - free, 0.1)),
+                 model=model.name)
 
     # --- only while it is on screen ---------------------------------------
 

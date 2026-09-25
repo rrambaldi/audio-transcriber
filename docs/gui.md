@@ -199,6 +199,13 @@ there while you work, because a meter you have to open a tab to see is one you
 look at after wondering rather than before. The *This machine* tab keeps the
 full version, and both read the same sampler, so they cannot disagree.
 
+When more free memory would get a better summary model, the footer says how
+much: *free 1.2 GiB and summaries use Spark-X2.5-4B, a better model*. The plan
+picks the model from the memory free at that moment, not from what is
+installed, so closing programs is often the setting that matters most. The
+line appears only when the model is left to `auto`, and only for an engine
+that writes, llama.cpp or OpenVINO.
+
 It also answers the question the command line cannot: *is it working now, and
 on what*. Two meters, the CPU and the memory, read every two seconds while the
 tab is on screen and never while it is not, with a line underneath naming the

@@ -422,6 +422,8 @@ MESSAGES = {
     "gui.group_hardware": "Was diese Maschine kann",
     "gui.group_paths": "Verwendete Verzeichnisse",
     "gui.group_load": "Wie ausgelastet sie gerade ist",
+    "gui.free_for_better": "· mit {gb} GiB mehr frei würden Zusammenfassungen {model} nutzen, ein besseres Modell",
+    "gui.free_for_better_tip": "Zusammenfassungen schreibt das beste Modell, das gerade in den freien Speicher passt. Nicht benutzte Programme zu schließen gibt ihn frei.",
     "gui.meter_device": "{engine} · {device}",
     "gui.meter_tip": "Wie ausgelastet diese Maschine ist, und die Engine, auf der eine Transkription laufen würde. Es gibt keinen GPU-Prozentwert, weil OpenVINO keinen liefert: das Gerät ist die ehrliche Antwort.",
     "gui.row_cpu": "CPU",

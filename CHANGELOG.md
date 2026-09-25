@@ -8,6 +8,12 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- **The window says how much memory to free for a better summary model.**
+  The footer adds, next to the memory meter, *free 1.2 GiB and summaries use
+  Spark-X2.5-4B, a better model*, whenever more free memory would change the
+  model the plan picks. It is refreshed with the meters every two seconds
+  and is said only for a model left to `auto`.
+
 - **The interface speaks French and German too**, besides English and
   Italian: the command line, its help, the window and the page, every
   message of each. It is picked from a menu of the four, each named in its

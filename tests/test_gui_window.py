@@ -198,6 +198,26 @@ def test_the_footer_watches_the_machine_too(window):
     assert meters.device.text()                        # what would run, and where
 
 
+def test_the_footer_says_what_freeing_memory_would_buy(application, monkeypatch):
+    """A busy laptop is told how much to free for a better summary model."""
+    from audio_transcriber.gui import meters as meters_module
+
+    class Busy:
+        measurable = True
+
+        def read(self):
+            return {"cpu_percent": 10.0, "ram_percent": 78.0, "cores": 8,
+                    "ram_free_gb": 6.8, "ram_used_gb": 24.7,
+                    "ram_total_gb": 31.5, "load": None}
+
+    monkeypatch.setattr(meters_module, "resolve_summarizer",
+                        lambda engine=None, settings=None: "llamacpp")
+    busy = meters_module.MachineMeters(Busy(), {})
+    assert "Spark-X2.5-4B" in busy.room.text() and "1.2" in busy.room.text()
+    named = meters_module.MachineMeters(Busy(), {"summary_model": "MiniCPM5-2B"})
+    assert named.room.text() == ""
+
+
 def test_the_footer_and_the_tab_read_the_same_meter(window):
     """Two samplers would disagree by an interval, on the same screen."""
     assert window.meters.meter is window.meter

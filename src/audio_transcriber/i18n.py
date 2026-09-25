@@ -795,6 +795,10 @@ MESSAGES = {
         "gui.group_hardware": "What this machine can do",
         "gui.group_paths": "Directories in use",
         "gui.group_load": "How busy it is right now",
+        "gui.free_for_better": "\u00b7 free {gb} GiB and summaries use {model}, a better model",
+        "gui.free_for_better_tip":
+            "Summaries are written by the best model that fits in the memory free "
+            "right now. Closing programs you are not using frees it.",
         "gui.meter_device": "{engine} \u00b7 {device}",
         "gui.meter_tip":
             "How busy this machine is, and the engine a transcription would run "
@@ -1771,6 +1775,10 @@ MESSAGES = {
         "gui.group_hardware": "Cosa puo' fare questa macchina",
         "gui.group_paths": "Cartelle in uso",
         "gui.group_load": "Quanto e' occupata adesso",
+        "gui.free_for_better": "\u00b7 liberando {gb} GiB i riassunti userebbero {model}, un modello migliore",
+        "gui.free_for_better_tip":
+            "I riassunti li scrive il modello migliore che sta nella memoria libera "
+            "adesso. Chiudere i programmi che non usi la libera.",
         "gui.meter_device": "{engine} \u00b7 {device}",
         "gui.meter_tip":
             "Quanto e' occupata questa macchina, e il motore su cui girerebbe una "
