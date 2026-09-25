@@ -288,12 +288,17 @@ def estimate_ram_gb(model, quant, context_tokens, kv_k="q8_0", kv_v="q8_0"):
             + RUNTIME_OVERHEAD_GB)
 
 
+def reserve_gb(total):
+    """What is left to the machine, out of what is free."""
+    reserve = RESERVE_GB if not total else max(RESERVE_GB, total * RESERVE_SHARE)
+    return min(reserve, RESERVE_CAP_GB)
+
+
 def usable_ram_gb(available, total):
     """What a model may take, once the machine has been left room to run."""
     if available is None:
         return None
-    reserve = RESERVE_GB if not total else max(RESERVE_GB, total * RESERVE_SHARE)
-    return max(0.0, available - min(reserve, RESERVE_CAP_GB))
+    return max(0.0, available - reserve_gb(total))
 
 
 def quants_for(model):
@@ -581,11 +586,38 @@ def better_with_more(engine, available, total, cores=None):
     # What would have to be free for the better one, expressed the way the
     # person reading it can act on: memory free, not memory used.
     wanted = max(best.model.floor, best.est_ram_gb or 0.0)
-    reserve = RESERVE_GB if not total else max(RESERVE_GB, total * RESERVE_SHARE)
-    needed = wanted + min(reserve, RESERVE_CAP_GB)
+    needed = wanted + reserve_gb(total)
     if total and needed > total:
         return None
     return best.model, needed
+
+
+def freeing_would_help(engine, settings, available, total, cores=None):
+    """What freeing memory would change for this run, or None.
+
+    ``(model, gigabytes free it would need)``. Left to ``auto``, the better
+    model more room would buy, as :func:`better_with_more` has it. Named by
+    hand, the named model itself, when it does not fit in what is free now:
+    it is loaded anyway, and a model that does not fit is a machine that
+    swaps. None when nothing would change, or when the machine could not
+    free that much however much was closed."""
+    settings = settings or {}
+    asked = str(settings.get("summary_model") or "auto").strip().lower()
+    now = _resolve(engine, settings, available, total, cores)
+    if asked == "auto":
+        better = better_with_more(engine, available, total, cores)
+        if better is None or (now is not None
+                              and now.model.name == better[0].name):
+            return None
+        return better
+    usable = usable_ram_gb(available, total)
+    if (now is None or now.est_ram_gb is None or usable is None
+            or now.est_ram_gb <= usable):
+        return None
+    needed = now.est_ram_gb + reserve_gb(total)
+    if total and needed > total:
+        return None
+    return now.model, needed
 
 
 def cheapest(engine):

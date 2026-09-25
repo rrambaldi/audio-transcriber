@@ -42,6 +42,9 @@ All notable changes to this project are documented here. The format follows
   Q8_0. `auto` does not choose it until it has been measured, and
   `diagnose.cmd` now measures it against the default on the same recording,
   fetching a new enough llama.cpp build when the installed one is older.
+  Before each run it also says when more free memory would change the run —
+  a better model, or room for the one named — and asks whether to close
+  things and check again or to go on as it is.
 
 ### Changed
 

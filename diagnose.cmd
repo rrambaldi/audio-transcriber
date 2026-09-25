@@ -140,8 +140,13 @@ rem  Z2-spark-800  the same with 800 tokens for each reading pass instead of
 rem                500: against Z, only the room differs
 rem
 rem All three in the largest size class, "--tier l", whatever memory is free:
-rem two models in two classes would be two things changed. Close what is not
-rem needed first - a machine that swaps measures the swapping.
+rem two models in two classes would be two things changed.
+rem
+rem Before each run, if more free memory would change it - a better model
+rem for a run left to the plan, or room for a named one that does not fit -
+rem the run stops, says how much, and asks: close things and press Enter to
+rem check again, or type G to go on as it is. A machine that swaps measures
+rem the swapping.
 rem
 rem Each run clears the cached passes first, so each one reads the recording.
 rem

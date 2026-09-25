@@ -45,6 +45,7 @@ if (SOURCE / "audio_transcriber").is_dir():      # running from a checkout
     sys.path.insert(0, str(SOURCE))
 
 from audio_transcriber import summary as summarising  # noqa: E402
+from audio_transcriber.hardware import available_ram_gb, total_ram_gb  # noqa: E402
 from audio_transcriber.summarizers import (  # noqa: E402
     ENGINES,
     EXTRACTIVE,
@@ -179,8 +180,47 @@ def chosen_plan(engine, settings):
         "prereduce": getattr(chosen, "prereduce", None),
         "map_answer_tokens": getattr(chosen, "map_answer_tokens", None),
         "reduce_answer_tokens": getattr(chosen, "reduce_answer_tokens", None),
-        "estimated_ram_gb": getattr(chosen, "estimate", None),
+        "estimated_ram_gb": getattr(chosen, "est_ram_gb", None),
     }
+
+
+def ask_for_room(engine, settings, answer=input):
+    """Stop before a run that more free memory would change, and ask.
+
+    It happened once and cost a round: the control of a comparison ran on a
+    smaller model than the one it was there to stand for, because a browser
+    was open when it started, and nobody knew until the numbers came back.
+    Asked before every run, since memory comes and goes between them. Where
+    there is nobody to ask, it says so and goes on."""
+    while True:
+        plan.forget()
+        free, total = available_ram_gb(), total_ram_gb()
+        helps = plan.freeing_would_help(engine, settings, free, total)
+        if helps is None:
+            return
+        model, needed = helps
+        running = plan.resolve_plan(engine, settings, ram=free, total=total)
+        if running is not None and running.model.name != model.name:
+            print(f"\n! {free:.1f} GB of memory are free, so this run would use "
+                  f"{running.model.name}.\n  With {needed:.0f} GB free it "
+                  f"would use {model.name}, which is the better model.",
+                  file=sys.stderr)
+        else:
+            print(f"\n! {free:.1f} GB of memory are free, and {model.name} "
+                  f"needs about {needed:.0f} GB\n  to run without the machine "
+                  "swapping. It would be loaded anyway, and measured slow.",
+                  file=sys.stderr)
+        if not sys.stdin or not sys.stdin.isatty():
+            print("  Nobody to ask here: going on as it is.", file=sys.stderr)
+            return
+        try:
+            said = answer("  Close what you do not need, then press Enter to "
+                          "check again.\n  Or type G and Enter to go on as it "
+                          "is: ")
+        except EOFError:
+            return
+        if said.strip().lower().startswith("g"):
+            return
 
 
 def read_material(path, language):
@@ -329,6 +369,11 @@ def main(argv=None):
               "\n    --engine extractive   run it anyway, on purpose",
               file=sys.stderr)
         return 2
+
+    if engine_name != EXTRACTIVE and not the_plan.get("error"):
+        ask_for_room(engine_name, settings)
+        plan.forget()
+        the_plan = chosen_plan(engine_name, settings)
 
     report = {
         "schema": 1,

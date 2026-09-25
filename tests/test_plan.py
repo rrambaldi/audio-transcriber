@@ -396,3 +396,21 @@ def test_a_model_on_trial_runs_when_named_and_never_by_itself():
                                               "summary_quant": "Q8_0"},
                               ram=14.9, total=31.5, cores=8)
     assert finer.quant == "Q8_0"
+
+
+def test_freeing_memory_is_offered_only_when_it_would_change_the_run():
+    """A busy laptop is told what closing things would buy it, before the run
+    and not after: the better model for a run left to auto, and room to
+    breathe for a model named by hand."""
+    auto = plan.freeing_would_help(plan.LLAMACPP, {}, 6.8, 31.5, 8)
+    assert auto is not None and auto[0].name == "Granite 4.0 H-Tiny"
+    assert plan.freeing_would_help(plan.LLAMACPP, {}, 20.0, 31.5, 8) is None
+
+    spark = {"summary_model": "Spark-X2.5-4B", "summary_tier": "l"}
+    squeezed = plan.freeing_would_help(plan.LLAMACPP, spark, 3.0, 31.5, 8)
+    assert squeezed is not None and squeezed[0].name == "Spark-X2.5-4B"
+    assert 3.0 < squeezed[1] < 8.0
+    assert plan.freeing_would_help(plan.LLAMACPP, spark, 11.0, 31.5, 8) is None
+    # A machine that could not hold it however much was closed is not told
+    # to close things.
+    assert plan.freeing_would_help(plan.LLAMACPP, spark, 1.0, 3.0, 8) is None
