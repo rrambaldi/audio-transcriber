@@ -272,6 +272,18 @@ All notable changes to this project are documented here. The format follows
 
 ### Fixed
 
+- **A section no longer carries a minute nobody said.** The notes a section
+  is written from have no minutes in them, and the instructions every answer
+  is given say to cite the minute "like [12:34]": a model with nothing to
+  cite copied the example. Spark-X2.5-4B wrote it eleven times on one page,
+  Granite 4.0 H-Tiny once. A minute in a section or in the opening paragraph
+  is now taken out, since none of them could have been copied from the
+  recording.
+- **A section title written as one word is split into words.** Spark-X2.5-4B
+  names sections like a programmer — `MonitoraggioUtentiCampagna` — and the
+  page now says "Monitoraggio utenti campagna". A name like "GitHub" is left
+  alone.
+
 - **`short`, `medium` and `long` now do something on a model engine.** They
   had only ever reached the extractive one: on the two engines that write
   prose the setting was read, carried through the settings, printed in the

@@ -74,6 +74,17 @@ OTHER = {"it": "Altri punti", "en": "Other points"}
 _QUOTED = re.compile(r"^[\"'«»“”\s*#]+|[\"'«»“”\s*#]+$")
 _NUMBERED = re.compile(r"^\s*\d{1,2}[.)]\s*")
 
+#: A minute in square brackets. The notes a section is written from carry no
+#: minutes, so a minute in the answer was copied from nowhere in the
+#: recording: it is the example in the system prompt, "[12:34]", written down
+#: by a model told to cite the minute and given none to cite.
+_CITED = re.compile(r"[ \t]*\[\d{1,3}:\d{2}(?::\d{2})?\]")
+
+#: A title written as an identifier, "MonitoraggioUtentiCampagna": words run
+#: together, each after the first starting with a capital. Three lower-case
+#: letters before the capital, so "GitHub" is left as it is.
+_RUN_TOGETHER = re.compile(r"(?<=[a-zà-ù]{3})(?=[A-Z][a-zà-ù]{2})")
+
 
 def _lines(found, language="it", minutes=False):
     """The notes of one section, as the model is given them."""
@@ -83,6 +94,16 @@ def _lines(found, language="it", minutes=False):
                  else f"[{format_clock(note.ts_start)}] ")
         written.append(f"- {clock}{note.text}")
     return "\n".join(written)
+
+
+def _uncited(written):
+    """What a model wrote, less the minutes it could not have copied."""
+    kept = []
+    for line in written.split("\n"):
+        bare = _CITED.sub("", line)
+        if bare.strip() or not line.strip():
+            kept.append(bare)
+    return "\n".join(kept)
 
 
 def _tidy_title(written, language="it"):
@@ -97,6 +118,9 @@ def _tidy_title(written, language="it"):
     line = _NUMBERED.sub("", _QUOTED.sub("", first[0])).strip(" .:;—–-")
     if not line or len(line.split()) > TITLE_WORDS:
         return ""
+    if " " not in line and _RUN_TOGETHER.search(line):
+        first, *rest = _RUN_TOGETHER.split(line)
+        line = " ".join([first] + [word.lower() for word in rest])
     return line
 
 
@@ -147,7 +171,7 @@ def section(cluster, ask, language="it", detail=None):
     prompt = prompting.prompts_for(language)["section"].format(
         notes=_lines(cluster.notes, language),
         shape=detail["shape"], rules=detail["rules"])
-    written = prompting.usable_answer(ask(prompt), prompt)
+    written = _uncited(prompting.usable_answer(ask(prompt), prompt))
     return written.strip() or _lines(cluster.notes, language)
 
 
@@ -166,7 +190,7 @@ def abstract(titles, ask, language="it", detail=None):
     prompt = prompting.prompts_for(language)["abstract_from"].format(
         titles="\n".join(f"- {title}" for title in named),
         span=detail["span"])
-    written = prompting.usable_answer(ask(prompt), prompt)
+    written = _uncited(prompting.usable_answer(ask(prompt), prompt))
     return " ".join(written.split())
 
 

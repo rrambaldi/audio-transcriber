@@ -94,6 +94,31 @@ def test_a_title_comes_back_as_a_title_however_it_was_dressed():
             "Dashboard di monitoraggio")
 
 
+def test_a_title_run_together_like_an_identifier_is_given_its_spaces():
+    """Spark-X2.5-4B names sections the way a programmer names a class."""
+    for written, title in (("MonitoraggioUtentiCampagna",
+                            "Monitoraggio utenti campagna"),
+                           ("ArgomentoInterim", "Argomento interim"),
+                           ("GitHub", "GitHub"),
+                           ("Costo Storage Aruba", "Costo Storage Aruba")):
+        assert writing.label(cluster(DASHBOARD), Asked(written), "it") == title
+
+
+def test_a_minute_nobody_gave_the_model_does_not_reach_the_page():
+    """The notes of a section carry no minutes, so "[12:34]" in its answer is
+    the example in the system prompt, copied: Spark-X2.5-4B wrote it eleven
+    times on one page, and Granite 4.0 H-Tiny once."""
+    answer = ("[12:34]\n\nLa dashboard mostra gli inviti. [12:34]\n\n"
+              "- Un punto [3:05].")
+    written = writing.section(cluster(DASHBOARD), Asked(answer), "it")
+    assert "[" not in written
+    assert written.startswith("La dashboard mostra gli inviti.")
+    assert "- Un punto." in written
+    opening = writing.abstract(["Dashboard"], Asked("[12:34] Si parla di tutto."),
+                               "it")
+    assert opening == "Si parla di tutto."
+
+
 def test_a_paragraph_where_a_title_was_asked_for_is_not_a_title():
     essay = ("Il titolo di questa sezione dovrebbe descrivere l'argomento "
              "trattato, che riguarda principalmente la dashboard e i suoi usi.")
