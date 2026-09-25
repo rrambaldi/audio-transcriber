@@ -152,6 +152,22 @@ CATALOGUE = (
           weights={"Q2_K": 1.14, "Q3_K_M": 1.45, "Q4_K_M": 1.81,
                    "Q5_K_M": 2.12, "Q6_K": 2.44, "Q8_0": 3.16},
           tier="m", floor=3.5),
+    # First in the largest tier because it writes the best page: on gold.srt
+    # at Q8_0 it kept 20 of the 21 facts of the reference and invented none,
+    # where Granite 4.0 H-Tiny kept 18 and invented one. It is also five to
+    # eight times slower, which was measured and accepted. Only Q8_0 is
+    # listed: at Q4_K_M it was slower than Granite and worse. Nine of its 36
+    # layers are full attention; the other 27 slide over 512 tokens and hold
+    # a cache too small to count. Its architecture, ``spark2_5``, needs
+    # llama.cpp b10828 or later, and an older build makes way for Granite.
+    # Read from config.json and the published files on 2026-09-25.
+    Model(name="Spark-X2.5-4B",
+          hf_id="XHToken/Spark-X2.5-4B",
+          gguf_repo="XHToken/Spark-X2.5-4B-GGUF",
+          gguf_file="Spark-X2.5-4B-{quant}.gguf",
+          context=1048576, attn_layers=9, kv_heads=4, head_dim=256,
+          weights={"Q8_0": 4.07},
+          tier="l", floor=6.0),
     Model(name="Granite 4.0 H-Tiny",
           hf_id="ibm-granite/granite-4.0-h-tiny",
           gguf_repo="ibm-granite/granite-4.0-h-tiny-GGUF",
@@ -170,22 +186,6 @@ CATALOGUE = (
           weights={"Q4_K_M": 2.6},
           tier="l", floor=6.0,
           note="weights estimated; no GGUF published"),
-    # No tier: ``auto`` never chooses it and it runs only when named. On
-    # gold.srt at Q8_0 it wrote the best page measured (20 of 21 facts, none
-    # invented) in 19 to 33 minutes, against four for Granite 4.0 H-Tiny;
-    # at Q4_K_M it was slower than Granite and worse. Nine of its 36 layers
-    # are full attention; the other 27 slide over 512 tokens and hold a cache
-    # too small to count. Its architecture, ``spark2_5``, needs llama.cpp
-    # b10828 or later. Read from config.json and the published files on
-    # 2026-09-25.
-    Model(name="Spark-X2.5-4B",
-          hf_id="XHToken/Spark-X2.5-4B",
-          gguf_repo="XHToken/Spark-X2.5-4B-GGUF",
-          gguf_file="Spark-X2.5-4B-{quant}.gguf",
-          context=1048576, attn_layers=9, kv_heads=4, head_dim=256,
-          weights={"Q4_K_M": 2.42, "Q8_0": 4.07},
-          tier=None, floor=6.0,
-          note="chosen only by name: 5 to 8 times slower than Granite H-Tiny"),
 )
 
 #: Still accepted by name, no longer chosen by ``auto``. Somebody who
@@ -356,24 +356,19 @@ def runnable(model, engine):
 def candidates(tier, engine, usable=None, skip=()):
     """The models this tier would choose between, best first.
 
-    A tier can hold more than one, and then the floor decides: Granite H-Tiny
-    is the better model of the two in the largest tier and wants eight
-    gigabytes to be worth loading, so a machine with seven gets the other
-    one rather than a squeezed version of the bigger."""
+    A tier can hold more than one, and then the catalogue order decides,
+    among the ones whose floor this machine reaches: Granite H-Tiny wants
+    eight gigabytes to be worth loading, so a machine with seven that cannot
+    load Spark gets a smaller tier rather than a squeezed Granite."""
     refused = {str(name).strip().lower() for name in (skip or ())}
-    found = [(index, model) for index, model in enumerate(CATALOGUE)
-             if model.tier == tier.name and runnable(model, engine)
-             and (usable is None or usable >= model.floor)
-             # A model this machine has already refused to convert or load is
-             # not a candidate any more: asking for it again is asking for the
-             # same failure, slowly.
-             and model.name.lower() not in refused
-             and str(model.hf_id or "").lower() not in refused]
-    # The floor first, then the order they are listed in: two models in one
-    # tier that want the same memory are ranked by the catalogue, which is
-    # where a measurement can be recorded and a preference explained.
-    found.sort(key=lambda pair: (-pair[1].floor, pair[0]))
-    return tuple(model for _, model in found)
+    return tuple(model for model in CATALOGUE
+                 if model.tier == tier.name and runnable(model, engine)
+                 and (usable is None or usable >= model.floor)
+                 # A model this machine has already refused to convert or load
+                 # is not a candidate any more: asking for it again is asking
+                 # for the same failure, slowly.
+                 and model.name.lower() not in refused
+                 and str(model.hf_id or "").lower() not in refused)
 
 
 def _lower(context):

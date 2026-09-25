@@ -494,6 +494,26 @@ def test_the_model_is_let_go_even_when_the_summary_fails(stubbed, monkeypatch):
     assert stubbed.made[0].closed
 
 
+def test_a_model_this_build_cannot_load_makes_way_for_the_next(stubbed, monkeypatch):
+    """A llama.cpp older than Spark's architecture refuses the file on load:
+    the plan's next model writes the page, and a model named by hand is not
+    replaced."""
+    loaded = []
+
+    def open_pipeline(path, chosen, settings=None):
+        loaded.append(chosen.model.name)
+        if chosen.model.name == "Spark-X2.5-4B":
+            raise SummaryError("unknown model architecture: 'spark2_5'")
+        return FakePipeline()
+
+    monkeypatch.setattr(engine, "open_pipeline", open_pipeline)
+    sections, _ = engine.summarize(material(), {"summary_shape": reading.HEADINGS})
+    assert sections.abstract
+    assert loaded == ["Spark-X2.5-4B", "Granite 4.0 H-Tiny"]
+    with pytest.raises(SummaryError, match="spark2_5"):
+        engine.summarize(material(), {"summary_model": "Spark-X2.5-4B"})
+
+
 def test_the_page_is_told_which_model_wrote_it(stubbed):
     assert engine.LABEL in engine.label({})
     assert "MiniCPM" in engine.label({"summary_model": "MiniCPM5-1B"})

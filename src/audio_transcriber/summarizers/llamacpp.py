@@ -50,7 +50,7 @@ import urllib.request
 from .. import paths
 from ..hardware import available_ram_gb, module_available, total_ram_gb
 from ..i18n import t
-from ..summary import SummaryError
+from ..summary import NotEnoughMemory, SummaryError
 from . import plan, reading
 
 NAME = "llamacpp"
@@ -570,22 +570,53 @@ def summarize(material, settings=None, progress=None):
     :mod:`~audio_transcriber.summarizers.reading`. What is here is the model's
     life cycle, which is the only part that is about llama.cpp."""
     settings = settings or {}
-    chosen = reading.choose(plan.LLAMACPP, settings, available_ram_gb(),
-                            total_ram_gb())
-
     given = str(settings.get("summary_model") or "auto").strip()
-    if given and given.lower() != "auto" and os.path.isfile(given):
-        path, name = given, os.path.basename(given)
-    else:
-        path, name = None, chosen.model.name
+    by_name = bool(given) and given.lower() != "auto"
+    refused, last = [], None
+    while True:
+        try:
+            chosen = reading.choose(plan.LLAMACPP, settings, available_ram_gb(),
+                                    total_ram_gb(), skip=refused)
+        except NotEnoughMemory as no_room:
+            if last is not None:
+                raise last from no_room
+            raise
 
-    def start():
-        target = path or fetch(chosen.model, chosen.quant,
-                               settings.get("models_dir"))
-        return open_pipeline(target, chosen, settings)
+        if by_name and os.path.isfile(given):
+            path, name = given, os.path.basename(given)
+        else:
+            path, name = None, chosen.model.name
 
-    return reading.summarize_with(start, chosen, material, settings, progress,
-                                  model_name=name)
+        def start(path=path, chosen=chosen):
+            target = path or fetch(chosen.model, chosen.quant,
+                                   settings.get("models_dir"))
+            try:
+                return open_pipeline(target, chosen, settings)
+            except SummaryError as exc:
+                if by_name:
+                    raise
+                raise _Refused(exc) from exc
+
+        try:
+            return reading.summarize_with(start, chosen, material, settings,
+                                          progress, model_name=name)
+        except _Refused as refusal:
+            # A build of llama.cpp older than the model's architecture refuses
+            # the file when it loads it, before anything is read: the next
+            # model down is a summary, the refusal is not. A model named by
+            # hand is not replaced, as on the other engine.
+            last = refusal.error
+            print(t("summary.model_unusable_next", model=name, error=last),
+                  file=sys.stderr)
+            refused.append(chosen.model.name)
+
+
+class _Refused(Exception):
+    """A model this installation would not load, carrying why."""
+
+    def __init__(self, error):
+        super().__init__(str(error))
+        self.error = error
 
 
 def label(settings=None):

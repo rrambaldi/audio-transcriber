@@ -1273,14 +1273,15 @@ def test_a_run_says_what_freeing_memory_would_buy(capsys):
     chosen = plan.resolve_plan(plan.LLAMACPP, ram=4.0, total=32.0, cores=8)
     assert reading.say_what_more_room_would_buy(plan.LLAMACPP, chosen, 4.0, 32.0)
     said = capsys.readouterr().err
-    assert "Granite 4.0 H-Tiny" in said
-    assert "4.0" in said and "10" in said
+    assert "Spark-X2.5-4B" in said
+    assert "4.0" in said and "8" in said
 
 
 def test_a_model_named_by_hand_hears_nothing_about_a_better_one(capsys):
     """No amount of free memory changes which model runs once it is named."""
-    reading.choose(plan.LLAMACPP, {"summary_model": "Spark-X2.5-4B"}, 9.9, 31.5)
-    assert "Granite" not in capsys.readouterr().err
+    reading.choose(plan.LLAMACPP, {"summary_model": "Granite 4.0 H-Micro"},
+                   6.8, 31.5)
+    assert "Spark" not in capsys.readouterr().err
 
 
 def test_nothing_is_said_when_the_best_model_is_already_loaded(capsys):

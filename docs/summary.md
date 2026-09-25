@@ -330,20 +330,19 @@ layers, a tenth of what a dense model of the same depth would keep.
 | `xs` | 1.0–2.0 GB | LFM2.5-1.2B Q4_K_M | 2048 | q8_0 / q4_0 | always |
 | `s` | 2.0–3.5 GB | MiniCPM5-2B Q4_K_M | 4096 | q8_0 / q8_0 | above 4 passes |
 | `m` | 3.5–6.0 GB | Granite 4.0 H-Micro Q4_K_M | 8192 | q8_0 / q8_0 | above 8 passes |
-| `l` | above 6.0 GB | Qwen3.5-4B, or Granite 4.0 H-Tiny above 8 GB | 16384 | f16 / f16 | no |
+| `l` | above 6.0 GB | Spark-X2.5-4B Q8_0, or Granite 4.0 H-Tiny above 8 GB | 16384 | f16 / f16 | no |
 
 "Usable" is the free memory less a reserve for the operating system and for
 the rest of this program, which is holding a transcript while the model runs.
 
-One model is in the catalogue without a class: **Spark-X2.5-4B**. `auto`
-never chooses it; `--model Spark-X2.5-4B` does, on the llama.cpp engine only,
-and wants llama.cpp b10828 or later for its architecture. Measured against
-Granite 4.0 H-Tiny on the same 22-minute recording, on an Intel Arc 140V: at
-Q8_0 it wrote the best page (20 of the 21 facts of the reference summary, none
-invented, against 18 and one invented), but in 19 to 33 minutes against four.
-At Q4_K_M it was slower than Granite and wrote less. A summary that takes
-longer than the recording is not a default, so it is there for whoever wants
-the better page and can wait for it.
+On llama.cpp the largest class starts with **Spark-X2.5-4B**, at Q8_0 only.
+Measured against Granite 4.0 H-Tiny on the same 22-minute recording, on an
+Intel Arc 140V, it wrote the best page (20 of the 21 facts of the reference
+summary, none invented, against 18 and one invented), in 19 to 33 minutes
+against four: the better page was worth the wait. At Q4_K_M it was slower
+than Granite and wrote less, so that file is not offered. Its architecture
+needs llama.cpp b10828 or later; an older build refuses the file when it
+loads it, and the run says so and goes on with Granite 4.0 H-Tiny.
 
 The smallest class is LFM2.5-1.2B and not MiniCPM5-1B, and the reason is worth
 recording: asked in Italian to summarise a news article in three sentences,

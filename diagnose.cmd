@@ -199,12 +199,11 @@ rem
 rem   Granite 4.0 H-Tiny Q4   240 s   coverage 95%   18 of 21 facts, one invented
 rem   Spark-X2.5-4B Q4        415 s   coverage 91%   17 of 21, verbose, garbled
 rem   Spark, 800 per pass     556 s   coverage 91%   17 of 21, only longer
-rem   Spark-X2.5-4B Q8        ?       coverage 95%   20 of 21, nothing invented
+rem   Spark-X2.5-4B Q8   1990 s   coverage 95%   20 of 21, nothing invented
 rem
-rem Spark at Q4 is out. Spark at Q8 wrote the best page of all, and its time
-rem is the one number missing: the run that measured it also downloaded it.
-rem This round measures it again, now that the file is here, next to the
-rem control, so the two times come from the same machine on the same day.
+rem Spark at Q4 is out. Spark at Q8 wrote the best page of all, and is now
+rem what the plan chooses on llama.cpp: slower, and worth it. The round below
+rem is the one that measured its time, next to the control, on the same day.
 rem
 rem  Z3-granite    Granite 4.0 H-Tiny at Q4_K_M, named: the control
 rem  Z3-spark-q8   Spark-X2.5-4B at Q8_0: against Z3-granite, only the model

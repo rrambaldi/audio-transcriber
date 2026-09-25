@@ -51,11 +51,13 @@ All notable changes to this project are documented here. The format follows
   them down, and reading the same recording again under another template
   starts from the transcript. Length is the opposite, deliberately.
 
-- **Spark-X2.5-4B can be asked for by name**: `--model Spark-X2.5-4B` on the
-  llama.cpp engine (build b10828 or later), at Q4_K_M or Q8_0. `auto` does
-  not choose it: at Q8_0 it wrote the best page measured, but five to eight
-  times slower than Granite 4.0 H-Tiny, longer than the recording itself.
-  `diagnose.cmd` now measures it against the default on the same recording,
+- **Spark-X2.5-4B writes the summaries on llama.cpp**, at Q8_0, wherever six
+  gigabytes are usable: it wrote the best page measured, 20 of the 21 facts
+  of the reference against Granite 4.0 H-Tiny's 18, and none invented. It is
+  five to eight times slower, and that was accepted. It needs llama.cpp
+  b10828 or later; an older build refuses it on load, and the run says so
+  and goes on with the next model down instead of failing.
+  `diagnose.cmd` now measures it against Granite on the same recording,
   fetching a new enough llama.cpp build when the installed one is older.
   Before each run it also says when more free memory would change the run —
   a better model, or room for the one named — and asks whether to close

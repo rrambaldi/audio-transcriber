@@ -117,9 +117,12 @@ def test_a_machine_that_will_not_say_is_treated_as_the_smallest_one(monkeypatch)
 
 
 def test_the_better_model_of_a_tier_needs_the_memory_to_be_worth_it():
-    """Granite H-Tiny is the better model and wants eight gigabytes."""
-    plenty = plan.resolve_plan(plan.LLAMACPP, ram=32.0, total=64.0, cores=8)
-    scarce = plan.resolve_plan(plan.LLAMACPP, ram=5.0, total=10.0, cores=8)
+    """Granite H-Tiny is next after Spark and wants eight gigabytes."""
+    spark = ("Spark-X2.5-4B",)
+    plenty = plan.resolve_plan(plan.LLAMACPP, ram=32.0, total=64.0, cores=8,
+                               skip=spark)
+    scarce = plan.resolve_plan(plan.LLAMACPP, ram=9.0, total=31.5, cores=8,
+                               skip=spark)
     assert plenty.model.name == "Granite 4.0 H-Tiny"
     assert scarce.model.name != "Granite 4.0 H-Tiny"
 
@@ -239,21 +242,27 @@ def test_a_tier_asked_for_by_name_is_the_only_one_considered():
     assert chosen.tier == "xs"
 
 
+#: Spark is published only at Q8_0; the precision ladder is Granite's.
+ONLY_Q8 = ("Spark-X2.5-4B",)
+
+
 def test_a_weight_precision_asked_for_by_name_is_the_one_loaded():
     """The default is the coarse file, because it is the one that fits
     everywhere. A machine with room to spare can ask for the model to be
     read out of a finer one."""
     chosen = plan.resolve_plan(plan.LLAMACPP, {"summary_quant": "Q8_0"},
-                               ram=12.5, total=31.5, cores=8)
+                               ram=12.5, total=31.5, cores=8,
+                               skip=ONLY_Q8)
     assert chosen.quant == "Q8_0"
     plan.forget()
     assert plan.resolve_plan(plan.LLAMACPP, ram=12.5, total=31.5,
-                             cores=8).quant == "Q4_K_M"
+                             cores=8, skip=ONLY_Q8).quant == "Q4_K_M"
 
 
 def test_the_case_of_a_precision_is_not_the_person_s_problem():
     chosen = plan.resolve_plan(plan.LLAMACPP, {"summary_quant": "q6_k"},
-                               ram=12.5, total=31.5, cores=8)
+                               ram=12.5, total=31.5, cores=8,
+                               skip=ONLY_Q8)
     assert chosen.quant == "Q6_K"
 
 
@@ -275,7 +284,8 @@ def test_a_precision_nobody_publishes_is_no_precision():
     for asked in ("nonsense", "", "auto", None):
         plan.forget()
         chosen = plan.resolve_plan(plan.LLAMACPP, {"summary_quant": asked},
-                                   ram=12.5, total=31.5, cores=8)
+                                   ram=12.5, total=31.5, cores=8,
+                               skip=ONLY_Q8)
         assert chosen.quant == "Q4_K_M", asked
     assert plan.quant_named("Q3_K_M") == "Q3_K_M"
     assert plan.quant_named("q3_k_m") == "Q3_K_M"
@@ -360,7 +370,7 @@ def test_a_machine_is_told_what_freeing_memory_would_buy_it():
     better = plan.better_with_more(plan.LLAMACPP, 4.0, 32.0, 8)
     assert better is not None
     model, needed = better
-    assert model.name == "Granite 4.0 H-Tiny"
+    assert model.name == "Spark-X2.5-4B"
     assert 4.0 < needed <= 32.0
 
 
@@ -381,21 +391,23 @@ def test_a_model_that_cannot_be_loaded_is_never_advised():
         assert better is None or plan.runnable(better[0], plan.OPENVINO)
 
 
-def test_a_model_on_trial_runs_when_named_and_never_by_itself():
-    """Spark-X2.5-4B is in the catalogue to be measured, not to be chosen:
-    no amount of memory makes ``auto`` pick it, and naming it gets its GGUF."""
+def test_spark_is_the_first_choice_on_llama_cpp_and_only_at_q8():
+    """It writes the best page, slowly, and at Q4_K_M it writes a worse one
+    than Granite: with six usable gigabytes ``auto`` takes it at Q8_0, and
+    OpenVINO, which cannot load it, never does."""
+    chosen = plan.resolve_plan(plan.LLAMACPP, ram=9.0, total=31.5, cores=8)
+    assert chosen.model.name == "Spark-X2.5-4B" and chosen.quant == "Q8_0"
+    assert chosen.tier == "l"
+    busy = plan.resolve_plan(plan.LLAMACPP, ram=6.8, total=31.5, cores=8)
+    assert busy.model.name != "Spark-X2.5-4B"
     for memory in (4.0, 10.0, 32.0, 96.0):
-        for engine in (plan.LLAMACPP, plan.OPENVINO):
-            chosen = plan.resolve_plan(engine, ram=memory, total=128.0, cores=8)
-            assert chosen is None or chosen.model.name != "Spark-X2.5-4B"
-    named = plan.resolve_plan(plan.LLAMACPP, {"summary_model": "Spark-X2.5-4B"},
+        chosen = plan.resolve_plan(plan.OPENVINO, ram=memory, total=128.0, cores=8)
+        assert chosen is None or chosen.model.name != "Spark-X2.5-4B"
+    named = plan.resolve_plan(plan.LLAMACPP, {"summary_model": "Spark-X2.5-4B",
+                                              "summary_quant": "Q4_K_M"},
                               ram=14.9, total=31.5, cores=8)
     assert named.model.gguf_repo == "XHToken/Spark-X2.5-4B-GGUF"
-    assert named.quant == "Q4_K_M" and named.tier == "l"
-    finer = plan.resolve_plan(plan.LLAMACPP, {"summary_model": "Spark-X2.5-4B",
-                                              "summary_quant": "Q8_0"},
-                              ram=14.9, total=31.5, cores=8)
-    assert finer.quant == "Q8_0"
+    assert named.quant == "Q8_0"
 
 
 def test_freeing_memory_is_offered_only_when_it_would_change_the_run():
@@ -403,7 +415,7 @@ def test_freeing_memory_is_offered_only_when_it_would_change_the_run():
     and not after: the better model for a run left to auto, and room to
     breathe for a model named by hand."""
     auto = plan.freeing_would_help(plan.LLAMACPP, {}, 6.8, 31.5, 8)
-    assert auto is not None and auto[0].name == "Granite 4.0 H-Tiny"
+    assert auto is not None and auto[0].name == "Spark-X2.5-4B"
     assert plan.freeing_would_help(plan.LLAMACPP, {}, 20.0, 31.5, 8) is None
 
     spark = {"summary_model": "Spark-X2.5-4B", "summary_tier": "l"}
