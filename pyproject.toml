@@ -127,4 +127,5 @@ ignore = [
 # The message catalogue is data: wrapping the strings would make it harder to
 # read and to diff against a translation.
 "src/audio_transcriber/i18n.py" = ["E501"]
+"src/audio_transcriber/i18n_*.py" = ["E501"]
 "tests/*" = ["E501"]

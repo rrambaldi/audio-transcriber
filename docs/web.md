@@ -318,7 +318,14 @@ preset is the one it was cut with when it was made. `X-Subtitle-Cues` and
 
 `web/static/`: one HTML file, one stylesheet, one script, no build step and no
 framework. It is served by the same process. The interface language follows the
-server's — `audio-transcriber --lang it web` gives an Italian page.
+server's — `audio-transcriber --lang it web` gives an Italian page — until the
+menu at the foot of the page says otherwise: English, Italiano, Français,
+Deutsch, each in its own words. The choice is a cookie scoped to the page's
+folder rather than localStorage, because the server reads it too: the status
+call reports it, and a job submitted from that page writes its messages in it
+while the server goes on speaking its own language to everybody else. The
+page reloads to change, and asks first when a recording or an upload would
+not survive that.
 
 The icon and the fonts are not in `static/`. Browser and window use the same
 files, so they sit in the package as `data/brand/` and the app mounts them at

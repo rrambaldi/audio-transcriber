@@ -623,6 +623,12 @@ into the About box is **a link in the masthead**, on the right, where the
 version number used to be. **F1** opens the same box, being the key people
 press looking for help on a program that has none.
 
+Under the link, a menu of the four interface languages, each by its own
+name. The choice goes to `gui.ini` and the window opens in it the next time;
+the one already open is not rebuilt under a transcription that may be
+running, and the note that says so is written in the language just picked.
+A `--lang` on the command line still wins over it.
+
 The version number is *not* in the masthead: apart from the title bar, the
 About box is the only place the window writes it down. A band somebody reads
 all day is not where a build number belongs, and it is one click from it.

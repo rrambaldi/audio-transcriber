@@ -14,15 +14,15 @@ from datetime import datetime
 from . import paths, pipeline
 from .config import OUTPUTS, ConfigError, load_config, load_dotenv, resolve
 from .formatting import format_duration
-from .i18n import AVAILABLE_LANGUAGES, set_language, t
+from .i18n import AVAILABLE_LANGUAGES, ENV_LANGUAGE, set_language, t
 from .library import STORE_COPY, STORE_MODES, Library, LibraryError
 from .reference import POOR_MATCH, ReferenceError
 from .subtitles import PROBLEM_GROUPS, TIMING_PROBLEMS
 from .summarizers import CHOICES as SUMMARY_ENGINES
+from .summarizers.templates import TemplateError
 from .summary import LENGTHS as SUMMARY_LENGTHS
 from .summary import STYLES as SUMMARY_STYLES
 from .transcription import BACKENDS
-from .summarizers.templates import TemplateError
 from .vocabularies import MAX_PROMPT_CHARS, VocabularyError
 
 COMMANDS = ("transcribe", "summarize", "library", "vocab", "template",
@@ -35,7 +35,8 @@ CONFIG_TEMPLATE = '''\
 # Remove or comment out anything you want to leave at its built-in default.
 
 [general]
-# Interface language for messages and help: "en" or "it".
+# Interface language for messages and help: "en", "it", "fr" or "de".
+# --lang and AUDIO_TRANSCRIBER_LANG win over it.
 # interface_language = "en"
 # Spoken language of the recordings; "" auto-detects it.
 language = "it"
@@ -1041,12 +1042,15 @@ def command_web(args, settings):
     return run(args.host, args.port, settings, root_path=args.root_path)
 
 
-def command_gui(settings):
-    """Open the desktop window."""
+def command_gui(settings, lang=None):
+    """Open the desktop window.
+
+    ``lang`` is a ``--lang`` typed on this command line, which wins over the
+    language chosen in the window's own menu; nothing else does."""
     from .gui import run
 
     start_logging("window")
-    return run(settings)
+    return run(settings, lang)
 
 
 def start_logging(what):
@@ -1193,6 +1197,11 @@ def main(argv=None):
         config_error = t("cli.config_invalid", path=paths.config_file(), error=exc)
     for warning in warnings:
         print(f"  {warning}", file=sys.stderr)
+    # The file's language comes after the option and the environment, which
+    # were read first; it was written down and never read before this.
+    if (file_settings.get("interface_language") and not preparse_language(argv)
+            and not os.environ.get(ENV_LANGUAGE)):
+        set_language(file_settings["interface_language"])
 
     display_defaults = resolve({}, file_settings)
     parser = build_parser(display_defaults)
@@ -1229,7 +1238,7 @@ def main(argv=None):
     if command == "web":
         return command_web(args, settings)
     if command == "gui":
-        return command_gui(settings)
+        return command_gui(settings, args.lang)
     if command == "config":
         return command_config(args, settings, config_path)
     if command == "library":

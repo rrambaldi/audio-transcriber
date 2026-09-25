@@ -62,7 +62,8 @@ audio-transcriber meeting.mp4        # -> meeting.txt
   reads along with the transcript and a recorder that can capture the
   microphone, what the speakers are playing, or both mixed together — which is
   how you record a call.
-- English and Italian interface.
+- The interface in English, Italian, French and German, picked from a menu
+  in the page and in the window, or with `--lang`.
 
 ## Install
 

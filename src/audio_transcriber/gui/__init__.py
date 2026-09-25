@@ -18,7 +18,7 @@ def available():
     return module_available("PySide6")
 
 
-def run(settings=None):
+def run(settings=None, lang=None):
     """Open the window and return the process exit code."""
     from ..i18n import t
 
@@ -30,4 +30,4 @@ def run(settings=None):
         # PySide6 is there but not usable: a partial install, or a Linux box
         # missing the X/Wayland libraries Qt links against.
         sys.exit(t("gui.broken", error=exc))
-    return launch(settings)
+    return launch(settings, lang=lang)

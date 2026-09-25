@@ -192,6 +192,31 @@ def test_about_admits_a_copy_with_no_licence_file(client, monkeypatch):
         about.licence_text.cache_clear()
 
 
+def test_a_page_read_in_german_is_answered_in_german():
+    """The page's language menu leaves a cookie; the status reports it and a
+    job submitted from that page runs in it, whatever the server speaks."""
+    from audio_transcriber import i18n
+
+    heard = []
+
+    def runner(job):
+        heard.append(i18n.language())
+        job.entry_id = "2026-09-04_1200_" + job.id
+        job.words = 3
+
+    queue = jobs_module.JobQueue(SETTINGS, runner=runner,
+                                 measurer=lambda path: [1, 500, 1000])
+    client = TestClient(create_app(SETTINGS, queue))
+    client.cookies.set("interface_language", "de")
+    assert client.get("/api/status").json()["interface_language"] == "de"
+    job = wait_for(queue, client.post("/api/jobs", files={"file": ("a.wav", b"x")}).json()["id"])
+    assert job.interface_language == "de"
+    assert heard == ["de"]
+
+    client.cookies.clear()
+    assert client.get("/api/status").json()["interface_language"] == i18n.language()
+
+
 def test_status_describes_the_installation(client):
     data = client.get("/api/status").json()
     assert data["defaults"]["model"] == "small"

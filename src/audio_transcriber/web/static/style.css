@@ -711,3 +711,5 @@ menu { display: flex; gap: 1.2rem; align-items: center; padding: 0; margin: 1.8r
 }
 
 footer { max-width: 72rem; margin: 0 auto; padding-top: 2rem; }
+.footer-language { display: flex; align-items: baseline; gap: 0.6rem; }
+.footer-language select { width: auto; }

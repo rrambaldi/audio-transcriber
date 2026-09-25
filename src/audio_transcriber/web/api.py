@@ -55,6 +55,9 @@ STATIC_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
 #: desktop window and lives in the package rather than under static/.
 BRAND_DIR = branding.DIR
 
+#: The cookie the page's language menu writes, and the server reads back.
+LANGUAGE_COOKIE = "interface_language"
+
 #: The most lines ``/api/log`` will hand over at once. A ceiling on what a
 #: caller can ask for, not on what the log holds: the panel wants a tail, and
 #: somebody who wants the whole file has the file.
@@ -87,6 +90,17 @@ def create_app(settings=None, queue=None):
     app.state.meter = hardware.Meter()
     app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
     app.mount("/brand", StaticFiles(directory=BRAND_DIR), name="brand")
+
+    @app.middleware("http")
+    async def in_the_page_language(request, call_next):
+        """Answer a page in the language it is read in.
+
+        The page's language menu leaves it in a cookie, which every request
+        carries: the status call then reports it, and a job submitted from
+        that page writes its messages in it. No cookie, the server's own."""
+        with i18n.speaking(request.cookies.get(LANGUAGE_COOKIE)):
+            return await call_next(request)
+
     register_routes(app)
     return app
 

@@ -73,3 +73,37 @@ def test_missing_placeholders_do_not_raise():
     i18n.set_language("en")
     assert i18n.t("hardware.summary")  # no kwargs at all
     assert i18n.t("hardware.summary", cores=1)  # only some of them
+
+
+def test_every_interface_language_is_named_in_its_own_words():
+    assert set(i18n.LANGUAGE_NAMES) == set(i18n.AVAILABLE_LANGUAGES)
+    assert set(i18n.AVAILABLE_LANGUAGES) == {"en", "it", "fr", "de"}
+    assert i18n.LANGUAGE_NAMES["de"] == "Deutsch"
+
+
+def test_french_and_german_are_spoken():
+    assert i18n.set_language("fr_FR.UTF-8") == "fr"
+    assert i18n.t("gui.close") == i18n.MESSAGES["fr"]["gui.close"]
+    assert i18n.set_language("de") == "de"
+    assert i18n.t("gui.close") == i18n.MESSAGES["de"]["gui.close"]
+    assert i18n.MESSAGES["de"]["gui.close"] != i18n.MESSAGES["en"]["gui.close"]
+
+
+def test_a_request_can_speak_another_language_than_the_process():
+    """A page read in German, on a server started in Italian: its request and
+    its job answer in German, and nothing else does."""
+    import threading
+
+    i18n.set_language("it")
+    with i18n.speaking("de"):
+        assert i18n.language() == "de"
+        elsewhere = []
+        thread = threading.Thread(target=lambda: elsewhere.append(i18n.language()))
+        thread.start()
+        thread.join()
+        assert elsewhere == ["it"]
+    assert i18n.language() == "it"
+    with i18n.speaking("xx"):
+        assert i18n.language() == "it"
+    with i18n.speaking(None):
+        assert i18n.language() == "it"

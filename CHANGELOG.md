@@ -8,6 +8,20 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- **The interface speaks French and German too**, besides English and
+  Italian: the command line, its help, the window and the page, every
+  message of each. It is picked from a menu of the four, each named in its
+  own words — at the foot of the page, and under the About link in the
+  window — as well as with `--lang` or `interface_language` in
+  `config.toml`, which until now was written down and never read.
+
+  The page keeps its choice in a cookie rather than in the browser's
+  storage, because the server reads it too: the status, the errors and the
+  jobs that page submits come back in its language while the server goes on
+  speaking its own to everybody else. The window keeps its choice in
+  `gui.ini` and opens in it the next time; a `--lang` typed on the command
+  line still wins.
+
 - **The sections of a summary can be chosen, by name or by hand.** A
   template says *these* are the sections I want and this is what goes under
   each; `audio-transcriber template list` shows the ones that ship —

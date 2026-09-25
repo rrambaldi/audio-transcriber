@@ -190,21 +190,35 @@ def test_a_summary_row_does_not_look_like_the_recording_it_reads(script):
 # --- the message catalogue ------------------------------------------------
 
 def catalogues(script):
-    def keys(text):
-        return set(re.findall(r"^    (\w+):", text, re.M))
-
+    """Every language block of the page's catalogue, as {code: keys}."""
     block = re.search(r"const I18N = \{(.*?)\n\};", script, re.S).group(1)
-    english, italian = block.split("  it: {")
-    return keys(english), keys(italian)
+    parts = re.split(r"^  (\w+): \{$", block, flags=re.M)[1:]
+    return {code: set(re.findall(r"^    (\w+):", text, re.M))
+            for code, text in zip(parts[::2], parts[1::2], strict=True)}
 
 
-def test_both_languages_define_the_same_messages(script):
-    english, italian = catalogues(script)
-    assert english == italian
+def test_every_language_defines_the_same_messages(script):
+    found = catalogues(script)
+    assert set(found) == {"en", "it", "fr", "de"}
+    for code, keys in found.items():
+        assert keys == found["en"], code
+
+
+def test_the_language_menu_names_every_language_in_its_own_words(page, script):
+    """The same four as the program's own catalogue, each by its own name."""
+    from audio_transcriber import i18n
+
+    assert '<select id="interface-language">' in page
+    names = re.search(r"const LANGUAGE_NAMES = \{(.*?)\};", script).group(1)
+    assert set(re.findall(r"(\w+):", names)) == set(catalogues(script))
+    assert set(catalogues(script)) == set(i18n.AVAILABLE_LANGUAGES)
+    # A cookie, because the server has to read it too.
+    assert "document.cookie = `${LANGUAGE_COOKIE}=" in script
+    assert 'LANGUAGE_COOKIE = "interface_language"' in script
 
 
 def test_every_message_the_page_asks_for_exists(page, script):
-    english, _ = catalogues(script)
+    english = catalogues(script)["en"]
     used = set(re.findall(r'data-t="([^"]+)"', page))
     used |= set(re.findall(r't\("([a-z_]+)"', script))
     # job statuses are looked up through a variable, t(job.status)

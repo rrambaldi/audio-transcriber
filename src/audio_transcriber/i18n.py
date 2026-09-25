@@ -7,12 +7,22 @@ returned verbatim so a typo is loud instead of silent.
 
 Language resolution order: :func:`set_language` (the ``--lang`` option), the
 ``AUDIO_TRANSCRIBER_LANG`` environment variable, the system locale, English.
+Inside :func:`speaking` one request or one job can be answered in another
+language than the process's: that is how a web page read in German gets
+German from a server started in Italian.
 """
+import contextvars
 import locale
 import os
+from contextlib import contextmanager
 
 DEFAULT_LANGUAGE = "en"
 ENV_LANGUAGE = "AUDIO_TRANSCRIBER_LANG"
+
+#: Each interface language by its own name, for the menus that choose one: a
+#: list of languages is read by somebody who may not read the current one.
+LANGUAGE_NAMES = {"en": "English", "it": "Italiano", "fr": "Français",
+                  "de": "Deutsch"}
 
 MESSAGES = {
     "en": {
@@ -552,6 +562,8 @@ MESSAGES = {
         # have to rely on, and a translation of it would be a second licence.
         "about.open": "About",
         "about.open_tip": "What this program is, and the licence it is given under",
+        "gui.language": "The language of this window",
+        "gui.language_next_time": "The window will be in {language} the next time it opens.",
         "about.title": "About audio-transcriber",
         "about.version": "Version {version}",
         "about.licence": "License",
@@ -1525,6 +1537,8 @@ MESSAGES = {
         # --- informazioni e licenza -------------------------------------------
         "about.open": "Informazioni",
         "about.open_tip": "Cos'e' questo programma e con quale licenza e' dato",
+        "gui.language": "La lingua di questa finestra",
+        "gui.language_next_time": "La finestra sara' in {language} la prossima volta che la apri.",
         "about.title": "Informazioni su audio-transcriber",
         "about.version": "Versione {version}",
         "about.licence": "Licenza",
@@ -2295,10 +2309,25 @@ HELP = {
 for _language, _entries in HELP.items():
     MESSAGES[_language].update(_entries)
 
+# French and German live in files of their own, help included: generated
+# from the English and kept in step with it by the same test as Italian.
+from .i18n_de import MESSAGES as _GERMAN  # noqa: E402
+from .i18n_fr import MESSAGES as _FRENCH  # noqa: E402
+
+MESSAGES["de"] = _GERMAN
+MESSAGES["fr"] = _FRENCH
 
 AVAILABLE_LANGUAGES = tuple(sorted(MESSAGES))
 
 _current = None
+
+#: The language of this request or this job, when it is not the process's.
+_speaking = contextvars.ContextVar("interface_language", default=None)
+
+
+def _code(value):
+    """"de_DE.UTF-8", "DE" and "de" are all German."""
+    return str(value or "").split(".")[0].split("_")[0].split("-")[0].strip().lower()
 
 
 def _from_locale():
@@ -2311,7 +2340,7 @@ def _from_locale():
             value = getter() or ""
         except Exception:
             continue
-        code = value.split(".")[0].split("_")[0].strip().lower()
+        code = _code(value)
         if code in MESSAGES:
             return code
     return None
@@ -2324,7 +2353,7 @@ def set_language(lang=None):
     ``--lang`` never stops a long transcription."""
     global _current
     if lang:
-        code = str(lang).split(".")[0].split("_")[0].strip().lower()
+        code = _code(lang)
         if code in MESSAGES:
             _current = code
             return _current
@@ -2339,7 +2368,24 @@ def set_language(lang=None):
 
 def language():
     """Current language code, resolving it on first use."""
-    return _current if _current in MESSAGES else set_language(None)
+    return (_speaking.get()
+            or (_current if _current in MESSAGES else set_language(None)))
+
+
+@contextmanager
+def speaking(lang):
+    """Answer in ``lang`` for as long as this lasts, and only here.
+
+    Only in this thread, or in this request: a context variable, so a web
+    page read in French and a job it asked for are answered in French while
+    everything else the server says stays in its own language. An unknown or
+    empty ``lang`` changes nothing."""
+    code = _code(lang)
+    token = _speaking.set(code if code in MESSAGES else None)
+    try:
+        yield
+    finally:
+        _speaking.reset(token)
 
 
 def t(key, **kwargs):

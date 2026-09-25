@@ -220,6 +220,22 @@ def test_config_init_backs_up_the_previous_file(capsys):
     assert os.path.exists(paths.config_file() + ".bak")
 
 
+def test_the_config_file_sets_the_interface_language(monkeypatch):
+    """It was written down in config.toml and never read."""
+    from audio_transcriber import i18n
+
+    monkeypatch.setattr(i18n, "_current", None)
+    paths.ensure(paths.config_dir())
+    with open(paths.config_file(), "w", encoding="utf-8") as handle:
+        handle.write('[general]\ninterface_language = "fr"\n')
+    cli.main(["paths"])
+    assert i18n.language() == "fr"
+    # --lang still wins over it.
+    cli.main(["paths", "--lang", "de"])
+    assert i18n.language() == "de"
+    i18n.set_language("en")
+
+
 def test_a_broken_config_still_lets_you_repair_it(capsys):
     paths.ensure(paths.config_dir())
     with open(paths.config_file(), "w", encoding="utf-8") as handle:

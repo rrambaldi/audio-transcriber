@@ -17,6 +17,7 @@ band read as a masthead rather than as the first panel of the window. See
 from PySide6.QtCore import QSize, Qt, Signal
 from PySide6.QtGui import QFont, QIcon, QPalette
 from PySide6.QtWidgets import (
+    QComboBox,
     QFrame,
     QHBoxLayout,
     QLabel,
@@ -25,7 +26,7 @@ from PySide6.QtWidgets import (
 )
 
 from .. import branding
-from ..i18n import t
+from ..i18n import LANGUAGE_NAMES, language, t
 from . import style, theme
 
 #: How tall the mark is drawn, in logical pixels. The page sizes its mark off
@@ -105,6 +106,9 @@ class Masthead(QWidget):
     #: The version was clicked: the window should show the About box.
     about_requested = Signal()
 
+    #: A language was picked from the menu under it, by its code.
+    language_chosen = Signal(str)
+
     def __init__(self, icon=None, parent=None):
         super().__init__(parent)
 
@@ -158,6 +162,25 @@ class Masthead(QWidget):
             lambda _href: self.about_requested.emit())
         style.note(self.about)
 
+        # Each language by its own name, under the About link: the other
+        # thing somebody looks for in a corner of a window, and the one a
+        # reader who cannot read the current language has to be able to find.
+        self.language = QComboBox()
+        for code, name in LANGUAGE_NAMES.items():
+            self.language.addItem(name, code)
+        self.language.setCurrentIndex(max(0, self.language.findData(language())))
+        self.language.setToolTip(t("gui.language"))
+        self.language.setAccessibleName(t("gui.language"))
+        self.language.currentIndexChanged.connect(
+            lambda _index: self.language_chosen.emit(self.language.currentData()))
+
+        side = QVBoxLayout()
+        side.setContentsMargins(0, 0, 0, 0)
+        side.setSpacing(8)
+        side.addWidget(self.about, 0, Qt.AlignmentFlag.AlignRight)
+        side.addWidget(self.language, 0, Qt.AlignmentFlag.AlignRight)
+        side.addStretch(1)
+
         titles = QVBoxLayout()
         titles.setContentsMargins(0, 0, 0, 0)
         titles.setSpacing(2)
@@ -172,7 +195,7 @@ class Masthead(QWidget):
         band.setSpacing(16)
         band.addWidget(self.mark, 0, Qt.AlignmentFlag.AlignVCenter)
         band.addLayout(titles, 1)
-        band.addWidget(self.about, 0, Qt.AlignmentFlag.AlignTop)
+        band.addLayout(side)
 
         # The page draws this rule in the ink colour, not in the divider grey:
         # it is the edge of the masthead, and the tab bar below has a grey one

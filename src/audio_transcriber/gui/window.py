@@ -22,7 +22,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from .. import __version__, branding, paths
+from .. import __version__, branding, i18n, paths
 from ..hardware import Meter
 from ..i18n import t
 from ..jobs import JobQueue
@@ -38,6 +38,17 @@ from .transcribe_panel import TranscribePanel
 #: config.toml rather than in the platform's registry-like default: this
 #: program keeps everything it writes under its own directories.
 SETTINGS_FILENAME = "gui.ini"
+
+#: Where in it the language chosen from the masthead's menu is kept.
+LANGUAGE_KEY = "interface_language"
+
+
+def settings_store():
+    """The window's own preferences file, ``<config>/gui.ini``."""
+    return QSettings(os.path.join(paths.ensure(paths.config_dir()),
+                                  SETTINGS_FILENAME),
+                     QSettings.Format.IniFormat)
+
 
 #: A first-run size that fits a 1366x768 laptop screen.
 DEFAULT_SIZE = (1180, 760)
@@ -90,9 +101,7 @@ class MainWindow(QMainWindow):
     def __init__(self, settings=None, queue=None, parent=None):
         super().__init__(parent)
         self.settings = dict(settings or {})
-        self.store = QSettings(os.path.join(paths.ensure(paths.config_dir()),
-                                            SETTINGS_FILENAME),
-                               QSettings.Format.IniFormat)
+        self.store = settings_store()
         self.queue = queue or JobQueue(self.settings)
 
         self.setWindowTitle(t("gui.window_title", version=__version__))
@@ -120,6 +129,7 @@ class MainWindow(QMainWindow):
         # window or a tiling desktop it is not drawn at all.
         self.masthead = Masthead(self.windowIcon())
         self.masthead.about_requested.connect(self.show_about)
+        self.masthead.language_chosen.connect(self.choose_language)
         # The key somebody presses looking for help, on a window that has
         # nowhere else to put an About box: there is no menu bar.
         QShortcut(QKeySequence.StandardKey.HelpContents, self,
@@ -211,6 +221,25 @@ class MainWindow(QMainWindow):
         dialog.open()
         return dialog
 
+    def choose_language(self, code):
+        """Keep the language picked in the masthead, for the next opening.
+
+        Every label in here was written when it was built, so a language is a
+        new window. The one open now is left as it is rather than rebuilt
+        under a transcription that may be running, and the note that says so
+        is written in the language just chosen: it is the one being asked
+        for. Opened rather than exec'd, as the About box is."""
+        self.store.setValue(LANGUAGE_KEY, code)
+        self.store.sync()
+        name = i18n.LANGUAGE_NAMES.get(code, code)
+        with i18n.speaking(code):
+            text = t("gui.language_next_time", language=name)
+        box = QMessageBox(QMessageBox.Icon.Information, name, text,
+                          QMessageBox.StandardButton.Ok, self)
+        box.finished.connect(box.deleteLater)
+        box.open()
+        return box
+
     def show_entry(self, entry_id):
         """Bring the library tab up on one entry."""
         if self.library.show_entry(entry_id):
@@ -279,8 +308,23 @@ class MainWindow(QMainWindow):
         return answer == QMessageBox.StandardButton.Yes
 
 
-def launch(settings=None, argv=None):
-    """Show the window and run the event loop until it is closed."""
+def apply_chosen_language(lang=None):
+    """Speak the language picked in the menu last time, unless ``lang`` was
+    typed on the command line; return the one in use."""
+    if not lang:
+        chosen = settings_store().value(LANGUAGE_KEY)
+        if chosen in i18n.MESSAGES:
+            i18n.set_language(chosen)
+    return i18n.language()
+
+
+def launch(settings=None, argv=None, lang=None):
+    """Show the window and run the event loop until it is closed.
+
+    The language is the one picked in the window's menu last time, unless
+    ``lang`` - a ``--lang`` on the command line - says otherwise. It is set
+    before anything is written, the application's own name included."""
+    apply_chosen_language(lang)
     application = QApplication.instance()
     owned = application is None
     if owned:

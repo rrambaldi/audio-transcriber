@@ -292,6 +292,32 @@ def test_the_about_box_is_where_the_version_number_lives(window):
         dialog.deleteLater()
 
 
+def test_the_language_is_picked_in_the_masthead_and_kept_for_next_time(window):
+    """Each language by its own name; the choice goes to gui.ini, and the note
+    that says so is written in the language just picked."""
+    from audio_transcriber.gui import window as window_module
+
+    menu = window.masthead.language
+    assert [menu.itemData(i) for i in range(menu.count())] == list(i18n.LANGUAGE_NAMES)
+    assert menu.itemText(menu.findData("de")) == "Deutsch"
+
+    box = window.choose_language("de")
+    try:
+        assert window.store.value("interface_language") == "de"
+        assert box.text() == i18n.MESSAGES["de"]["gui.language_next_time"].format(
+            language="Deutsch")
+    finally:
+        box.done(0)
+    before = i18n.language()
+    try:
+        # The next opening speaks it - unless --lang was typed.
+        assert window_module.apply_chosen_language("it") == before
+        assert window_module.apply_chosen_language() == "de"
+    finally:
+        i18n.set_language(before)
+        window.store.remove("interface_language")
+
+
 def test_f1_asks_for_the_about_box_too(window):
     """The key somebody presses looking for help, on a window with no help."""
     keys = [shortcut.key() for shortcut in window.findChildren(QShortcut)]

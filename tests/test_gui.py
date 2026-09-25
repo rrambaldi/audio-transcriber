@@ -479,9 +479,16 @@ def test_the_cli_has_a_gui_command(monkeypatch):
     from audio_transcriber import cli
 
     seen = {}
-    monkeypatch.setattr(gui, "run", lambda settings: seen.setdefault("settings", settings))
+    monkeypatch.setattr(gui, "run", lambda settings, lang=None: seen.update(
+        settings=settings, lang=lang))
     cli.main(["gui"])
     assert seen["settings"]["model"] == "auto"
+    assert seen["lang"] is None
+    # A --lang typed here is handed on, to win over the window's own menu.
+    cli.main(["gui", "--lang", "de"])
+    assert seen["lang"] == "de"
+    from audio_transcriber import i18n
+    i18n.set_language("en")
 
 
 # --- summaries ------------------------------------------------------------

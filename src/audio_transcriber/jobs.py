@@ -39,7 +39,7 @@ import traceback
 import uuid
 from datetime import datetime
 
-from . import audio, paths, pipeline, waveform
+from . import audio, i18n, paths, pipeline, waveform
 from .config import read_prompt, resolve_output
 from .i18n import t
 from .library import STORE_MODES, STORE_MOVE, Library, LibraryError
@@ -146,6 +146,10 @@ class Job:
                  kind=TRANSCRIPTION, entry_id=None):
         self.id = uuid.uuid4().hex[:12]
         self.kind = kind
+        #: The language it was asked for in, and so the one its messages are
+        #: written in: a page read in German gets its errors in German from a
+        #: server that speaks Italian. See :func:`i18n.speaking`.
+        self.interface_language = i18n.language()
         self.source = source
         self.filename = filename or (os.path.basename(source) if source else "")
         self.title = title or os.path.splitext(self.filename)[0]
@@ -752,7 +756,8 @@ class JobQueue:
         self._persist()
         outcome, error = DONE, None
         try:
-            (self._summariser if job.kind == SUMMARY else self._runner)(job)
+            with i18n.speaking(job.interface_language):
+                (self._summariser if job.kind == SUMMARY else self._runner)(job)
             job.progress = 100
         except Cancelled:
             # Asked for, so not a failure. The source file is deliberately
