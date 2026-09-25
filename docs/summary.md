@@ -335,11 +335,15 @@ layers, a tenth of what a dense model of the same depth would keep.
 "Usable" is the free memory less a reserve for the operating system and for
 the rest of this program, which is holding a transcript while the model runs.
 
-One model is in the catalogue without a class: **Spark-X2.5-4B**, on trial.
-`auto` never chooses it; `--model Spark-X2.5-4B` does, on the llama.cpp engine
-only, and wants llama.cpp b10828 or later for its architecture. It stays out of
-the table until a measurement against Granite 4.0 H-Tiny on the same recording
-says where it belongs.
+One model is in the catalogue without a class: **Spark-X2.5-4B**. `auto`
+never chooses it; `--model Spark-X2.5-4B` does, on the llama.cpp engine only,
+and wants llama.cpp b10828 or later for its architecture. Measured against
+Granite 4.0 H-Tiny on the same 22-minute recording, on an Intel Arc 140V: at
+Q8_0 it wrote the best page (20 of the 21 facts of the reference summary, none
+invented, against 18 and one invented), but in 19 to 33 minutes against four.
+At Q4_K_M it was slower than Granite and wrote less. A summary that takes
+longer than the recording is not a default, so it is there for whoever wants
+the better page and can wait for it.
 
 The smallest class is LFM2.5-1.2B and not MiniCPM5-1B, and the reason is worth
 recording: asked in Italian to summarise a news article in three sentences,

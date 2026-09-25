@@ -368,7 +368,8 @@ def choose(engine, settings, available, total, skip=()):
               free="?" if free is None else f"{free:.1f}"),
             needed=needed, free=free)
     warn_if_over_budget(chosen, available, total)
-    say_what_more_room_would_buy(engine, chosen, available, total)
+    if str((settings or {}).get("summary_model") or "auto").strip().lower() == "auto":
+        say_what_more_room_would_buy(engine, chosen, available, total)
     return chosen
 
 
