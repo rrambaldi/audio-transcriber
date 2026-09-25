@@ -425,9 +425,18 @@ MESSAGES = {
             "and the summary written after it, on this machine.",
         "gui.summary_run": "Summarise",
         "gui.summary_again": "Summarise again",
-        "gui.summary_engine": "Written by",
         "gui.summary_model": "Model",
-        "gui.summary_model_auto": "automatic, from the free memory",
+        "gui.summary_model_auto": "automatic \u2014 now {model}",
+        "gui.summary_model_nothing_fits": "no model fits",
+        "gui.summary_model_group": "{where} \u00b7 {engine}",
+        "gui.summary_model_group_none": "No model",
+        "gui.summary_model_extractive": "the sentences that carry the transcript",
+        "gui.summary_model_fits": "{model} \u2014 {need} GiB, fits",
+        "gui.summary_model_too_big": "{model} \u2014 {need} GiB, does not fit ({usable} usable)",
+        "gui.summary_model_tip":
+            "Automatic picks the best model that fits in the memory free now. "
+            "Usable is the free memory less a margin for the system; it is "
+            "measured again each time this menu opens.",
         "gui.summary_length": "How much to keep",
         "gui.summary_template": "Which sections",
         "gui.summary_template_auto": "whatever the recording was about",
@@ -1408,9 +1417,18 @@ MESSAGES = {
             "trascrizione, poi viene scritto il riassunto, su questa macchina.",
         "gui.summary_run": "Riassumi",
         "gui.summary_again": "Riassumi di nuovo",
-        "gui.summary_engine": "Scritto da",
         "gui.summary_model": "Modello",
-        "gui.summary_model_auto": "automatico, secondo la memoria libera",
+        "gui.summary_model_auto": "automatico \u2014 adesso {model}",
+        "gui.summary_model_nothing_fits": "nessun modello ci sta",
+        "gui.summary_model_group": "{where} \u00b7 {engine}",
+        "gui.summary_model_group_none": "Nessun modello",
+        "gui.summary_model_extractive": "le frasi che reggono la trascrizione",
+        "gui.summary_model_fits": "{model} \u2014 {need} GiB, ci sta",
+        "gui.summary_model_too_big": "{model} \u2014 {need} GiB, non ci sta ({usable} utilizzabili)",
+        "gui.summary_model_tip":
+            "Automatico sceglie il modello migliore che sta nella memoria libera "
+            "adesso. Utilizzabili vuol dire la memoria libera meno un margine per "
+            "il sistema; si rimisura ogni volta che apri questo menu.",
         "gui.summary_length": "Quanto tenere",
         "gui.summary_template": "Quali sezioni",
         "gui.summary_template_auto": "quelle di cui si e' parlato",

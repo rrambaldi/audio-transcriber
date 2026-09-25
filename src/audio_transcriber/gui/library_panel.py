@@ -48,6 +48,7 @@ from PySide6.QtWidgets import (
 from .. import waveform
 from ..diarization import speakers_in
 from ..formatting import format_clock
+from ..hardware import available_ram_gb, total_ram_gb
 from ..i18n import t
 from ..jobs import DONE, FAILED, FINISHED, RUNNING
 from ..library import MAX_NOTES, Entry, LibraryError
@@ -207,8 +208,8 @@ class LibraryPanel(QWidget):
         self.summary_progress.setRange(0, 100)
         self.summary_progress.setTextVisible(False)
         self.summary_progress.hide()
-        self.summary_engine = QComboBox()
-        self.summary_model = QComboBox()
+        self.summary_model = FreshMenu(self._fill_models)
+        self.summary_model.setToolTip(t("gui.summary_model_tip"))
         self.summary_model_label = QLabel(t("gui.summary_model"))
         self.summary_length = QComboBox()
         self.summary_style = QComboBox()
@@ -230,9 +231,6 @@ class LibraryPanel(QWidget):
         summary_layout.addWidget(self.summary_progress)
         summary_layout.addWidget(self.summary_template_text)
         summary_row = QHBoxLayout()
-        engines = options.summary_engine_choices(self.settings)
-        for name, label in engines:
-            self.summary_engine.addItem(label, name)
         for name, label in options.summary_length_choices():
             self.summary_length.addItem(label, name)
         self.summary_length.setCurrentIndex(
@@ -241,22 +239,15 @@ class LibraryPanel(QWidget):
             self.summary_style.addItem(label, name)
         self.summary_style.setCurrentIndex(
             max(0, self.summary_style.findData(options.summary_default_style())))
-        # One engine is not a choice, so the menu is not shown; the label on
-        # the button is the whole story then.
-        self.summary_engine_label = QLabel(t("gui.summary_engine"))
-        # Who writes it on a line of its own: an engine and a model beside
-        # the other four menus make a window no laptop screen is wide enough
-        # for.
-        engine_row = QHBoxLayout()
-        for widget in (self.summary_engine_label, self.summary_engine):
-            widget.setVisible(len(engines) > 1)
-            engine_row.addWidget(widget)
-        engine_row.addWidget(self.summary_model_label)
-        engine_row.addWidget(self.summary_model)
-        engine_row.addStretch(1)
-        summary_layout.addLayout(engine_row)
-        self.summary_engine.currentIndexChanged.connect(
-            lambda _index: self._fill_models())
+        # Who writes it on a line of its own: with the memory each model
+        # needs written beside it, the menu is too wide to share a line with
+        # the other three.
+        model_row = QHBoxLayout()
+        model_row.addWidget(self.summary_model_label)
+        model_row.addWidget(self.summary_model)
+        model_row.addStretch(1)
+        summary_layout.addLayout(model_row)
+        self._where = {}
         self._fill_models()
         summary_row.addWidget(QLabel(t("gui.summary_length")))
         summary_row.addWidget(self.summary_length)
@@ -828,9 +819,10 @@ class LibraryPanel(QWidget):
         title = self.entry.metadata.get("title") or self.entry.id
         picked = self.summary_template.currentData()
         own = picked == options.SUMMARY_OWN_TEMPLATE
+        engine, _, model = (self.summary_model.currentData() or "").partition("\t")
         overrides = {
-            "summarizer": self.summary_engine.currentData(),
-            "summary_model": self.summary_model.currentData(),
+            "summarizer": engine or None,
+            "summary_model": model or None,
             "summary_length": self.summary_length.currentData(),
             "summary_style": self.summary_style.currentData(),
             "summary_template": None if own else (picked or None),
@@ -856,25 +848,55 @@ class LibraryPanel(QWidget):
         self.summary_timer.start(SUMMARY_POLL_MS)
 
     def _fill_models(self):
-        """The models of the engine beside it, keeping the one picked.
+        """Every model this machine could summarise with, sized against now.
 
-        A model the configuration names outside the catalogue - a GGUF file
-        of one's own - stays on the menu, or choosing an engine would quietly
-        swap it for the plan's."""
-        wanted = (self.summary_model.currentData()
-                  or self.settings.get("summary_model") or "auto")
-        known = plan.named(wanted)
-        wanted = known.hf_id if known else wanted
-        choices = options.summary_model_choices(self.summary_engine.currentData())
-        self.summary_model.clear()
-        for name, label in choices:
-            self.summary_model.addItem(label, name)
-        if choices and self.summary_model.findData(wanted) < 0:
-            self.summary_model.addItem(str(wanted), wanted)
-        self.summary_model.setCurrentIndex(
-            max(0, self.summary_model.findData(wanted)))
-        for widget in (self.summary_model_label, self.summary_model):
-            widget.setVisible(bool(choices))
+        Called again each time the menu opens: what fits depends on the
+        memory free at that moment. The entry picked stays picked, and a
+        model the configuration names outside the catalogue - a GGUF file of
+        one's own - stays on the menu, as the entry it starts on."""
+        menu = self.summary_model
+        wanted = menu.currentData()
+        if wanted is None:
+            given = str(self.settings.get("summary_model") or "auto")
+            known = plan.named(given)
+            wanted = options.model_value(
+                "" if given.lower() == "auto" else self.settings.get("summarizer"),
+                known.hf_id if known else given)
+
+        def where(engine, settings):
+            if engine not in self._where:
+                self._where[engine] = options.summary_where(engine, settings)
+            return self._where[engine]
+
+        engines = [name for name, _ in options.summary_engine_choices(self.settings)]
+        groups = options.summary_model_menu(self.settings, engines,
+                                            available_ram_gb(), total_ram_gb(),
+                                            where)
+        menu.blockSignals(True)
+        menu.clear()
+        for heading, items in groups:
+            if heading:
+                menu.addItem(heading)
+                head = menu.model().item(menu.count() - 1)
+                head.setFlags(Qt.ItemFlag.NoItemFlags)
+                font = QFont(menu.font())
+                font.setBold(True)
+                head.setFont(font)
+            for value, label in items:
+                menu.addItem(label, value)
+        found = menu.findData(wanted)
+        if found < 0:
+            # Not on the menu by its engine: the same model under another
+            # one, or a file of one's own.
+            model = wanted.partition("\t")[2]
+            found = next((index for index in range(menu.count())
+                          if str(menu.itemData(index) or "").endswith("\t" + model)),
+                         -1)
+        if found < 0:
+            menu.addItem(wanted.partition("\t")[2], wanted)
+            found = menu.count() - 1
+        menu.setCurrentIndex(found)
+        menu.blockSignals(False)
 
     def _show_own_sections(self):
         """The box under the row, shown only when the menu asks for it."""
@@ -969,6 +991,18 @@ def _symbol_button(name, glyph, tooltip, handler):
     button = symbols.Button(name, tooltip, glyph)
     button.clicked.connect(handler)
     return button
+
+
+class FreshMenu(QComboBox):
+    """A menu filled again each time it opens, so what it says is about now."""
+
+    def __init__(self, fill, parent=None):
+        super().__init__(parent)
+        self._fill = fill
+
+    def showPopup(self):
+        self._fill()
+        super().showPopup()
 
 
 def _copy_button(handler):

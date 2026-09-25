@@ -1520,17 +1520,25 @@ def test_summarising_goes_through_the_queue_and_comes_back_in_the_pane(window, q
 
 def test_the_model_picked_is_the_one_the_summary_is_asked_for(window, queue,
                                                              monkeypatch):
+    """One menu picks the engine and the model; its headings cannot be picked,
+    and it is measured again when it opens."""
+    from audio_transcriber.gui import options
+
     entry = filed_entry(queue)
     library = window.library
     library.reload()
     library.show_entry(entry.id)
-    assert library.summary_model.isHidden()             # extractive only
-    library.summary_engine.addItem("llama.cpp", "llamacpp")
-    library.summary_engine.setCurrentIndex(library.summary_engine.count() - 1)
-    assert not library.summary_model.isHidden()
-    assert library.summary_model.currentData() == "auto"
-    library.summary_model.setCurrentIndex(
-        library.summary_model.findData("XHToken/Spark-X2.5-4B"))
+    assert library.summary_model.currentData() == "\tauto"
+    monkeypatch.setattr(options, "summary_engine_choices",
+                        lambda settings=None: [("llamacpp", ""), ("extractive", "")])
+    monkeypatch.setattr(options, "summary_where",
+                        lambda engine, settings=None: "GPU" if engine == "llamacpp" else None)
+    library.summary_model.showPopup()
+    library.summary_model.hidePopup()
+    menu = library.summary_model
+    heading = menu.findText("GPU \u00b7 llama.cpp")
+    assert heading > 0 and not menu.model().item(heading).isEnabled()
+    menu.setCurrentIndex(menu.findData("llamacpp\tXHToken/Spark-X2.5-4B"))
 
     asked = {}
     monkeypatch.setattr(queue, "summarize",

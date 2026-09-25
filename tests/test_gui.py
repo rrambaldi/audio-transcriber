@@ -507,16 +507,35 @@ def test_the_summary_menus_say_what_each_choice_does():
     assert options.summary_default_length() == "medium"
 
 
-def test_the_model_menu_offers_what_the_engine_can_load():
-    """The plan's choice first, then every model this engine could load, by
-    the id both engines read. No menu for an engine that has no model."""
-    llama = options.summary_model_choices("llamacpp")
-    assert llama[0][0] == "auto" and not llama[0][1].startswith("gui.")
-    assert ("XHToken/Spark-X2.5-4B", "Spark-X2.5-4B") in llama
-    openvino = [name for name, _ in options.summary_model_choices("openvino")]
-    assert "openbmb/MiniCPM5-2B" in openvino
-    assert "XHToken/Spark-X2.5-4B" not in openvino
-    assert options.summary_model_choices("extractive") == []
+def test_the_model_menu_groups_every_model_by_where_it_runs():
+    """Automatic first, saying what it would pick now; then each engine's
+    models under GPU or CPU, each saying whether it fits in what is free; the
+    engine with no model last."""
+    where = {"openvino": "GPU", "llamacpp": "CPU", "extractive": None}
+    menu = options.summary_model_menu({}, ["openvino", "llamacpp", "extractive"],
+                                      9.0, 31.5, lambda engine, _s: where[engine])
+    headings = [heading for heading, _ in menu]
+    assert headings[0] is None and len(menu[0][1]) == 1
+    auto_value, auto_label = menu[0][1][0]
+    assert auto_value == "\tauto" and "MiniCPM5-2B" in auto_label  # OpenVINO first
+    assert headings[1:] == ["GPU \u00b7 OpenVINO", "CPU \u00b7 llama.cpp",
+                            i18n.t("gui.summary_model_group_none")]
+
+    gpu = dict(menu[1][1])
+    assert "openvino\topenbmb/MiniCPM5-2B" in gpu
+    assert not any("Spark" in label for label in gpu.values())
+    cpu = dict(menu[2][1])
+    spark = cpu["llamacpp\tXHToken/Spark-X2.5-4B"]
+    assert spark.startswith("Spark-X2.5-4B") and "5.0 GiB" in spark
+    assert spark == i18n.t("gui.summary_model_fits", model="Spark-X2.5-4B",
+                           need="5.0")
+    assert menu[3][1] == [("extractive\t", i18n.t("gui.summary_model_extractive"))]
+
+    busy = options.summary_model_menu({}, ["llamacpp"], 3.0, 31.5,
+                                      lambda engine, _s: "GPU")
+    spark = dict(busy[1][1])["llamacpp\tXHToken/Spark-X2.5-4B"]
+    assert spark == i18n.t("gui.summary_model_too_big", model="Spark-X2.5-4B",
+                           need="5.0", usable="1.0")
 
 
 def test_the_sections_menu_opens_on_the_page_the_recording_decides():

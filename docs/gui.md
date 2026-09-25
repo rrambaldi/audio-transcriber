@@ -173,12 +173,16 @@ same name are one person, and their turns are run together. The button is
 absent, not greyed, on a recording that was not diarized.
 
 A **Summary** tab sits beside the transcript and the notes, with the button
-that writes one under it and — when this machine has more than one engine — a
-menu saying which will. Next to it, for an engine that uses a model, a
-**Model** menu: *automatic*, which is the plan's choice from the memory free,
-or any model in the catalogue that engine can load, by name. Below, how much
-to keep and **which sections** the
-page is made of: the templates installed for the language being spoken, or the
+that writes one under it and a **Model** menu saying what will. It starts on
+*automatic*, which names the model the plan would pick right now. Opened, it
+lists every model this machine could use, grouped by where it runs — *GPU ·
+OpenVINO*, *GPU · llama.cpp* or *CPU · llama.cpp*, depending on what each
+engine sees — with *No model* last, for the sentences that carry the
+transcript. Each model says how much memory it needs and whether that fits
+in what is usable now (free, less a margin for the system); the figures are
+measured again every time the menu opens. A model that does not fit can
+still be picked. Below, how much to keep and **which sections** the page is
+made of: the templates installed for the language being spoken, or the
 last entry of that menu, which opens a box to write the sections in for this
 page only. What comes back says who wrote it and when: a page that does not
 say is one somebody will quote in a meeting without knowing whether a model or

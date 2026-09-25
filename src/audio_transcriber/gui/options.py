@@ -543,16 +543,86 @@ def summary_engine_choices(settings=None):
             summary_engines_available(settings) if name in SUMMARY_ENGINES]
 
 
-def summary_model_choices(engine):
-    """The models this engine can load, after the plan's own choice.
+#: How the model menu names an engine under its heading.
+ENGINE_NAMES = {plan.OPENVINO: "OpenVINO", plan.LLAMACPP: "llama.cpp"}
 
-    None for an engine that writes without a model. The value is the Hugging
-    Face id, which both engines read; the label is the model's name."""
-    if engine not in (plan.LLAMACPP, plan.OPENVINO):
-        return []
-    return [("auto", t("gui.summary_model_auto"))] + [
-        (model.hf_id, model.name) for model in plan.CATALOGUE
-        if plan.runnable(model, engine)]
+#: The order of the headings: an accelerator first, the processor after it,
+#: and the engine with no model last.
+WHERE_ORDER = ("GPU", "NPU", "CPU", None)
+
+
+def summary_where(engine, settings=None):
+    """Where this engine would write a summary: GPU, NPU, CPU, or None.
+
+    Asked of the engine the way it decides for itself: OpenVINO's device, and
+    for llama.cpp whether its server sees an accelerator - a Vulkan build on
+    an Arc does, the binding ``pip`` installs never does."""
+    settings = settings or {}
+    if engine == plan.OPENVINO:
+        from ..summarizers.openvino_genai import resolve_device
+        return str(resolve_device(settings.get("summary_device"))).split(".")[0].upper()
+    if engine == plan.LLAMACPP:
+        from ..summarizers import llamacpp
+        binary = llamacpp.server_path(settings)
+        return "GPU" if binary and llamacpp.device_for(binary, settings)[0] else "CPU"
+    return None
+
+
+def model_value(engine, model):
+    """What the model menu stores for an entry: engine and model, one string."""
+    return f"{engine or ''}\t{model or ''}"
+
+
+def summary_model_menu(settings, engines, free, total, where=summary_where):
+    """The model menu: automatic, then every model by where it would run.
+
+    ``[(heading, [(value, label)])]``, the first group without a heading and
+    holding only the automatic entry, which says what it would pick now. Each
+    model says what it needs, in memory, and whether that fits in what is
+    free now; a model that does not fit is still offered, because naming one
+    is the person's call. The engine with no model comes last."""
+    settings = dict(settings or {})
+    usable = plan.usable_ram_gb(free, total)
+
+    def plan_for(engine, model):
+        asked = dict(settings, summary_model=model)
+        return plan.resolve_plan(engine, asked, ram=free, total=total)
+
+    asked_engine = str(settings.get("summarizer") or "auto").lower()
+    first = asked_engine if asked_engine in engines else (engines or [None])[0]
+    if first in ENGINE_NAMES:
+        now = plan_for(first, "auto")
+        picks = now.model.name if now else t("gui.summary_model_nothing_fits")
+    else:
+        picks = t("gui.summary_model_group_none")
+    menu = [(None, [(model_value("", "auto"),
+                     t("gui.summary_model_auto", model=picks))])]
+
+    placed = sorted(((where(engine, settings), engine) for engine in engines),
+                    key=lambda pair: WHERE_ORDER.index(pair[0])
+                    if pair[0] in WHERE_ORDER else 2)
+    for device, engine in placed:
+        if engine not in ENGINE_NAMES:
+            menu.append((t("gui.summary_model_group_none"),
+                         [(model_value(engine, ""), t("gui.summary_model_extractive"))]))
+            continue
+        items = []
+        for model in plan.CATALOGUE:
+            if not plan.runnable(model, engine):
+                continue
+            need = plan_for(engine, model.hf_id).est_ram_gb
+            if need is None or usable is None:
+                label = model.name
+            elif need <= usable:
+                label = t("gui.summary_model_fits", model=model.name,
+                          need=f"{need:.1f}")
+            else:
+                label = t("gui.summary_model_too_big", model=model.name,
+                          need=f"{need:.1f}", usable=f"{usable:.1f}")
+            items.append((model_value(engine, model.hf_id), label))
+        menu.append((t("gui.summary_model_group", where=device or "CPU",
+                       engine=ENGINE_NAMES[engine]), items))
+    return menu
 
 
 def summary_length_choices():
