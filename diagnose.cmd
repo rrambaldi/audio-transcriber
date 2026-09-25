@@ -42,6 +42,7 @@ rem  Windows. When the round has been measured here already, it asks first:
 rem  R runs it again, S only sends what there is.
 rem
 rem      set AT_SERVER=me@another.host
+rem      set AT_PORT=22
 rem      set AT_SERVER_DIR=/where/they/go
 rem      set AT_SERVER=none              keep them here
 rem
@@ -167,12 +168,13 @@ rem recording came from and to no other. If ssh asks for a password, or for a
 rem first "yes" to a host it has not met, answer it here.
 :send
 if "%AT_SERVER%"=="" set "AT_SERVER=rrambaldi@www.progettazionisoftware.it"
+if "%AT_PORT%"=="" set "AT_PORT=3722"
 if "%AT_SERVER_DIR%"=="" set "AT_SERVER_DIR=/home/rrambaldi/progetti/audio-transcriber/audio-transcriber/.local/summary"
 if /i "%AT_SERVER%"=="none" goto :done
 if not defined AT_SENT goto :done
 echo.
 echo === sending them to %AT_SERVER%
-"%SystemRoot%\System32\OpenSSH\scp.exe" %AT_SENT% "%AT_SERVER%:%AT_SERVER_DIR%/"
+"%SystemRoot%\System32\OpenSSH\scp.exe" -P %AT_PORT% %AT_SENT% "%AT_SERVER%:%AT_SERVER_DIR%/"
 if errorlevel 1 goto :send_failed
 echo   sent: on the server they are in %AT_SERVER_DIR%
 goto :done
