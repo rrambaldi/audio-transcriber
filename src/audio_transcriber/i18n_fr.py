@@ -172,6 +172,8 @@ MESSAGES = {
     "gui.summary_run": "Résumer",
     "gui.summary_again": "Résumer à nouveau",
     "gui.summary_engine": "Écrit par",
+    "gui.summary_model": "Modèle",
+    "gui.summary_model_auto": "automatique, selon la mémoire libre",
     "gui.summary_length": "Combien en garder",
     "gui.summary_template": "Quelles sections",
     "gui.summary_template_auto": "celles dont il a été question",

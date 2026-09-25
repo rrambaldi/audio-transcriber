@@ -507,6 +507,18 @@ def test_the_summary_menus_say_what_each_choice_does():
     assert options.summary_default_length() == "medium"
 
 
+def test_the_model_menu_offers_what_the_engine_can_load():
+    """The plan's choice first, then every model this engine could load, by
+    the id both engines read. No menu for an engine that has no model."""
+    llama = options.summary_model_choices("llamacpp")
+    assert llama[0][0] == "auto" and not llama[0][1].startswith("gui.")
+    assert ("XHToken/Spark-X2.5-4B", "Spark-X2.5-4B") in llama
+    openvino = [name for name, _ in options.summary_model_choices("openvino")]
+    assert "openbmb/MiniCPM5-2B" in openvino
+    assert "XHToken/Spark-X2.5-4B" not in openvino
+    assert options.summary_model_choices("extractive") == []
+
+
 def test_the_sections_menu_opens_on_the_page_the_recording_decides():
     """First entry the one that asks for nothing, last the box underneath,
     and the bundled templates of the spoken language in between."""

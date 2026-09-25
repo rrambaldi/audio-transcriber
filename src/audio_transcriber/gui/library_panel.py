@@ -51,6 +51,7 @@ from ..formatting import format_clock
 from ..i18n import t
 from ..jobs import DONE, FAILED, FINISHED, RUNNING
 from ..library import MAX_NOTES, Entry, LibraryError
+from ..summarizers import plan
 from ..summarizers import templates as summary_templates
 from ..summary import SummaryError
 from . import multimedia, options, symbols, theme, widgets
@@ -207,6 +208,8 @@ class LibraryPanel(QWidget):
         self.summary_progress.setTextVisible(False)
         self.summary_progress.hide()
         self.summary_engine = QComboBox()
+        self.summary_model = QComboBox()
+        self.summary_model_label = QLabel(t("gui.summary_model"))
         self.summary_length = QComboBox()
         self.summary_style = QComboBox()
         self.summary_template = QComboBox()
@@ -241,9 +244,20 @@ class LibraryPanel(QWidget):
         # One engine is not a choice, so the menu is not shown; the label on
         # the button is the whole story then.
         self.summary_engine_label = QLabel(t("gui.summary_engine"))
+        # Who writes it on a line of its own: an engine and a model beside
+        # the other four menus make a window no laptop screen is wide enough
+        # for.
+        engine_row = QHBoxLayout()
         for widget in (self.summary_engine_label, self.summary_engine):
             widget.setVisible(len(engines) > 1)
-            summary_row.addWidget(widget)
+            engine_row.addWidget(widget)
+        engine_row.addWidget(self.summary_model_label)
+        engine_row.addWidget(self.summary_model)
+        engine_row.addStretch(1)
+        summary_layout.addLayout(engine_row)
+        self.summary_engine.currentIndexChanged.connect(
+            lambda _index: self._fill_models())
+        self._fill_models()
         summary_row.addWidget(QLabel(t("gui.summary_length")))
         summary_row.addWidget(self.summary_length)
         summary_row.addWidget(QLabel(t("gui.summary_style")))
@@ -816,6 +830,7 @@ class LibraryPanel(QWidget):
         own = picked == options.SUMMARY_OWN_TEMPLATE
         overrides = {
             "summarizer": self.summary_engine.currentData(),
+            "summary_model": self.summary_model.currentData(),
             "summary_length": self.summary_length.currentData(),
             "summary_style": self.summary_style.currentData(),
             "summary_template": None if own else (picked or None),
@@ -839,6 +854,27 @@ class LibraryPanel(QWidget):
         self.summarise.setEnabled(False)
         self.message.emit(t("gui.summary_queued", title=title))
         self.summary_timer.start(SUMMARY_POLL_MS)
+
+    def _fill_models(self):
+        """The models of the engine beside it, keeping the one picked.
+
+        A model the configuration names outside the catalogue - a GGUF file
+        of one's own - stays on the menu, or choosing an engine would quietly
+        swap it for the plan's."""
+        wanted = (self.summary_model.currentData()
+                  or self.settings.get("summary_model") or "auto")
+        known = plan.named(wanted)
+        wanted = known.hf_id if known else wanted
+        choices = options.summary_model_choices(self.summary_engine.currentData())
+        self.summary_model.clear()
+        for name, label in choices:
+            self.summary_model.addItem(label, name)
+        if choices and self.summary_model.findData(wanted) < 0:
+            self.summary_model.addItem(str(wanted), wanted)
+        self.summary_model.setCurrentIndex(
+            max(0, self.summary_model.findData(wanted)))
+        for widget in (self.summary_model_label, self.summary_model):
+            widget.setVisible(bool(choices))
 
     def _show_own_sections(self):
         """The box under the row, shown only when the menu asks for it."""

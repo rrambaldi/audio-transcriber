@@ -32,6 +32,7 @@ from ..jobs import (
 from ..library import LibraryError
 from ..summarizers import CHOICES as SUMMARY_ENGINES
 from ..summarizers import available as summary_engines_available
+from ..summarizers import plan
 from ..summary import DEFAULT_LENGTH, DEFAULT_STYLE, LENGTHS, STYLES
 from ..transcription import AUTO, LANGUAGE_CHOICES, MODEL_CHOICES, recommend_model
 from ..vocabularies import MAX_CUSTOM_VOCABULARY
@@ -540,6 +541,18 @@ def summary_engine_choices(settings=None):
     means nothing to somebody deciding whether to wait for it."""
     return [(name, t(f"gui.summary_engine_{name}")) for name in
             summary_engines_available(settings) if name in SUMMARY_ENGINES]
+
+
+def summary_model_choices(engine):
+    """The models this engine can load, after the plan's own choice.
+
+    None for an engine that writes without a model. The value is the Hugging
+    Face id, which both engines read; the label is the model's name."""
+    if engine not in (plan.LLAMACPP, plan.OPENVINO):
+        return []
+    return [("auto", t("gui.summary_model_auto"))] + [
+        (model.hf_id, model.name) for model in plan.CATALOGUE
+        if plan.runnable(model, engine)]
 
 
 def summary_length_choices():

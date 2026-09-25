@@ -172,6 +172,8 @@ MESSAGES = {
     "gui.summary_run": "Zusammenfassen",
     "gui.summary_again": "Erneut zusammenfassen",
     "gui.summary_engine": "Geschrieben von",
+    "gui.summary_model": "Modell",
+    "gui.summary_model_auto": "automatisch, nach freiem Speicher",
     "gui.summary_length": "Wie viel behalten",
     "gui.summary_template": "Welche Abschnitte",
     "gui.summary_template_auto": "worum es in der Aufnahme ging",

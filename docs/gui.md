@@ -174,7 +174,10 @@ absent, not greyed, on a recording that was not diarized.
 
 A **Summary** tab sits beside the transcript and the notes, with the button
 that writes one under it and — when this machine has more than one engine — a
-menu saying which will. Beside it, how much to keep and **which sections** the
+menu saying which will. Next to it, for an engine that uses a model, a
+**Model** menu: *automatic*, which is the plan's choice from the memory free,
+or any model in the catalogue that engine can load, by name. Below, how much
+to keep and **which sections** the
 page is made of: the templates installed for the language being spoken, or the
 last entry of that menu, which opens a box to write the sections in for this
 page only. What comes back says who wrote it and when: a page that does not

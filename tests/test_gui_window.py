@@ -1510,6 +1510,28 @@ def test_summarising_goes_through_the_queue_and_comes_back_in_the_pane(window, q
     assert queue.library.get(entry.id).has_summary()
 
 
+def test_the_model_picked_is_the_one_the_summary_is_asked_for(window, queue,
+                                                             monkeypatch):
+    entry = filed_entry(queue)
+    library = window.library
+    library.reload()
+    library.show_entry(entry.id)
+    assert library.summary_model.isHidden()             # extractive only
+    library.summary_engine.addItem("llama.cpp", "llamacpp")
+    library.summary_engine.setCurrentIndex(library.summary_engine.count() - 1)
+    assert not library.summary_model.isHidden()
+    assert library.summary_model.currentData() == "auto"
+    library.summary_model.setCurrentIndex(
+        library.summary_model.findData("XHToken/Spark-X2.5-4B"))
+
+    asked = {}
+    monkeypatch.setattr(queue, "summarize",
+                        lambda entry_id, overrides: asked.update(overrides))
+    library.summarise.click()
+    assert asked["summarizer"] == "llamacpp"
+    assert asked["summary_model"] == "XHToken/Spark-X2.5-4B"
+
+
 def test_a_summary_that_fails_says_so_and_frees_the_button(window, queue):
     entry = filed_entry(queue)
     entry.write_transcript("", [])

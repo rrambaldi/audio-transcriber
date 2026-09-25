@@ -8,6 +8,13 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- **The window lets you pick the exact summary model.** The *Summary* tab
+  of the library has a *Model* menu beside *Written by*: automatic, as
+  before, or any catalogue model the chosen engine can load — Spark-X2.5-4B,
+  Granite 4.0 H-Tiny, MiniCPM5-2B and the rest. A model the configuration
+  names outside the catalogue stays on the menu. The two menus sit on a line
+  of their own, so the window still fits a laptop screen.
+
 - **The window says how much memory to free for a better summary model.**
   The footer adds, next to the memory meter, *free 1.2 GiB and summaries use
   Spark-X2.5-4B, a better model*, whenever more free memory would change the
