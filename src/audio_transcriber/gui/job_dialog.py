@@ -7,17 +7,14 @@ at once, and one of them is the interview that needs subtitles while the rest
 are notes to read. So the column now holds the defaults, and this dialog is
 where one recording's own answers are given, seeded from them.
 
-It is the same :class:`OptionsForm` the column is built from, without the step
-numbers: in a dialog about one recording there is no sequence to be at step
-two of.
+It is the same :class:`OptionsForm` the column is built from: four tabs, one
+per question.
 """
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QDialog,
     QDialogButtonBox,
-    QFrame,
     QLabel,
-    QScrollArea,
     QVBoxLayout,
 )
 
@@ -50,14 +47,7 @@ class JobDialog(QDialog):
         if defaults:
             self.form.set_choices(defaults, vocabularies, custom_text)
 
-        # Four sections open are taller than a laptop screen, and a dialog
-        # whose buttons are off the bottom of the display cannot be answered.
-        scroll = QScrollArea()
-        scroll.setWidget(self.form)
-        scroll.setWidgetResizable(True)
-        scroll.setFrameShape(QFrame.Shape.NoFrame)
-        scroll.setMinimumWidth(460)
-        scroll.setMinimumHeight(320)
+        self.form.setMinimumWidth(460)
 
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok
                                    | QDialogButtonBox.StandardButton.Cancel)
@@ -76,7 +66,7 @@ class JobDialog(QDialog):
                                   theme.GUTTER, theme.GUTTER)
         layout.addWidget(heading)
         layout.addWidget(note)
-        layout.addWidget(scroll, 1)
+        layout.addWidget(self.form, 1)
         layout.addWidget(buttons)
         self.setWindowFlag(Qt.WindowType.WindowContextHelpButtonHint, False)
 

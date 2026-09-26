@@ -1,19 +1,15 @@
-"""The questions about a transcription, as a list of sections that open.
+"""The questions about a transcription, one tab each.
 
 Four of them — what do you want out of it, how to transcribe it, how to cut
-the subtitles, which keywords to expect — and they are asked in two places:
-down the left of the Transcribe tab, where they are the settings a new
-recording gets, and in the dialog that starts one recording, where they are
-that recording's own. Two places, one widget: the alternative is two
-implementations of the same four questions, which is how they start to
-disagree.
+the subtitles, which keywords to expect — asked in the dialog that starts one
+recording. They used to be sections that opened one under the other, and
+four of them open were taller than a laptop screen; tabs are the same four
+questions at the height of the tallest.
 
-Every section reports what it holds while it is shut ("3 · How to transcribe
-them — auto · Italiano (it) · auto"), because closing a section must not hide
-a choice. A section that does not apply — subtitles, when the answer is plain
-text — stays in the list and goes quiet instead of vanishing: a row that
-waits can be learned, a list that changes shape under the pointer has to be
-re-read.
+Every tab says what it holds in its tooltip ("auto · Italiano (it) · auto"),
+because a choice behind another tab is still one the recording gets. The
+subtitles tab, when the answer is plain text, stays and goes grey instead of
+vanishing: a row of tabs that changes under the pointer has to be re-read.
 """
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
@@ -28,6 +24,7 @@ from PySide6.QtWidgets import (
     QPlainTextEdit,
     QRadioButton,
     QSpinBox,
+    QTabWidget,
     QVBoxLayout,
     QWidget,
 )
@@ -36,11 +33,11 @@ from ..diarization import NO_MODEL
 from ..diarization import availability as diarization_availability
 from ..i18n import t
 from ..vocabularies import MAX_PROMPT_CHARS
-from . import options, style, widgets
+from . import options, style, theme
 
 
 class OptionsForm(QWidget):
-    """The sections that say what to do with a recording."""
+    """The tabs that say what to do with a recording."""
 
     def __init__(self, settings=None, parent=None):
         super().__init__(parent)
@@ -194,7 +191,7 @@ class OptionsForm(QWidget):
         self.custom.textChanged.connect(self._count_prompt)
         self.prompt_size = QLabel("")
 
-    # --- the sections ------------------------------------------------------
+    # --- the tabs ----------------------------------------------------------
 
     def _assemble(self):
         output_page = QWidget()
@@ -222,9 +219,7 @@ class OptionsForm(QWidget):
         output_layout.addWidget(self.output_note)
         self._reserve_note_lines(3)
         output_layout.addWidget(self.output_unavailable)
-        self.step_output = widgets.Disclosure(t("gui.step_output"),
-                                              output_page, open_now=True,
-                                              key="output")
+        output_layout.addStretch(1)
 
         options_page = QWidget()
         self.form = QFormLayout(options_page)
@@ -232,8 +227,6 @@ class OptionsForm(QWidget):
         self.form.addRow(t("gui.label_model"), self.model)
         self.form.addRow(t("gui.label_language"), self.language)
         self.form.addRow(t("gui.label_backend"), self.backend)
-        self.step_options = widgets.Disclosure(t("gui.step_options"),
-                                               options_page, key="options")
 
         subtitle_page = QWidget()
         subtitle_form = QFormLayout(subtitle_page)
@@ -246,10 +239,10 @@ class OptionsForm(QWidget):
         save_row.addWidget(self.save_vtt)
         save_row.addStretch(1)
         subtitle_form.addRow(t("gui.label_sub_save"), _wrap(save_row))
-        subtitle_form.addRow(style.note(QLabel(t("gui.reference_note"))))
+        reference_note = style.note(QLabel(t("gui.reference_note")))
+        reference_note.setWordWrap(True)
+        subtitle_form.addRow(reference_note)
         subtitle_form.addRow(t("gui.label_reference"), self.reference)
-        self.step_subtitles = widgets.Disclosure(t("gui.group_subtitles"),
-                                                 subtitle_page, key="subtitles")
 
         vocab_page = QWidget()
         vocab_layout = QVBoxLayout(vocab_page)
@@ -258,16 +251,25 @@ class OptionsForm(QWidget):
         vocab_layout.addWidget(QLabel(t("gui.vocab_custom")))
         vocab_layout.addWidget(self.custom, 1)
         vocab_layout.addWidget(self.prompt_size)
-        self.vocab_panel = widgets.Disclosure(t("gui.group_vocabulary"),
-                                              vocab_page, key="vocabulary")
 
-        self.sections = [self.step_output, self.step_options,
-                         self.step_subtitles, self.vocab_panel]
+        self.tabs = QTabWidget()
+        # Every tab in sight, the dialog as wide as they need: a question
+        # behind a scroll arrow is a question nobody knows is there.
+        self.tabs.setUsesScrollButtons(False)
+        self.tabs.addTab(output_page, t("gui.tab_output"))
+        self.tabs.addTab(options_page, t("gui.tab_options"))
+        self.subtitles_tab = self.tabs.addTab(subtitle_page,
+                                              t("gui.group_subtitles"))
+        self.tabs.addTab(vocab_page, t("gui.tab_vocabulary"))
+        # The strip starts a gutter in (see theme.py) and Qt leaves that out
+        # of the minimum width: without this the first tab slides under the
+        # edge. Polished first, so the width is the uppercase one.
+        self.tabs.tabBar().ensurePolished()
+        self.tabs.setMinimumWidth(self.tabs.tabBar().sizeHint().width()
+                                  + theme.GUTTER)
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(10)
-        for section in self.sections:
-            layout.addWidget(section)
+        layout.addWidget(self.tabs)
 
         # A combo box asks to be as wide as its longest item, and "auto
         # (small on this machine)" is a long item: left alone they set the
@@ -280,7 +282,7 @@ class OptionsForm(QWidget):
         self._count_prompt()
 
     def _reserve_note_lines(self, lines):
-        """Keep room for the longest note so the sections below do not move.
+        """Keep room for the longest note so the lines below it do not move.
 
         The note is wrapped text that changes with the answer: sized to
         whatever it happens to say, choosing an answer would shift the rest of
@@ -302,9 +304,8 @@ class OptionsForm(QWidget):
 
         A subtitle preset next to "just the text" is a control that does
         nothing, and a control that does nothing is a question the window
-        cannot answer. Inside a section, what belongs to another answer goes
-        away; the subtitle *section* stays in the list and goes quiet
-        instead, saying which answer would bring it to life."""
+        cannot answer. The subtitle *tab* stays and goes grey instead,
+        saying in its tooltip which answer would bring it to life."""
         chosen = self.chosen_output()
         self.output_note.setText(options.output_note(chosen))
         enables = options.output_enables(chosen)
@@ -317,8 +318,7 @@ class OptionsForm(QWidget):
         for widget in (self.subtitle_preset, self.subtitle_chars,
                        self.subtitle_words, self.save_srt, self.save_vtt):
             widget.setEnabled(enables["subtitles"])
-        self.step_subtitles.set_available(enables["subtitles"],
-                                          t("gui.only_with_subtitles"))
+        self.tabs.setTabEnabled(self.subtitles_tab, enables["subtitles"])
 
         if enables["subtitles"] and not (self.save_srt.isChecked()
                                          or self.save_vtt.isChecked()):
@@ -329,28 +329,35 @@ class OptionsForm(QWidget):
         self.update_summaries()
 
     def update_summaries(self):
-        """What each closed section says about itself."""
-        self.step_output.set_summary(options.output_label(self.chosen_output()))
-        # The value, not the label: "auto (small on this machine)" is the
-        # right thing in a menu and too long for a row that has to fit.
-        self.step_options.set_summary("  ·  ".join(str(value) for value in (
-            self.model.currentData(), self.language.currentText(),
-            self.backend.currentData()) if value))
-        self.step_subtitles.set_summary(options.subtitle_summary_line(
-            self.subtitle_preset.currentData(),
-            self.subtitle_chars.value(), self.subtitle_words.value(),
-            self.save_srt.isChecked(), self.save_vtt.isChecked()))
+        """What each tab holds, in its tooltip."""
         chosen = len(self.chosen_vocabularies())
         typed = bool(self.custom.toPlainText().strip())
         if chosen and typed:
-            summary = t("gui.vocab_chosen_terms", count=chosen)
+            vocabulary = t("gui.vocab_chosen_terms", count=chosen)
         elif chosen:
-            summary = t("gui.vocab_chosen", count=chosen)
+            vocabulary = t("gui.vocab_chosen", count=chosen)
         elif typed:
-            summary = t("gui.vocab_terms_only")
+            vocabulary = t("gui.vocab_terms_only")
         else:
-            summary = t("gui.vocab_none")
-        self.vocab_panel.set_summary(summary)
+            vocabulary = t("gui.vocab_none")
+        subtitles = (options.subtitle_summary_line(
+            self.subtitle_preset.currentData(),
+            self.subtitle_chars.value(), self.subtitle_words.value(),
+            self.save_srt.isChecked(), self.save_vtt.isChecked())
+            if self.tabs.isTabEnabled(self.subtitles_tab)
+            else t("gui.only_with_subtitles"))
+        said = (
+            options.output_label(self.chosen_output()),
+            # The value, not the label: "auto (small on this machine)" is the
+            # right thing in a menu and too long for a tooltip line.
+            "  ·  ".join(str(value) for value in (
+                self.model.currentData(), self.language.currentText(),
+                self.backend.currentData()) if value),
+            subtitles,
+            vocabulary,
+        )
+        for index, text in enumerate(said):
+            self.tabs.setTabToolTip(index, text)
 
     def _count_prompt(self):
         """Show how long the prompt is getting, and warn past the limit.
@@ -444,8 +451,6 @@ class OptionsForm(QWidget):
         store.setValue("subtitle_words", self.subtitle_words.value())
         store.setValue("save_srt", self.save_srt.isChecked())
         store.setValue("save_vtt", self.save_vtt.isChecked())
-        for section in self.sections:
-            store.setValue(f"open_{section.key}", section.is_open())
 
     def load_state(self, store):
         """Restore the choices, which are a habit rather than a configuration.
@@ -476,12 +481,6 @@ class OptionsForm(QWidget):
         self.auto_title.setChecked(bool(store.value("auto_title", False, bool)))
         self.save_srt.setChecked(bool(store.value("save_srt", False, bool)))
         self.save_vtt.setChecked(bool(store.value("save_vtt", False, bool)))
-        for section in self.sections:
-            # A section the machine cannot offer stays shut whatever the file
-            # says; set_open() refuses it anyway, this is just honest.
-            remembered_open = store.value(f"open_{section.key}", None)
-            if remembered_open is not None:
-                section.set_open(remembered_open in (True, "true"))
         remembered = store.value("vocabulary", None)
         if remembered is not None:
             wanted = set(remembered if isinstance(remembered, list)

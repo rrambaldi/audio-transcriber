@@ -125,9 +125,8 @@ TITLE_TRACKING = 98
 #: gives it to - ``.button``, ``.tab`` and ``th``.
 #:
 #: QToolButton is deliberately not among them, although it is a button: the
-#: only ones in this window are the rows of :class:`gui.widgets.Disclosure`,
-#: whose titles carry a sentence ("Keyword sets - 3 chosen"). The page's
-#: micro-label is for words; a sentence in it is shouting.
+#: ones in this window are :class:`gui.symbols.Button`, which draw a symbol
+#: rather than a word.
 LABEL_WIDGETS = (QPushButton, QTabBar, QHeaderView)
 
 #: Where this module's rules start in the application's style sheet, so they

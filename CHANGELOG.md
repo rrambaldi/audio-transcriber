@@ -98,6 +98,13 @@ All notable changes to this project are documented here. The format follows
 
 ### Changed
 
+- **The dialog that starts a transcription has four tabs** — *Result*,
+  *Transcription*, *Subtitles*, *Keywords* — in place of four sections that
+  opened one under the other and, open, were taller than a laptop screen.
+  Each tab says what it holds in its tooltip; *Subtitles* goes grey while
+  the answer is plain text. The note about a text you already have now wraps
+  instead of running off the edge.
+
 - **The About box opens on the banner**, in the window and in the page: the
   mark, the name and the tagline as the README shows them, edge to edge,
   instead of the mark and the name set in type. In the window the box now

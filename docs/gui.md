@@ -74,8 +74,10 @@ more thing to get wrong:
 | *Play* | listens to the recording — the file itself before it is transcribed, the copy in the library entry afterwards |
 | *Remove* | takes it out of the queue, or off the list once it has finished |
 
-**Transcribing one recording asks what it is for**, in a dialog holding the
-same four sections as the column, seeded from them. That is the point of the
+**Transcribing one recording asks what it is for**, in a dialog with four
+tabs — *Result*, *Transcription*, *Subtitles*, *Keywords* — seeded from the
+last answers. Each tab says what it holds in its tooltip, and *Subtitles*
+goes grey, saying why, while the answer is plain text. That is the point of the
 arrangement: half a dozen recordings go in at once and one of them is the
 interview that needs subtitles, so the answers belong to the recording rather
 than to the tab. The button under the list still starts everything that is
@@ -367,7 +369,7 @@ python -m pip install "PySide6-Addons>=6.6"
 
 **The window is the same on the three platforms**, and not by coincidence:
 there is not one `sys.platform` in `gui/`. The tab is a header and a queue,
-the sections of the dialog are the same four, the buttons on a row are the
+the tabs of the dialog are the same four, the buttons on a row are the
 same three, everywhere. Qt draws them with the desktop's own palette, which
 is why a Windows window looks like Windows and a Mac one like a Mac while the
 layout under it does not move.

@@ -1,4 +1,4 @@
-"""The four questions about a transcription, wherever they are asked.
+"""The four questions about a transcription, one tab each.
 
 They used to live down the left of the Transcribe tab, where they were
 answered for a recording that did not exist yet and answered once for all of
@@ -78,9 +78,8 @@ def settings_of(form):
 # --- what is asked ---------------------------------------------------------
 
 def test_it_asks_the_four_questions_and_no_more(form):
-    assert [section.button.text().split(" — ")[0] for section in form.sections] == [
-        "What do you want out of it?", "How to transcribe it",
-        "Subtitles", "Keyword sets"]
+    assert [form.tabs.tabText(index) for index in range(form.tabs.count())] == [
+        "Result", "Transcription", "Subtitles", "Keywords"]
     assert set(form.output_buttons) == {"text", "speakers", "subtitles",
                                         "subtitles_speakers"}
 
@@ -191,20 +190,17 @@ def test_subtitles_with_who_said_what_is_one_answer(diarizing_form):
     assert settings["diarize"] is True
     assert settings["subtitles"]                 # a format, so a file is written
     assert form.subtitle_preset.isEnabled() is True
-    assert form.step_subtitles.is_available() is True
+    assert form.tabs.isTabEnabled(form.subtitles_tab) is True
 
 
-def test_the_subtitle_section_waits_for_the_answer_that_needs_it(form):
-    """It stays in the list and goes quiet, saying which answer brings it to
-    life, and opens itself when that answer is chosen."""
+def test_the_subtitle_tab_waits_for_the_answer_that_needs_it(form):
+    """It stays and goes grey, saying which answer brings it to life."""
     form.output_buttons["text"].setChecked(True)
-    assert form.step_subtitles.is_available() is False
-    assert form.step_subtitles.is_open() is False
-    assert "Subtitles" in form.step_subtitles.button.text()
+    assert form.tabs.isTabEnabled(form.subtitles_tab) is False
+    assert "subtitle answers" in form.tabs.tabToolTip(form.subtitles_tab)
 
     form.output_buttons["subtitles"].setChecked(True)
-    assert form.step_subtitles.is_available() is True
-    assert form.step_subtitles.is_open() is True
+    assert form.tabs.isTabEnabled(form.subtitles_tab) is True
 
 
 def test_choosing_subtitles_ticks_the_file_it_will_write(form):
@@ -273,22 +269,46 @@ def test_zero_means_whatever_the_preset_says(form):
     assert settings["subtitles"] == "srt"
 
 
-# --- every closed section still reports ------------------------------------
+# --- every tab says what it holds -----------------------------------------
 
-def test_a_closed_section_says_what_it_holds(form):
+def test_a_tab_says_what_it_holds(form):
     form.output_buttons["subtitles"].setChecked(True)
-    said = {section.key: section.button.text() for section in form.sections}
+    output, how, subtitles, vocabulary = (form.tabs.tabToolTip(index)
+                                          for index in range(4))
 
-    assert said["output"].endswith("Subtitles")
-    assert "auto" in said["options"] and "Italiano" in said["options"]
-    assert "netflix" in said["subtitles"] and ".srt" in said["subtitles"]
-    assert said["vocabulary"].endswith("none")
+    assert output == "Subtitles"
+    assert "auto" in how and "Italiano" in how
+    assert "netflix" in subtitles and ".srt" in subtitles
+    assert vocabulary == "none"
 
     form.vocabularies.item(0).setCheckState(Qt.CheckState.Checked)
-    assert form.vocab_panel.button.text().endswith("1 chosen")
+    assert form.tabs.tabToolTip(3) == "1 chosen"
 
 
 # --- the dialog around it --------------------------------------------------
+
+def test_every_tab_is_in_sight(application):
+    """No scroll arrows and no tab under the edge, in the longest language:
+    a question behind an arrow is a question nobody knows is there."""
+    from PySide6.QtGui import QPalette
+
+    from audio_transcriber.gui import style
+
+    palette, sheet = QPalette(application.palette()), application.styleSheet()
+    style.apply(application)            # the theme is what moves the strip in
+    i18n.set_language("de")
+    try:
+        dialog = JobDialog("Comitato", SETTINGS)
+        dialog.show()
+        application.processEvents()
+        bar = dialog.form.tabs.tabBar()
+
+        assert bar.width() >= bar.sizeHint().width()
+        dialog.close()
+    finally:
+        application.setPalette(palette)
+        application.setStyleSheet(sheet)
+
 
 def test_the_dialog_starts_from_the_last_answers(application, tmp_path):
     """Six meetings in the queue should be six confirmations, not six forms."""

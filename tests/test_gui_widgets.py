@@ -1,8 +1,4 @@
-"""The two widgets the left column is built out of.
-
-The whole bet of that column is that a closed row still reports what it
-holds; these are the tests that keep that true.
-"""
+"""The small widgets the window needs and Qt does not have."""
 import os
 
 import pytest
@@ -15,7 +11,6 @@ try:
     from PySide6.QtCore import QModelIndex, QSize
     from PySide6.QtWidgets import (
         QApplication,
-        QLabel,
         QStyleOptionViewItem,
         QTableWidget,
         QTableWidgetItem,
@@ -29,66 +24,6 @@ from audio_transcriber.gui import widgets  # noqa: E402
 @pytest.fixture(scope="session")
 def application():
     return QApplication.instance() or QApplication([])
-
-
-@pytest.fixture
-def section(application):
-    return widgets.Disclosure("Keyword sets", QLabel("nineteen of them"))
-
-
-def test_a_closed_section_says_what_it_holds(section):
-    """"Keyword sets" tells you nothing; "Keyword sets — 3 chosen" is the same
-    row doing the job the open panel was doing."""
-    assert section.is_open() is False
-    assert section.button.text() == "Keyword sets"
-
-    section.set_summary("3 chosen")
-    assert section.button.text() == "Keyword sets — 3 chosen"
-
-
-def test_opening_shows_the_content(section):
-    section.set_open(True)
-    assert section.is_open() is True
-    assert section.content.isVisibleTo(section) is True
-
-    section.set_open(False)
-    assert section.content.isVisibleTo(section) is False
-
-
-def test_a_section_that_does_not_apply_stays_and_says_why(section):
-    """Taking it out would change the shape of the list under the pointer,
-    and the reason is worth more than the line it costs."""
-    section.set_open(True)
-    section.set_available(False, 'only with "Subtitles"')
-
-    assert section.is_available() is False
-    assert section.is_open() is False
-    assert section.button.text() == 'Keyword sets — only with "Subtitles"'
-    # ...and it cannot be opened by clicking it either
-    section.set_open(True)
-    assert section.is_open() is False
-
-
-def test_it_opens_itself_when_it_becomes_applicable(section):
-    """A section that has just started to matter should not need a second
-    click to be read."""
-    section.set_available(False, "not yet")
-    section.set_available(True)
-
-    assert section.is_open() is True
-    assert section.button.text() == "Keyword sets"
-
-
-def test_a_long_summary_is_cut_to_the_width_there_is(section):
-    """A QToolButton does not elide, so a long summary widened the whole
-    column past the window and put a horizontal scrollbar under five rows."""
-    section.resize(180, 40)
-    section.layout().activate()         # the button now knows how wide it is
-    section.set_summary("auto (small on this machine) · Italian (it) · auto")
-
-    assert section.button.text() != section._full
-    assert section.button.text().endswith("…")
-    assert section.button.toolTip() == section._full
 
 
 def test_a_queue_row_is_two_lines_only_when_it_has_facts(application):
