@@ -140,13 +140,19 @@ def test_the_name_to_type_is_the_same_whoever_is_talking():
     assert templates.get("minutes", language="en").name == "minutes-en"
 
 
-def test_the_bundled_meeting_template_is_the_page_made_without_one():
-    """It is the default written down, and if the two ever part company the
-    file is a lie about what the program does."""
-    page = templates.get("meeting", language="it")
-    assert page.types == note_kinds.TYPES
-    assert page.mode == grouping.HYBRID
-    assert page.tail == grouping.TAIL_TYPES
+def test_the_bundled_meeting_template_is_short_and_keeps_the_english_twin():
+    """Only built-in headings, with explanations of its own: a heading the
+    program does not know would cost every section its English twin, and a
+    model told "## Decisioni" writes "## Decisions" often enough."""
+    for language in ("it", "en"):
+        page = templates.get("meeting", language=language)
+        assert page.types == ("requirement", "decision", "proposal",
+                              "action", "fact", "open_question")
+        assert page.mode == grouping.HYBRID
+        assert page.tail == ("action", "open_question")
+        assert page.catalogue.also
+        assert all(kind.instruction != note_kinds.INSTRUCTIONS[language][kind.name]
+                   for kind in page.catalogue.kinds)
 
 
 def test_every_bundled_template_uses_the_headings_of_its_own_language():

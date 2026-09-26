@@ -516,7 +516,7 @@ Five ship with the program, in Italian and in English:
 
 | name | the page | sections |
 |---|---|---|
-| `meeting` | the subjects discussed, decisions and actions listed at the foot | all eight |
+| `meeting` | a few large subjects, actions and open questions listed at the foot; demos and screens left out | requirements, decisions, proposals, actions, facts, open questions |
 | `minutes` | three fixed headings and nothing else | decisions, actions, open questions |
 | `requirements` | four fixed headings: the call where a client says what they need | requirements, problems, proposals, decisions |
 | `interview` | the subjects discussed, no lists at the foot | facts, opinions, open questions |

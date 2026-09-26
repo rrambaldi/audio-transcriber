@@ -1510,8 +1510,7 @@ def test_a_template_that_does_not_exist_is_refused_with_the_ones_that_do():
 
 
 def test_nothing_asked_for_is_the_page_the_program_makes_by_itself(tmp_path):
-    """The bundled "meeting" template says the same thing, and it is still
-    not what a run with no template uses: a measured default does not become
-    a file somebody could edit under it."""
+    """Not the bundled "meeting" template, which is shorter: a measured
+    default does not become a file somebody could edit under it."""
     quiet = run_with({}, tmp_path / "a").read[0]
     assert "## Opinioni" in quiet

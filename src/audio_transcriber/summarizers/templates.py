@@ -100,11 +100,6 @@ LAYOUTS = {
 
 DEFAULT_LAYOUT = "hybrid"
 
-#: The name of the template that is what the program does when nobody asks
-#: for anything. It is a real file like the others, and it is the one place
-#: the built-in catalogue is written down as a template.
-DEFAULT_NAME = "meeting"
-
 _METADATA_KEYS = ("title", "language", "layout", "lists")
 
 

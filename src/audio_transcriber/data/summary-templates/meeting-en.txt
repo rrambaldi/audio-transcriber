@@ -1,16 +1,15 @@
 # title: Meeting
 # language: en
 # layout: hybrid
-# lists: Decisions, Actions
+# lists: Actions, Open questions
 
-# What the program does when nobody asks for anything: it looks for all of
-# it, the page's sections are the subjects actually discussed, and decisions
-# and actions are repeated as two lists at the foot.
-Requirements:
-Facts:
-Decisions:
-Proposals:
-Actions:
-Problems:
-Open questions:
-Opinions:
+# A few large subjects and only what matters, with who does what and the
+# questions left open repeated at the foot. Lines starting with # never
+# reach the model: what it has to know, such as leaving demos and screens
+# out, is in the explanations below.
+Requirements: what the system has to do, and why (a legal, technical or process constraint) when that was said
+Decisions: a choice actually taken, even a provisional one ("for now")
+Proposals: an idea put forward and not yet decided, with how it was received if that was said
+Actions: who undertook to do what, and by when if that was said
+Facts: only those needed to understand a requirement or a decision, never the steps of a demo or the clicking through screens
+Open questions: a question left unanswered, or a problem still to be solved

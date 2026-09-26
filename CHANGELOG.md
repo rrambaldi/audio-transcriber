@@ -98,6 +98,14 @@ All notable changes to this project are documented here. The format follows
 
 ### Changed
 
+- **The `meeting` template makes a shorter page.** A few large subjects,
+  with actions and open questions repeated at the foot; opinions are no
+  longer collected, facts only when they explain a requirement or a
+  decision, and the steps of a demo are left out. Each heading says what
+  belongs under it, and an open question now covers a problem still to be
+  solved. A run with no template is unchanged, and still collects all
+  eight kinds.
+
 - **The dialog that starts a transcription has four tabs** — *Result*,
   *Transcription*, *Subtitles*, *Keywords* — in place of four sections that
   opened one under the other and, open, were taller than a laptop screen.
