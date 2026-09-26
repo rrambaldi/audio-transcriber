@@ -346,6 +346,13 @@ All notable changes to this project are documented here. The format follows
 
 ### Fixed
 
+- **Trying a failed transcription again no longer files it twice.** The
+  entry was created before its transcript, waveform and subtitles were
+  written, and one of those failing left it on the shelf while the job
+  said *failed*; every retry added another. A run that fails now takes its
+  entry back, and a recording that had been moved into it goes back where
+  it was first, so the retry still finds it.
+
 - **A summary no longer says the same line twice.** The notes were
   deduplicated before the page was written, and the models still put one
   point on it twice — once in a row, once said two ways. The finished page's

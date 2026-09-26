@@ -318,3 +318,28 @@ def test_without_a_reference_nothing_changes(engine):
     result = pipeline.run("meeting.wav", dict(SETTINGS))
 
     assert result.reference is None
+
+
+def test_a_run_that_fails_after_filing_leaves_nothing_behind(tmp_path, monkeypatch):
+    """Otherwise every retry of a failed job files the same recording once
+    more - and one that was moved in has to come back out, or the retry has
+    nothing to transcribe."""
+    from audio_transcriber.library import Library
+
+    library = Library(str(tmp_path / "library"))
+    recording = tmp_path / "riunione.wav"
+    recording.write_bytes(b"RIFF")
+
+    def broken(*args, **kwargs):
+        raise OSError("disk full")
+
+    monkeypatch.setattr(pipeline, "write_subtitles", broken)
+    result = pipeline.Result(
+        text="buongiorno", segments=[], audio_duration=1.0, elapsed=0.1,
+        info={"backend": "faster-whisper", "device": "cpu", "model": "small"},
+        diarized=False, prompt="")
+    with pytest.raises(OSError, match="disk full"):
+        pipeline.file_in_library(library, str(recording), result, {},
+                                 store="move")
+    assert library.entries() == []
+    assert recording.read_bytes() == b"RIFF"
