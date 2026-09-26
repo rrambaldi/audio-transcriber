@@ -355,8 +355,12 @@ def review(written, ask, language="it"):
     found, answers = [], []
     for cluster, title, text in written:
         prompt = template.format(notes=_lines(cluster.notes, language), text=text)
-        answer = prompting.usable_answer(ask(prompt), prompt)
-        answers.append(answer)
+        said = ask(prompt)
+        # Kept as it came, not as it is read: "NESSUNO" is in the question,
+        # so the echo filter takes it out, and "found nothing" would look
+        # like "answered nothing" to whoever is measuring the reviewer.
+        answers.append(said)
+        answer = prompting.usable_answer(said, prompt)
         mine = []
         for line in answer.split("\n"):
             match = _FINDING.match(line)

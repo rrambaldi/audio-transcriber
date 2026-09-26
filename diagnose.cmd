@@ -204,15 +204,17 @@ rem
 rem Spark at Q4 is out. Spark at Q8 wrote the best page of all, and is now
 rem what the plan chooses on llama.cpp: slower, and worth it.
 rem
-rem The read-back, "--review", was measured once (Z4). Spark flagged 39 lines
-rem of its own page, most of them wrongly: whole sections, correct sentences,
-rem lines flagged for all three reasons at once. Granite flagged none, and
-rem nothing said why. The reviewer is now doubted before it is printed, and
-rem its answers are kept at the end of the page file. This round measures it
-rem again, the same two runs, to see what is left and how long it takes.
+rem The read-back, "--review", was measured twice. Z4: Spark flagged 39 lines
+rem of its own page, most of them wrongly; Granite none. Z5, with the reviewer
+rem doubted before it is printed: Spark 2 lines, both right, in 125 s of 617;
+rem Granite none again, in 34 s of 243 - it answered "nothing wrong" in twelve
+rem sections of thirteen. The runs below are that round, kept to repeat it.
 rem
 rem  Z5-spark-review     Spark-X2.5-4B at Q8_0, read back by itself
 rem  Z5-granite-review   Granite 4.0 H-Tiny at Q4_K_M, read back by itself
+rem
+rem Answer S to the question at the start to send them again without
+rem measuring; R measures them again.
 rem
 rem Both in the largest size class, "--tier l", whatever memory is free.
 rem

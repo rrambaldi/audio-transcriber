@@ -198,11 +198,21 @@ reviewer is doubted before anything it says is printed:
 - a line flagged for more than one reason, and a section with more than half
   its lines flagged, are a reviewer that has not found anything.
 
-Measured once on Spark reading back its own page of the reference
-recording: it flagged 39 lines, and those rules kept 2, both of them right —
-a sentence cut off halfway and a real repeat. Granite, reading back its own,
-flagged none. It costs one pass more per section, which on a slow model is
-minutes, so it stays off until `diagnose.cmd` says it is worth it.
+Measured twice on the reference recording, on an Intel Arc 140V:
+
+| reads back | findings asked | printed | time it adds |
+| :--- | ---: | ---: | ---: |
+| Spark-X2.5-4B Q8_0, its own page | 39 | 2, both right | 125 s of 617 |
+| Granite 4.0 H-Tiny Q4_K_M, its own page | 0 | 0 | 34 s of 243 |
+
+Spark's two are a sentence cut off halfway and a real repeat; the rules also
+threw away one it had right, "sviluppi delle rette faccia", in a section
+where it had flagged five lines of eight. Granite answered that nothing was
+wrong in twelve sections of thirteen, and in the last one repeated the
+instructions. Neither can see a claim invented in the reading passes — the
+notes are what it is checked against. It stays off by default: a model that
+wants the notes it was written from next to it is checking the writing, not
+the meeting.
 
 `shape = "headings"` brings the old one back: an abstract, key points,
 decisions, actions, recurring terms, and the fold described below that makes

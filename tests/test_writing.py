@@ -450,7 +450,7 @@ def test_a_reviewer_is_believed_only_about_lines_that_are_on_the_page():
     assert answers == (answer,)
     assert DASHBOARD[0] in asked.prompts[0] and text in asked.prompts[0]
     assert writing.review([(cluster(DASHBOARD), "D", text)], Asked("NESSUNO"),
-                          "it")[0] == ()
+                          "it") == ((), ("NESSUNO",))
 
 
 def test_a_reviewer_that_flags_everything_or_cannot_say_why_is_not_believed():
