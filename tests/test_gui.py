@@ -338,6 +338,24 @@ def test_a_broken_entry_is_skipped_instead_of_breaking_the_list(library):
     assert os.path.isdir(broken.path)   # skipped, not touched
 
 
+def test_a_recording_transcribed_twice_says_so_and_links_the_other(library, tmp_path):
+    recording = tmp_path / "riunione.wav"
+    recording.write_bytes(b"RIFF")
+    first = library.create(source=str(recording))
+    first.update(transcription={"model": "small"})
+    second = library.create(source=str(recording))
+    second.update(transcription={"model": "large-v3"})
+    alone = make_entry(library)
+
+    copies = library.copies()
+    rows = {row["id"]: row for row in options.entry_rows(library.entries(), copies)}
+    assert rows[first.id]["copies"] == rows[second.id]["copies"] == 2
+    assert rows[alone.id]["copies"] == 0
+    [(entry_id, label)] = options.copy_links(second, copies)
+    assert entry_id == first.id and label.endswith(" · small")
+    assert options.copy_links(alone, copies) == []
+
+
 def test_the_details_report_how_the_transcription_was_made(library):
     entry = make_entry(library, backend="faster-whisper", device="CPU",
                        language="it", elapsed_seconds=5400,

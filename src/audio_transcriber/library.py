@@ -451,6 +451,25 @@ class Library:
             found.append(Entry(path))
         return found
 
+    def copies(self):
+        """The recordings filed more than once, by entry id.
+
+        Transcribing one file twice to compare two models files it twice, and
+        the two rows look alike. Each id of such a recording maps to all of its
+        entries, newest first; a recording filed once is not in here at all.
+        The digest is the one :meth:`create` records, so a renamed file is
+        still the same recording and two files with one name are not."""
+        groups = {}
+        for entry in self.entries():
+            try:
+                digest = (entry.metadata.get("source") or {}).get("sha256")
+            except LibraryError:
+                continue
+            if digest:
+                groups.setdefault(digest, []).append(entry)
+        return {entry.id: group for group in groups.values() if len(group) > 1
+                for entry in group}
+
     def find(self, query):
         """Entries whose id starts with, or whose title contains, ``query``."""
         needle = (query or "").strip().lower()

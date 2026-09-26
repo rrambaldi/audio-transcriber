@@ -8,6 +8,13 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- **The library says when a recording was transcribed more than once.** Its
+  rows carry `×3` in front of the title, since they otherwise read as the
+  same name three times, and *Details* lists the other transcriptions by
+  date and model, one click away. The same recording means the same file,
+  by the SHA-256 every entry already records: a renamed copy counts, a
+  different file with the same name does not.
+
 - **A summary can be read back.** With `review = true` in `[summary]`,
   `--review`, or *Read it back* in the window, the model reads every section
   again beside the notes it was written from and lists at the foot, under

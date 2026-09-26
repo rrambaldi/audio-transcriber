@@ -33,7 +33,7 @@ try:
         QShortcut,
         QShowEvent,
     )
-    from PySide6.QtWidgets import QApplication, QLabel, QMessageBox
+    from PySide6.QtWidgets import QApplication, QFormLayout, QLabel, QMessageBox
 except ImportError as exc:      # pragma: no cover - depends on the machine
     # PySide6 is installed but will not load: a partial install, or a Linux box
     # without the system libraries Qt links against. That is worth skipping
@@ -1662,6 +1662,29 @@ def diarized_panel(tmp_path, texts=("Buongiorno.", "Ho i numeri qui.")):
     panel = LibraryPanel(library)
     panel.show_entry(entry.id)
     return panel, entry
+
+
+def test_a_recording_transcribed_twice_is_marked_and_linked(application, tmp_path):
+    """The row says how many times, and the details reach the other one."""
+    from audio_transcriber.gui.library_panel import LibraryPanel
+    from audio_transcriber.library import Library
+
+    library = Library(str(tmp_path / "library"))
+    recording = tmp_path / "riunione.wav"
+    recording.write_bytes(b"RIFF")
+    first = library.create(source=str(recording), title="Riunione")
+    second = library.create(source=str(recording), title="Riunione")
+    panel = LibraryPanel(library)
+    assert [panel.table.item(row, 1).text() for row in range(2)] == [
+        "×2  Riunione", "×2  Riunione"]
+    assert "2" in panel.table.item(0, 1).toolTip()
+
+    panel.show_entry(second.id)
+    links = panel.details_form.itemAt(0, QFormLayout.ItemRole.FieldRole).widget()
+    assert first.id in links.text()
+    links.linkActivated.emit(first.id)
+    assert panel.selected_id() == first.id
+    panel.deleteLater()
 
 
 def test_naming_the_speakers_is_offered_only_when_there_are_any(application,

@@ -165,6 +165,13 @@ so half a dozen files named by date are told apart before any of them has been
 transcribed. A recording filed before the window could draw one is measured in
 the background, one at a time; see [data-layout.md](data-layout.md).
 
+A recording transcribed more than once — to compare two models, say — is
+**marked with how many times**, `×3` in front of its title, because otherwise
+the rows are the same name three times over. *Details* lists the others by
+date and model, and clicking one opens it. The same recording is the same
+file, found by the SHA-256 in `metadata.json`: renamed it is still the same
+one, and two different files with one name are not.
+
 A recording transcribed with "who said what" also offers **Name the
 speakers**: one field per voice, in the order they are first heard, each with
 the first thing that voice says under it. The transcript and the timestamps

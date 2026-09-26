@@ -405,6 +405,8 @@ MESSAGES = {
     "gui.detail_detected": "détectés",
     "gui.detail_vocabulary": "Jeux de mots-clés",
     "gui.detail_folder": "Dossier",
+    "gui.detail_copies": "Autres transcriptions",
+    "gui.copies_tooltip": "Transcrit {count} fois : les autres sont dans Détails",
     "gui.notes_hint": "À vous de les écrire ; enregistrées sous notes.md dans la fiche.",
     "gui.notes_save": "Enregistrer les notes",
     "gui.notes_saved": "Notes enregistrées.",

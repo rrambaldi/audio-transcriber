@@ -527,9 +527,29 @@ def entry_row(entry):
     }
 
 
-def entry_rows(entries):
-    """Every readable row, in the order the library returned them."""
-    return [row for row in (entry_row(entry) for entry in entries) if row]
+def entry_rows(entries, copies=None):
+    """Every readable row, in the order the library returned them.
+
+    ``copies`` is :meth:`Library.copies`: each row says how many times its
+    recording has been transcribed, so the table can tell them apart."""
+    copies = copies or {}
+    rows = [row for row in (entry_row(entry) for entry in entries) if row]
+    for row in rows:
+        row["copies"] = len(copies.get(row["id"], ()))
+    return rows
+
+
+def copy_links(entry, copies):
+    """The other transcriptions of the same recording, as ``(id, label)``.
+
+    Labelled by date and model, which is what differs between them: the
+    title is the same file's name every time."""
+    links = []
+    for other in copies.get(entry.id, ()):
+        row = entry_row(other) if other.id != entry.id else None
+        if row:
+            links.append((other.id, f"{row['date']} · {row['model']}"))
+    return links
 
 
 def summary_engine_choices(settings=None):

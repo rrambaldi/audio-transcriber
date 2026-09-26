@@ -2,6 +2,7 @@
 import json
 import os
 from datetime import datetime
+from pathlib import Path
 
 import pytest
 
@@ -104,6 +105,24 @@ def test_two_recordings_in_the_same_minute_get_distinct_folders(library, recordi
     second = library.create(source=recording, title="Sync", when=when)
     assert first.id != second.id
     assert second.id.startswith(first.id)
+
+
+def test_a_recording_filed_twice_is_found_by_its_digest(library, recording, tmp_path):
+    """Renamed, it is still the same recording; a different file of the same
+    name is not, and a recording filed once is not a copy of anything."""
+    first = library.create(source=recording, title="Sync")
+    renamed = tmp_path / "copia.wav"
+    renamed.write_bytes(Path(recording).read_bytes())
+    second = library.create(source=str(renamed), title="Sync")
+    other = tmp_path / "Team Sync.mp3"
+    other.write_bytes(b"another meeting")
+    alone = library.create(source=str(other), title="Sync")
+    library.create(title="No source at all")
+
+    copies = library.copies()
+    assert set(copies) == {first.id, second.id}
+    assert [entry.id for entry in copies[first.id]] == [second.id, first.id]
+    assert alone.id not in copies
 
 
 # --- content --------------------------------------------------------------

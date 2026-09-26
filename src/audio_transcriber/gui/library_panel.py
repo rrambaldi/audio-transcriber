@@ -103,6 +103,7 @@ class LibraryPanel(QWidget):
         self.queue = queue
         self.entry = None
         self._rows = []
+        self._copies = {}
         self._notes_dirty = False
         self._audio_path = None
         self._summary_job = None
@@ -383,7 +384,8 @@ class LibraryPanel(QWidget):
         query = self.search.text().strip()
         keep = keep or (self.entry.id if self.entry else None)
         entries = self.library.search(query) if query else self.library.entries()
-        self._rows = options.entry_rows(entries)
+        self._copies = self.library.copies()
+        self._rows = options.entry_rows(entries, self._copies)
         self.count.setText(options.search_summary(query, len(self._rows)))
 
         self.table.blockSignals(True)
@@ -391,7 +393,14 @@ class LibraryPanel(QWidget):
         for index, row in enumerate(self._rows):
             for column, key in enumerate(("date", "title", "duration", "words",
                                           "model", "notes")):
-                item = QTableWidgetItem(row[key])
+                text = row[key]
+                copies = row["copies"] if key == "title" else 0
+                if copies:
+                    # In front: a narrow pane cuts the end of a title off.
+                    text = f"×{copies}  {text}"
+                item = QTableWidgetItem(text)
+                if copies:
+                    item.setToolTip(t("gui.copies_tooltip", count=copies))
                 item.setData(Qt.ItemDataRole.UserRole, row["id"])
                 if column == 1:
                     item.setData(widgets.LOUDNESS_ROLE, row["loudness"])
@@ -531,6 +540,17 @@ class LibraryPanel(QWidget):
         self._notes_dirty = False
         self.save_notes.setEnabled(False)
         _fill_form(self.details_form, options.entry_details(entry))
+        links = options.copy_links(entry, self._copies)
+        if links:
+            # A link per transcription: clicking one selects its row, and the
+            # two can be read one after the other.
+            field = QLabel(" &nbsp;·&nbsp; ".join(
+                f'<a href="{html.escape(entry_id)}">{html.escape(label)}</a>'
+                for entry_id, label in links))
+            field.setTextFormat(Qt.TextFormat.RichText)
+            field.setWordWrap(True)
+            field.linkActivated.connect(self.show_entry)
+            self.details_form.insertRow(0, f"{t('gui.detail_copies')}:", field)
         self._show_summary()
         self._load_audio(entry.stored_audio())
         self._enable_actions(True)

@@ -405,6 +405,8 @@ MESSAGES = {
     "gui.detail_detected": "erkannt",
     "gui.detail_vocabulary": "Schlüsselwort-Sets",
     "gui.detail_folder": "Ordner",
+    "gui.detail_copies": "Weitere Transkriptionen",
+    "gui.copies_tooltip": "{count}-mal transkribiert: die anderen stehen unter Details",
     "gui.notes_hint": "Zum eigenen Schreiben; wird als notes.md im Eintrag gespeichert.",
     "gui.notes_save": "Notizen speichern",
     "gui.notes_saved": "Notizen gespeichert.",
