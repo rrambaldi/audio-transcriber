@@ -13,9 +13,12 @@ All notable changes to this project are documented here. The format follows
   again beside the notes it was written from and lists at the foot, under
   *Da ricontrollare* / *To check*, the lines it doubts: one the notes do not
   say, one that repeats another, one that does not read as a sentence.
-  Nothing is rewritten, and a finding counts only if it quotes a line that is
-  on the page. Off by default: one pass more per section, and `diagnose.cmd`
-  now measures it on Spark and on Granite.
+  Nothing is rewritten, and the reviewer is doubted first: a finding has to
+  quote a line that is on the page, a repeat needs a line alike enough, and
+  a line flagged for several reasons or a section flagged mostly whole is
+  dropped. On Spark's page of the reference recording that left 2 of 39,
+  both right. Off by default: one pass more per section, and `diagnose.cmd`
+  measures it on Spark and on Granite.
 
 - **The About box links to the source on GitHub**, in the window and in the
   page, under the version.
@@ -80,7 +83,8 @@ All notable changes to this project are documented here. The format follows
 - **Spark-X2.5-4B writes the summaries on llama.cpp**, at Q8_0, wherever six
   gigabytes are usable: it wrote the best page measured, 20 of the 21 facts
   of the reference against Granite 4.0 H-Tiny's 18, and none invented. It is
-  five to eight times slower, and that was accepted. It needs llama.cpp
+  slower - ten minutes to Granite's four at best, thirty-three at worst on
+  the same machine - and that was accepted. It needs llama.cpp
   b10828 or later; an older build refuses it on load, and the run says so
   and goes on with the next model down instead of failing.
   `diagnose.cmd` now measures it against Granite on the same recording,

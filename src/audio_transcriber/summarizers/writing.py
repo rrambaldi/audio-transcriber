@@ -21,6 +21,7 @@ meeting and said nothing about it.
 """
 import difflib
 import re
+import time
 from collections import namedtuple
 
 from ..formatting import format_clock
@@ -92,7 +93,7 @@ _BULLET = re.compile(r"^\s*(?:[-*\u2022]|\d{1,2}[.)])\s+")
 #: What a reviewer answers, one finding a line: the kind, then the line of the
 #: page it is about, copied. Both languages' words, whichever was asked.
 _FINDING = re.compile(
-    r"^\s*(?:[-*\u2022]\s*)?\**\s*(INVENTATA|DOPPIA|SCORRETTA|INVENTED|REPEATED"
+    r"^\s*(?:(?:[-*\u2022]|\d{1,2}[.)])\s*)?\**\s*(INVENTATA|DOPPIA|SCORRETTA|INVENTED|REPEATED"
     r"|GARBLED)\s*\**\s*[:\-\u2013\u2014]\s*(.+?)\s*$", re.IGNORECASE)
 KINDS = {"inventata": "unsupported", "invented": "unsupported",
          "doppia": "repeated", "repeated": "repeated",
@@ -103,6 +104,14 @@ KINDS = {"inventata": "unsupported", "invented": "unsupported",
 #: it paraphrases is not a quotation, and a finding that quotes nothing on
 #: the page is the reviewer's own invention.
 QUOTED = 0.85
+
+#: How alike a line has to be to another for "it repeats another line" to be
+#: believed. Measured on Spark reading back its own page of gold.srt: seven
+#: of the ten lines it called repeats scored 0.18 to 0.35 against every other
+#: line of their section - the same opening words, "Necessità di modalità
+#: per", and different things after them - and the three it had grounds for
+#: scored 0.50 to 0.62. Two alike past SAME_NOTE never reach the reviewer.
+ALIKE = 0.5
 
 
 def _lines(found, language="it", minutes=False):
@@ -296,6 +305,37 @@ def _on_the_page(quoted, text):
     return best if score >= QUOTED else None
 
 
+def _has_a_twin(line, text, language="it"):
+    """Whether another line of ``text`` says much the same as ``line``."""
+    others = [_BULLET.sub("", row) for row in text.split("\n")
+              if row.strip() and _plain(row) != _plain(line)]
+    if not others:
+        return False
+    alike = grouping.similarity([Point(None, None, row) for row in [line] + others],
+                                language)
+    return float(alike[0, 1:].max()) >= ALIKE
+
+
+def _believable(found, text):
+    """What is left of one section's findings once the reviewer is doubted.
+
+    Measured, not supposed: on Spark reading back its own page, four sections
+    of eleven had more than half their lines flagged - all ten of one, among
+    them "Oggi si intende finire tutto il layout della parte ACM." - and a
+    line was often flagged for all three reasons at once. A reviewer that
+    cannot say which thing is wrong with a line has not found one, and one
+    that flags most of a section is reading nothing; of 39 findings those two
+    rules left 2, both of them right. One finding is never "most": a section
+    of one line may well have one thing wrong with it."""
+    kinds = {}
+    for _title, line, kind in found:
+        kinds.setdefault(line, set()).add(kind)
+    kept = [finding for finding in found if len(kinds[finding[1]]) == 1]
+    lines = sum(1 for row in text.split("\n") if row.strip())
+    flagged = len({line for _t, line, _k in kept})
+    return [] if flagged > 1 and flagged * 2 > lines else kept
+
+
 def review(written, ask, language="it"):
     """What a model reading each section back finds wrong with it.
 
@@ -303,25 +343,34 @@ def review(written, ask, language="it"):
     the model is asked for three things only a reader sees: a line the notes
     do not say, a line that repeats another, a line that does not read as a
     sentence. Nothing is changed: the page stays as written and says, at the
-    foot, what to check. A finding has to quote a line that is on the page -
-    one that quotes nothing is the reviewer's invention, and is dropped.
+    foot, what to check. What the reviewer says is doubted before it is
+    printed - a finding has to quote a line that is on the page, a repeat has
+    to have a line alike enough to repeat, and see :func:`_believable`.
 
-    ``[(title, line, kind)]``, kind one of :data:`KINDS`' values."""
+    ``([(title, line, kind)], [answer per section])``: kind one of
+    :data:`KINDS`' values, and the answers as they came back, for whoever
+    is measuring the reviewer."""
     language = language_of(language)
     template = prompting.prompts_for(language)["review"]
-    found = []
+    found, answers = [], []
     for cluster, title, text in written:
         prompt = template.format(notes=_lines(cluster.notes, language), text=text)
         answer = prompting.usable_answer(ask(prompt), prompt)
+        answers.append(answer)
+        mine = []
         for line in answer.split("\n"):
             match = _FINDING.match(line)
             if not match:
                 continue
             quoted = _on_the_page(match.group(2), text)
-            finding = (title, quoted, KINDS[match.group(1).lower()])
-            if quoted and finding not in found:
-                found.append(finding)
-    return tuple(found)
+            kind = KINDS[match.group(1).lower()]
+            if not quoted or (kind == "repeated"
+                              and not _has_a_twin(quoted, text, language)):
+                continue
+            if (title, quoted, kind) not in mine:
+                mine.append((title, quoted, kind))
+        found.extend(_believable(mine, text))
+    return tuple(found), tuple(answers)
 
 
 def write(body, tail, ask, material=None, language="it", progress=None,
@@ -362,7 +411,7 @@ def write(body, tail, ask, material=None, language="it", progress=None,
                 if cluster.named_by == "model"]
     opening = abstract(titles, abstract_ask or ask, language, detail)
     written, repeats = without_repeats(written, language)
-    found = ()
+    found, answers, spent = (), (), None
     if review_ask:
         def reviewed(prompt):
             nonlocal done
@@ -371,7 +420,9 @@ def write(body, tail, ask, material=None, language="it", progress=None,
             if progress:
                 progress(min(done, total), total)
             return answer
-        found = review(written, reviewed, language)
+        started = time.monotonic()
+        found, answers = review(written, reviewed, language)
+        spent = round(time.monotonic() - started, 1)
     if progress:
         progress(total, total)
 
@@ -387,4 +438,6 @@ def write(body, tail, ask, material=None, language="it", progress=None,
         notes=tuple(note for cluster in body for note in cluster.notes),
         repeats=repeats,
         review=found,
+        review_answers=answers,
+        review_s=spent,
     )

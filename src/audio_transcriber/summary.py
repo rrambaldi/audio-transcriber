@@ -281,6 +281,10 @@ class Document:
     repeats: int = 0
     #: ``(section heading, line, kind)`` a reviewer found worth checking.
     review: tuple = ()
+    #: What the reviewer answered, per section, and how long it took: for
+    #: measuring the reviewer, never printed on the page.
+    review_answers: tuple = ()
+    review_s: float = None
 
     @property
     def points(self):

@@ -498,6 +498,7 @@ def main(argv=None):
             {kind: sum(1 for *_, seen in found if seen == kind)
              for kind in ("unsupported", "repeated", "garbled")}
             if args.review else None)
+        report["metrics"]["review_s"] = getattr(result.sections, "review_s", None)
 
     numbers = Path(str(prefix) + ".numbers.json")
     numbers.write_text(json.dumps(report, ensure_ascii=False, indent=2),
@@ -527,6 +528,12 @@ def main(argv=None):
         for index, answer in enumerate(answers, start=1):
             body.append(f"\n\n<!-- reading pass {index}, as it came back -->\n")
             body.append(answer if answer.endswith("\n") else answer + "\n")
+    # The reviewer's own words, per section: what it found is on the page
+    # only once it has been doubted, and the doubting is what is measured.
+    reviewed = getattr(getattr(result, "sections", None), "review_answers", ())
+    for index, answer in enumerate(reviewed or (), start=1):
+        body.append(f"\n\n<!-- review of section {index}, as it came back -->\n")
+        body.append((answer or "(nothing)").rstrip("\n") + "\n")
     page.write_text("".join(body), encoding="utf-8")
 
     print(f"\nnumbers  -> {numbers}      (no meeting content: send this one)",

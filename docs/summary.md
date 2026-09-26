@@ -189,11 +189,20 @@ beside the notes it was written from and lists, under **Da ricontrollare** /
 **To check** at the foot, the lines it doubts: one the notes do not say, one
 that repeats another, one that does not read as a sentence. Nothing on the
 page is changed — a four-billion-parameter model is a poor judge, and a page
-it rewrote would be a page nobody could trust. For the same reason a finding
-counts only if it quotes a line that is on the page; one that quotes nothing
-is the reviewer's own invention and is dropped. It costs one pass more per
-section, which on a slow model is minutes, so it is off until
-`diagnose.cmd` has measured whether what it lists is right.
+it rewrote would be a page nobody could trust. For the same reason the
+reviewer is doubted before anything it says is printed:
+
+- a finding has to quote a line that is on the page — one that quotes
+  nothing is the reviewer's own invention;
+- "repeats another line" needs a line alike enough to repeat;
+- a line flagged for more than one reason, and a section with more than half
+  its lines flagged, are a reviewer that has not found anything.
+
+Measured once on Spark reading back its own page of the reference
+recording: it flagged 39 lines, and those rules kept 2, both of them right —
+a sentence cut off halfway and a real repeat. Granite, reading back its own,
+flagged none. It costs one pass more per section, which on a slow model is
+minutes, so it stays off until `diagnose.cmd` says it is worth it.
 
 `shape = "headings"` brings the old one back: an abstract, key points,
 decisions, actions, recurring terms, and the fold described below that makes
@@ -358,8 +367,9 @@ the rest of this program, which is holding a transcript while the model runs.
 On llama.cpp the largest class starts with **Spark-X2.5-4B**, at Q8_0 only.
 Measured against Granite 4.0 H-Tiny on the same 22-minute recording, on an
 Intel Arc 140V, it wrote the best page (20 of the 21 facts of the reference
-summary, none invented, against 18 and one invented), in 19 to 33 minutes
-against four: the better page was worth the wait. At Q4_K_M it was slower
+summary, none invented, against 18 and one invented), in ten minutes against
+four on its fastest run and thirty-three on its slowest, on the same machine:
+the better page was worth the wait. At Q4_K_M it was slower
 than Granite and wrote less, so that file is not offered. Its architecture
 needs llama.cpp b10828 or later; an older build refuses the file when it
 loads it, and the run says so and goes on with Granite 4.0 H-Tiny.

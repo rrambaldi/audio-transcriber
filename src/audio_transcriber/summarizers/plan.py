@@ -154,8 +154,9 @@ CATALOGUE = (
           tier="m", floor=3.5),
     # First in the largest tier because it writes the best page: on gold.srt
     # at Q8_0 it kept 20 of the 21 facts of the reference and invented none,
-    # where Granite 4.0 H-Tiny kept 18 and invented one. It is also five to
-    # eight times slower, which was measured and accepted. Only Q8_0 is
+    # where Granite 4.0 H-Tiny kept 18 and invented one. It is also slower -
+    # ten minutes to Granite's four on one run, thirty-three on another on
+    # the same machine - which was measured and accepted. Only Q8_0 is
     # listed: at Q4_K_M it was slower than Granite and worse. Nine of its 36
     # layers are full attention; the other 27 slide over 512 tokens and hold
     # a cache too small to count. Its architecture, ``spark2_5``, needs

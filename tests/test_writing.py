@@ -430,6 +430,8 @@ def test_a_reviewer_is_believed_only_about_lines_that_are_on_the_page():
     """It lists; it does not rewrite. A finding that quotes a line the page
     does not have is the reviewer's own invention and is dropped."""
     text = ("Si e' parlato della dashboard.\n\n"
+            "- Il sollecito parte dopo tre giorni.\n"
+            "- Il report arriva ogni lunedi'.\n"
             "- La dashboard mostra a chi e' partita la mail.\n"
             "- La dashboard mostra chi e' partita la mail di invito.\n"
             "- Il 20% degli utenti e' stressato.\n"
@@ -440,12 +442,41 @@ def test_a_reviewer_is_believed_only_about_lines_that_are_on_the_page():
               "INVENTATA: Il budget e' di diecimila euro.\n"
               "INVENTATA: la riga")
     asked = Asked(answer)
-    found = writing.review([(cluster(DASHBOARD), "Dashboard", text)], asked, "it")
+    found, answers = writing.review([(cluster(DASHBOARD), "Dashboard", text)],
+                                    asked, "it")
     assert [kind for *_, kind in found] == ["repeated", "unsupported", "garbled"]
     assert all(line in text for _title, line, _kind in found)
     assert found[0][0] == "Dashboard"
+    assert answers == (answer,)
     assert DASHBOARD[0] in asked.prompts[0] and text in asked.prompts[0]
-    assert writing.review([(cluster(DASHBOARD), "D", text)], Asked("NESSUNO"), "it") == ()
+    assert writing.review([(cluster(DASHBOARD), "D", text)], Asked("NESSUNO"),
+                          "it")[0] == ()
+
+
+def test_a_reviewer_that_flags_everything_or_cannot_say_why_is_not_believed():
+    """Measured on Spark reading back its own page: lines flagged for all
+    three reasons at once, sections flagged whole, "repeats" that shared only
+    their first three words. Of 39 findings, 2 were worth printing."""
+    text = ("- Necessita' di modalita' per inviare la mail agli utenti nuovi.\n"
+            "- Necessita' di modalita' per vedere chi ha fatto il primo accesso.\n"
+            "- Il documentale va su un server S3 per lo sviluppo.\n"
+            "- Oggi si finisce il layout della parte ACM.\n"
+            "- Ha finito tutti i sviluppi delle rette faccia.")
+    section = [(cluster(DASHBOARD), "Campagna", text)]
+    shared_opening = ("DOPPIA: Necessita' di modalita' per vedere chi ha fatto "
+                      "il primo accesso.")
+    assert writing.review(section, Asked(shared_opening), "it")[0] == ()
+    three_ways = ("INVENTATA: Il documentale va su un server S3 per lo sviluppo.\n"
+                  "DOPPIA: Il documentale va su un server S3 per lo sviluppo.\n"
+                  "SCORRETTA: Il documentale va su un server S3 per lo sviluppo.\n"
+                  "SCORRETTA: Ha finito tutti i sviluppi delle rette faccia.")
+    found, _ = writing.review(section, Asked(three_ways), "it")
+    assert found == (("Campagna", "Ha finito tutti i sviluppi delle rette faccia.",
+                      "garbled"),)
+    everything = "\n".join("SCORRETTA: " + line[2:] for line in text.split("\n"))
+    assert writing.review(section, Asked(everything), "it")[0] == ()
+    numbered = "1. SCORRETTA: Ha finito tutti i sviluppi delle rette faccia."
+    assert writing.review(section, Asked(numbered), "it")[0]
 
 
 def test_the_review_is_asked_only_when_wanted_and_lands_at_the_foot():
@@ -463,6 +494,8 @@ def test_the_review_is_asked_only_when_wanted_and_lands_at_the_foot():
     assert len(reviews.prompts) == 1
     assert document.review == (
         (document.sections[0][0], "La dashboard mostra gli inviti.", "garbled"),)
+    assert document.review_answers == ("SCORRETTA: La dashboard mostra gli inviti.",)
+    assert document.review_s is not None
     page = summarising.render(material, document, "un motore")
     foot = page.split("## Da ricontrollare")[1]
     assert "_La dashboard mostra gli inviti._" in foot

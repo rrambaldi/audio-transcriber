@@ -199,20 +199,20 @@ rem
 rem   Granite 4.0 H-Tiny Q4   240 s   coverage 95%   18 of 21 facts, one invented
 rem   Spark-X2.5-4B Q4        415 s   coverage 91%   17 of 21, verbose, garbled
 rem   Spark, 800 per pass     556 s   coverage 91%   17 of 21, only longer
-rem   Spark-X2.5-4B Q8   1990 s   coverage 95%   20 of 21, nothing invented
+rem   Spark-X2.5-4B Q8   618-1990 s   coverage 95%   20 of 21, nothing invented
 rem
 rem Spark at Q4 is out. Spark at Q8 wrote the best page of all, and is now
 rem what the plan chooses on llama.cpp: slower, and worth it.
 rem
-rem This round measures the read-back, "--review": once the page is written
-rem the model reads every section again beside its notes and lists at the
-rem foot, under "Da ricontrollare", the lines it doubts - one the notes do
-rem not say, one that repeats another, one that does not read as a sentence.
-rem What to look at: how many minutes it adds, and whether what it lists is
-rem right. The pages of Z3 are the same pages without it, to compare.
+rem The read-back, "--review", was measured once (Z4). Spark flagged 39 lines
+rem of its own page, most of them wrongly: whole sections, correct sentences,
+rem lines flagged for all three reasons at once. Granite flagged none, and
+rem nothing said why. The reviewer is now doubted before it is printed, and
+rem its answers are kept at the end of the page file. This round measures it
+rem again, the same two runs, to see what is left and how long it takes.
 rem
-rem  Z4-spark-review     Spark-X2.5-4B at Q8_0, read back by itself
-rem  Z4-granite-review   Granite 4.0 H-Tiny at Q4_K_M, read back by itself
+rem  Z5-spark-review     Spark-X2.5-4B at Q8_0, read back by itself
+rem  Z5-granite-review   Granite 4.0 H-Tiny at Q4_K_M, read back by itself
 rem
 rem Both in the largest size class, "--tier l", whatever memory is free.
 rem
@@ -226,8 +226,8 @@ rem Each run clears the cached passes first, so each one reads the recording.
 rem
 rem To ask a new question, edit these lines. Everything else stays as it is.
 :round
-call :measure "Z4-spark-review" "%AT_LLAMA_VULKAN%" "--tier l --model Spark-X2.5-4B --quant Q8_0 --review"
-call :measure "Z4-granite-review" "%AT_LLAMA_VULKAN%" "--tier l --model ibm-granite/granite-4.0-h-tiny --review"
+call :measure "Z5-spark-review" "%AT_LLAMA_VULKAN%" "--tier l --model Spark-X2.5-4B --quant Q8_0 --review"
+call :measure "Z5-granite-review" "%AT_LLAMA_VULKAN%" "--tier l --model ibm-granite/granite-4.0-h-tiny --review"
 goto :eof
 
 :devices
