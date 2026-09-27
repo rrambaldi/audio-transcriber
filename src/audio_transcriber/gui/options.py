@@ -406,6 +406,7 @@ def job_row(job):
         "words": "-" if job.words is None else str(job.words),
         "entry_id": job.entry_id,
         "finished": job.status in FINISHED,
+        "done": job.status == DONE,
         "failed": job.status == FAILED,
         "held": job.status == HELD,
         "cancellable": job.status in NOT_STARTED,
@@ -491,6 +492,39 @@ def queue_summary(jobs):
 # the library table and the reading pane
 # --------------------------------------------------------------------------
 
+#: What a row of the library carries when it is dragged onto a folder.
+ENTRY_MIME = "application/x-audio-transcriber-entry"
+
+
+def folder_of(entry_id):
+    """The folder an entry id is in: "" at the top of the library."""
+    return str(entry_id or "").rpartition("/")[0]
+
+
+def folder_choices(folders):
+    """The top of the library and every folder, as ``(folder, label)``.
+
+    A folder is labelled by its whole path, so two folders called "2026" in
+    different places can be told apart in a menu."""
+    return [("", t("gui.tree_library"))] + [
+        (folder, folder.replace("/", " › ")) for folder in folders]
+
+
+def summary_versions(entry):
+    """The summaries kept when newer ones were written, as ``(file, label)``.
+
+    Labelled by when it was written and by what: the two things that tell two
+    pages about the same meeting apart."""
+    try:
+        versions = entry.summary_versions()
+    except (LibraryError, OSError):
+        return []
+    return [(version["file"], " · ".join(part for part in (
+                (version.get("created_at") or "")[:16].replace("T", " "),
+                version.get("engine") or "") if part) or version["file"])
+            for version in versions]
+
+
 def entry_headers():
     """Column headings of the library table, in order."""
     return [t("gui.col_date"), t("gui.col_title"), t("gui.col_duration"),
@@ -524,6 +558,7 @@ def entry_row(entry):
         # missing ones in the background, a row at a time.
         "loudness": entry.read_waveform(),
         "path": entry.path,
+        "folder": folder_of(entry.id),
     }
 
 

@@ -227,6 +227,13 @@ class OptionsForm(QWidget):
         self.form.addRow(t("gui.label_model"), self.model)
         self.form.addRow(t("gui.label_language"), self.language)
         self.form.addRow(t("gui.label_backend"), self.backend)
+        # Here and not with the subtitles: a text somebody already has helps
+        # every answer, and the subtitles tab is greyed out for plain text -
+        # the default - which left this box out of reach.
+        reference_note = style.note(QLabel(t("gui.reference_note")))
+        reference_note.setWordWrap(True)
+        self.form.addRow(reference_note)
+        self.form.addRow(t("gui.label_reference"), self.reference)
 
         subtitle_page = QWidget()
         subtitle_form = QFormLayout(subtitle_page)
@@ -239,10 +246,6 @@ class OptionsForm(QWidget):
         save_row.addWidget(self.save_vtt)
         save_row.addStretch(1)
         subtitle_form.addRow(t("gui.label_sub_save"), _wrap(save_row))
-        reference_note = style.note(QLabel(t("gui.reference_note")))
-        reference_note.setWordWrap(True)
-        subtitle_form.addRow(reference_note)
-        subtitle_form.addRow(t("gui.label_reference"), self.reference)
 
         vocab_page = QWidget()
         vocab_layout = QVBoxLayout(vocab_page)

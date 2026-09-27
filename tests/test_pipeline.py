@@ -343,3 +343,38 @@ def test_a_run_that_fails_after_filing_leaves_nothing_behind(tmp_path, monkeypat
                                  store="move")
     assert library.entries() == []
     assert recording.read_bytes() == b"RIFF"
+
+
+def test_transcribing_again_in_place_replaces_what_the_audio_made_and_keeps_the_rest(
+        tmp_path, monkeypatch):
+    """The notes, the summary and the title are somebody's work; the speaker
+    names named labels the new run will hand out afresh."""
+    from audio_transcriber.library import Library
+
+    library = Library(str(tmp_path / "library"))
+    entry = library.create(title="Comitato", folder="Clienti")
+    entry.write_transcript("vecchio testo\n", [])
+    entry.write_notes("mie note")
+    entry.write_summary("riassunto")
+    entry.write_subtitles("WEBVTT\n", "vtt")
+    entry.update(speaker_names={"SPEAKER_00": "Anna"}, reference={"words": 3})
+
+    def only_srt(entry, result, settings):
+        entry.write_subtitles("1\n00:00:00,000 --> 00:00:01,000\nnuovo\n", "srt")
+        return ["srt"], [], []
+
+    monkeypatch.setattr(pipeline, "write_subtitles", only_srt)
+    result = pipeline.Result(
+        text="nuovo testo", segments=[], audio_duration=1.0, elapsed=0.1,
+        info={"backend": "faster-whisper", "device": "cpu", "model": "large-v3"},
+        diarized=False, prompt="")
+    same = pipeline.refile(entry, result, {})
+
+    assert same.id == entry.id == f"Clienti/{entry.name}"
+    assert same.read_transcript() == "nuovo testo"
+    assert same.read_notes() == "mie note\n" and same.read_summary() == "riassunto\n"
+    data = same.read_metadata()
+    assert data["title"] == "Comitato"
+    assert data["transcription"]["model"] == "large-v3"
+    assert "speaker_names" not in data and "reference" not in data
+    assert same.subtitles() == ["srt"]

@@ -11,6 +11,11 @@ Layout of an entry::
         waveform.json     how loud it was, moment by moment, for the row
         notes.md          yours to write
 
+Entries can be kept in folders, as deep as anybody likes: a directory with a
+``metadata.json`` in it is an entry, any other directory is a folder, and an
+entry's id is its path from the top of the library - ``Clienti/ACME/
+2026-09-04_1530_team-meeting``. One at the top keeps the id it always had.
+
 Two rules make the format durable. Everything a human needs is plain text, so
 an entry stays readable even without this program; and every write goes through
 a temporary file and an atomic replace, so an interrupted run can never leave
@@ -38,6 +43,18 @@ WAVEFORM_FILENAME = "waveform.json"
 SUBTITLE_FILENAMES = {"srt": "subtitles.srt", "vtt": "subtitles.vtt"}
 SOURCE_STEM = "source"
 
+#: Where the summaries a newer one replaced are kept, inside the entry.
+SUMMARIES_DIRNAME = "summaries"
+
+#: What a folder of the library may not be called. The characters Windows
+#: refuses, since a library is as likely to be on a laptop as on a server.
+FOLDER_FORBIDDEN = frozenset('<>:"|?*/\\')
+MAX_FOLDER_NAME = 100
+
+#: A Windows junction is how a folder of the library can live on another
+#: disk; ``os.path`` only learnt to recognise one in Python 3.12.
+_isjunction = getattr(os.path, "isjunction", lambda path: False)
+
 #: Notes are a page of thoughts about a meeting, not a document store: the
 #: interfaces refuse to save more than this in one ``notes.md``.
 MAX_NOTES = 100_000
@@ -62,6 +79,33 @@ def slugify(text, max_length=40):
     text = text.encode("ascii", "ignore").decode("ascii").lower()
     text = re.sub(r"[^a-z0-9]+", "-", text).strip("-")
     return text[:max_length].strip("-")
+
+
+def valid_folder_name(name):
+    """True if ``name`` can be one folder of the library, on every platform.
+
+    Anything a person would type - spaces, accents - as long as it is one
+    name: no separators, nothing hidden, nothing Windows would refuse."""
+    name = str(name or "")
+    return (bool(name) and len(name) <= MAX_FOLDER_NAME
+            and name not in (".", "..") and not name.startswith(".")
+            and not name.endswith((".", " "))
+            and not any(char in FOLDER_FORBIDDEN or ord(char) < 32
+                        for char in name))
+
+
+def normalise_folder(folder):
+    """``"A/B"`` out of whatever a caller sent, or a :class:`LibraryError`.
+
+    Either slash separates, empty steps are dropped, and ``""`` - or
+    ``None`` - is the top of the library. Every step is checked, so what
+    comes back can be joined onto the root without walking out of it."""
+    parts = [part.strip() for part in re.split(r"[\\/]", str(folder or ""))]
+    parts = [part for part in parts if part]
+    for part in parts:
+        if not valid_folder_name(part):
+            raise LibraryError(f"not a usable folder name: {part!r}")
+    return "/".join(parts)
 
 
 def make_entry_id(title=None, when=None):
@@ -94,13 +138,30 @@ def write_atomic(path, text):
 class Entry:
     """One recording: a folder plus the metadata that describes it."""
 
-    def __init__(self, path):
+    def __init__(self, path, root=None):
         self.path = os.path.abspath(path)
+        self.root = os.path.abspath(root) if root else None
 
     # --- identity ---------------------------------------------------------
     @property
     def id(self):
+        """Where it is in the library: ``Clienti/ACME/2026-09-04_1530_sync``.
+
+        Only the folder's own name for an entry at the top, which is what
+        every id was before there were folders - so none of those changed."""
+        if not self.root:
+            return self.name
+        return os.path.relpath(self.path, self.root).replace(os.sep, "/")
+
+    @property
+    def name(self):
+        """The entry's own folder name, wherever it has been put."""
         return os.path.basename(self.path)
+
+    @property
+    def folder(self):
+        """The library folder it is in, ``""`` at the top."""
+        return self.id.rpartition("/")[0]
 
     @property
     def metadata_path(self):
@@ -221,6 +282,65 @@ class Entry:
 
     def has_summary(self):
         return os.path.exists(self.summary_path)
+
+    @property
+    def summaries_path(self):
+        return os.path.join(self.path, SUMMARIES_DIRNAME)
+
+    def archive_summary(self):
+        """Put the current summary aside, before a new one takes its place.
+
+        Asked for by whoever is about to write that new one, and only then:
+        the file goes to ``summaries/<when>.md`` and what the metadata said
+        about it goes with it, so the old page can still be read and still
+        says which model wrote it. Returns the file it went to, relative to
+        the entry, or ``None`` when there was nothing to put aside."""
+        if not self.has_summary():
+            return None
+        data = dict(self.metadata)
+        os.makedirs(self.summaries_path, exist_ok=True)
+        stamp = datetime.now().strftime("%Y-%m-%d_%H%M%S")
+        name, counter = f"{stamp}.md", 2
+        while os.path.exists(os.path.join(self.summaries_path, name)):
+            name = f"{stamp}-{counter}.md"
+            counter += 1
+        os.replace(self.summary_path, os.path.join(self.summaries_path, name))
+        relative = f"{SUMMARIES_DIRNAME}/{name}"
+        block = dict(data.pop("summary", None) or {})
+        block["file"] = relative
+        data["summary_versions"] = list(data.get("summary_versions") or []) + [block]
+        self.save_metadata(data)
+        return relative
+
+    def summary_versions(self):
+        """The summaries put aside, newest first, as the metadata describes
+        them. One whose file has gone is left out rather than offered."""
+        try:
+            versions = self.metadata.get("summary_versions") or []
+        except LibraryError:
+            return []
+        return [dict(version) for version in reversed(versions)
+                if isinstance(version, dict)
+                and self._summary_version_path(version.get("file"))]
+
+    def read_summary_version(self, file):
+        """The text of a summary put aside, by the file the metadata names.
+
+        The name arrives from an interface, so it is only ever looked for
+        directly inside ``summaries/``: nothing else in the entry, and
+        nothing outside it, can be read this way."""
+        path = self._summary_version_path(file)
+        if path is None:
+            raise LibraryError(f"no earlier summary {file!r} in {self.id}")
+        with open(path, encoding="utf-8") as handle:
+            return handle.read()
+
+    def _summary_version_path(self, file):
+        if not isinstance(file, str) or not file:
+            return None
+        path = os.path.realpath(os.path.join(self.path, file))
+        inside = os.path.dirname(path) == os.path.realpath(self.summaries_path)
+        return path if inside and os.path.isfile(path) else None
 
     def write_waveform(self, loudness):
         """Store how loud the recording was, slice by slice.
@@ -364,21 +484,29 @@ class Library:
 
     # --- creation ---------------------------------------------------------
     def create(self, source=None, title=None, when=None, store=STORE_COPY,
-               metadata=None):
-        """Create a new entry, optionally taking the source file with it."""
+               metadata=None, folder=""):
+        """Create a new entry, optionally taking the source file with it.
+
+        ``folder`` is where in the library it goes, made if it is not there
+        yet; the top, by default."""
         if store not in STORE_MODES:
             raise LibraryError(f"unknown store mode: {store}")
         when = when or datetime.now()
         if title is None and source:
             title = os.path.splitext(os.path.basename(source))[0]
 
-        os.makedirs(self.root, exist_ok=True)
-        entry = Entry(os.path.join(self.root, self._unique_id(title, when)))
+        folder, parent = self._folder_path(folder)
+        self._refuse_inside_entry(folder)
+        os.makedirs(parent, exist_ok=True)
+        entry = Entry(os.path.join(parent, self._unique_id(title, when, parent)),
+                      self.root)
         os.makedirs(entry.path)
 
         data = {
             "schema": SCHEMA_VERSION,
-            "id": entry.id,
+            # The folder's own name: the id also says where the entry is, and
+            # that changes whenever it is moved.
+            "id": entry.name,
             "title": title or entry.id,
             "created_at": when.astimezone().isoformat(timespec="seconds"),
             "source": self._store_source(entry, source, store) if source else None,
@@ -395,14 +523,120 @@ class Library:
             write_atomic(entry.notes_path, f"# {data['title']}\n\n")
         return entry
 
-    def _unique_id(self, title, when):
+    def _unique_id(self, title, when, parent=None):
         """Entry id, suffixed if a recording with the same name and minute exists."""
-        base = make_entry_id(title, when)
-        candidate, counter = base, 2
-        while os.path.exists(os.path.join(self.root, candidate)):
-            candidate = f"{base}-{counter}"
-            counter += 1
-        return candidate
+        return _free_name(make_entry_id(title, when), parent or self.root)
+
+    # --- folders ----------------------------------------------------------
+    def _folder_path(self, folder):
+        """``(normalised folder, absolute path)``, or a LibraryError."""
+        folder = normalise_folder(folder)
+        path = os.path.join(self.root, *folder.split("/")) if folder else self.root
+        return folder, path
+
+    def _refuse_inside_entry(self, folder):
+        """A recording's folder holds its files, never other recordings."""
+        path = self.root
+        for part in folder.split("/") if folder else []:
+            path = os.path.join(path, part)
+            if os.path.isfile(os.path.join(path, METADATA_FILENAME)):
+                raise LibraryError(f"{os.path.relpath(path, self.root)} is an "
+                                   "entry, not a folder")
+
+    def _existing_folder(self, folder):
+        """The absolute path of a folder that is there, or a LibraryError."""
+        folder, path = self._folder_path(folder)
+        self._refuse_inside_entry(folder)
+        if not os.path.isdir(path):
+            raise LibraryError(f"no folder '{folder}' in the library")
+        return folder, path
+
+    def folders(self):
+        """Every folder of the library, at any depth, parents before children."""
+        return sorted((relative for relative, is_entry in self._walk()
+                       if not is_entry),
+                      key=lambda relative: [part.lower()
+                                            for part in relative.split("/")])
+
+    def create_folder(self, path):
+        """Make a folder, and its parents if they are missing; return its path."""
+        folder, target = self._folder_path(path)
+        if not folder:
+            raise LibraryError("a folder needs a name")
+        self._refuse_inside_entry(folder)
+        if os.path.lexists(target):
+            raise LibraryError(f"'{folder}' already exists")
+        os.makedirs(target)
+        return folder
+
+    def rename_folder(self, path, new_name):
+        """Call a folder something else, where it is; return its new path."""
+        folder, source = self._existing_folder(path)
+        new_name = str(new_name or "").strip()
+        if not folder:
+            raise LibraryError("the top of the library cannot be renamed")
+        if not valid_folder_name(new_name):
+            raise LibraryError(f"not a usable folder name: {new_name!r}")
+        target = os.path.join(os.path.dirname(source), new_name)
+        # Changing only the case of a name finds "itself" on Windows.
+        if os.path.lexists(target) and not _same_file(source, target):
+            raise LibraryError(f"'{new_name}' already exists there")
+        os.rename(source, target)
+        parent = folder.rpartition("/")[0]
+        return f"{parent}/{new_name}" if parent else new_name
+
+    def remove_folder(self, path):
+        """Delete a folder, but only an empty one; return its path.
+
+        A folder that is a link to somewhere else - a symlink, a Windows
+        junction - loses the link and nothing else: what it pointed at is
+        somebody's folder, not this library's to delete. One whose target has
+        gone, a disk that is not plugged in, can always be let go of."""
+        folder, target = self._folder_path(path)
+        if not folder:
+            raise LibraryError("the top of the library cannot be removed")
+        self._refuse_inside_entry(folder)
+        linked = os.path.islink(target) or _isjunction(target)
+        if not linked and not os.path.isdir(target):
+            raise LibraryError(f"no folder '{folder}' in the library")
+        if os.path.isdir(target) and os.listdir(target):
+            raise LibraryError(f"'{folder}' is not empty")
+        if linked:
+            try:
+                os.unlink(target)
+            except OSError:
+                os.rmdir(target)        # a directory link on Windows
+        else:
+            os.rmdir(target)
+        return folder
+
+    def move(self, entry, folder):
+        """Put an entry in another folder and return it, as it is there now.
+
+        The folder has to exist already: moving is filing something somewhere,
+        not inventing a place for it. Its own name clashing with one already
+        there gets the same "-2" a recording filed twice in a minute gets."""
+        entry = entry if isinstance(entry, Entry) else self.get(entry)
+        self._refuse_outside(entry.path)
+        folder, parent = self._existing_folder(folder)
+        if os.path.normcase(os.path.dirname(entry.path)) == os.path.normcase(parent):
+            return Entry(entry.path, self.root)
+        name = _free_name(entry.name, parent)
+        target = os.path.join(parent, name)
+        shutil.move(entry.path, target)
+        moved = Entry(target, self.root)
+        if name != entry.name:
+            try:
+                moved.update(id=name)
+            except LibraryError:
+                pass        # moved all the same; its metadata was never readable
+        return moved
+
+    def _refuse_outside(self, path):
+        path = os.path.abspath(path)
+        root = os.path.abspath(self.root)
+        if os.path.commonpath([root, path]) != root or path == root:
+            raise LibraryError(f"refusing a path outside the library: {path}")
 
     def _store_source(self, entry, source, store):
         """Copy, move or reference the original recording; record what we did."""
@@ -435,20 +669,53 @@ class Library:
         return info
 
     # --- lookup -----------------------------------------------------------
-    def entries(self):
-        """Every readable entry, newest first. Unreadable folders are skipped."""
-        try:
-            names = os.listdir(self.root)
-        except OSError:
-            return []
-        found = []
-        for name in sorted(names, reverse=True):
-            path = os.path.join(self.root, name)
-            if not os.path.isdir(path):
-                continue
-            if not os.path.exists(os.path.join(path, METADATA_FILENAME)):
-                continue
-            found.append(Entry(path))
+    def _walk(self):
+        """Every directory below the root, as ``(relative path, is an entry)``.
+
+        Depth first, in name order. An entry is a leaf - a recording's folder
+        holds its files, never another recording - and hidden directories are
+        skipped. Links are followed, which is what lets a folder of the
+        library live on another disk; a directory already reached another way
+        is not walked twice, or a link back up the tree would be walked for
+        ever."""
+        seen = {os.path.realpath(self.root)}
+
+        def visit(path, relative):
+            try:
+                names = sorted(os.listdir(path))
+            except OSError:
+                return
+            for name in names:
+                child = os.path.join(path, name)
+                if name.startswith(".") or not os.path.isdir(child):
+                    continue
+                real = os.path.realpath(child)
+                if real in seen:
+                    continue
+                seen.add(real)
+                inner = f"{relative}/{name}" if relative else name
+                if os.path.exists(os.path.join(child, METADATA_FILENAME)):
+                    yield inner, True
+                else:
+                    yield inner, False
+                    yield from visit(child, inner)
+
+        yield from visit(self.root, "")
+
+    def entries(self, folder=None):
+        """Entries, newest first; unreadable ones are left to the caller.
+
+        ``folder`` narrows it: ``None`` is the whole library at any depth,
+        ``""`` only the top of it, ``"A/B"`` what sits directly in that
+        folder."""
+        if folder is not None:
+            folder = normalise_folder(folder)
+        found = [Entry(os.path.join(self.root, *relative.split("/")), self.root)
+                 for relative, is_entry in self._walk()
+                 if is_entry and (folder is None
+                                  or relative.rpartition("/")[0] == folder)]
+        # By the folder's own name, which starts with the date it was filed.
+        found.sort(key=lambda entry: entry.name, reverse=True)
         return found
 
     def copies(self):
@@ -471,15 +738,26 @@ class Library:
                 for entry in group}
 
     def find(self, query):
-        """Entries whose id starts with, or whose title contains, ``query``."""
-        needle = (query or "").strip().lower()
+        """Entries whose id starts with, or whose title contains, ``query``.
+
+        An id that is exactly one entry's is that entry, even when another
+        starts the same way. Ids are only ever matched against the ones the
+        library lists, never joined onto a path: a query is text from a
+        command line or a URL."""
+        needle = (query or "").strip().replace("\\", "/")
         if not needle:
             return []
-        by_id = [e for e in self.entries() if e.id.lower().startswith(needle)]
+        entries = self.entries()
+        exact = [e for e in entries if e.id == needle]
+        if exact:
+            return exact
+        needle = needle.lower()
+        by_id = [e for e in entries if e.id.lower().startswith(needle)
+                 or e.name.lower().startswith(needle)]
         if by_id:
             return by_id
         matches = []
-        for entry in self.entries():
+        for entry in entries:
             try:
                 title = str(entry.metadata.get("title", ""))
             except LibraryError:
@@ -510,8 +788,22 @@ class Library:
     def remove(self, entry):
         """Delete an entry, refusing anything that is not inside this library."""
         path = os.path.abspath(entry.path if isinstance(entry, Entry) else entry)
-        root = os.path.abspath(self.root)
-        if os.path.commonpath([root, path]) != root or path == root:
-            raise LibraryError(f"refusing to remove a path outside the library: {path}")
+        self._refuse_outside(path)
         shutil.rmtree(path)
         return path
+
+
+def _free_name(name, parent):
+    """``name``, or ``name-2``, ``name-3``... whichever ``parent`` lacks."""
+    candidate, counter = name, 2
+    while os.path.lexists(os.path.join(parent, candidate)):
+        candidate = f"{name}-{counter}"
+        counter += 1
+    return candidate
+
+
+def _same_file(first, second):
+    try:
+        return os.path.samefile(first, second)
+    except OSError:
+        return False

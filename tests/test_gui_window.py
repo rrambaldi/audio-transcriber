@@ -133,6 +133,15 @@ def actions(window, row):
     return window.transcribe._actions[row["id"]]
 
 
+def filed(queue, count=1):
+    """True once ``count`` recordings are in the library and nothing runs.
+
+    Not a job's status: a job that is done leaves the queue at the window's
+    next refresh, so by the time anybody asks it may already be gone."""
+    return (len(queue.library.entries()) >= count
+            and all(job.status not in ("queued", "running") for job in queue.jobs()))
+
+
 def sample(tmp_path, name="meeting.wav"):
     path = tmp_path / name
     path.write_bytes(b"not really audio")
@@ -141,9 +150,14 @@ def sample(tmp_path, name="meeting.wav"):
 
 # --- what the window is made of -------------------------------------------
 
-def test_the_window_has_the_three_tabs(window):
+def test_the_window_has_two_tabs_and_the_queue_is_inside_the_library(window):
+    """A recording lives in one place from the moment it arrives: the work
+    under way is the first folder of the library, not a tab of its own."""
     labels = [window.tabs.tabText(index) for index in range(window.tabs.count())]
-    assert labels == ["Transcribe", "Library", "This machine"]
+    assert labels == ["Library", "This machine"]
+    assert window.home.tree.topLevelItem(0).text(0) == "In progress (0)"
+    window.home.show_working()
+    assert window.home.stack.currentWidget() is window.transcribe
 
 
 def test_this_machine_tab_reports_hardware_and_paths(window):
@@ -896,15 +910,12 @@ def test_a_file_added_waits_in_the_queue_until_transcribe_is_pressed(
     assert "Transcribe" in window.transcribe.summary.text()
 
     window.transcribe.start_queue()
-    assert wait_for(lambda: queue.jobs()[0].status == "done")
+    assert wait_for(lambda: filed(queue))
     window.transcribe.refresh()
-    assert window.transcribe.table.item(0, 0).text() == "meeting"
-    assert window.transcribe.table.item(0, 1).text() == "done"
-    # No bar on a row that has finished: a measurement of something that is
-    # not happening. What it did is on the second line of the recording.
-    assert window.transcribe.table.cellWidget(0, 2) is None
-    details = window.transcribe.table.item(0, 0).data(widgets.DETAILS_ROLE)
-    assert "2 words" in details
+    # Done, it leaves the queue: its result is in the library.
+    assert window.transcribe.table.rowCount() == 0
+    assert queue.jobs() == []
+    assert len(queue.library.entries()) == 1
     assert window.transcribe.start.isEnabled() is False    # nothing left to start
 
 
@@ -943,11 +954,10 @@ def test_the_way_files_get_in_is_inside_the_box_they_get_into(window):
 
     assert panel.drop_zone.parent() is box
     assert panel.table.parent() is box
-    # And the recorder has its own box, with the whole width of the tab: its
-    # device menus name a source and an audio system, and half a tab cut them.
+    # And the recorder has its own box, over the whole width of the library,
+    # with where the recording will be filed beside it.
     recorder_box = panel.recorder.parent()
-    assert isinstance(recorder_box, QGroupBox) and recorder_box is not box
-    assert recorder_box.layout().count() == 1
+    assert recorder_box is window.home.recorder_box and recorder_box is not box
 
 
 def test_a_selected_recording_can_be_unselected_again(window, tmp_path, queue):
@@ -1025,9 +1035,11 @@ def test_the_first_button_on_a_row_follows_its_state(window, tmp_path, queue):
     assert actions(window, window.transcribe._rows[0]).run.text() == "Transcribe"
 
     window.transcribe.start_queue()
-    assert wait_for(lambda: queue.jobs()[0].status == "done")
+    assert wait_for(lambda: filed(queue))
     window.transcribe.refresh()
-    assert actions(window, window.transcribe._rows[0]).run.text() == "Open"
+    # There is nothing left to open from here: a finished job is in the
+    # library, and its row is gone.
+    assert window.transcribe._rows == []
 
 
 def test_a_failed_recording_can_be_asked_again(window, tmp_path, queue):
@@ -1070,11 +1082,12 @@ def test_stopping_a_running_transcription_asks_first(window, tmp_path, queue, mo
 
 
 def test_the_finished_jobs_can_be_cleared_in_one_go(window, tmp_path, queue):
-    window.transcribe.add_files([sample(tmp_path, "a.wav")])
+    """The ones that are left, that is: a job that worked leaves by itself."""
+    window.transcribe.add_files([sample(tmp_path, "boom-a.wav")])
     window.transcribe.start_queue()
-    window.transcribe.add_files([sample(tmp_path, "b.wav")])
+    window.transcribe.add_files([sample(tmp_path, "boom-b.wav")])
     window.transcribe.start_queue()
-    assert wait_for(lambda: all(job.status == "done" for job in queue.jobs())
+    assert wait_for(lambda: all(job.status == "failed" for job in queue.jobs())
                     and len(queue.jobs()) == 2)
     window.transcribe.refresh()
     assert window.transcribe.clear_finished.isEnabled() is True
@@ -1089,7 +1102,7 @@ def test_a_local_file_is_copied_into_the_library_not_moved(window, tmp_path, que
     source = sample(tmp_path)
     window.transcribe.add_files([source])
     window.transcribe.start_queue()
-    assert wait_for(lambda: queue.jobs()[0].status == "done")
+    assert wait_for(lambda: filed(queue))
     assert os.path.exists(source)
 
 
@@ -1147,11 +1160,11 @@ def test_a_failed_job_is_shown_with_its_reason(window, tmp_path, queue):
 def test_forgetting_one_job_keeps_the_right_row_selected(window, tmp_path, queue):
     """The table is rebuilt when a job disappears, and the row indices shift
     with it: the selection has to follow the job, not its old position."""
-    window.transcribe.add_files([sample(tmp_path, "first.wav"),
-                                 sample(tmp_path, "second.wav")])
+    window.transcribe.add_files([sample(tmp_path, "boom-first.wav"),
+                                 sample(tmp_path, "boom-second.wav")])
     window.transcribe.start_queue()
     assert wait_for(lambda: len(queue.jobs()) == 2
-                    and all(job.status == "done" for job in queue.jobs()))
+                    and all(job.status == "failed" for job in queue.jobs()))
     window.transcribe.refresh()
 
     oldest = queue.jobs()[-1].id            # the table lists the newest first
@@ -1243,12 +1256,14 @@ class FakeDialog:
     suite waiting for a click that will not come."""
 
     answer = True
+    replacing = False
     seen = {}
     choices_to_give = {}
 
     def __init__(self, title, settings=None, defaults=None, vocabularies=None,
-                 custom_text=None, store=None, parent=None):
-        FakeDialog.seen = {"title": title, "settings": settings, "store": store}
+                 custom_text=None, store=None, parent=None, redo=False):
+        FakeDialog.seen = {"title": title, "settings": settings, "store": store,
+                           "redo": redo}
         self._choices = {"model": "auto", "language": "it", "backend": "auto",
                          "output": "text", "diarize": False, "speakers": 0,
                          "subtitle_preset": "netflix", "subtitle_chars": 0,
@@ -1270,12 +1285,16 @@ class FakeDialog:
     def custom_text(self):
         return ""
 
+    def replace(self):
+        return FakeDialog.replacing
+
 
 @pytest.fixture(autouse=True)
 def fake_dialog(monkeypatch):
     from audio_transcriber.gui import transcribe_panel
 
     FakeDialog.answer = True
+    FakeDialog.replacing = False
     FakeDialog.choices_to_give = {}
     monkeypatch.setattr(transcribe_panel, "JobDialog", FakeDialog)
     return FakeDialog
@@ -1327,12 +1346,13 @@ def test_the_answers_reach_only_the_recording_that_was_asked(window, tmp_path,
 def test_a_finished_job_opens_in_the_library(window, tmp_path, queue):
     window.transcribe.add_files([sample(tmp_path)])
     window.transcribe.start_queue()
-    assert wait_for(lambda: queue.jobs()[0].status == "done")
+    assert wait_for(lambda: filed(queue))
     window.transcribe.refresh()          # emits job_finished; the list reloads
 
-    entry_id = queue.jobs()[0].entry_id
+    entry_id = queue.library.entries()[0].id
     window.show_entry(entry_id)
-    assert window.tabs.currentWidget() is window.library
+    assert window.tabs.currentWidget() is window.home
+    assert window.home.stack.currentWidget() is window.library
     assert window.library.entry.id == entry_id
     assert "Hello everyone." in window.library.transcript.toPlainText()
 
@@ -1340,7 +1360,7 @@ def test_a_finished_job_opens_in_the_library(window, tmp_path, queue):
 def test_the_transcript_offers_a_timestamp_to_click(window, tmp_path, queue):
     window.transcribe.add_files([sample(tmp_path)])
     window.transcribe.start_queue()
-    assert wait_for(lambda: queue.jobs()[0].status == "done")
+    assert wait_for(lambda: filed(queue))
     window.library.reload()
     window.library.show_entry(queue.jobs()[0].entry_id)
     html = window.library.transcript.toHtml()
@@ -1350,7 +1370,7 @@ def test_the_transcript_offers_a_timestamp_to_click(window, tmp_path, queue):
 def test_notes_are_written_into_the_entry(window, tmp_path, queue):
     window.transcribe.add_files([sample(tmp_path)])
     window.transcribe.start_queue()
-    assert wait_for(lambda: queue.jobs()[0].status == "done")
+    assert wait_for(lambda: filed(queue))
     window.library.reload()
 
     window.library.notes.setPlainText("Decisions: ship it.\n")
@@ -1368,8 +1388,7 @@ def test_cancelling_the_notes_prompt_keeps_the_entry_being_written_on(
     window.transcribe.add_files([sample(tmp_path, "first.wav"),
                                  sample(tmp_path, "second.wav")])
     window.transcribe.start_queue()
-    assert wait_for(lambda: len(queue.jobs()) == 2
-                    and all(job.status == "done" for job in queue.jobs()))
+    assert wait_for(lambda: filed(queue, 2))
     window.library.reload()
     assert window.library.table.rowCount() == 2
     writing_on = window.library.entry.id
@@ -1386,7 +1405,7 @@ def test_cancelling_the_notes_prompt_keeps_the_entry_being_written_on(
 def test_searching_looks_inside_the_transcripts(window, tmp_path, queue):
     window.transcribe.add_files([sample(tmp_path)])
     window.transcribe.start_queue()
-    assert wait_for(lambda: queue.jobs()[0].status == "done")
+    assert wait_for(lambda: filed(queue))
     window.library.reload()
 
     window.library.search.setText("everyone")
@@ -1401,7 +1420,7 @@ def test_searching_looks_inside_the_transcripts(window, tmp_path, queue):
 def test_an_entry_can_be_deleted_from_the_window(window, tmp_path, queue, monkeypatch):
     window.transcribe.add_files([sample(tmp_path)])
     window.transcribe.start_queue()
-    assert wait_for(lambda: queue.jobs()[0].status == "done")
+    assert wait_for(lambda: filed(queue))
     window.library.reload()
     path = window.library.entry.path
 
@@ -1437,7 +1456,7 @@ def test_closing_offers_to_save_edited_notes(window, tmp_path, queue, monkeypatc
     them silently nor writing them silently is acceptable."""
     window.transcribe.add_files([sample(tmp_path)])
     window.transcribe.start_queue()
-    assert wait_for(lambda: queue.jobs()[0].status == "done")
+    assert wait_for(lambda: filed(queue))
     window.library.reload()
     window.library.notes.setPlainText("Decisions: ship it.\n")
 
@@ -1562,7 +1581,7 @@ def test_the_model_picked_is_the_one_the_summary_is_asked_for(window, queue,
 
     asked = {}
     monkeypatch.setattr(queue, "summarize",
-                        lambda entry_id, overrides: asked.update(overrides))
+                        lambda entry_id, overrides, keep=False: asked.update(overrides))
     assert not library.summary_review.isChecked()
     library.summary_review.setChecked(True)
     library.summarise.click()
@@ -1868,3 +1887,123 @@ def test_emptying_the_log_asks_first(window, monkeypatch):
     with open(logs.path(), encoding="utf-8") as handle:
         assert handle.read() == ""
     assert panel.log_view.toPlainText() == ""
+
+
+# --- the library as home: folders, the work under way, doing it again ------
+
+def test_the_text_you_already_have_can_be_given_for_plain_text(application):
+    """It sat on the subtitles tab, which is greyed out for plain text - the
+    default answer - so the box was out of reach exactly when it was wanted."""
+    from audio_transcriber.gui.job_dialog import JobDialog
+
+    dialog = JobDialog("x", {"model": "auto", "language": "it", "backend": "auto"})
+    tabs = dialog.form.tabs
+    page = dialog.form.reference.parentWidget()
+    while tabs.indexOf(page) < 0:
+        page = page.parentWidget()
+    assert tabs.isTabEnabled(tabs.indexOf(page))
+    dialog.deleteLater()
+
+
+def test_a_recording_is_filed_where_the_menu_says_and_a_file_at_the_top(
+        window, tmp_path, queue):
+    home = window.home
+    home.make_folder("", "Clienti")
+    home.record_folder.setCurrentIndex(home.record_folder.findData("Clienti"))
+    window.transcribe._recorded(sample(tmp_path, "rec.wav"))
+    home.add_files([sample(tmp_path, "upload.wav")])
+    folders = {job.filename: job.folder for job in queue.jobs()}
+    assert folders == {"rec.wav": "Clienti", "upload.wav": ""}
+    # Added files are shown waiting.
+    assert home.stack.currentWidget() is window.transcribe
+
+
+def test_a_folder_lists_its_own_entries_and_one_can_be_moved_there(window, queue):
+    home, library = window.home, window.library
+    loose = queue.library.create(title="Loose")
+    home.make_folder("", "ACME")
+    assert home.tree.current_key() == "ACME"
+    assert library.table.rowCount() == 0
+
+    # A row dropped on the folder moves there, and leaves the top.
+    home.tree.select_key("")
+    assert library.table.rowCount() == 1
+    home.tree.entry_dropped.emit(loose.id, "ACME")
+    assert library.table.rowCount() == 0
+    assert [entry.id for entry in queue.library.entries("ACME")] == [
+        "ACME/" + loose.id]
+    home.tree.select_key("ACME")
+    assert library.table.rowCount() == 1
+
+
+def test_only_an_empty_folder_is_deleted(window, queue, monkeypatch):
+    home = window.home
+    home.make_folder("", "Vecchia")
+    queue.library.create(title="Dentro", folder="Vecchia")
+    monkeypatch.setattr(QMessageBox, "question",
+                        staticmethod(lambda *a, **k: QMessageBox.StandardButton.Yes))
+    home.tree.select_key("Vecchia")
+    assert home.delete_folder() is False
+    assert "Vecchia" in queue.library.folders()
+
+    home.make_folder("", "Vuota")
+    assert home.delete_folder() is True
+    assert "Vuota" not in queue.library.folders()
+
+
+def test_a_filed_recording_can_be_transcribed_again(window, tmp_path, queue,
+                                                   fake_dialog):
+    """From the library, with the same questions and one more: keep the
+    transcription it has, or replace it."""
+    window.transcribe.add_files([sample(tmp_path)])
+    window.transcribe.start_queue()
+    assert wait_for(lambda: filed(queue))
+    window.transcribe.refresh()
+    entry = queue.library.entries()[0]
+    window.show_entry(entry.id)
+    assert window.library.retranscribe.isEnabled()
+
+    queue._runner = lambda job: threading.Event().wait(5)
+    fake_dialog.replacing = True
+    window.library.retranscribe.click()
+    assert fake_dialog.seen["redo"] is True
+    job = queue.jobs()[0]
+    assert job.replace == entry.id and job.status != "held"
+
+
+def test_summarising_again_asks_whether_to_keep_the_old_one(window, queue,
+                                                           monkeypatch):
+    from audio_transcriber.gui import library_panel
+
+    entry = filed_entry(queue)
+    entry.write_summary("La prima pagina.")
+    window.library.reload()
+    window.library.show_entry(entry.id)
+    asked = {}
+    monkeypatch.setattr(queue, "summarize",
+                        lambda entry_id, overrides, keep=False: asked.update(keep=keep))
+
+    monkeypatch.setattr(library_panel, "ask_keep_or_replace", lambda *a: None)
+    window.library.summarise.click()
+    assert asked == {}                   # cancelled: nothing queued
+
+    monkeypatch.setattr(library_panel, "ask_keep_or_replace", lambda *a: True)
+    window.library.summarise.click()
+    assert asked == {"keep": True}
+
+
+def test_an_earlier_summary_can_be_read(window, queue):
+    library = window.library
+    entry = filed_entry(queue)
+    entry.write_summary("La prima pagina.")
+    entry.archive_summary()
+    entry.write_summary("La seconda pagina.")
+    library.reload()
+    library.show_entry(entry.id)
+    assert not library.summary_version.isHidden()
+    assert library.summary_version.count() == 2
+    assert "seconda" in library.summary.toPlainText()
+    library.summary_version.setCurrentIndex(1)
+    assert "prima" in library.summary.toPlainText()
+    library.summary_version.setCurrentIndex(0)
+    assert "seconda" in library.summary.toPlainText()

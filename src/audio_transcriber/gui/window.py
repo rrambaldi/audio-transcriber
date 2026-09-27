@@ -28,6 +28,7 @@ from ..i18n import t
 from ..jobs import JobQueue
 from . import style, theme
 from .about_dialog import AboutDialog
+from .home import Home
 from .library_panel import LibraryPanel
 from .masthead import Masthead
 from .meters import MachineMeters
@@ -96,7 +97,7 @@ def claim_taskbar_identity():
 
 
 class MainWindow(QMainWindow):
-    """Transcribe, Library, This machine."""
+    """Library - with the work under way inside it - and This machine."""
 
     def __init__(self, settings=None, queue=None, parent=None):
         super().__init__(parent)
@@ -118,9 +119,11 @@ class MainWindow(QMainWindow):
         self.system = SystemPanel(self.settings, self.queue.library,
                                   meter=self.meter)
 
+        # One place for a recording, from the moment it arrives: the library,
+        # with the queue as its first folder. See gui/home.py.
+        self.home = Home(self.library, self.transcribe, self.queue.library)
         self.tabs = QTabWidget()
-        self.tabs.addTab(self.transcribe, t("gui.tab_transcribe"))
-        self.tabs.addTab(self.library, t("gui.tab_library"))
+        self.tabs.addTab(self.home, t("gui.tab_library"))
         self.tabs.addTab(self.system, t("gui.tab_system"))
 
         # The mark and the promise sit above the tabs rather than inside one
@@ -145,6 +148,8 @@ class MainWindow(QMainWindow):
         self._follow_colour_scheme()
         self.transcribe.message.connect(self.announce)
         self.library.message.connect(self.announce)
+        self.home.message.connect(self.announce)
+        self.library.retranscribe_requested.connect(self.transcribe.retranscribe)
         self.transcribe.entry_requested.connect(self.show_entry)
         self.transcribe.job_finished.connect(self._job_finished)
         self._build_status_line()
@@ -241,9 +246,9 @@ class MainWindow(QMainWindow):
         return box
 
     def show_entry(self, entry_id):
-        """Bring the library tab up on one entry."""
-        if self.library.show_entry(entry_id):
-            self.tabs.setCurrentWidget(self.library)
+        """Bring the library tab up on one entry, in the folder it is in."""
+        if self.home.show_entry(entry_id):
+            self.tabs.setCurrentWidget(self.home)
 
     def _library_line(self):
         """What the status bar says when it has nothing else to say.
@@ -266,7 +271,12 @@ class MainWindow(QMainWindow):
         put back immediately, so the one message worth reading, after forty
         minutes of transcribing, was the one nobody ever saw."""
         self.library.reload()
+        # A recording filed into a folder that was deleted meanwhile brings
+        # it back.
+        self.home.refresh_folders()
         if entry_id:
+            # Done again in place: the pane may be showing the old one.
+            self.library.entry_changed(entry_id)
             self.announce(t("gui.job_finished", entry=entry_id))
         else:
             self.rest()

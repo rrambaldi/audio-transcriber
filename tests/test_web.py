@@ -1017,3 +1017,22 @@ def test_an_entry_whose_recording_lives_elsewhere_has_no_drawing(client, queue):
 
 def test_asking_an_unknown_entry_what_it_looks_like_is_a_404(client):
     assert client.get("/api/library/2099-01-01_0000_nope/waveform").status_code == 404
+
+
+def test_an_entry_in_a_folder_is_reached_by_its_whole_id(client, queue):
+    """An id with slashes in it, however the page encodes them."""
+    from urllib.parse import quote
+
+    entry = queue.library.create(title="Comitato", folder="Clienti/ACME")
+    entry.write_transcript("buongiorno\n", [])
+    listed = client.get("/api/library").json()["entries"]
+    assert [(item["id"], item["folder"]) for item in listed] == [
+        (entry.id, "Clienti/ACME")]
+    for path in (entry.id, quote(entry.id, safe="")):
+        shown = client.get(f"/api/library/{path}")
+        assert shown.status_code == 200 and shown.json()["folder"] == "Clienti/ACME"
+        assert client.get(f"/api/library/{path}/transcript.txt").text == "buongiorno\n"
+    renamed = client.patch(f"/api/library/{entry.id}", json={"title": "Nuovo"})
+    assert renamed.json() == {"id": entry.id, "title": "Nuovo"}
+    assert client.delete(f"/api/library/{entry.id}").status_code == 200
+    assert queue.library.entries() == []

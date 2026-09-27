@@ -113,6 +113,8 @@ for a single run.
 ├── subtitles.srt     cues, when subtitles were asked for; see subtitles.md
 ├── subtitles.vtt     the same cues as WebVTT, if that was asked for too
 ├── waveform.json     how loud it was, moment by moment
+├── summary.md        the summary, when one was written
+├── summaries/        the summaries a newer one replaced, when they were kept
 └── notes.md          yours to write
 ```
 
@@ -132,6 +134,57 @@ no bearing on the transcript, and deleting it loses a second of ffmpeg.
 The id is `YYYY-MM-DD_HHMM_slug`, so entries sort chronologically by name. Two
 recordings filed in the same minute get a numeric suffix rather than
 overwriting each other.
+
+### Folders
+
+Entries can be kept in folders, as deep as you like. The rule is the whole
+format: **a directory with a `metadata.json` in it is an entry, any other
+directory is a folder**, and an entry never holds another entry. Hidden
+directories — a name starting with a dot — are left alone.
+
+```
+library/
+├── 2026-09-04_1530_team-sync/            id: 2026-09-04_1530_team-sync
+└── Clienti/
+    └── ACME/
+        └── 2026-09-05_1000_kick-off/     id: Clienti/ACME/2026-09-05_1000_kick-off
+```
+
+An entry's id is its path from the top of the library, with `/` whatever the
+platform, so one at the top keeps the id it always had. Moving an entry changes
+its id and nothing inside it; its own name clashing with one already in the new
+folder gets the same `-2` a second recording in the same minute gets. Folder
+names may hold spaces and accents but not a separator, a leading dot, a trailing
+dot or space, or any of `<>:"|?*` — the characters Windows refuses. A folder is
+removed only when it is empty.
+
+**A folder can live somewhere else.** Links are followed, so a folder of the
+library can be a symlink, or on Windows a junction, to a folder on another disk:
+
+```
+mklink /J "%LOCALAPPDATA%\audio-transcriber\library\ACME" "D:\Clienti\ACME\audio"
+```
+
+What is filed in `ACME` then lands on `D:`. Removing that folder removes the
+link and never what it points at, and a directory reached twice — a link back
+up the tree — is only walked once.
+
+### Summaries kept
+
+A summary written again can replace the old one or keep it. Kept, the old
+`summary.md` moves to `summaries/<YYYY-MM-DD_HHMMSS>.md`, and what
+`metadata.json` said about it — engine, length, when — moves with it into the
+list `summary_versions`, each with a `file` naming where it went. The current
+summary is always `summary.md`.
+
+### Transcribing again
+
+A recording already in the library can be transcribed again from the audio the
+entry holds. The new transcription becomes a new entry in the same folder, or
+replaces the old one in place: then the text, the segments, the subtitles and
+what the metadata says about the run are rewritten, and the title, the notes,
+the summary and the folder stay. `speaker_names` goes, because it named the
+labels of the old run. Either way the recording itself is never moved.
 
 Everything a human needs is plain text or JSON: an entry stays perfectly
 readable without this program, which is the point of the format. That is also
@@ -159,6 +212,7 @@ so you can tell later whether a referenced file still is what it was.
 ```bash
 audio-transcriber library list
 audio-transcriber library show 2026-09-04          # id prefix, or part of the title
+audio-transcriber library show Clienti/ACME/2026-09-05  # an entry in a folder
 audio-transcriber library search "risk assessment" # looks in transcripts and notes
 audio-transcriber library path 2026-09-04          # for piping into other tools
 audio-transcriber library remove 2026-09-04

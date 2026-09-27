@@ -337,12 +337,14 @@ def run(source, settings, prompt=None, progress=None):
 
 
 
-def file_in_library(library, source, result, settings, title=None, store="copy"):
+def file_in_library(library, source, result, settings, title=None, store="copy",
+                    folder=""):
     """Create a library entry for ``result`` and return it.
 
     With ``auto_title`` the entry is named after what was said in it rather
     than after the file it arrived as: a shelf of ``2026-09-15_1830`` is a
-    shelf nobody can look through, and the date is already in the row."""
+    shelf nobody can look through, and the date is already in the row.
+    ``folder`` is where in the library it goes."""
     if settings.get("auto_title"):
         suggested = titles.suggest(text=result.text, segments=result.segments,
                                    language=result.info.get("language")
@@ -350,45 +352,9 @@ def file_in_library(library, source, result, settings, title=None, store="copy")
         if suggested:
             print(t("library.titled", title=suggested))
             title = suggested
-    entry = library.create(source=source, title=title, store=store)
+    entry = library.create(source=source, title=title, store=store, folder=folder)
     try:
-        entry.write_transcript(result.text, result.segments)
-        if result.waveform:
-            # Free: the run had the whole recording in memory anyway. Every entry
-            # filed from here on can draw itself without reading its audio again.
-            entry.write_waveform(result.waveform)
-        entry.update(
-            audio={"duration_seconds": round(result.audio_duration, 2),
-                   "sample_rate": 16000},
-            transcription={
-                "backend": result.info["backend"],
-                "device": result.info["device"],
-                "model": result.info["model"],
-                "language": settings.get("language") or "auto",
-                "diarized": result.diarized,
-                "speakers": settings.get("speakers"),
-                "vocabulary": split_names(settings.get("vocabulary")) or None,
-                "finished_at": datetime.now().astimezone().isoformat(timespec="seconds"),
-                "elapsed_seconds": round(result.elapsed, 1),
-            },
-            stats={"words": len(result.text.split()), "segments": len(result.segments)},
-        )
-        if result.reference:
-            # Kept with the entry and not only printed once: somebody coming back
-            # in a month should be able to see that a text was used, how many
-            # words it corrected, and how much of it turned up in the audio.
-            entry.update(reference=result.reference)
-        kinds, cue_list, problems = write_subtitles(entry, result, settings)
-        if kinds:
-            entry.update(subtitles={
-                "formats": kinds, "cues": len(cue_list),
-                "preset": subtitle_spec(settings).get("name"),
-                # What a subtitler would object to, kept with the cues rather than
-                # only printed once: the entry is what someone comes back to.
-                "remarks": tally(problems),
-                "timings": "measured" if timings_measured(result.segments)
-                           else "interpolated",
-            })
+        _write_run(entry, result, settings)
     except BaseException:
         try:
             _unfile(library, entry, source, store)
@@ -396,6 +362,68 @@ def file_in_library(library, source, result, settings, title=None, store="copy")
             pass    # better a duplicate on the shelf than a lost recording
         raise
     return entry
+
+
+def refile(entry, result, settings):
+    """Put a new transcription of an entry's recording in place of the old one.
+
+    What was made from the audio is replaced - the text, the segments, the
+    subtitles, what the metadata says about the run - and what a person added
+    is kept: the title, the notes, the summary, where the entry is filed.
+    The names given to the speakers go, because they named the labels of a
+    run that is no longer there. Returns the entry."""
+    data = dict(entry.metadata)
+    for stale in ("reference", "subtitles", "speaker_names"):
+        data.pop(stale, None)
+    entry.save_metadata(data)
+    written = _write_run(entry, result, settings)
+    for kind in entry.subtitles():
+        if kind not in written:
+            os.remove(entry.subtitle_path(kind))
+    return entry
+
+
+def _write_run(entry, result, settings):
+    """Write what one transcription produced into ``entry``; return the
+    subtitle formats it wrote."""
+    entry.write_transcript(result.text, result.segments)
+    if result.waveform:
+        # Free: the run had the whole recording in memory anyway. Every entry
+        # filed from here on can draw itself without reading its audio again.
+        entry.write_waveform(result.waveform)
+    entry.update(
+        audio={"duration_seconds": round(result.audio_duration, 2),
+               "sample_rate": 16000},
+        transcription={
+            "backend": result.info["backend"],
+            "device": result.info["device"],
+            "model": result.info["model"],
+            "language": settings.get("language") or "auto",
+            "diarized": result.diarized,
+            "speakers": settings.get("speakers"),
+            "vocabulary": split_names(settings.get("vocabulary")) or None,
+            "finished_at": datetime.now().astimezone().isoformat(timespec="seconds"),
+            "elapsed_seconds": round(result.elapsed, 1),
+        },
+        stats={"words": len(result.text.split()), "segments": len(result.segments)},
+    )
+    if result.reference:
+        # Kept with the entry and not only printed once: somebody coming back
+        # in a month should be able to see that a text was used, how many
+        # words it corrected, and how much of it turned up in the audio.
+        entry.update(reference=result.reference)
+    kinds, cue_list, problems = write_subtitles(entry, result, settings)
+    if kinds:
+        entry.update(subtitles={
+            "formats": kinds, "cues": len(cue_list),
+            "preset": subtitle_spec(settings).get("name"),
+            # What a subtitler would object to, kept with the cues rather than
+            # only printed once: the entry is what someone comes back to.
+            "remarks": tally(problems),
+            "timings": "measured" if timings_measured(result.segments)
+                       else "interpolated",
+        })
+    return kinds
 
 
 def _unfile(library, entry, source, store):

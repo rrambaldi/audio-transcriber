@@ -42,7 +42,15 @@ from datetime import datetime
 from . import audio, i18n, paths, pipeline, waveform
 from .config import read_prompt, resolve_output
 from .i18n import t
-from .library import STORE_MODES, STORE_MOVE, Library, LibraryError
+from .library import (
+    STORE_COPY,
+    STORE_MODES,
+    STORE_MOVE,
+    STORE_REFERENCE,
+    Library,
+    LibraryError,
+    normalise_folder,
+)
 
 #: What a job is. Both kinds go through the same queue, the same statuses and
 #: the same row on the page; what differs is what the worker calls and what
@@ -143,7 +151,8 @@ class Job:
 
     def __init__(self, source=None, title=None, filename=None, settings=None,
                  prompt="", vocabularies=None, store=STORE_MOVE,
-                 kind=TRANSCRIPTION, entry_id=None):
+                 kind=TRANSCRIPTION, entry_id=None, folder="", replace=None,
+                 keep=False):
         self.id = uuid.uuid4().hex[:12]
         self.kind = kind
         #: The language it was asked for in, and so the one its messages are
@@ -169,6 +178,13 @@ class Job:
         #: The library entry this job produced — or, for a summary, the one it
         #: was asked to summarise, which is known before it starts.
         self.entry_id = entry_id
+        #: Where in the library the transcription is filed, ``""`` the top.
+        self.folder = folder or ""
+        #: The entry a transcription is written over instead of filed anew:
+        #: the same recording transcribed again, the old text not kept.
+        self.replace = replace
+        #: For a summary: put the one the entry has aside rather than lose it.
+        self.keep = bool(keep)
         self.words = None
         self.created_at = now()
         self.started_at = None
@@ -194,7 +210,8 @@ class Job:
                     "prompt", "vocabularies", "store", "status", "entry_id",
                     "words", "error", "created_at", "started_at", "finished_at",
                     "elapsed", "audio_duration", "restarts",
-                    "size_bytes", "source_created_at")
+                    "size_bytes", "source_created_at", "folder", "replace",
+                    "keep")
 
     def to_state(self):
         return {name: getattr(self, name) for name in self.STATE_FIELDS}
@@ -211,7 +228,10 @@ class Job:
                   vocabularies=state.get("vocabularies"),
                   store=state.get("store") or STORE_MOVE,
                   kind=state.get("kind") or TRANSCRIPTION,
-                  entry_id=state.get("entry_id"))
+                  entry_id=state.get("entry_id"),
+                  folder=state.get("folder") or "",
+                  replace=state.get("replace"),
+                  keep=state.get("keep"))
         for name in ("id", "status", "words", "error", "created_at",
                      "started_at", "finished_at", "elapsed", "audio_duration",
                      "size_bytes", "source_created_at"):
@@ -422,7 +442,7 @@ class JobQueue:
 
     def submit(self, source, title=None, filename=None, overrides=None,
                vocabularies=None, custom_vocabulary="", store=STORE_MOVE,
-               start=True):
+               start=True, folder=""):
         """Queue one file and return its :class:`Job`.
 
         ``start=False`` puts it in the list without running it: the desktop
@@ -436,7 +456,9 @@ class JobQueue:
         entry, because nobody wants a second copy of two gigabytes; a file the
         user picked from their own disk is *copied*, because moving someone's
         recording out of their Documents folder is not this program's
-        decision to make."""
+        decision to make.
+
+        ``folder`` is where in the library the transcription is filed."""
         if store not in STORE_MODES:
             raise ValueError(f"unknown store mode: {store}")
         settings = dict(self.settings)
@@ -450,7 +472,8 @@ class JobQueue:
 
         prompt = build_prompt(settings, names, custom_vocabulary)
         job = Job(source, title=title, filename=filename, settings=settings,
-                  prompt=prompt, vocabularies=names, store=store)
+                  prompt=prompt, vocabularies=names, store=store,
+                  folder=normalise_folder(folder))
         # How long it is, from the header: a recording waiting its turn can
         # then say so, instead of being a name and a size until it runs.
         job.audio_duration = audio.probe_seconds(source)
@@ -470,6 +493,35 @@ class JobQueue:
             self._ensure_worker()
         return job
 
+    def retranscribe(self, entry_id, replace=False):
+        """Put an entry's recording back in the list, held, and return the job.
+
+        The recording is the one the entry holds, and it stays exactly where
+        it is: the job reads it and never moves or deletes it, however the run
+        ends. With ``replace`` the new transcription is written over the
+        entry's own; otherwise it becomes a new entry in the same folder,
+        beside the old one, so the two can be compared.
+
+        Held, like a file just added in the window: what it is for is asked
+        when it is started, the way it is for any other recording."""
+        entry = self.library.get(entry_id)
+        source_info = entry.metadata.get("source") or {}
+        source, store = entry.stored_audio(), STORE_COPY
+        if source is None and source_info.get("mode") == STORE_REFERENCE:
+            elsewhere = entry.source_path()
+            if elsewhere and os.path.isfile(elsewhere):
+                source, store = elsewhere, STORE_REFERENCE
+        if source is None:
+            raise LibraryError(f"{entry.id} holds no recording to transcribe again")
+        job = self.submit(source, title=entry.metadata.get("title") or entry.name,
+                          filename=source_info.get("filename"), store=store,
+                          start=False, folder=entry.folder)
+        if replace:
+            with self._lock:
+                job.replace = entry.id
+                self._save()
+        return job
+
     def _describe_entry(self, job):
         """Give a summary row the facts of the recording it is about.
 
@@ -485,7 +537,7 @@ class JobQueue:
          job.source_created_at) = entry_facts(entry)
         self._measure(job)
 
-    def summarize(self, entry_id, overrides=None, start=True):
+    def summarize(self, entry_id, overrides=None, start=True, keep=False):
         """Queue the summary of a library entry and return its :class:`Job`.
 
         It joins the same queue the transcriptions are in, behind whatever is
@@ -496,13 +548,16 @@ class JobQueue:
 
         The entry has to exist now rather than when the job runs, so that a
         typo comes back as an error to the person who made it instead of as a
-        failed job ten minutes later."""
+        failed job ten minutes later.
+
+        ``keep`` puts the summary the entry already has aside, once the new
+        one has been written, instead of writing over it."""
         entry = self.library.get(entry_id)
         settings = dict(self.settings)
         settings.update({k: v for k, v in (overrides or {}).items() if v is not None})
         job = Job(kind=SUMMARY, entry_id=entry.id, settings=settings,
                   title=entry.metadata.get("title") or entry.id,
-                  filename=entry.id)
+                  filename=entry.id, keep=keep)
         # The recording this is about, described the way every other row is:
         # a summary has no file of its own, but "an hour of audio from
         # Tuesday" is what tells its row from the next one.
@@ -813,9 +868,13 @@ class JobQueue:
         result = pipeline.run(
             job.source, job.settings, prompt=job.prompt,
             progress=lambda percent, stage=None: self._advance(job, percent, stage))
-        entry = pipeline.file_in_library(self.library, job.source, result,
-                                         job.settings, title=job.title,
-                                         store=job.store)
+        if job.replace:
+            entry = pipeline.refile(self.library.get(job.replace), result,
+                                    job.settings)
+        else:
+            entry = pipeline.file_in_library(self.library, job.source, result,
+                                             job.settings, title=job.title,
+                                             store=job.store, folder=job.folder)
         job.entry_id = entry.id
         job.words = len(result.text.split())
         job.elapsed = round(result.elapsed, 1)
@@ -836,6 +895,10 @@ class JobQueue:
         result = summarising.summarize(
             material, job.settings,
             progress=lambda percent, stage=None: self._advance(job, percent, stage))
+        if job.keep:
+            # Only now, with the new one in hand: a summary that fails must
+            # leave the old one where it was.
+            entry.archive_summary()
         entry.write_summary(result.text)
         entry.update(summary={
             "engine": result.engine,

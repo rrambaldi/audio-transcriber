@@ -18,7 +18,7 @@ import threading
 # module of that name beside it is a trap set for the next reader.
 from queue import Empty, Queue
 
-from PySide6.QtCore import Qt, QTimer, QUrl, Signal
+from PySide6.QtCore import QMimeData, Qt, QTimer, QUrl, Signal
 from PySide6.QtGui import QDesktopServices, QFont, QGuiApplication
 from PySide6.QtWidgets import (
     QAbstractItemView,
@@ -32,6 +32,7 @@ from PySide6.QtWidgets import (
     QInputDialog,
     QLabel,
     QLineEdit,
+    QMenu,
     QMessageBox,
     QPlainTextEdit,
     QProgressBar,
@@ -87,10 +88,42 @@ class _ClickableLabel(QLabel):
         super().mouseDoubleClickEvent(event)
 
 
+class _EntryTable(QTableWidget):
+    """The list, whose rows can be dragged onto a folder to move them there."""
+
+    def mimeData(self, items):
+        data = QMimeData()
+        if items:
+            data.setData(options.ENTRY_MIME,
+                         str(items[0].data(Qt.ItemDataRole.UserRole)).encode("utf-8"))
+        return data
+
+    def mimeTypes(self):
+        return [options.ENTRY_MIME]
+
+
+def ask_keep_or_replace(parent, title, text):
+    """Keep the old one, replace it, or neither: True, False or None.
+
+    A function of its own so that it can be answered without a click: a
+    message box with buttons of its own cannot be handed to a static helper."""
+    box = QMessageBox(QMessageBox.Icon.Question, title, text,
+                      QMessageBox.StandardButton.Cancel, parent)
+    keep = box.addButton(t("gui.redo_keep_short"), QMessageBox.ButtonRole.AcceptRole)
+    replace = box.addButton(t("gui.redo_replace_short"),
+                            QMessageBox.ButtonRole.DestructiveRole)
+    box.setDefaultButton(keep)
+    box.exec()
+    clicked = box.clickedButton()
+    return True if clicked is keep else False if clicked is replace else None
+
+
 class LibraryPanel(QWidget):
     """The entry table, the reading pane, the notes editor and the player."""
 
     message = Signal(str)
+    #: "Transcribe again" was pressed; the window's queue asks how, and runs it.
+    retranscribe_requested = Signal(str, str)
 
     def __init__(self, library, settings=None, parent=None, queue=None):
         super().__init__(parent)
@@ -102,6 +135,8 @@ class LibraryPanel(QWidget):
         #: freeze while one of them happens.
         self.queue = queue
         self.entry = None
+        #: The folder being listed: "" is the top of the library.
+        self.folder = ""
         self._rows = []
         self._copies = {}
         self._notes_dirty = False
@@ -147,13 +182,15 @@ class LibraryPanel(QWidget):
         self.search.returnPressed.connect(self.reload)
         self.count = QLabel("")
 
-        self.table = QTableWidget(0, len(options.entry_headers()))
+        self.table = _EntryTable(0, len(options.entry_headers()))
         self.table.setHorizontalHeaderLabels(options.entry_headers())
         self.table.verticalHeader().setVisible(False)
         self.table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self.table.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
         self.table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         self.table.setSortingEnabled(False)
+        self.table.setDragEnabled(True)
+        self.table.setDragDropMode(QAbstractItemView.DragDropMode.DragOnly)
         # Every column but the title is as wide as its content and no wider:
         # six columns in a narrow pane otherwise push the last three out of
         # sight behind a horizontal scrollbar, and the date is what people
@@ -201,6 +238,10 @@ class LibraryPanel(QWidget):
 
         self.summary = QPlainTextEdit()
         self.summary.setReadOnly(True)
+        # The summaries kept when a new one was written: shown only when
+        # there are any, and only for reading.
+        self.summary_version = QComboBox()
+        self.summary_version.currentIndexChanged.connect(self._show_version)
         self.summary_note = QLabel("")
         self.summary_note.setWordWrap(True)
         # A summary reads an hour of transcript through a model: the same bar
@@ -212,6 +253,11 @@ class LibraryPanel(QWidget):
         self.summary_progress.hide()
         self.summary_model = FreshMenu(self._fill_models)
         self.summary_model.setToolTip(t("gui.summary_model_tip"))
+        # Its entries carry the memory each model needs, and a menu sized to
+        # the longest of them set the width of the whole reading pane.
+        self.summary_model.setSizeAdjustPolicy(
+            QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
+        self.summary_model.setMinimumContentsLength(28)
         self.summary_review = QCheckBox(t("gui.summary_review"))
         self.summary_review.setToolTip(t("gui.summary_review_tip"))
         self.summary_review.setChecked(bool(self.settings.get("summary_review")))
@@ -231,6 +277,12 @@ class LibraryPanel(QWidget):
         self.summarise.clicked.connect(self.summarise_entry)
         summary_page = QWidget()
         summary_layout = QVBoxLayout(summary_page)
+        version_row = QHBoxLayout()
+        self.summary_version_label = QLabel(t("gui.summary_version"))
+        version_row.addWidget(self.summary_version_label)
+        version_row.addWidget(self.summary_version)
+        version_row.addStretch(1)
+        summary_layout.addLayout(version_row)
         summary_layout.addLayout(_with_copy(self.summary, self.copy_summary), 1)
         summary_layout.addWidget(self.summary_note)
         summary_layout.addWidget(self.summary_progress)
@@ -263,11 +315,17 @@ class LibraryPanel(QWidget):
                 self.settings, self.settings.get("language") or "it"):
             self.summary_template.addItem(label, name)
         self.summary_template.currentIndexChanged.connect(self._show_own_sections)
-        summary_row.addWidget(QLabel(t("gui.summary_template")))
-        summary_row.addWidget(self.summary_template)
         summary_row.addStretch(1)
-        summary_row.addWidget(self.summarise)
         summary_layout.addLayout(summary_row)
+        # Which sections, and the button, on a line of their own: on one line
+        # the four controls were the reading pane's minimum width, and with
+        # the folders beside the list that left the list no room.
+        template_row = QHBoxLayout()
+        template_row.addWidget(QLabel(t("gui.summary_template")))
+        template_row.addWidget(self.summary_template)
+        template_row.addStretch(1)
+        template_row.addWidget(self.summarise)
+        summary_layout.addLayout(template_row)
 
         self.tabs = QTabWidget()
         self.tabs.addTab(transcript_page, t("gui.tab_transcript"))
@@ -351,22 +409,38 @@ class LibraryPanel(QWidget):
         self.open_folder.clicked.connect(self.reveal_folder)
         self.delete = QPushButton(t("gui.delete"))
         self.delete.clicked.connect(self.delete_entry)
+        self.retranscribe = QPushButton(t("gui.retranscribe"))
+        self.retranscribe.clicked.connect(self._retranscribe)
+        # A menu of the folders, for whoever would rather not drag a row onto
+        # the tree - or cannot.
+        self.move_to = QPushButton(t("gui.move_to"))
+        self.move_menu = QMenu(self.move_to)
+        self.move_menu.aboutToShow.connect(self._fill_move_menu)
+        self.move_to.setMenu(self.move_menu)
+        # Two rows - what is done to the entry, and how it gets out - because
+        # one row of seven buttons was the reading pane's minimum width, and
+        # the list beside it was left a column and a half.
         actions = QHBoxLayout()
-        for button in (self.name_speakers, self.export,
-                       self.export_subtitles_button, self.open_folder):
+        for button in (self.retranscribe, self.move_to, self.name_speakers):
             actions.addWidget(button)
         actions.addStretch(1)
         actions.addWidget(self.delete)
         right_layout.addLayout(actions)
+        out = QHBoxLayout()
+        for button in (self.export, self.export_subtitles_button,
+                       self.open_folder):
+            out.addWidget(button)
+        out.addStretch(1)
+        right_layout.addLayout(out)
 
         splitter = QSplitter(Qt.Orientation.Horizontal)
         splitter.addWidget(left)
         splitter.addWidget(right)
-        splitter.setStretchFactor(0, 2)
-        splitter.setStretchFactor(1, 3)
+        splitter.setStretchFactor(0, 1)
+        splitter.setStretchFactor(1, 1)
         # The list needs enough of the width to show its columns; the reading
-        # pane keeps the larger share.
-        splitter.setSizes([520, 660])
+        # pane keeps the larger share. The folders take the rest, on the left.
+        splitter.setSizes([470, 600])
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)   # the pane's gutter is the only one
         layout.addWidget(splitter)
@@ -383,7 +457,8 @@ class LibraryPanel(QWidget):
         self.search_timer.stop()
         query = self.search.text().strip()
         keep = keep or (self.entry.id if self.entry else None)
-        entries = self.library.search(query) if query else self.library.entries()
+        entries = (self.library.search(query) if query
+                   else self.library.entries(self.folder))
         self._copies = self.library.copies()
         self._rows = options.entry_rows(entries, self._copies)
         self.count.setText(options.search_summary(query, len(self._rows)))
@@ -395,6 +470,9 @@ class LibraryPanel(QWidget):
                                           "model", "notes")):
                 text = row[key]
                 copies = row["copies"] if key == "title" else 0
+                if key == "title" and query and row["folder"]:
+                    # A search reaches every folder: say which one it is in.
+                    text = f"{row['folder']} › {text}"
                 if copies:
                     # In front: a narrow pane cuts the end of a title off.
                     text = f"×{copies}  {text}"
@@ -561,6 +639,32 @@ class LibraryPanel(QWidget):
         self.summary.setPlainText(text)
         self.summary_note.setText(note)
         self.summarise.setText(t("gui.summary_again" if text else "gui.summary_run"))
+        versions = options.summary_versions(self.entry)
+        self.summary_version.blockSignals(True)
+        self.summary_version.clear()
+        self.summary_version.addItem(t("gui.summary_version_current"), None)
+        for file, label in versions:
+            self.summary_version.addItem(label, file)
+        self.summary_version.blockSignals(False)
+        self.summary_version.setVisible(bool(versions))
+        self.summary_version_label.setVisible(bool(versions))
+
+    def _show_version(self):
+        """An older summary, for reading; the current one is back at the top."""
+        file = self.summary_version.currentData()
+        if self.entry is None:
+            return
+        if file is None:
+            self._show_summary()
+            return
+        try:
+            text = self.entry.read_summary_version(file)
+        except (LibraryError, OSError) as exc:
+            self.message.emit(str(exc))
+            return
+        self.summary.setPlainText(text)
+        self.summary_note.setText(t("gui.summary_old_version",
+                                    version=self.summary_version.currentText()))
 
     def _clear_reader(self):
         self.title.setText("")
@@ -579,8 +683,13 @@ class LibraryPanel(QWidget):
         for button in (self.rename, self.export, self.export_subtitles_button,
                        self.open_folder, self.delete, self.copy_transcript,
                        self.copy_summary, self.copy_notes,
-                       self.name_speakers):
+                       self.name_speakers, self.move_to):
             button.setEnabled(enabled)
+        audio = self.entry.stored_audio() if enabled and self.entry else None
+        self.retranscribe.setEnabled(bool(audio) and os.path.exists(audio)
+                                     and self.queue is not None)
+        self.retranscribe.setToolTip("" if self.retranscribe.isEnabled()
+                                     else t("gui.retranscribe_no_audio"))
         self.summarise.setEnabled(enabled and self.queue is not None
                                   and self._summary_job is None)
 
@@ -864,8 +973,15 @@ class LibraryPanel(QWidget):
         except summary_templates.TemplateError as wrong:
             self.message.emit(t("gui.summary_failed", title=title, error=wrong))
             return
+        keep = False
+        if self.entry.read_summary().strip():
+            keep = ask_keep_or_replace(self, t("gui.summary_redo_title"),
+                                       t("gui.summary_redo_question", title=title))
+            if keep is None:
+                return
         try:
-            self._summary_job = self.queue.summarize(self.entry.id, overrides)
+            self._summary_job = self.queue.summarize(self.entry.id, overrides,
+                                                     keep=keep)
         except (LibraryError, SummaryError) as exc:
             self.message.emit(t("gui.summary_failed", title=title, error=exc))
             return
@@ -958,6 +1074,76 @@ class LibraryPanel(QWidget):
             self.message.emit(t("gui.summary_failed", title=job.title,
                                 error=job.error or "-"))
             self._show_summary()
+
+    # --- folders --------------------------------------------------------
+
+    def set_folder(self, folder):
+        """List one folder of the library; "" is its top."""
+        if folder == self.folder:
+            return
+        if not self._offer_to_save_notes():
+            return
+        self.folder = folder
+        self.reload(keep=None)
+
+    def _fill_move_menu(self):
+        """Every folder but the one the entry is in, the top first."""
+        self.move_menu.clear()
+        if self.entry is None:
+            return
+        here = options.folder_of(self.entry.id)
+        for folder, label in options.folder_choices(self.library.folders()):
+            if folder != here:
+                action = self.move_menu.addAction(label)
+                action.triggered.connect(
+                    lambda _checked=False, where=folder: self.move_entry(
+                        self.entry.id, where))
+
+    def move_entry(self, entry_id, folder):
+        """Move one entry to another folder; say where it went.
+
+        The one being read lets go of its recording first: Windows will not
+        rename a folder with a file open in it."""
+        try:
+            entry = self.library.get(entry_id)
+        except LibraryError as exc:
+            self.message.emit(str(exc))
+            return False
+        if options.folder_of(entry.id) == folder:
+            return False
+        showing = self.entry is not None and self.entry.id == entry.id
+        if showing:
+            if not self._offer_to_save_notes():
+                return False
+            self._load_audio(None)
+        try:
+            self.library.move(entry, folder)
+        except (LibraryError, OSError) as exc:
+            self.message.emit(str(exc))
+            if showing:
+                self._load_audio(self.entry.stored_audio())
+            return False
+        self.message.emit(t("gui.moved", title=_title_of(entry),
+                            folder=folder or t("gui.tree_library")))
+        if showing:
+            self.entry = None
+        self.reload(keep=None)
+        return True
+
+    def _retranscribe(self):
+        if self.entry is not None:
+            self.retranscribe_requested.emit(self.entry.id, _title_of(self.entry))
+
+    def entry_changed(self, entry_id):
+        """A job has rewritten this entry: show it again if it is on screen."""
+        if (self.entry is None or self.entry.id != entry_id
+                or self._notes_dirty):
+            return
+        try:
+            self.entry = self.library.get(entry_id)
+        except LibraryError:
+            return
+        self._display()
 
     def reveal_folder(self):
         """Open the entry's folder in the system's file manager."""

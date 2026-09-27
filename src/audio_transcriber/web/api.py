@@ -427,6 +427,7 @@ def register_routes(app):
             transcription = data.get("transcription") or {}
             entries.append({
                 "id": entry.id,
+                "folder": entry.folder,
                 "title": data.get("title") or entry.id,
                 "created_at": data.get("created_at"),
                 "duration_seconds": audio.get("duration_seconds"),
@@ -451,40 +452,7 @@ def register_routes(app):
         except LibraryError as exc:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
 
-    @app.get("/api/library/{entry_id}")
-    def show_entry(entry_id: str, request: Request):
-        entry = entry_or_404(request, entry_id)
-        data = dict(entry.metadata)
-        data["id"] = entry.id
-        data["transcript"] = entry.read_transcript()
-        data["notes"] = entry.read_notes()
-        data["segments"] = entry.read_segments()
-        data["has_audio"] = bool(entry.stored_audio())
-        data["subtitle_files"] = entry.subtitles()
-        data["summary"] = entry.read_summary()
-        data["speakers"] = entry.speakers()
-        return data
-
-    @app.patch("/api/library/{entry_id}")
-    def rename_entry(entry_id: str, request: Request, title: str = Body(..., embed=True)):
-        """Rename an entry. The folder keeps its id: the title is metadata."""
-        title = title.strip()
-        if not title:
-            raise HTTPException(status_code=400, detail="the title cannot be empty")
-        entry = entry_or_404(request, entry_id)
-        entry.update(title=title[:200])
-        return {"id": entry.id, "title": entry.metadata.get("title")}
-
-    @app.delete("/api/library/{entry_id}")
-    def remove_entry(entry_id: str, request: Request):
-        entry = entry_or_404(request, entry_id)
-        try:
-            path = library_of(request).remove(entry)
-        except LibraryError as exc:
-            raise HTTPException(status_code=400, detail=str(exc)) from exc
-        return {"removed": entry.id, "path": path}
-
-    @app.put("/api/library/{entry_id}/notes")
+    @app.put("/api/library/{entry_id:path}/notes")
     def save_notes(entry_id: str, request: Request, notes: str = Body(..., embed=True)):
         if len(notes) > MAX_NOTES:
             raise HTTPException(status_code=413,
@@ -496,7 +464,7 @@ def register_routes(app):
             raise HTTPException(status_code=500, detail=str(exc)) from exc
         return {"id": entry.id, "notes": entry.read_notes()}
 
-    @app.put("/api/library/{entry_id}/speakers")
+    @app.put("/api/library/{entry_id:path}/speakers")
     def name_speakers(entry_id: str, request: Request,
                       names: dict = Body(..., embed=True)):
         """Put names to the voices a diarized run kept apart.
@@ -519,7 +487,7 @@ def register_routes(app):
         return {"id": entry.id, "speakers": speakers,
                 "transcript": entry.read_transcript()}
 
-    @app.post("/api/library/{entry_id}/summary", status_code=202)
+    @app.post("/api/library/{entry_id:path}/summary", status_code=202)
     def summarise_entry(entry_id: str, request: Request,
                         engine: str = Body("", embed=True),
                         length: str = Body("", embed=True),
@@ -565,7 +533,7 @@ def register_routes(app):
             raise HTTPException(status_code=400, detail=str(exc)) from exc
         return job.as_dict()
 
-    @app.delete("/api/library/{entry_id}/summary")
+    @app.delete("/api/library/{entry_id:path}/summary")
     def remove_summary(entry_id: str, request: Request):
         """Throw a summary away. The transcript it was made from is untouched,
         so asking for another one is always possible."""
@@ -579,7 +547,7 @@ def register_routes(app):
         entry.update(summary=None)
         return {"id": entry.id, "summary": ""}
 
-    @app.get("/api/library/{entry_id}/summary.md")
+    @app.get("/api/library/{entry_id:path}/summary.md")
     def download_summary(entry_id: str, request: Request):
         entry = entry_or_404(request, entry_id)
         if not entry.has_summary():
@@ -588,7 +556,7 @@ def register_routes(app):
                                  headers={"Content-Disposition":
                                           f'attachment; filename="{entry.id}-summary.md"'})
 
-    @app.get("/api/library/{entry_id}/transcript.txt")
+    @app.get("/api/library/{entry_id:path}/transcript.txt")
     def download_transcript(entry_id: str, request: Request):
         entry = entry_or_404(request, entry_id)
         return PlainTextResponse(
@@ -596,7 +564,7 @@ def register_routes(app):
             headers={"Content-Disposition":
                      f'attachment; filename="{entry.id}.txt"'})
 
-    @app.get("/api/library/{entry_id}/transcript.json")
+    @app.get("/api/library/{entry_id:path}/transcript.json")
     def download_segments(entry_id: str, request: Request):
         entry = entry_or_404(request, entry_id)
         if not os.path.exists(entry.segments_path):
@@ -604,7 +572,7 @@ def register_routes(app):
         return FileResponse(entry.segments_path, media_type="application/json",
                             filename=f"{entry.id}.json")
 
-    @app.get("/api/library/{entry_id}/subtitles.{kind}")
+    @app.get("/api/library/{entry_id:path}/subtitles.{kind}")
     def download_subtitles(entry_id: str, kind: str, request: Request,
                            preset: str = "", chars: int | None = None,
                            words: int | None = None):
@@ -643,7 +611,7 @@ def register_routes(app):
                      "X-Subtitle-Cues": str(len(cue_list)),
                      "X-Subtitle-Preset": str(spec.get("name") or "")})
 
-    @app.get("/api/library/{entry_id}/waveform")
+    @app.get("/api/library/{entry_id:path}/waveform")
     def entry_waveform(entry_id: str, request: Request):
         """How loud the recording is, slice by slice, for the row's drawing.
 
@@ -660,7 +628,7 @@ def register_routes(app):
         return {"id": entry.id, "scale": waveform.SCALE,
                 "loudness": waveform.entry_loudness(entry)}
 
-    @app.get("/api/library/{entry_id}/audio")
+    @app.get("/api/library/{entry_id:path}/audio")
     def stream_audio(entry_id: str, request: Request):
         """The recording itself, so the page can play it while reading along.
 
@@ -672,6 +640,47 @@ def register_routes(app):
             raise HTTPException(status_code=404, detail="this entry has no stored audio")
         media_type = mimetypes.guess_type(source)[0] or "application/octet-stream"
         return FileResponse(source, media_type=media_type)
+
+    # --- one entry, by its id alone -----------------------------------------
+    # Last on purpose. An id is a path once entries are kept in folders -
+    # "Clienti/ACME/2026-09-04_1530_sync" - so these routes take everything
+    # after /api/library/, and declared first they would swallow
+    # ".../transcript.txt" and the rest as the id of an entry that is not there.
+
+    @app.get("/api/library/{entry_id:path}")
+    def show_entry(entry_id: str, request: Request):
+        entry = entry_or_404(request, entry_id)
+        data = dict(entry.metadata)
+        data["id"] = entry.id
+        data["folder"] = entry.folder
+        data["transcript"] = entry.read_transcript()
+        data["notes"] = entry.read_notes()
+        data["segments"] = entry.read_segments()
+        data["has_audio"] = bool(entry.stored_audio())
+        data["subtitle_files"] = entry.subtitles()
+        data["summary"] = entry.read_summary()
+        data["speakers"] = entry.speakers()
+        return data
+
+    @app.patch("/api/library/{entry_id:path}")
+    def rename_entry(entry_id: str, request: Request, title: str = Body(..., embed=True)):
+        """Rename an entry. The folder keeps its id: the title is metadata."""
+        title = title.strip()
+        if not title:
+            raise HTTPException(status_code=400, detail="the title cannot be empty")
+        entry = entry_or_404(request, entry_id)
+        entry.update(title=title[:200])
+        return {"id": entry.id, "title": entry.metadata.get("title")}
+
+    @app.delete("/api/library/{entry_id:path}")
+    def remove_entry(entry_id: str, request: Request):
+        entry = entry_or_404(request, entry_id)
+        try:
+            path = library_of(request).remove(entry)
+        except LibraryError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        return {"removed": entry.id, "path": path}
+
 
 def diarization_state(settings):
     """Whether the page should offer "who said what", and why not.

@@ -733,3 +733,97 @@ def test_the_drawing_is_not_written_into_the_queue_file(queue, tmp_path):
     with open(queue.state_path(), encoding="utf-8") as handle:
         written = json.load(handle)
     assert "loudness" not in written["jobs"][0]
+
+
+# --- transcribing an entry again ------------------------------------------
+
+@pytest.fixture
+def working_queue(monkeypatch):
+    """The real runner, with the engine replaced by a line of text."""
+    from audio_transcriber import pipeline
+
+    said = {"text": "seconda versione"}
+
+    def run(source, settings, prompt="", progress=None):
+        if said["text"] is None:
+            raise RuntimeError("the model exploded")
+        return pipeline.Result(
+            text=said["text"], segments=[], audio_duration=1.0, elapsed=0.1,
+            info={"backend": "faster-whisper", "device": "cpu", "model": "large-v3"},
+            diarized=False, prompt="")
+
+    monkeypatch.setattr(jobs_module.pipeline, "run", run)
+    queue = jobs_module.JobQueue(SETTINGS, measurer=lambda path: [1, 500, 1000])
+    queue.said = said
+    return queue
+
+
+@pytest.fixture
+def original(working_queue, tmp_path):
+    source = tmp_path / "riunione.wav"
+    source.write_bytes(b"RIFF")
+    return working_queue.library.create(source=str(source), title="Riunione",
+                                        folder="Clienti")
+
+
+def test_an_entry_transcribed_again_is_filed_beside_it(working_queue, original):
+    job = working_queue.retranscribe(original.id)
+    assert (job.status, job.folder, job.replace) == ("held", "Clienti", None)
+    working_queue.start(job.id)
+    assert wait_for(working_queue, job.id).status == "done"
+
+    again = working_queue.library.get(job.entry_id)
+    assert again.id != original.id and again.folder == "Clienti"
+    assert again.read_metadata()["title"] == "Riunione"
+    assert again.read_transcript() == "seconda versione"
+    assert pathlib.Path(original.stored_audio()).is_file()
+
+
+def test_an_entry_transcribed_again_in_place_keeps_its_notes(working_queue, original):
+    original.write_notes("da tenere")
+    job = working_queue.retranscribe(original.id, replace=True)
+    working_queue.start(job.id)
+    assert wait_for(working_queue, job.id).status == "done"
+
+    assert job.entry_id == original.id
+    entry = working_queue.library.get(original.id)
+    assert entry.read_transcript() == "seconda versione"
+    assert entry.read_notes() == "da tenere\n"
+    assert pathlib.Path(entry.stored_audio()).is_file()
+    assert len(working_queue.library.entries()) == 1
+
+
+def test_a_failed_retranscription_leaves_the_recording_where_it_was(working_queue,
+                                                                    original):
+    working_queue.said["text"] = None
+    job = working_queue.retranscribe(original.id)
+    working_queue.start(job.id)
+    assert wait_for(working_queue, job.id).status == "failed"
+    assert pathlib.Path(original.stored_audio()).is_file()
+    assert len(working_queue.library.entries()) == 1
+
+
+def test_an_entry_without_its_recording_cannot_be_transcribed_again(queue):
+    from audio_transcriber.library import LibraryError
+
+    entry = queue.library.create(title="Solo testo")
+    with pytest.raises(LibraryError):
+        queue.retranscribe(entry.id)
+
+
+def test_where_a_job_files_and_what_it_replaces_are_written_down():
+    job = jobs_module.Job(title="x", folder="Clienti", replace="Clienti/2026-01-01_0000",
+                          keep=True)
+    back = jobs_module.Job.from_state(job.to_state())
+    assert (back.folder, back.replace, back.keep) == (
+        "Clienti", "Clienti/2026-01-01_0000", True)
+
+
+def test_a_summary_done_again_can_keep_the_old_one(queue, filed):
+    wait_for(queue, queue.summarize(filed.id).id)
+    wait_for(queue, queue.summarize(filed.id, keep=True).id)
+    entry = queue.library.get(filed.id)
+    [old] = entry.summary_versions()
+    assert old["engine"] == "extractive"
+    assert entry.read_summary_version(old["file"]).strip()
+    assert entry.has_summary()

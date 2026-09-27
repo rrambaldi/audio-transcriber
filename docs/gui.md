@@ -17,15 +17,28 @@ the moment it came from — without a browser, a server or a port.
 
 ## What it does
 
-Three tabs.
+Two tabs: **Library** and **This machine**.
 
-**Transcribe** is a header and a queue, and nothing else. Across the top, a
-framed area with *Add files…* in it for people who would rather not drag
-anything, and beside it the recorder — audio system, source, *Record*,
-*Pause*, the level meter. Dropping a recording anywhere on the tab puts it in
-the queue; the frame is where that is written down, and it lights up while
-something is being dragged over the window. Under that, the queue itself, taking the
-rest of the window.
+A recording lives in **one place**, the library, from the moment it arrives.
+It used to be born in a *Transcribe* tab and grow up in *Library*, two tabs
+showing one thing at two ages, each with actions the other lacked; nothing
+could be started again from the library, and a finished job stayed in the
+queue as well. Now the library is the window's home:
+
+- Across the top, **Add files…** and **Recorder**. A file added (or dropped
+  anywhere on the library) is transcribed into the top of the library; the
+  recorder opens under the two buttons, with **File it in** beside it — the
+  folder the recording goes to once transcribed, the one being read by
+  default.
+- On the left, the **folders**: *In progress (N)* first, the work under way,
+  then the library and its folders. *New folder…* is under the tree, and a
+  right click on a folder renames it or deletes it (an empty one only).
+- On the right, what is selected: the queue for *In progress*, otherwise that
+  folder's recordings beside the reading pane.
+
+A job that did what it was for **leaves the queue** by itself: its result is
+in the library, and a queue holding everything ever done stops being the list
+of what is still to do. What failed stays, to be tried again or taken out.
 
 There is deliberately **no column of options**. What a recording is for —
 plain text, who said what, subtitles, with which model and which keywords —
@@ -47,8 +60,8 @@ The answers are remembered, so the second recording of the morning starts
 from what the first one was told: six meetings in the queue should be six
 confirmations, not six forms.
 
-**The queue** — the whole of the tab under the header — holds every job newest
-first. A row is a recording: its title, and under it the facts known so far
+**The queue** — *In progress*, at the top of the folders — holds every job
+still to do, newest first. A row is a recording: its title, and under it the facts known so far
 (the model, the length, the word count) or, if it failed, the reason with the
 whole width of the column. The state is a word, and only the job that is
 actually running carries a bar. *Transcribe* is the one filled button on the
@@ -58,11 +71,10 @@ the default, so Enter does what the screen is for. Under it:
 | button | when |
 |---|---|
 | *Transcribe* | anything is waiting to be started |
-| *Open in the library* | the job produced an entry |
 | *Take out of the queue* | it has not started; the row goes, nothing happened to it, and the file is untouched |
 | *Stop* | it is the one running (see below) |
-| *Remove from the list* | it has finished, and the transcription stays in the library |
-| *Clear the finished* | all of them at once |
+| *Remove from the list* | it failed or was stopped |
+| *Clear the finished* | all of those at once |
 
 **Every row carries its own buttons**, because "select the row, then press
 the button under the table" is one step more than there needs to be and one
@@ -151,15 +163,28 @@ It follows the end of the file while it is on screen, unless you have scrolled
 up to look at something. Set `AUDIO_TRANSCRIBER_LOG_CONSOLE=1` to get the
 terminal copy back while debugging.
 
-**Library.** Every transcribed recording, newest first. Search the transcripts
-and the notes, read the transcript with a clickable timestamp per block, play
-the recording while reading along, jump to any moment, write notes, rename,
-export the text, open the folder, delete.
+**Library.** Every transcribed recording in the folder selected, newest
+first. Search the transcripts and the notes — a search reaches every folder,
+and says which one a result is in — read the transcript with a clickable
+timestamp per block, play the recording while reading along, jump to any
+moment, write notes, rename, export the text, open the folder, delete.
+
+**Moving** a recording: drag its row onto a folder, or *Move to* under the
+reading pane, which lists them. A folder of the library can also be a link to
+a folder elsewhere on the disk — `mklink /J` on Windows, `ln -s` elsewhere —
+and the window shows it like any other; see [data-layout.md](data-layout.md).
+
+**Doing it again.** *Transcribe again…* opens the same dialog a new recording
+gets, with one more question at the bottom: *keep* the transcription the
+entry has and add the new one beside it (the two rows then carry `×2`), or
+*replace* it — the title, the notes and the folder stay. *Summarise again*
+asks the same of a summary: replaced, or kept as an earlier version, which
+the *Version* menu over the summary shows again.
 
 Under each name, the shape of the recording: how loud it was from start to
 end. It goes in the title column and not in one of its own, because that is
 the only column wide enough to hold a picture and it is where somebody looking
-for a recording is already looking. The queue rows on the *Transcribe* tab
+for a recording is already looking. The queue rows under *In progress*
 carry the same drawing under their titles, measured while they wait their turn,
 so half a dozen files named by date are told apart before any of them has been
 transcribed. A recording filed before the window could draw one is measured in
@@ -532,8 +557,9 @@ dependencies. `audio-transcriber gui` says so rather than showing a traceback.
 |---|---|
 | `gui/options.py` | every decision worth testing — the menus, the table rows, the transcript blocks — and **no Qt at all** |
 | `gui/style.py` | the contrast floor over the theme, and the muted ink a note is written in |
-| `gui/window.py` | the window, the three tabs, what happens when it closes |
-| `gui/transcribe_panel.py` | sources, options, the queue table |
+| `gui/window.py` | the window, the two tabs, what happens when it closes |
+| `gui/home.py` | the library as home: *Add files…* and *Recorder*, the folder tree with *In progress* on top |
+| `gui/transcribe_panel.py` | the queue table, and what its rows' buttons do |
 | `gui/library_panel.py` | the entry list, the reading pane, the notes editor, the player |
 | `gui/recorder.py` | the audio-system and source menus, and the mix |
 | `gui/qt_recorder.py` | the fallback recorder, on QtMultimedia alone |
@@ -600,7 +626,7 @@ of paper:
 - **The tab strip is set at the interface font's own size**, not at the
   page's 0.72rem, and the selected tab is marked in the accent rather than in
   the ink. The page can afford a whisper there because its tab strip sits
-  inside a form that has just asked a question; these three tabs are the whole
+  inside a form that has just asked a question; these tabs are the whole
   navigation of the window, and at the label's ratio on a 9pt desktop font
   they came out near seven points with a text-coloured underline — a row of
   captions, which is exactly what "they don't look like tabs" means.

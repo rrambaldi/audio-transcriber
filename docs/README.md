@@ -6,7 +6,7 @@
   they live, and how the command line and the browser select them
 - [web.md](web.md) — the local web interface, its jobs, its API, and what it
   does not protect
-- [gui.md](gui.md) — the desktop window: the three tabs, recording from a
+- [gui.md](gui.md) — the desktop window: the library and its folders, recording from a
   microphone, and what it remembers
 - [subtitles.md](subtitles.md) — cutting a transcript into subtitles: the
   presets, the numbers, how a cue is cut, and what it deliberately will not do

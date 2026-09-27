@@ -8,6 +8,23 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- **The library has folders.** Folders and folders inside them, on the left
+  of the window, created, renamed and deleted (an empty one only) from there;
+  a recording moves by dragging its row onto a folder, or with *Move to*. A
+  folder of the library can be a link to a folder elsewhere on the disk. A
+  recording made in the window asks where it goes - *File it in*, beside the
+  recorder, the folder being read by default - and a file that is added goes
+  to the top of the library. The web page shows which folder each recording
+  is in.
+
+- **A recording can be transcribed again from the library.** *Transcribe
+  again...* asks the same questions a new one gets - who said what included -
+  and one more: keep the transcription the entry has and add the new one
+  beside it, or replace it, keeping the title, the notes and the folder.
+
+- **Summarising again asks whether to keep the old summary.** Kept, it is an
+  earlier version, and the *Version* menu over the summary shows it again.
+
 - **The library says when a recording was transcribed more than once.** Its
   rows carry `×3` in front of the title, since they otherwise read as the
   same name three times, and *Details* lists the other transcriptions by
@@ -104,6 +121,12 @@ All notable changes to this project are documented here. The format follows
   again, S only sends.
 
 ### Changed
+
+- **The library is the window's home, and the queue is inside it.** Two tabs
+  instead of three: *Library*, with *In progress* as the first of its
+  folders, and *This machine*. *Add files...* and *Recorder* are across the
+  top of the library, and the recorder only shows when it is asked for. A job
+  that worked leaves the queue by itself; what failed stays.
 
 - **The `meeting` template makes a shorter page.** A few large subjects,
   with actions and open questions repeated at the foot; opinions are no
@@ -352,6 +375,11 @@ All notable changes to this project are documented here. The format follows
   a drawing of nothing anybody is still looking at.
 
 ### Fixed
+
+- **The text you already have can be given for plain text.** The box for a
+  script or a press release sat on the *Subtitles* tab of the dialog, which is
+  greyed out when the answer is plain text - the default - so it was out of
+  reach exactly when it was wanted. It is on the *Transcription* tab now.
 
 - **Trying a failed transcription again no longer files it twice.** The
   entry was created before its transcript, waveform and subtitles were

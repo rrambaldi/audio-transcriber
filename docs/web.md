@@ -53,6 +53,8 @@ Every finished job is filed in the library, exactly as `--library` does, and
 the page's library list is the same entries `audio-transcriber library list`
 shows. Notes written on the page are the entry's `notes.md`, so the CLI, an
 editor and the browser all see the same file.
+An entry kept in a folder shows the folder in front of its date; folders are
+made, renamed and filled from the desktop window, not from the page.
 
 ## Recording in the browser
 

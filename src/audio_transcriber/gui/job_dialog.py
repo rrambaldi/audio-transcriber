@@ -15,6 +15,7 @@ from PySide6.QtWidgets import (
     QDialog,
     QDialogButtonBox,
     QLabel,
+    QRadioButton,
     QVBoxLayout,
 )
 
@@ -27,7 +28,7 @@ class JobDialog(QDialog):
     """The four questions, for one recording, with Transcribe at the bottom."""
 
     def __init__(self, title, settings=None, defaults=None, vocabularies=None,
-                 custom_text=None, store=None, parent=None):
+                 custom_text=None, store=None, parent=None, redo=False):
         super().__init__(parent)
         self.setWindowTitle(t("gui.job_dialog_title", title=title))
         self.setModal(True)
@@ -67,6 +68,14 @@ class JobDialog(QDialog):
         layout.addWidget(heading)
         layout.addWidget(note)
         layout.addWidget(self.form, 1)
+        # Doing a recording again asks what happens to the transcription it
+        # already has, in the same dialog rather than a second one after it.
+        self.keep = QRadioButton(t("gui.redo_keep"))
+        self.replace_it = QRadioButton(t("gui.redo_replace"))
+        self.keep.setChecked(True)
+        for choice in (self.keep, self.replace_it):
+            choice.setVisible(redo)
+            layout.addWidget(choice)
         layout.addWidget(buttons)
         self.setWindowFlag(Qt.WindowType.WindowContextHelpButtonHint, False)
 
@@ -85,3 +94,7 @@ class JobDialog(QDialog):
 
     def custom_text(self):
         return self.form.custom_text()
+
+    def replace(self):
+        """True when the transcription being done again is to be replaced."""
+        return self.replace_it.isChecked()

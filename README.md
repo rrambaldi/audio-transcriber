@@ -269,11 +269,11 @@ pip install -e ".[gui]"
 audio-transcriber gui
 ```
 
-Three tabs over the same core: **Transcribe** (drop files in or record a
-meeting, pick the model and the keyword sets, watch the queue), **Library**
-(search, read with a clickable timestamp per block, play the recording while
-reading along, write notes, rename, export, delete) and **This machine** (what
-was detected, and where the files are).
+Two tabs over the same core: **Library** (add files or record a meeting,
+watch the work under way in *In progress*, organise recordings in folders,
+search, read with a clickable timestamp per block, play the recording while
+reading along, write notes, transcribe or summarise again, export, delete)
+and **This machine** (what was detected, and where the files are).
 
 Recording is the thing a window does better than a browser: a page needs
 `https://` or `localhost` before it may touch a microphone, this does not.

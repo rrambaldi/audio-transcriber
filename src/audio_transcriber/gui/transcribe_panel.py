@@ -59,6 +59,8 @@ class TranscribePanel(QWidget):
     job_finished = Signal(str)
     #: Something worth putting in the status bar happened.
     message = Signal(str)
+    #: The queue was read again; the argument is how many jobs are in it.
+    queue_changed = Signal(int)
 
     def __init__(self, queue, settings=None, store=None, parent=None):
         super().__init__(parent)
@@ -68,6 +70,10 @@ class TranscribePanel(QWidget):
         self._rows = []
         self._actions = {}
         self._playing = None
+        #: Where a recording made here is filed once transcribed; the window
+        #: sets it from the menu beside the recorder. Files that are added
+        #: rather than recorded go to the top of the library.
+        self.record_folder = ""
 
         self.setAcceptDrops(True)
         self.recorder = make_recorder(self.queue.upload_dir(), store=self.store)
@@ -106,8 +112,9 @@ class TranscribePanel(QWidget):
 
         There were none at all: not even Enter, on a tab whose whole purpose
         is one button."""
+        # Ctrl+O is the window's (gui/home.py): this panel is hidden while the
+        # library is on screen, and a hidden widget's shortcut never fires.
         for keys, slot in (
-            (QKeySequence.StandardKey.Open, self.choose_files),
             (QKeySequence("Ctrl+Return"), self.start_queue),
             (QKeySequence("Ctrl+Enter"), self.start_queue),
         ):
@@ -189,15 +196,6 @@ class TranscribePanel(QWidget):
         they sit in the box that list is in. That leaves the recorder the
         whole width, which is what its two device menus wanted — a source
         named "[loopback] Speakers (Cirrus Logic XU)" was being cut in half."""
-        # Not the primary button: the one filled thing on this tab is
-        # Transcribe, under the list. This is the way in for people who would
-        # rather not drag anything.
-        add = QPushButton(t("gui.add_files"))
-        add.clicked.connect(self.choose_files)
-        add_row = QHBoxLayout()
-        add_row.addStretch(1)
-        add_row.addWidget(add)
-        add_row.addStretch(1)
         self.drop_hint = QLabel(t("gui.drop_hint"))
         self.drop_hint.setWordWrap(True)
         self.drop_hint.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -217,12 +215,7 @@ class TranscribePanel(QWidget):
         self.drop_zone.setSizePolicy(QSizePolicy.Policy.Preferred,
                                      QSizePolicy.Policy.Fixed)
         drop_layout = QVBoxLayout(self.drop_zone)
-        drop_layout.addLayout(add_row)
         drop_layout.addWidget(self.drop_hint)
-
-        header = QGroupBox(t("gui.group_record"))
-        header_layout = QHBoxLayout(header)
-        header_layout.addWidget(self.recorder)
 
         self.start = QPushButton(t("gui.start"))
         # The one filled button under the list. It starts everything that is
@@ -252,7 +245,6 @@ class TranscribePanel(QWidget):
         # put this tab's first rule a few pixels inside the tab above it.
         # See theme.GUTTER.
         layout.setContentsMargins(0, 0, 0, 0)
-        layout.addWidget(header)
         layout.addWidget(queue_box, 1)
 
     # --- sources ----------------------------------------------------------
@@ -318,12 +310,13 @@ class TranscribePanel(QWidget):
         find the file and press "transcribe" would be a pointless extra
         step."""
         self.submit_paths([path], store=STORE_MOVE,
-                          title=options.recording_title())
+                          title=options.recording_title(),
+                          folder=self.record_folder)
         self.message.emit(t("gui.rec_queued"))
 
     # --- the queue --------------------------------------------------------
 
-    def submit_paths(self, paths, store=STORE_COPY, title=None):
+    def submit_paths(self, paths, store=STORE_COPY, title=None, folder=""):
         """Put files in the queue and leave them there.
 
         Nothing is decided here. What a recording is for is asked when it is
@@ -333,7 +326,7 @@ class TranscribePanel(QWidget):
         for path in paths:
             self.queue.submit(path, title=title or options.title_from_path(path),
                               filename=os.path.basename(path), store=store,
-                              start=False)
+                              start=False, folder=folder)
             queued += 1
         if queued:
             self.message.emit(t("gui.queued", count=queued))
@@ -357,19 +350,50 @@ class TranscribePanel(QWidget):
         self.refresh()
         return bool(started)
 
-    def _ask(self, title):
+    def _ask(self, title, redo=False):
         """Put the four questions, and remember the answers for next time.
 
         Where the defaults come from, now that the tab has no options of its
         own: ``config.toml`` first, then whatever was answered last, which is
         what makes a queue of six meetings six confirmations rather than six
-        forms."""
-        dialog = JobDialog(title, self.settings, store=self.store, parent=self)
+        forms. Doing a recording again adds a fifth - keep the transcription
+        it has, or replace it - given back as ``replace``."""
+        if redo:
+            dialog = JobDialog(title, self.settings, store=self.store,
+                               parent=self, redo=True)
+        else:
+            dialog = JobDialog(title, self.settings, store=self.store, parent=self)
         if dialog.exec() != QDialog.DialogCode.Accepted:
             return None
-        return {"overrides": _overrides(dialog.choices()),
-                "vocabularies": dialog.vocabularies(),
-                "custom_vocabulary": dialog.custom_text()}
+        answers = {"overrides": _overrides(dialog.choices()),
+                   "vocabularies": dialog.vocabularies(),
+                   "custom_vocabulary": dialog.custom_text()}
+        if redo:
+            answers["replace"] = dialog.replace()
+        return answers
+
+    def retranscribe(self, entry_id, title):
+        """Transcribe a filed recording again, asking how and what to keep.
+
+        The library's own button: the recording is already in the entry, so
+        nothing has to be found on disk again. The job is queued and started
+        like any other, and lands back in the library when it is done - as a
+        new entry beside the old one, or in place of its transcription."""
+        answers = self._ask(t("gui.job_dialog_title", title=title), redo=True)
+        if answers is None:
+            return False
+        replace = answers.pop("replace")
+        try:
+            job = self.queue.retranscribe(entry_id, replace=replace)
+        except (LibraryError, OSError, ValueError) as exc:
+            self.message.emit(str(exc))
+            return False
+        self.queue.reconfigure(job.id, **answers)
+        started = self.queue.start(job.id)
+        if started:
+            self.message.emit(t("gui.retranscribe_queued", title=title))
+        self.refresh()
+        return bool(started)
 
     def refresh(self):
         """Re-read the queue and update the table in place."""
@@ -390,6 +414,15 @@ class TranscribePanel(QWidget):
         self._size_actions_column()
         for row in finished:
             self.job_finished.emit(row["entry_id"] or "")
+        # A job that did what it was for leaves the list: its result is in
+        # the library, and a queue holding everything ever done stops being
+        # the list of what is still to do. What failed stays, to be tried
+        # again or taken out by hand.
+        done = [row["id"] for row in rows if row["done"]]
+        if [job_id for job_id in done if self.queue.remove(job_id)]:
+            self.refresh()
+            return
+        self.queue_changed.emit(len(rows))
 
     def _newly_finished(self, rows):
         """Rows that were still working the last time the table was read.

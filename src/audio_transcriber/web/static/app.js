@@ -2227,7 +2227,9 @@ async function refreshLibrary() {
     return;
   }
   for (const entry of data.entries) {
-    const facts = [(entry.created_at || "").slice(0, 16).replace("T", " "),
+    // The folder first: the desktop window files recordings in folders, and
+    // this list shows the whole library at once.
+    const facts = [entry.folder, (entry.created_at || "").slice(0, 16).replace("T", " "),
       duration(entry.duration_seconds), entry.words ? t("words", { n: entry.words }) : "",
       entry.model, (entry.vocabulary || []).join(", "),
       entry.has_notes ? t("has_notes") : ""].filter(Boolean).join(" · ");

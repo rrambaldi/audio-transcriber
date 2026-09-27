@@ -381,3 +381,113 @@ def test_deleting_an_entry_takes_its_waveform_with_it(library, recording):
     entry.write_waveform([1, 2, 3])
     library.remove(entry)
     assert not os.path.exists(entry.waveform_path)
+
+
+# --- folders --------------------------------------------------------------
+
+def test_entries_can_live_in_folders_at_any_depth(library, recording):
+    top = library.create(source=recording, title="Top", when=datetime(2026, 1, 1, 9, 0))
+    deep = library.create(source=recording, title="Deep", folder="Clienti/ACME",
+                          when=datetime(2026, 2, 1, 9, 0))
+    os.makedirs(os.path.join(library.root, ".nascosta", "dentro"))
+    os.makedirs(os.path.join(library.root, "Vuota"))
+
+    assert (top.id, top.folder) == (top.name, "")
+    assert (deep.id, deep.folder) == (f"Clienti/ACME/{deep.name}", "Clienti/ACME")
+    assert [e.id for e in library.entries()] == [deep.id, top.id]
+    assert [e.id for e in library.entries("")] == [top.id]
+    assert [e.id for e in library.entries("Clienti/ACME")] == [deep.id]
+    assert library.entries("Clienti") == []
+    assert library.folders() == ["Clienti", "Clienti/ACME", "Vuota"]
+    assert library.get(deep.id).id == deep.id
+    assert library.get(deep.name).id == deep.id
+
+
+def test_a_folder_can_be_a_link_elsewhere_and_a_loop_is_walked_once(library, recording,
+                                                                    tmp_path):
+    elsewhere = tmp_path / "other-disk" / "ACME"
+    elsewhere.mkdir(parents=True)
+    os.makedirs(library.root)
+    try:
+        os.symlink(elsewhere, os.path.join(library.root, "ACME"), target_is_directory=True)
+        os.symlink(library.root, elsewhere / "loop", target_is_directory=True)
+    except (OSError, NotImplementedError):
+        pytest.skip("this system will not make symlinks")
+    entry = library.create(source=recording, title="Sync", folder="ACME")
+    assert (elsewhere / entry.name / "metadata.json").is_file()
+    assert [e.id for e in library.entries()] == [entry.id]
+    assert library.folders() == ["ACME"]
+
+
+def test_folders_are_made_renamed_and_removed_only_when_empty(library, recording):
+    assert library.create_folder("Clienti/ACME") == "Clienti/ACME"
+    with pytest.raises(LibraryError):
+        library.create_folder("Clienti/ACME")
+    for bad in ("..", ".nascosta", "a:b", "fine.", "Clienti/ACME/../x"):
+        with pytest.raises(LibraryError):
+            library.create_folder(bad)
+    assert library.rename_folder("Clienti/ACME", "Acme Srl") == "Clienti/Acme Srl"
+    entry = library.create(source=recording, folder="Clienti/Acme Srl")
+    with pytest.raises(LibraryError):
+        library.create_folder(f"{entry.id}/dentro")     # not inside a recording
+    with pytest.raises(LibraryError, match="not empty"):
+        library.remove_folder("Clienti")
+    library.remove(entry)
+    assert library.remove_folder("Clienti/Acme Srl") == "Clienti/Acme Srl"
+    assert library.folders() == ["Clienti"]
+
+
+def test_removing_a_linked_folder_removes_the_link_not_what_it_points_at(library, tmp_path):
+    target = tmp_path / "elsewhere"
+    target.mkdir()
+    os.makedirs(library.root)
+    link = os.path.join(library.root, "Esterna")
+    try:
+        os.symlink(target, link, target_is_directory=True)
+    except (OSError, NotImplementedError):
+        pytest.skip("this system will not make symlinks")
+    library.remove_folder("Esterna")
+    assert not os.path.lexists(link) and target.is_dir()
+
+
+def test_an_entry_moves_between_folders_and_keeps_its_name_unless_taken(library,
+                                                                        recording):
+    when = datetime(2026, 3, 1, 10, 0)
+    first = library.create(source=recording, title="Sync", when=when)
+    library.create_folder("Archivio")
+    moved = library.move(first, "Archivio")
+    assert moved.id == f"Archivio/{first.name}" and not os.path.exists(first.path)
+
+    second = library.move(library.create(source=recording, title="Sync", when=when),
+                          "Archivio")
+    assert second.name == first.name + "-2"
+    assert second.metadata["id"] == second.name
+    assert library.move(moved, "").id == first.name
+    with pytest.raises(LibraryError):
+        library.move(second, "Nessuna")
+
+
+def test_an_exact_id_wins_over_another_that_starts_the_same(library, recording):
+    when = datetime(2026, 3, 1, 10, 0)
+    first = library.create(source=recording, title="Sync", when=when)
+    library.create(source=recording, title="Sync", when=when)
+    assert library.get(first.id).id == first.id
+
+
+# --- summaries put aside --------------------------------------------------
+
+def test_a_summary_put_aside_can_be_listed_and_read_back(library, recording):
+    entry = library.create(source=recording)
+    assert entry.archive_summary() is None
+    entry.write_summary("prima versione")
+    entry.update(summary={"engine": "llamacpp"})
+
+    archived = entry.archive_summary()
+    assert archived.startswith("summaries/") and not entry.has_summary()
+    assert entry.summary_versions() == [{"engine": "llamacpp", "file": archived}]
+    assert "summary" not in entry.metadata
+    assert entry.read_summary_version(archived) == "prima versione\n"
+    for sneaky in ("metadata.json", "../metadata.json", "summaries/../notes.md",
+                   "/etc/passwd"):
+        with pytest.raises(LibraryError):
+            entry.read_summary_version(sneaky)
