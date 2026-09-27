@@ -21,6 +21,7 @@ from PySide6.QtWidgets import (
     QFrame,
     QHBoxLayout,
     QLabel,
+    QSizePolicy,
     QVBoxLayout,
     QWidget,
 )
@@ -29,23 +30,21 @@ from .. import branding
 from ..i18n import LANGUAGE_NAMES, language, t
 from . import style, theme
 
-#: How tall the mark is drawn, in logical pixels. The page sizes its mark off
-#: the title - between 2.9rem and 4.6rem, which is about the height of the
-#: name and the promise together - and at 40 it was a small tile next to a
-#: display-size title. At 56 the 64 px render is the one Qt picks on a 1x
-#: screen and the 128 px one at 2x, so the drawing is always downscaled from a
-#: larger render rather than blown up from a smaller.
-MARK_PX = 64
+#: How tall the mark is drawn, in logical pixels. The band is one line now -
+#: it took 130 pixels of an 800-pixel laptop screen as three - so the mark is
+#: sized to the name beside it, and 32 is a render Qt ships at 1x and 2x, so
+#: it is always drawn from one rather than blown up.
+MARK_PX = 32
 
 #: How much larger than the interface font the name is. A ratio rather than a
 #: point size: the desktop's own font size is somebody's decision, often an
-#: accessibility one, and this has to grow with it.
-NAME_SCALE = theme.TITLE_SCALE
+#: accessibility one, and this has to grow with it. Large enough to be the
+#: name of the program, small enough to share a line with its promise.
+NAME_SCALE = 1.8
 
-#: And the promise under it, which the page sets at 1 to 1.15rem: a hair over
-#: the interface font, no more. It is a line to be read once, under a name
-#: that is meant to be seen.
-TAGLINE_SCALE = 1.1
+#: And the promise beside it: a hair over the interface font, no more. It is
+#: a line to be read once, next to a name that is meant to be seen.
+TAGLINE_SCALE = 1.05
 
 #: The weight of that italic: regular, which is what the page sets. The italic
 #: itself is synthesised, here and on the page - neither has an italic face of
@@ -106,6 +105,9 @@ class Masthead(QWidget):
     #: The version was clicked: the window should show the About box.
     about_requested = Signal()
 
+    #: "This machine" was clicked: the window should show what it knows.
+    system_requested = Signal()
+
     #: A language was picked from the menu under it, by its code.
     language_chosen = Signal(str)
 
@@ -138,7 +140,10 @@ class Masthead(QWidget):
                                            tracking=theme.TITLE_TRACKING))
 
         self.tagline = QLabel(t("gui.tagline"))
-        self.tagline.setWordWrap(True)
+        # On the name's line, and the first thing to give way when the window
+        # is narrow: it is cut rather than allowed to widen the window.
+        self.tagline.setSizePolicy(QSizePolicy.Policy.Ignored,
+                                   QSizePolicy.Policy.Preferred)
         # Regular, not medium: the page's standfirst sets no weight, and at
         # this size the serif's italic is meant to be read, not announced.
         self.tagline.setFont(theme.title_font(self.font(), TAGLINE_SCALE,
@@ -146,21 +151,14 @@ class Masthead(QWidget):
                                               weight=TAGLINE_WEIGHT))
         style.note(self.tagline)
 
-        # A link rather than a button: in the masthead a bordered button would
-        # read as an action on the recordings, which this is not.
-        self.about = QLabel(f'<a href="#about">{t("about.open")}</a>')
-        self.about.setFont(theme.label_font(self.font()))
-        self.about.setAlignment(Qt.AlignmentFlag.AlignRight
-                                | Qt.AlignmentFlag.AlignVCenter)
-        self.about.setToolTip(t("about.open_tip"))
-        self.about.setOpenExternalLinks(False)
-        self.about.setTextInteractionFlags(
-            Qt.TextInteractionFlag.LinksAccessibleByMouse
-            | Qt.TextInteractionFlag.LinksAccessibleByKeyboard)
-        self.about.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.about.linkActivated.connect(
-            lambda _href: self.about_requested.emit())
-        style.note(self.about)
+        # Links rather than buttons: in the masthead a bordered button would
+        # read as an action on the recordings, which neither is. What this
+        # machine can do is here too, and no longer a tab beside the library:
+        # it is looked at once, when something does not work, not all day.
+        self.system = self._link("#system", t("gui.tab_system"),
+                                 t("gui.system_open_tip"), self.system_requested)
+        self.about = self._link("#about", t("about.open"), t("about.open_tip"),
+                                self.about_requested)
 
         # Each language by its own name, under the About link: the other
         # thing somebody looks for in a corner of a window, and the one a
@@ -174,28 +172,21 @@ class Masthead(QWidget):
         self.language.currentIndexChanged.connect(
             lambda _index: self.language_chosen.emit(self.language.currentData()))
 
-        side = QVBoxLayout()
-        side.setContentsMargins(0, 0, 0, 0)
-        side.setSpacing(8)
-        side.addWidget(self.about, 0, Qt.AlignmentFlag.AlignRight)
-        side.addWidget(self.language, 0, Qt.AlignmentFlag.AlignRight)
-        side.addStretch(1)
-
-        titles = QVBoxLayout()
-        titles.setContentsMargins(0, 0, 0, 0)
-        titles.setSpacing(2)
-        titles.addWidget(self.eyebrow)
-        titles.addWidget(self.name)
-        titles.addWidget(self.tagline)
-
+        # One line: the mark, the name, the promise, and on the right the two
+        # links and the language. The eyebrow is kept for whoever reads it
+        # from code, and not shown: on one line it said the name twice.
+        self.eyebrow.hide()
         band = QHBoxLayout()
-        # The same side gutter the tabs and the panels get, so the mark, the
-        # first tab and the first group box's rule all start on one line.
-        band.setContentsMargins(theme.GUTTER, 18, theme.GUTTER, 16)
-        band.setSpacing(16)
+        # The same side gutter the panels get, so the mark and the library's
+        # first button start on one line.
+        band.setContentsMargins(theme.GUTTER, 8, theme.GUTTER, 8)
+        band.setSpacing(14)
         band.addWidget(self.mark, 0, Qt.AlignmentFlag.AlignVCenter)
-        band.addLayout(titles, 1)
-        band.addLayout(side)
+        band.addWidget(self.name, 0, Qt.AlignmentFlag.AlignVCenter)
+        band.addWidget(self.tagline, 1, Qt.AlignmentFlag.AlignVCenter)
+        band.addWidget(self.system, 0, Qt.AlignmentFlag.AlignVCenter)
+        band.addWidget(self.about, 0, Qt.AlignmentFlag.AlignVCenter)
+        band.addWidget(self.language, 0, Qt.AlignmentFlag.AlignVCenter)
 
         # The page draws this rule in the ink colour, not in the divider grey:
         # it is the edge of the masthead, and the tab bar below has a grey one
@@ -235,10 +226,24 @@ class Masthead(QWidget):
             return
         if self._icon is not None:
             self.mark.setPixmap(mark_pixmap(self._icon, self))
-        for label in (self.eyebrow, self.tagline, self.about):
+        for label in (self.eyebrow, self.tagline, self.about, self.system):
             style.note(label)
         self._paint_link()
         self._paint_rule()
+
+    def _link(self, href, text, tip, signal):
+        link = QLabel(f'<a href="{href}">{text}</a>')
+        link.setFont(theme.label_font(self.font()))
+        link.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+        link.setToolTip(tip)
+        link.setOpenExternalLinks(False)
+        link.setTextInteractionFlags(
+            Qt.TextInteractionFlag.LinksAccessibleByMouse
+            | Qt.TextInteractionFlag.LinksAccessibleByKeyboard)
+        link.setCursor(Qt.CursorShape.PointingHandCursor)
+        link.linkActivated.connect(lambda _href: signal.emit())
+        style.note(link)
+        return link
 
     def _paint_rule(self):
         """The rule under the band, and the hairline round the mark.
@@ -271,7 +276,8 @@ class Masthead(QWidget):
         colour is put back here, explicitly, in the accent it should be."""
         which = "dark" if self.palette().color(
             QPalette.ColorRole.Window).lightnessF() < 0.5 else "light"
-        ink = style.note_colour(self.about).name()
         signal = theme.colour("signal", which).name()
-        self.about.setStyleSheet(
-            f"color: {ink}; a {{ color: {signal}; text-decoration: none; }}")
+        for link in (self.about, self.system):
+            ink = style.note_colour(link).name()
+            link.setStyleSheet(
+                f"color: {ink}; a {{ color: {signal}; text-decoration: none; }}")

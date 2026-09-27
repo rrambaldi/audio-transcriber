@@ -199,35 +199,6 @@ def test_a_queue_row_with_a_drawing_paints(application):
     assert table.rowHeight(0) >= widgets.JobDelegate.WAVE_PX
 
 
-def test_a_library_title_makes_room_for_the_recording_under_it(application):
-    """The library is a table of columns, so the drawing goes in the one
-    column wide enough to hold a picture: the one with the name in it."""
-    table = QTableWidget(1, 2)
-    title = QTableWidgetItem("Comitato")
-    title.setData(widgets.LOUDNESS_ROLE, [0, 700, 1000] * 40)
-    table.setItem(0, 0, QTableWidgetItem("2026-09-22 10:00"))
-    table.setItem(0, 1, title)
-    delegate = widgets.WaveTitleDelegate(table)
-    table.setItemDelegateForColumn(1, delegate)
-    option = QStyleOptionViewItem()
-    option.initFrom(table)
-    plain = QTableWidgetItem("Comitato")
-    table.setItem(0, 0, plain)
-
-    tall = delegate.sizeHint(option, table.model().index(0, 1))
-    short = table.itemDelegate().sizeHint(option, table.model().index(0, 0))
-    assert tall.height() == short.height() + widgets.WaveTitleDelegate.WAVE_PX
-    table.resize(400, 120)
-    table.resizeRowsToContents()
-    table.grab()                # the delegate paints the name and the drawing
-
-
-def test_a_library_row_nobody_has_measured_is_still_a_row(application):
-    delegate = widgets.WaveTitleDelegate()
-    assert QModelIndex().data(widgets.LOUDNESS_ROLE) is None
-    assert delegate.sizeHint(QStyleOptionViewItem(), QModelIndex()).isValid()
-
-
 def test_the_trace_draws_what_it_is_given_and_nothing_before_that(application):
     """Silence has to be a line somebody can see: drawn true to scale it
     rounds away to nothing, and a quiet room then looks like a dead one."""

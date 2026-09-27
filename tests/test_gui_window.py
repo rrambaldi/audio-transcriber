@@ -150,14 +150,20 @@ def sample(tmp_path, name="meeting.wav"):
 
 # --- what the window is made of -------------------------------------------
 
-def test_the_window_has_two_tabs_and_the_queue_is_inside_the_library(window):
+def test_the_library_is_the_window_and_this_machine_a_window_apart(window):
     """A recording lives in one place from the moment it arrives: the work
-    under way is the first folder of the library, not a tab of its own."""
-    labels = [window.tabs.tabText(index) for index in range(window.tabs.count())]
-    assert labels == ["Library", "This machine"]
+    under way is the first folder of the library, not a tab of its own. What
+    the machine can do is looked at when something breaks, from the masthead."""
+    assert window.tabs.count() == 1 and window.tabs.tabBar().isHidden()
+    assert window.tabs.currentWidget() is window.home
     assert window.home.tree.topLevelItem(0).text(0) == "In progress (0)"
     window.home.show_working()
     assert window.home.stack.currentWidget() is window.transcribe
+
+    window.masthead.system.linkActivated.emit("#system")
+    assert window.system_window.isVisible()
+    assert window.system.parent() is window.system_window
+    window.system_window.close()
 
 
 def test_this_machine_tab_reports_hardware_and_paths(window):
@@ -1290,6 +1296,15 @@ class FakeDialog:
 
 
 @pytest.fixture(autouse=True)
+def summary_answered(monkeypatch):
+    """The summary's questions, answered with Summarise and no click: the
+    dialog is modal, and a test that asks for a summary must not wait on it."""
+    from audio_transcriber.gui.library_panel import LibraryPanel
+
+    monkeypatch.setattr(LibraryPanel, "_confirm_summary", lambda self: True)
+
+
+@pytest.fixture(autouse=True)
 def fake_dialog(monkeypatch):
     from audio_transcriber.gui import transcribe_panel
 
@@ -1378,7 +1393,8 @@ def test_notes_are_written_into_the_entry(window, tmp_path, queue):
     assert window.library.write_notes() is True
     with open(window.library.entry.notes_path, encoding="utf-8") as handle:
         assert handle.read() == "Decisions: ship it.\n"
-    assert window.library.table.item(0, 5).text() == "yes"
+    facts = window.library.table.item(0, 0).data(widgets.DETAILS_ROLE)
+    assert facts.endswith("notes")
 
 
 def test_cancelling_the_notes_prompt_keeps_the_entry_being_written_on(
@@ -1553,7 +1569,7 @@ def test_summarising_goes_through_the_queue_and_comes_back_in_the_pane(window, q
     assert "budget" in window.library.summary.toPlainText().lower()
     assert "extractive" in window.library.summary_note.text()
     # The button offers the obvious next thing rather than the same word twice.
-    assert window.library.summarise.text() == i18n.t("gui.summary_again")
+    assert window.library.summarise.text() == i18n.t("gui.summary_again") + "…"
     assert queue.library.get(entry.id).has_summary()
 
 
@@ -1694,9 +1710,9 @@ def test_a_recording_transcribed_twice_is_marked_and_linked(application, tmp_pat
     first = library.create(source=str(recording), title="Riunione")
     second = library.create(source=str(recording), title="Riunione")
     panel = LibraryPanel(library)
-    assert [panel.table.item(row, 1).text() for row in range(2)] == [
+    assert [panel.table.item(row, 0).text() for row in range(2)] == [
         "×2  Riunione", "×2  Riunione"]
-    assert "2" in panel.table.item(0, 1).toolTip()
+    assert "2" in panel.table.item(0, 0).toolTip()
 
     panel.show_entry(second.id)
     links = panel.details_form.itemAt(0, QFormLayout.ItemRole.FieldRole).widget()
@@ -1973,23 +1989,34 @@ def test_a_filed_recording_can_be_transcribed_again(window, tmp_path, queue,
 
 def test_summarising_again_asks_whether_to_keep_the_old_one(window, queue,
                                                            monkeypatch):
-    from audio_transcriber.gui import library_panel
+    """In the same dialog as the rest of how a summary is written, and only
+    when there is a summary to keep."""
+    from audio_transcriber.gui.library_panel import LibraryPanel
 
+    library = window.library
     entry = filed_entry(queue)
-    entry.write_summary("La prima pagina.")
-    window.library.reload()
-    window.library.show_entry(entry.id)
+    library.reload()
+    library.show_entry(entry.id)
     asked = {}
     monkeypatch.setattr(queue, "summarize",
                         lambda entry_id, overrides, keep=False: asked.update(keep=keep))
+    library.summarise_entry()
+    assert asked == {"keep": False} and library.summary_keep.isHidden()
 
-    monkeypatch.setattr(library_panel, "ask_keep_or_replace", lambda *a: None)
-    window.library.summarise.click()
+    entry.write_summary("La prima pagina.")
+    library.entry_changed(entry.id)
+    monkeypatch.setattr(LibraryPanel, "_confirm_summary", lambda self: False)
+    asked.clear()
+    library.summarise_entry()
     assert asked == {}                   # cancelled: nothing queued
 
-    monkeypatch.setattr(library_panel, "ask_keep_or_replace", lambda *a: True)
-    window.library.summarise.click()
-    assert asked == {"keep": True}
+    monkeypatch.setattr(LibraryPanel, "_confirm_summary", lambda self: True)
+    library.summary_keep.setChecked(True)
+    library.summarise_entry()
+    assert asked == {"keep": True} and not library.summary_keep.isHidden()
+    library.summary_replace.setChecked(True)
+    library.summarise_entry()
+    assert asked == {"keep": False}
 
 
 def test_an_earlier_summary_can_be_read(window, queue):

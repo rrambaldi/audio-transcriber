@@ -17,7 +17,10 @@ the moment it came from — without a browser, a server or a port.
 
 ## What it does
 
-Two tabs: **Library** and **This machine**.
+One window: the **library**. What the machine can do — *This machine* — is a
+link in the masthead and opens a window of its own: it is looked at when
+something does not work, not all day, and as a tab beside the library it took
+a place in the one strip of navigation the window has.
 
 A recording lives in **one place**, the library, from the moment it arrives.
 It used to be born in a *Transcribe* tab and grow up in *Library*, two tabs
@@ -154,7 +157,7 @@ lifted to the same floor, so the answers this machine cannot produce stay
 legible: reading why is the only thing left to do with one of them. It is
 `gui/style.py`, and `tests/test_gui_style.py` measures it.
 
-**Messages.** The last part of the log, on the *This machine* tab, with a
+**Messages.** The last part of the log, in the *This machine* window, with a
 button that opens the file and one that empties it. A window started from a
 shortcut has no terminal, and one started from a terminal has one nobody is
 reading, so everything the window would have printed goes to a file instead —
@@ -206,8 +209,12 @@ out for each name. A voice left blank keeps its label; two voices given the
 same name are one person, and their turns are run together. The button is
 absent, not greyed, on a recording that was not diarized.
 
-A **Summary** tab sits beside the transcript and the notes, with the button
-that writes one under it and a **Model** menu saying what will. It starts on
+A **Summary** tab sits beside the transcript and the notes: the page, who
+wrote it and when, a *Version* menu when earlier ones were kept, and one
+button — *Summarise…* — that asks how, in a dialog, the way a transcription's
+questions are asked; five controls under the page were a form nobody was
+filling in, read every time the tab opened. The dialog has a **Model** menu
+saying what will write it. It starts on
 *automatic*, which names the model the plan would pick right now. Opened, it
 lists every model this machine could use, grouped by where it runs — *GPU ·
 OpenVINO*, *GPU · llama.cpp* or *CPU · llama.cpp*, depending on what each
@@ -222,7 +229,9 @@ made of: the templates installed for the language being spoken, or the
 last entry of that menu, which opens a box to write the sections in for this
 page only. What comes back says who wrote it and when: a page that does not
 say is one somebody will quote in a meeting without knowing whether a model or
-a sentence-picker produced it. See [summary.md](summary.md).
+a sentence-picker produced it. When the entry already has a summary, the
+dialog also asks what happens to it: kept as an earlier version, or replaced.
+See [summary.md](summary.md).
 
 The summary goes into the **same queue** as the transcriptions, not onto the
 thread that draws the window. Two reasons, and both are the same reason: a
@@ -230,7 +239,7 @@ model reading an hour of transcript is minutes of the same cores a
 transcription needs, and a window that does that work itself is a window that
 has stopped responding.
 
-**This machine.** What `audio-transcriber hardware` and `paths` report:
+**This machine** — the link in the masthead. What `audio-transcriber hardware` and `paths` report:
 the CPU and memory found, the engine and model `auto` would pick, whether
 diarization is available, and every directory in use — with a button that opens
 `config.toml` and one that opens the library folder.
@@ -239,7 +248,7 @@ diarization is available, and every directory in use — with a button that open
 of the status line, next to whatever the window is saying: the CPU, the memory,
 and the engine and device a transcription would run on — small, greyed, and
 there while you work, because a meter you have to open a tab to see is one you
-look at after wondering rather than before. The *This machine* tab keeps the
+look at after wondering rather than before. The *This machine* window keeps the
 full version, and both read the same sampler, so they cannot disagree.
 
 When more free memory would get a better summary model, the footer says how
@@ -557,7 +566,7 @@ dependencies. `audio-transcriber gui` says so rather than showing a traceback.
 |---|---|
 | `gui/options.py` | every decision worth testing — the menus, the table rows, the transcript blocks — and **no Qt at all** |
 | `gui/style.py` | the contrast floor over the theme, and the muted ink a note is written in |
-| `gui/window.py` | the window, the two tabs, what happens when it closes |
+| `gui/window.py` | the window, the *This machine* window, what happens when it closes |
 | `gui/home.py` | the library as home: *Add files…* and *Recorder*, the folder tree with *In progress* on top |
 | `gui/transcribe_panel.py` | the queue table, and what its rows' buttons do |
 | `gui/library_panel.py` | the entry list, the reading pane, the notes editor, the player |
@@ -565,7 +574,7 @@ dependencies. `audio-transcriber gui` says so rather than showing a traceback.
 | `gui/qt_recorder.py` | the fallback recorder, on QtMultimedia alone |
 | `gui/system_panel.py` | hardware and directories |
 | `gui/multimedia.py` | QtMultimedia when it is there, and a clear answer when it is not |
-| `gui/masthead.py` | the band above the tabs: the mark, the name, the promise |
+| `gui/masthead.py` | the band across the top: the mark, the name, the promise, *This machine*, *About*, the language |
 | `gui/theme.py` | the web page's palette and typefaces, as a Qt palette, fonts and style sheet |
 | `gui/about_dialog.py` | what the program is, and the licence it is given under |
 
@@ -733,10 +742,13 @@ thing whose icon gets drawn is not the window:
   are unaffected, they take the icon from the window itself.
 - **macOS** needs nothing: Qt puts `QApplication.windowIcon()` in the Dock.
 
-Above the tabs there is a masthead, and it is the page's masthead: the mark,
-an eyebrow, `audio-transcriber` in Fraunces — lower case, as on the page and in
-the README, because it is a command's name and not a product's — and the
-promise under it in Fraunces italic, over a rule drawn in the ink colour. The
+Above the library there is a masthead, the page's in one line: the mark,
+`audio-transcriber` in Fraunces — lower case, as on the page and in the
+README, because it is a command's name and not a product's — and the promise
+beside it in Fraunces italic, over a rule drawn in the ink colour; on the
+right, *This machine*, *About* and the language. It was the page's three
+lines, eyebrow included, and took 130 pixels of an 800-pixel laptop screen;
+the promise is now the first thing to give way when the window is narrow. The
 name shown and the name the desktop is told are two different strings on
 purpose: `gui.wordmark` is what the program writes about itself, `gui.app_name`
 is the human-readable one the task bar and the application menu ask for, where

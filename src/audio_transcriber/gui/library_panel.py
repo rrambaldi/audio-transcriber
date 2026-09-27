@@ -25,6 +25,7 @@ from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
     QDialog,
+    QDialogButtonBox,
     QFileDialog,
     QFormLayout,
     QHBoxLayout,
@@ -37,6 +38,7 @@ from PySide6.QtWidgets import (
     QPlainTextEdit,
     QProgressBar,
     QPushButton,
+    QRadioButton,
     QSlider,
     QSplitter,
     QTableWidget,
@@ -100,22 +102,6 @@ class _EntryTable(QTableWidget):
 
     def mimeTypes(self):
         return [options.ENTRY_MIME]
-
-
-def ask_keep_or_replace(parent, title, text):
-    """Keep the old one, replace it, or neither: True, False or None.
-
-    A function of its own so that it can be answered without a click: a
-    message box with buttons of its own cannot be handed to a static helper."""
-    box = QMessageBox(QMessageBox.Icon.Question, title, text,
-                      QMessageBox.StandardButton.Cancel, parent)
-    keep = box.addButton(t("gui.redo_keep_short"), QMessageBox.ButtonRole.AcceptRole)
-    replace = box.addButton(t("gui.redo_replace_short"),
-                            QMessageBox.ButtonRole.DestructiveRole)
-    box.setDefaultButton(keep)
-    box.exec()
-    clicked = box.clickedButton()
-    return True if clicked is keep else False if clicked is replace else None
 
 
 class LibraryPanel(QWidget):
@@ -191,18 +177,13 @@ class LibraryPanel(QWidget):
         self.table.setSortingEnabled(False)
         self.table.setDragEnabled(True)
         self.table.setDragDropMode(QAbstractItemView.DragDropMode.DragOnly)
-        # Every column but the title is as wide as its content and no wider:
-        # six columns in a narrow pane otherwise push the last three out of
-        # sight behind a horizontal scrollbar, and the date is what people
-        # look for first.
+        # One column, painted the way a queue row is: the title, the facts
+        # under it, the shape of the recording under those. See entry_facts.
         header = self.table.horizontalHeader()
-        header.setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
-        header.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
-        # The title column draws the name with the shape of the recording
-        # under it. The rows have to be told to take their height from what
-        # is in them, or the drawing is simply clipped away: the horizontal
-        # header above has nothing to do with how tall a row is.
-        self.table.setItemDelegateForColumn(1, widgets.WaveTitleDelegate(self.table))
+        header.setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
+        # The rows take their height from what is drawn in them, or the
+        # drawing is simply clipped away.
+        self.table.setItemDelegateForColumn(0, widgets.JobDelegate(self.table))
         self.table.verticalHeader().setSectionResizeMode(
             QHeaderView.ResizeMode.ResizeToContents)
         self.table.itemSelectionChanged.connect(self._selection_changed)
@@ -286,7 +267,6 @@ class LibraryPanel(QWidget):
         summary_layout.addLayout(_with_copy(self.summary, self.copy_summary), 1)
         summary_layout.addWidget(self.summary_note)
         summary_layout.addWidget(self.summary_progress)
-        summary_layout.addWidget(self.summary_template_text)
         summary_row = QHBoxLayout()
         for name, label in options.summary_length_choices():
             self.summary_length.addItem(label, name)
@@ -304,7 +284,6 @@ class LibraryPanel(QWidget):
         model_row.addWidget(self.summary_model)
         model_row.addWidget(self.summary_review)
         model_row.addStretch(1)
-        summary_layout.addLayout(model_row)
         self._where = {}
         self._fill_models()
         summary_row.addWidget(QLabel(t("gui.summary_length")))
@@ -316,16 +295,42 @@ class LibraryPanel(QWidget):
             self.summary_template.addItem(label, name)
         self.summary_template.currentIndexChanged.connect(self._show_own_sections)
         summary_row.addStretch(1)
-        summary_layout.addLayout(summary_row)
-        # Which sections, and the button, on a line of their own: on one line
-        # the four controls were the reading pane's minimum width, and with
-        # the folders beside the list that left the list no room.
         template_row = QHBoxLayout()
         template_row.addWidget(QLabel(t("gui.summary_template")))
         template_row.addWidget(self.summary_template)
         template_row.addStretch(1)
-        template_row.addWidget(self.summarise)
-        summary_layout.addLayout(template_row)
+        button_row = QHBoxLayout()
+        button_row.addStretch(1)
+        button_row.addWidget(self.summarise)
+        summary_layout.addLayout(button_row)
+
+        # How a summary is written is asked when one is asked for, the way a
+        # transcription's four questions are: five controls under the page
+        # were a form nobody was filling in, read every time the tab opened.
+        self.summary_dialog = QDialog(self)
+        self.summary_dialog.setModal(True)
+        self.summary_keep = QRadioButton(t("gui.summary_keep"))
+        self.summary_replace = QRadioButton(t("gui.summary_replace"))
+        self.summary_keep.setChecked(True)
+        buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok
+                                   | QDialogButtonBox.StandardButton.Cancel)
+        start = buttons.button(QDialogButtonBox.StandardButton.Ok)
+        start.setText(t("gui.summary_run"))
+        start.setObjectName("primary")
+        start.setDefault(True)
+        buttons.button(QDialogButtonBox.StandardButton.Cancel).setText(
+            t("gui.cancel"))
+        buttons.accepted.connect(self.summary_dialog.accept)
+        buttons.rejected.connect(self.summary_dialog.reject)
+        dialog_layout = QVBoxLayout(self.summary_dialog)
+        dialog_layout.setContentsMargins(theme.GUTTER, theme.GUTTER,
+                                         theme.GUTTER, theme.GUTTER)
+        for row in (model_row, summary_row, template_row):
+            dialog_layout.addLayout(row)
+        dialog_layout.addWidget(self.summary_template_text)
+        dialog_layout.addWidget(self.summary_keep)
+        dialog_layout.addWidget(self.summary_replace)
+        dialog_layout.addWidget(buttons)
 
         self.tabs = QTabWidget()
         self.tabs.addTab(transcript_page, t("gui.tab_transcript"))
@@ -466,23 +471,21 @@ class LibraryPanel(QWidget):
         self.table.blockSignals(True)
         self.table.setRowCount(len(self._rows))
         for index, row in enumerate(self._rows):
-            for column, key in enumerate(("date", "title", "duration", "words",
-                                          "model", "notes")):
-                text = row[key]
-                copies = row["copies"] if key == "title" else 0
-                if key == "title" and query and row["folder"]:
-                    # A search reaches every folder: say which one it is in.
-                    text = f"{row['folder']} › {text}"
-                if copies:
-                    # In front: a narrow pane cuts the end of a title off.
-                    text = f"×{copies}  {text}"
-                item = QTableWidgetItem(text)
-                if copies:
-                    item.setToolTip(t("gui.copies_tooltip", count=copies))
-                item.setData(Qt.ItemDataRole.UserRole, row["id"])
-                if column == 1:
-                    item.setData(widgets.LOUDNESS_ROLE, row["loudness"])
-                self.table.setItem(index, column, item)
+            text = row["title"]
+            if query and row["folder"]:
+                # A search reaches every folder: say which one it is in.
+                text = f"{row['folder'].replace('/', ' › ')} › {text}"
+            if row["copies"]:
+                # In front: a narrow pane cuts the end of a title off.
+                text = f"×{row['copies']}  {text}"
+            item = QTableWidgetItem(text)
+            if row["copies"]:
+                item.setToolTip(t("gui.copies_tooltip", count=row["copies"]))
+            item.setData(Qt.ItemDataRole.UserRole, row["id"])
+            item.setData(widgets.DETAILS_ROLE, options.entry_facts(row))
+            item.setData(widgets.LOUDNESS_ROLE, row["loudness"])
+            self.table.setItem(index, 0, item)
+        self.table.resizeRowsToContents()
         self.table.blockSignals(False)
         self._want_measurements()
 
@@ -542,7 +545,7 @@ class LibraryPanel(QWidget):
                 if row["id"] != entry_id:
                     continue
                 row["loudness"] = found
-                item = self.table.item(index, 1)
+                item = self.table.item(index, 0)
                 if item is not None:
                     item.setData(widgets.LOUDNESS_ROLE, found)
                     drawn = True
@@ -638,7 +641,8 @@ class LibraryPanel(QWidget):
         text, note = options.summary_state(self.entry)
         self.summary.setPlainText(text)
         self.summary_note.setText(note)
-        self.summarise.setText(t("gui.summary_again" if text else "gui.summary_run"))
+        self.summarise.setText(
+            t("gui.summary_again" if text else "gui.summary_run") + "…")
         versions = options.summary_versions(self.entry)
         self.summary_version.blockSignals(True)
         self.summary_version.clear()
@@ -787,9 +791,9 @@ class LibraryPanel(QWidget):
             if self.entry is not None and row["id"] == self.entry.id:
                 row["notes"] = (t("gui.notes_yes")
                                 if self.entry.has_written_notes() else "")
-                item = self.table.item(index, 5)
+                item = self.table.item(index, 0)
                 if item is not None:
-                    item.setText(row["notes"])
+                    item.setData(widgets.DETAILS_ROLE, options.entry_facts(row))
                 return
 
     def _offer_to_save_notes(self):
@@ -951,6 +955,15 @@ class LibraryPanel(QWidget):
         if self.entry is None or self.queue is None or self._summary_job:
             return
         title = self.entry.metadata.get("title") or self.entry.id
+        # What happens to the one there is, asked only when there is one.
+        had = bool(self.entry.read_summary().strip())
+        self.summary_keep.setVisible(had)
+        self.summary_replace.setVisible(had)
+        self.summary_dialog.setWindowTitle(t("gui.summary_dialog_title",
+                                             title=title))
+        if not self._confirm_summary():
+            return
+        keep = had and self.summary_keep.isChecked()
         picked = self.summary_template.currentData()
         own = picked == options.SUMMARY_OWN_TEMPLATE
         engine, _, model = (self.summary_model.currentData() or "").partition("\t")
@@ -973,12 +986,6 @@ class LibraryPanel(QWidget):
         except summary_templates.TemplateError as wrong:
             self.message.emit(t("gui.summary_failed", title=title, error=wrong))
             return
-        keep = False
-        if self.entry.read_summary().strip():
-            keep = ask_keep_or_replace(self, t("gui.summary_redo_title"),
-                                       t("gui.summary_redo_question", title=title))
-            if keep is None:
-                return
         try:
             self._summary_job = self.queue.summarize(self.entry.id, overrides,
                                                      keep=keep)
@@ -988,6 +995,10 @@ class LibraryPanel(QWidget):
         self.summarise.setEnabled(False)
         self.message.emit(t("gui.summary_queued", title=title))
         self.summary_timer.start(SUMMARY_POLL_MS)
+
+    def _confirm_summary(self):
+        """Open the questions; True if they were answered with Summarise."""
+        return self.summary_dialog.exec() == QDialog.DialogCode.Accepted
 
     def _fill_models(self):
         """Every model this machine could summarise with, sized against now.

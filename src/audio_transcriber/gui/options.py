@@ -526,9 +526,28 @@ def summary_versions(entry):
 
 
 def entry_headers():
-    """Column headings of the library table, in order."""
-    return [t("gui.col_date"), t("gui.col_title"), t("gui.col_duration"),
-            t("gui.col_words"), t("gui.col_model"), t("gui.col_notes")]
+    """Column headings of the library table: one, as the queue's has.
+
+    Date, title, length, words, model and notes were six columns, and beside
+    the folders the title - the one worth reading - was squeezed to nothing.
+    They are the title and the line of facts under it now, the way a queue
+    row has always been drawn."""
+    return [t("gui.col_recording")]
+
+
+def entry_facts(row):
+    """The line under a library row's title: when, how long, how many words,
+    by which model, and what else the entry holds."""
+    parts = [row["date"], row["duration"],
+             t("gui.n_words", count=row["words"]) if row["words"] != "-" else "",
+             row["model"]]
+    for key, label in (("summary", "gui.badge_summary"),
+                       ("subtitles", "gui.badge_subtitles"),
+                       ("diarized", "gui.badge_speakers"),
+                       ("notes", "gui.badge_notes")):
+        if row.get(key):
+            parts.append(t(label))
+    return "  ·  ".join(str(part) for part in parts if part and part != "-")
 
 
 def entry_row(entry):
@@ -559,6 +578,8 @@ def entry_row(entry):
         "loudness": entry.read_waveform(),
         "path": entry.path,
         "folder": folder_of(entry.id),
+        "summary": entry.has_summary(),
+        "subtitles": bool(entry.subtitles()),
     }
 
 

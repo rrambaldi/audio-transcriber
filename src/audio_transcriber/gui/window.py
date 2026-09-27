@@ -14,6 +14,7 @@ from PySide6.QtCore import QSettings, QSize, Qt, QTimer
 from PySide6.QtGui import QIcon, QKeySequence, QShortcut
 from PySide6.QtWidgets import (
     QApplication,
+    QDialog,
     QLabel,
     QMainWindow,
     QMessageBox,
@@ -97,7 +98,7 @@ def claim_taskbar_identity():
 
 
 class MainWindow(QMainWindow):
-    """Library - with the work under way inside it - and This machine."""
+    """The library, with the work under way inside it; This machine apart."""
 
     def __init__(self, settings=None, queue=None, parent=None):
         super().__init__(parent)
@@ -122,9 +123,21 @@ class MainWindow(QMainWindow):
         # One place for a recording, from the moment it arrives: the library,
         # with the queue as its first folder. See gui/home.py.
         self.home = Home(self.library, self.transcribe, self.queue.library)
+        # Still a tab widget, for the pane and the gutter it carries (see
+        # gui/theme.py), with its one tab's label hidden: a strip with one
+        # tab in it is a heading pretending to be a choice.
         self.tabs = QTabWidget()
         self.tabs.addTab(self.home, t("gui.tab_library"))
-        self.tabs.addTab(self.system, t("gui.tab_system"))
+        self.tabs.tabBar().hide()
+        # What this machine can do is looked at when something does not work,
+        # not all day: a window of its own, from the masthead.
+        self.system_window = QDialog(self)
+        self.system_window.setWindowTitle(t("gui.tab_system"))
+        system_layout = QVBoxLayout(self.system_window)
+        system_layout.setContentsMargins(theme.GUTTER, theme.GUTTER,
+                                         theme.GUTTER, theme.GUTTER)
+        system_layout.addWidget(self.system)
+        self.system_window.resize(860, 640)
 
         # The mark and the promise sit above the tabs rather than inside one
         # of them: they are true of the whole window, and the title bar is
@@ -132,6 +145,7 @@ class MainWindow(QMainWindow):
         # window or a tiling desktop it is not drawn at all.
         self.masthead = Masthead(self.windowIcon())
         self.masthead.about_requested.connect(self.show_about)
+        self.masthead.system_requested.connect(self.show_system)
         self.masthead.language_chosen.connect(self.choose_language)
         # The key somebody presses looking for help, on a window that has
         # nowhere else to put an About box: there is no menu bar.
@@ -225,6 +239,13 @@ class MainWindow(QMainWindow):
         dialog.finished.connect(dialog.deleteLater)
         dialog.open()
         return dialog
+
+    def show_system(self):
+        """What this machine can do, and where the files are, in its window."""
+        self.system_window.show()
+        self.system_window.raise_()
+        self.system_window.activateWindow()
+        return self.system_window
 
     def choose_language(self, code):
         """Keep the language picked in the masthead, for the next opening.

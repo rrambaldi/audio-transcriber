@@ -128,6 +128,17 @@ All notable changes to this project are documented here. The format follows
   top of the library, and the recorder only shows when it is asked for. A job
   that worked leaves the queue by itself; what failed stays.
 
+- **More of the window is the library.** The masthead is one line - the mark,
+  the name, the promise, then *This machine*, *About* and the language - where
+  it was three lines and 130 pixels. *This machine* opens a window of its own
+  from there instead of being a tab, so the window has no tab strip at all.
+  A library row is drawn like a queue row: the title, a line of facts under
+  it - when, how long, how many words, which model, and whether there is a
+  summary, subtitles, who said what or notes - and the shape of the
+  recording; it was six columns, and beside the folders the title had no
+  room. How a summary is written - model, length, sections - is asked in a
+  dialog when one is asked for, and the *Summary* tab shows the page.
+
 - **The `meeting` template makes a shorter page.** A few large subjects,
   with actions and open questions repeated at the foot; opinions are no
   longer collected, facts only when they explain a requirement or a

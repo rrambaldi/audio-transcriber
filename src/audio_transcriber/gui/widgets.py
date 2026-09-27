@@ -119,7 +119,8 @@ class TraceMeter(QWidget):
 
 
 class JobDelegate(QStyledItemDelegate):
-    """Paints a queue row as a title with its facts underneath.
+    """Paints a row as a title with its facts underneath - the queue's rows,
+    and the library's, which are the same recordings a little later.
 
     A delegate rather than a widget in the cell because a widget does not
     follow the view's palette: the moment a row is selected, a black title on
@@ -216,65 +217,6 @@ class JobDelegate(QStyledItemDelegate):
         return QSize(size.width(), line + self.WAVE_PX + self.PADDING * 2)
 
 
-
-
-class WaveTitleDelegate(QStyledItemDelegate):
-    """Paints a library title with the shape of its recording under it.
-
-    The library is a table and not a list of two-line rows, because the date,
-    the length and the model are worth a column each there. So the drawing
-    goes where the name is, under it, in the one column wide enough to hold a
-    picture — which is also where somebody looking for a recording is already
-    looking.
-    """
-
-    #: Space above and below the pair.
-    PADDING = 3
-
-    #: Height of the drawing. The same figure as :class:`JobDelegate`, and for
-    #: the same reason: the queue and the library are one list seen twice.
-    WAVE_PX = JobDelegate.WAVE_PX
-
-    #: Air between the name and the drawing.
-    WAVE_GAP = JobDelegate.WAVE_GAP
-
-    def paint(self, painter, option, index):
-        settings = QStyleOptionViewItem(option)
-        self.initStyleOption(settings, index)
-        title = settings.text
-        settings.text = ""              # the background and selection only
-        widget = settings.widget
-        painting = widget.style() if widget else QApplication.style()
-        painting.drawControl(QStyle.ControlElement.CE_ItemViewItem,
-                             settings, painter, widget)
-
-        area = settings.rect.adjusted(4, self.PADDING, -4, -self.PADDING)
-        ink = settings.palette.color(QPalette.ColorRole.Text)
-        painter.save()
-        painter.setPen(ink)
-        painter.setFont(settings.font)
-        metrics = painter.fontMetrics()
-        line = metrics.height()
-        painter.drawText(
-            area.left(), area.top(), area.width(), line,
-            int(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter),
-            metrics.elidedText(title, Qt.TextElideMode.ElideRight, area.width()))
-        loudness = index.data(LOUDNESS_ROLE)
-        if loudness:
-            # Muted against the ground actually behind it, so a selected row
-            # keeps its drawing instead of losing it into the wash.
-            selected = bool(option.state & QStyle.StateFlag.State_Selected)
-            ground = settings.palette.color(QPalette.ColorRole.Midlight if selected
-                                            else QPalette.ColorRole.Base)
-            wave.draw_wave(painter,
-                           QRectF(area.left(), area.top() + line + self.WAVE_GAP,
-                                  area.width(), self.WAVE_PX - self.WAVE_GAP),
-                           loudness, style.readable(ink, ground))
-        painter.restore()
-
-    def sizeHint(self, option, index):
-        size = super().sizeHint(option, index)
-        return QSize(size.width(), size.height() + self.WAVE_PX)
 
 
 class JobActions(QWidget):
