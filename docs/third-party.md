@@ -16,7 +16,7 @@ ffmpeg, which reads the audio. Everything else on this page is permissive
 |---|---|---|
 | **Fraunces** (four cuts: the variable file and three static instances) | `src/audio_transcriber/data/brand/fonts/` | SIL Open Font License 1.1 — `fraunces-OFL.txt` beside it |
 | **Karla** | same | SIL Open Font License 1.1 — `karla-OFL.txt` beside it |
-| **Fluent UI System Icons** (32 drawings, one per kind of button) | `src/audio_transcriber/data/brand/symbols/` | MIT — `fluent-MIT.txt` beside them |
+| **Fluent UI System Icons** (34 drawings, one per kind of button) | `src/audio_transcriber/data/brand/symbols/` | MIT — `fluent-MIT.txt` beside them |
 | The mark, the icon set, the banner | `data/brand/`, `docs/assets/` | This project's, under this project's licence |
 
 The Fluent drawings are the 20 px regular cut, vendored byte for byte from

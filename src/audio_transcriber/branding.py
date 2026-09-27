@@ -102,7 +102,9 @@ SYMBOLS = (("copy", "copy.svg"),
            ("info", "info.svg"),
            ("document", "document.svg"),
            ("speaker", "speaker.svg"),
-           ("log", "log.svg"))
+           ("log", "log.svg"),
+           ("language", "language.svg"),
+           ("folder_link", "folder_link.svg"))
 
 #: The set to cite, and the licence that travels with it. MIT asks only that
 #: the notice go with the copies; it does, in this file, and ``docs/

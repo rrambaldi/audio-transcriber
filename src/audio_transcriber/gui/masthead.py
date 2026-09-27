@@ -194,8 +194,16 @@ class Masthead(QWidget):
             pair.addWidget(icon, 0, Qt.AlignmentFlag.AlignVCenter)
             pair.addWidget(link, 0, Qt.AlignmentFlag.AlignVCenter)
             band.addLayout(pair)
+        # The language with its symbol too, the translation mark: it is the
+        # one control here somebody who cannot read the current language has
+        # to find.
+        self.language_icon = QLabel()
+        pair = QHBoxLayout()
+        pair.setSpacing(4)
+        pair.addWidget(self.language_icon, 0, Qt.AlignmentFlag.AlignVCenter)
+        pair.addWidget(self.language, 0, Qt.AlignmentFlag.AlignVCenter)
+        band.addLayout(pair)
         self._paint_icons()
-        band.addWidget(self.language, 0, Qt.AlignmentFlag.AlignVCenter)
 
         # The page draws this rule in the ink colour, not in the divider grey:
         # it is the edge of the masthead, and the tab bar below has a grey one
@@ -243,14 +251,16 @@ class Masthead(QWidget):
 
     def _paint_icons(self):
         """The links' symbols, in the accent the links are written in."""
-        if not hasattr(self, "system_icon"):
+        if not hasattr(self, "language_icon"):
             return
         which = "dark" if self.palette().color(
             QPalette.ColorRole.Window).lightnessF() < 0.5 else "light"
         size = max(symbols.MINIMUM, round(self.about.fontMetrics().height() * symbols.BESIDE))
-        for label, name in ((self.system_icon, "desktop"), (self.about_icon, "info")):
+        for label, name, token in ((self.system_icon, "desktop", "signal"),
+                                   (self.about_icon, "info", "signal"),
+                                   (self.language_icon, "language", "ink")):
             drawn = symbols.icon(name, size, which, ratio=self.devicePixelRatioF(),
-                                 normal="signal")
+                                 normal=token)
             label.setPixmap(drawn.pixmap(QSize(size, size)))
             label.setVisible(not drawn.isNull())
 

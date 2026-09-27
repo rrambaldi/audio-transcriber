@@ -854,3 +854,17 @@ menu { display: flex; gap: 1.2rem; align-items: center; padding: 0; margin: 1.8r
 footer { max-width: 80rem; margin: 0 auto; padding-top: 2rem; }
 .footer-language { display: flex; align-items: baseline; gap: 0.6rem; }
 .footer-language select { width: auto; }
+/* The translation mark before the word, as in the window's masthead: the one
+   control somebody who cannot read the current language has to find. A mask,
+   so the drawing takes the text's colour in either scheme. */
+.footer-language label::before {
+  content: "";
+  display: inline-block;
+  width: 1.15em;
+  height: 1.15em;
+  margin-right: 0.35em;
+  vertical-align: -0.22em;
+  background: currentColor;
+  -webkit-mask: url("../brand/symbols/language.svg") center / contain no-repeat;
+  mask: url("../brand/symbols/language.svg") center / contain no-repeat;
+}
