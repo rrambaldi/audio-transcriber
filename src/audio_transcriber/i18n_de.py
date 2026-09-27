@@ -279,7 +279,7 @@ MESSAGES = {
     "about.open_licence": "Lizenzdatei öffnen",
     "about.bundled": "Was enthalten ist",
     "about.fonts": "Zwei Schriftarten, jede unter ihrer eigenen Lizenz:",
-    "about.dependencies": "Aufgebaut auf Qt über PySide6, unter der LGPL v3, und liest Audio mit ffmpeg, unter der LGPL 2.1. Alles andere, was verwendet wird, wird separat installiert und behält seine eigene Lizenz: der oben verlinkte Quellcode führt sie auf.",
+    "about.dependencies": "Aufgebaut auf Qt über PySide6, unter der LGPL v3, und liest Audio mit ffmpeg, unter der LGPL 2.1. Alles andere, was verwendet wird, wird separat installiert und behält seine eigene Lizenz: die vollständige Liste steht in der Datei third-party.md im oben verlinkten Quellcode.",
     "gui.row_transcribe": "Transkribieren",
     "gui.row_retry": "Erneut versuchen",
     "gui.row_stop": "Stopp",

@@ -573,7 +573,9 @@ def test_without_qtmultimedia_the_player_says_why_on_the_page(
     assert panel.player is None
     assert panel.play.isEnabled() is False
     assert panel.player_note.isHidden() is False
-    assert "QtMultimedia" in panel.player_note.text()
+    # Why, in a sentence; the command that fixes it, in the tooltip.
+    assert "PySide6" in panel.player_note.text()
+    assert "PySide6-Addons" in panel.player_note.toolTip()
     panel.deleteLater()
 
 

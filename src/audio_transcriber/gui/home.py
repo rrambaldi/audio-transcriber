@@ -201,7 +201,7 @@ class Home(QWidget):
         splitter.addWidget(left)
         splitter.addWidget(self.stack)
         splitter.setStretchFactor(1, 1)
-        splitter.setSizes([170, 1110])
+        splitter.setSizes([150, 1130])
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)

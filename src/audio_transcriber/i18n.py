@@ -590,7 +590,7 @@ MESSAGES = {
         # The two copyleft ones are named here because an About box is where
         # a user can reasonably be expected to find them; the rest are
         # permissive and are listed in docs/third-party.md.
-        "about.dependencies": "Built on Qt through PySide6, under the LGPL v3, and it reads audio with ffmpeg, under the LGPL 2.1. Everything else it uses is installed separately and keeps its own licence; the source code linked above lists them.",
+        "about.dependencies": "Built on Qt through PySide6, under the LGPL v3, and it reads audio with ffmpeg, under the LGPL 2.1. Everything else it uses is installed separately and keeps its own licence: the full list is in third-party.md, in the source code linked above.",
         "gui.row_transcribe": "Transcribe",
         "gui.row_retry": "Try again",
         "gui.row_stop": "Stop",
@@ -1612,7 +1612,7 @@ MESSAGES = {
         "about.open_licence": "Apri il file di licenza",
         "about.bundled": "Cosa è incluso",
         "about.fonts": "Due caratteri tipografici, ognuno con la sua licenza:",
-        "about.dependencies": "Costruito su Qt tramite PySide6, sotto LGPL v3, e legge l'audio con ffmpeg, sotto LGPL 2.1. Tutto il resto si installa a parte e mantiene la propria licenza: l'elenco è nel codice sorgente, al link qui sopra.",
+        "about.dependencies": "Costruito su Qt tramite PySide6, sotto LGPL v3, e legge l'audio con ffmpeg, sotto LGPL 2.1. Tutto il resto si installa a parte e mantiene la propria licenza: l'elenco completo è nel file third-party.md del codice sorgente, al link qui sopra.",
         "gui.row_transcribe": "Trascrivi",
         "gui.row_retry": "Riprova",
         "gui.row_stop": "Interrompi",

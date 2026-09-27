@@ -37,7 +37,10 @@ queue as well. Now the library is the window's home:
   then the library and its folders. *New folder…* is under the tree, and a
   right click on a folder renames it or deletes it (an empty one only).
 - On the right, what is selected: the queue for *In progress*, otherwise that
-  folder's recordings beside the reading pane.
+  folder's recordings beside the reading pane — two parts of the width to the
+  list and three to the pane, and the list never narrower than about
+  twenty-five characters of a title. In fixed pixels it was 161 px wide on a
+  1024 px screen, fifteen characters.
 
 A job that did what it was for **leaves the queue** by itself: its result is
 in the library, and a queue holding everything ever done stops being the list

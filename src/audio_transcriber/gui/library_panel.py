@@ -79,6 +79,9 @@ WAVE_POLL_MS = 400
 #: pane are not flush against the bar that separates them.
 SPLITTER_GUTTER = 10
 
+#: The narrowest the list may be made: about twenty-five characters of a title.
+LIST_MIN_PX = 260
+
 
 class _ClickableLabel(QLabel):
     """A label that also reacts to a double click, for the title's rename."""
@@ -472,11 +475,13 @@ class LibraryPanel(QWidget):
         splitter = QSplitter(Qt.Orientation.Horizontal)
         splitter.addWidget(left)
         splitter.addWidget(right)
-        splitter.setStretchFactor(0, 1)
-        splitter.setStretchFactor(1, 1)
-        # The list needs enough of the width to show its columns; the reading
-        # pane keeps the larger share. The folders take the rest, on the left.
-        splitter.setSizes([470, 600])
+        # In proportion, two parts to the list and three to the reading pane,
+        # with a floor under the list: fixed pixels left it 161 px wide at
+        # 1024, which is fifteen characters of a title.
+        left.setMinimumWidth(LIST_MIN_PX)
+        splitter.setStretchFactor(0, 2)
+        splitter.setStretchFactor(1, 3)
+        splitter.setSizes([400, 600])
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)   # the pane's gutter is the only one
         layout.addWidget(splitter)
