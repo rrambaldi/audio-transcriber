@@ -194,8 +194,20 @@ class LibraryPanel(QWidget):
         self.transcript.setOpenExternalLinks(False)
         self.transcript.anchorClicked.connect(self._anchor_clicked)
         self.copy_transcript = _copy_button(self._copy_transcript)
+        # The other transcriptions of the same recording, newest first: shown
+        # only when there are any, and picking one reads that one instead.
+        self.transcript_version = QComboBox()
+        self.transcript_version.currentIndexChanged.connect(self._pick_transcription)
+        self.transcript_version_label = QLabel(t("gui.version"))
+        self.transcript_version.hide()
+        self.transcript_version_label.hide()
         transcript_page = QWidget()
         transcript_layout = QVBoxLayout(transcript_page)
+        transcript_row = QHBoxLayout()
+        transcript_row.addWidget(self.transcript_version_label)
+        transcript_row.addWidget(self.transcript_version)
+        transcript_row.addStretch(1)
+        transcript_layout.addLayout(transcript_row)
         transcript_layout.addLayout(_with_copy(self.transcript,
                                                self.copy_transcript), 1)
 
@@ -220,8 +232,9 @@ class LibraryPanel(QWidget):
 
         self.summary = QPlainTextEdit()
         self.summary.setReadOnly(True)
-        # The summaries kept when a new one was written: shown only when
-        # there are any, and only for reading.
+        # Every summary of the recording, newest first: shown only when there
+        # is more than one, and the older ones only for reading.
+        self._summaries = []
         self.summary_version = QComboBox()
         self.summary_version.currentIndexChanged.connect(self._show_version)
         self.summary_note = QLabel("")
@@ -261,7 +274,7 @@ class LibraryPanel(QWidget):
         summary_page = QWidget()
         summary_layout = QVBoxLayout(summary_page)
         version_row = QHBoxLayout()
-        self.summary_version_label = QLabel(t("gui.summary_version"))
+        self.summary_version_label = QLabel(t("gui.version"))
         version_row.addWidget(self.summary_version_label)
         version_row.addWidget(self.summary_version)
         version_row.addStretch(1)
@@ -507,7 +520,8 @@ class LibraryPanel(QWidget):
             self.entry = None
             self._clear_reader()
             return
-        index = next((i for i, row in enumerate(self._rows) if row["id"] == keep), 0)
+        index = next((i for i, row in enumerate(self._rows)
+                      if options.same_recording(self._copies, row["id"], keep)), 0)
         self.table.selectRow(index)
         self._selection_changed()
 
@@ -577,31 +591,55 @@ class LibraryPanel(QWidget):
         """Select and display one entry by id, reloading if it is not listed.
 
         This is what the transcribe tab calls when a job has finished: the
-        entry has just been created, so the list has to be re-read first."""
-        if not any(row["id"] == entry_id for row in self._rows):
+        entry has just been created, so the list has to be re-read first. An
+        older transcription of a recording is found under the recording's row,
+        and read from there."""
+        def listed():
+            return next((index for index, row in enumerate(self._rows)
+                         if options.same_recording(self._copies, row["id"],
+                                                   entry_id)), None)
+
+        if listed() is None:
             self.search.clear()
             self.reload(keep=entry_id)
-        for index, row in enumerate(self._rows):
-            if row["id"] == entry_id:
-                self.table.selectRow(index)
-                return True
-        return False
+        index = listed()
+        if index is None:
+            return False
+        self.table.selectRow(index)
+        if self.entry is None or not options.same_recording(
+                self._copies, self._rows[index]["id"], self.entry.id):
+            return False        # the unsaved notes kept the pane where it was
+        if self.entry.id != entry_id:
+            return self._open(entry_id)
+        return True
 
     def _selection_changed(self):
         entry_id = self.selected_id()
-        if entry_id is None or (self.entry and self.entry.id == entry_id):
+        if entry_id is None or (self.entry and options.same_recording(
+                self._copies, entry_id, self.entry.id)):
             return
+        self._open(entry_id)
+
+    def _pick_transcription(self):
+        """Another transcription of the same recording: the pane follows it."""
+        entry_id = self.transcript_version.currentData()
+        if entry_id and (self.entry is None or self.entry.id != entry_id):
+            self._open(entry_id)
+
+    def _open(self, entry_id):
+        """Read one entry in the pane; ``False`` if it stays on the last one."""
         if not self._offer_to_save_notes():
             # Cancelled: the click has already moved the selection, so it is
             # put back on the entry whose notes are still being written.
             self._reselect(self.entry.id)
-            return
+            return False
         try:
             self.entry = self.library.get(entry_id)
         except LibraryError as exc:
             self.message.emit(str(exc))
-            return
+            return False
         self._display()
+        return True
 
     # --- the reading pane -------------------------------------------------
 
@@ -609,10 +647,14 @@ class LibraryPanel(QWidget):
         """Move the selection back without displaying anything again."""
         self.table.blockSignals(True)
         for index, row in enumerate(self._rows):
-            if row["id"] == entry_id:
+            if options.same_recording(self._copies, row["id"], entry_id):
                 self.table.selectRow(index)
                 break
         self.table.blockSignals(False)
+        self.transcript_version.blockSignals(True)
+        self.transcript_version.setCurrentIndex(
+            max(0, self.transcript_version.findData(entry_id)))
+        self.transcript_version.blockSignals(False)
 
     def _display(self):
         entry = self.entry
@@ -635,60 +677,57 @@ class LibraryPanel(QWidget):
         self._notes_dirty = False
         self.save_notes.setEnabled(False)
         _fill_form(self.details_form, options.entry_details(entry))
-        links = options.copy_links(entry, self._copies)
-        if links:
-            # A link per transcription: clicking one selects its row, and the
-            # two can be read one after the other.
-            field = QLabel(" &nbsp;·&nbsp; ".join(
-                f'<a href="{html.escape(entry_id)}">{html.escape(label)}</a>'
-                for entry_id, label in links))
-            field.setTextFormat(Qt.TextFormat.RichText)
-            field.setWordWrap(True)
-            field.linkActivated.connect(self.show_entry)
-            self.details_form.insertRow(0, f"{t('gui.detail_copies')}:", field)
+        choices = options.transcription_choices(entry, self._copies)
+        self.transcript_version.blockSignals(True)
+        self.transcript_version.clear()
+        for entry_id, label in choices:
+            self.transcript_version.addItem(label, entry_id)
+        self.transcript_version.setCurrentIndex(
+            max(0, self.transcript_version.findData(entry.id)))
+        self.transcript_version.blockSignals(False)
+        self.transcript_version.setVisible(bool(choices))
+        self.transcript_version_label.setVisible(bool(choices))
         self._show_summary()
         self._load_audio(entry.stored_audio())
         self._enable_actions(True)
 
     def _show_summary(self):
-        """Fill the summary tab from the entry, caption included."""
-        text, note = options.summary_state(self.entry)
-        self.summary.setPlainText(text)
-        self.summary_note.setText(note)
-        self.summarise.setText(
-            t("gui.summary_again" if text else "gui.summary_run") + "…")
-        versions = options.summary_versions(self.entry)
+        """Fill the summary tab with the newest summary of the recording."""
+        self._summaries = options.summary_choices(self.entry, self._copies)
         self.summary_version.blockSignals(True)
         self.summary_version.clear()
-        self.summary_version.addItem(t("gui.summary_version_current"), None)
-        for file, label in versions:
-            self.summary_version.addItem(label, file)
+        for choice in self._summaries:
+            self.summary_version.addItem(choice["label"])
         self.summary_version.blockSignals(False)
-        self.summary_version.setVisible(bool(versions))
-        self.summary_version_label.setVisible(bool(versions))
+        many = len(self._summaries) > 1
+        self.summary_version.setVisible(many)
+        self.summary_version_label.setVisible(many)
+        self.summarise.setText(t("gui.summary_again" if self.entry.has_summary()
+                                 else "gui.summary_run") + "…")
+        self._show_version()
 
     def _show_version(self):
-        """An older summary, for reading; the current one is back at the top."""
-        file = self.summary_version.currentData()
+        """The summary the menu points at; the newest is at the top."""
         if self.entry is None:
             return
-        if file is None:
-            self._show_summary()
-            return
         try:
-            text = self.entry.read_summary_version(file)
+            text, note = options.summary_state(self._summaries,
+                                               self.summary_version.currentIndex())
         except (LibraryError, OSError) as exc:
             self.message.emit(str(exc))
             return
         self.summary.setPlainText(text)
-        self.summary_note.setText(t("gui.summary_old_version",
-                                    version=self.summary_version.currentText()))
+        self.summary_note.setText(note)
 
     def _clear_reader(self):
         self.title.setText("")
         self.transcript.clear()
         self.summary.clear()
         self.summary_note.setText("")
+        self._summaries = []
+        for widget in (self.transcript_version, self.transcript_version_label,
+                       self.summary_version, self.summary_version_label):
+            widget.hide()
         self.notes.blockSignals(True)
         self.notes.clear()
         self.notes.blockSignals(False)
@@ -1091,10 +1130,12 @@ class LibraryPanel(QWidget):
         self.summarise.setEnabled(self.entry is not None)
         if job.status == DONE:
             self.message.emit(t("gui.summary_done", title=job.title))
-            # Only if the entry on screen is still the one that was summarised:
-            # somebody who moved on should not have the pane change under them.
-            if self.entry is not None and self.entry.id == job.entry_id:
-                self.entry = self.library.get(job.entry_id)
+            # Only if the recording on screen is still the one that was
+            # summarised: somebody who moved on should not have the pane
+            # change under them.
+            if self.entry is not None and options.same_recording(
+                    self._copies, self.entry.id, job.entry_id):
+                self.entry = self.library.get(self.entry.id)
                 self._show_summary()
         elif job.status == FAILED:
             self.message.emit(t("gui.summary_failed", title=job.title,

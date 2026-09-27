@@ -24,13 +24,15 @@ All notable changes to this project are documented here. The format follows
 
 - **Summarising again asks whether to keep the old summary.** Kept, it is an
   earlier version, and the *Version* menu over the summary shows it again.
+  The page shown is always the newest summary of the recording, whichever
+  of its transcriptions it was written from, and the caption says which.
 
-- **The library says when a recording was transcribed more than once.** Its
-  rows carry `×3` in front of the title, since they otherwise read as the
-  same name three times, and *Details* lists the other transcriptions by
-  date and model, one click away. The same recording means the same file,
-  by the SHA-256 every entry already records: a renamed copy counts, a
-  different file with the same name does not.
+- **A recording transcribed more than once is one row of the library.** It
+  carries `×3` in front of the title and opens on the newest transcription;
+  the others are in a *Version* menu over the transcript, by date and model.
+  The same recording means the same file, by the SHA-256 every entry already
+  records: a renamed copy counts, a different file with the same name does
+  not.
 
 - **A summary can be read back.** With `review = true` in `[summary]`,
   `--review`, or *Read it back* in the window, the model reads every section

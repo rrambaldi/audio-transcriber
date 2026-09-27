@@ -179,7 +179,7 @@ and the window shows it like any other; see [data-layout.md](data-layout.md).
 
 **Doing it again.** *Transcribe again…* opens the same dialog a new recording
 gets, with one more question at the bottom: *keep* the transcription the
-entry has and add the new one beside it (the two rows then carry `×2`), or
+entry has and add the new one beside it (the row then carries `×2`), or
 *replace* it — the title, the notes and the folder stay. *Summarise again*
 asks the same of a summary: replaced, or kept as an earlier version, which
 the *Version* menu over the summary shows again.
@@ -194,11 +194,12 @@ transcribed. A recording filed before the window could draw one is measured in
 the background, one at a time; see [data-layout.md](data-layout.md).
 
 A recording transcribed more than once — to compare two models, say — is
-**marked with how many times**, `×3` in front of its title, because otherwise
-the rows are the same name three times over. *Details* lists the others by
-date and model, and clicking one opens it. The same recording is the same
-file, found by the SHA-256 in `metadata.json`: renamed it is still the same
-one, and two different files with one name are not.
+**one row, marked with how many times**, `×3` in front of its title, and it
+opens on the newest transcription. The others are in the *Version* menu over
+the transcript, by date and model; picking one reads that one, notes and
+details included, and the row stays where it was. The same recording is the
+same file, found by the SHA-256 in `metadata.json`: renamed it is still the
+same one, and two different files with one name are not.
 
 A recording transcribed with "who said what" also offers **Name the
 speakers**: one field per voice, in the order they are first heard, each with
@@ -210,10 +211,13 @@ same name are one person, and their turns are run together. The button is
 absent, not greyed, on a recording that was not diarized.
 
 A **Summary** tab sits beside the transcript and the notes: the page, who
-wrote it and when, a *Version* menu when earlier ones were kept, and one
+wrote it and when, a *Version* menu when there is more than one, and one
 button — *Summarise…* — that asks how, in a dialog, the way a transcription's
 questions are asked; five controls under the page were a form nobody was
-filling in, read every time the tab opened. The dialog has a **Model** menu
+filling in, read every time the tab opened. The page shown is always the
+newest summary of the recording, whichever of its transcriptions it was
+written from — the caption says which when it is not the one being read; the
+menu has the rest, newest first. The dialog has a **Model** menu
 saying what will write it. It starts on
 *automatic*, which names the model the plan would pick right now. Opened, it
 lists every model this machine could use, grouped by where it runs — *GPU ·

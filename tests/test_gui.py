@@ -338,7 +338,7 @@ def test_a_broken_entry_is_skipped_instead_of_breaking_the_list(library):
     assert os.path.isdir(broken.path)   # skipped, not touched
 
 
-def test_a_recording_transcribed_twice_says_so_and_links_the_other(library, tmp_path):
+def test_a_recording_transcribed_twice_is_one_row_with_its_versions(library, tmp_path):
     recording = tmp_path / "riunione.wav"
     recording.write_bytes(b"RIFF")
     first = library.create(source=str(recording))
@@ -346,14 +346,30 @@ def test_a_recording_transcribed_twice_says_so_and_links_the_other(library, tmp_
     second = library.create(source=str(recording))
     second.update(transcription={"model": "large-v3"})
     alone = make_entry(library)
-
     copies = library.copies()
+    # Written after the list was read: the menu must not miss it.
+    first.write_summary("Dalla prima.")
+    first.update(summary={"engine": "extractive",
+                          "created_at": "2026-09-27T10:00:00+02:00"})
+
     rows = {row["id"]: row for row in options.entry_rows(library.entries(), copies)}
-    assert rows[first.id]["copies"] == rows[second.id]["copies"] == 2
-    assert rows[alone.id]["copies"] == 0
-    [(entry_id, label)] = options.copy_links(second, copies)
-    assert entry_id == first.id and label.endswith(" · small")
-    assert options.copy_links(alone, copies) == []
+    assert set(rows) == {second.id, alone.id}       # the newest stands for both
+    assert rows[second.id]["copies"] == 2 and rows[alone.id]["copies"] == 0
+    [(newest, _), (older, label)] = options.transcription_choices(second, copies)
+    assert (newest, older) == (second.id, first.id) and label.endswith(" · small")
+    assert options.transcription_choices(alone, copies) == []
+    assert options.same_recording(copies, second.id, first.id)
+    assert not options.same_recording(copies, second.id, alone.id)
+
+    # The newest summary of the recording, whichever transcription wrote it.
+    text, note = options.summary_state(options.summary_choices(second, copies))
+    assert text.strip() == "Dalla prima." and "small" in note
+    second.write_summary("Dalla seconda.")
+    second.update(summary={"engine": "llamacpp",
+                           "created_at": "2026-09-27T11:00:00+02:00"})
+    choices = options.summary_choices(second, copies)
+    assert options.summary_state(choices)[0].strip() == "Dalla seconda."
+    assert options.summary_state(choices, 1)[0].strip() == "Dalla prima."
 
 
 def test_the_details_report_how_the_transcription_was_made(library):
@@ -581,7 +597,7 @@ def test_an_entry_with_no_summary_says_so_rather_than_showing_nothing(tmp_path):
     from audio_transcriber.library import Library
 
     entry = Library(str(tmp_path / "library")).create(title="Riunione")
-    text, note = options.summary_state(entry)
+    text, note = options.summary_state(options.summary_choices(entry, {}))
     assert text == ""
     assert "No summary yet" in note
 
@@ -596,7 +612,7 @@ def test_a_summary_says_which_engine_wrote_it_and_when(tmp_path):
     entry.update(summary={"engine": "extractive",
                           "created_at": "2026-09-09T18:40:00+02:00"})
 
-    text, note = options.summary_state(entry)
+    text, note = options.summary_state(options.summary_choices(entry, {}))
     assert "Testo." in text
     assert "extractive" in note
     assert "2026-09-09 18:40" in note

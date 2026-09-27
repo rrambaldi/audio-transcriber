@@ -33,7 +33,7 @@ try:
         QShortcut,
         QShowEvent,
     )
-    from PySide6.QtWidgets import QApplication, QFormLayout, QLabel, QMessageBox
+    from PySide6.QtWidgets import QApplication, QLabel, QMessageBox
 except ImportError as exc:      # pragma: no cover - depends on the machine
     # PySide6 is installed but will not load: a partial install, or a Linux box
     # without the system libraries Qt links against. That is worth skipping
@@ -144,7 +144,8 @@ def filed(queue, count=1):
 
 def sample(tmp_path, name="meeting.wav"):
     path = tmp_path / name
-    path.write_bytes(b"not really audio")
+    # Named in the bytes too: two files with one content are one recording.
+    path.write_bytes(f"not really audio: {name}".encode())
     return str(path)
 
 
@@ -1377,7 +1378,7 @@ def test_the_transcript_offers_a_timestamp_to_click(window, tmp_path, queue):
     window.transcribe.start_queue()
     assert wait_for(lambda: filed(queue))
     window.library.reload()
-    window.library.show_entry(queue.jobs()[0].entry_id)
+    window.library.show_entry(queue.library.entries()[0].id)
     html = window.library.transcript.toHtml()
     assert 'href="#t=61.50"' in html and "[1:01]" in html
 
@@ -1699,8 +1700,9 @@ def diarized_panel(tmp_path, texts=("Buongiorno.", "Ho i numeri qui.")):
     return panel, entry
 
 
-def test_a_recording_transcribed_twice_is_marked_and_linked(application, tmp_path):
-    """The row says how many times, and the details reach the other one."""
+def test_a_recording_transcribed_twice_is_one_row_with_a_version_menu(application,
+                                                                      tmp_path):
+    """One row, the newest transcription; the Transcript tab reads the other."""
     from audio_transcriber.gui.library_panel import LibraryPanel
     from audio_transcriber.library import Library
 
@@ -1708,17 +1710,27 @@ def test_a_recording_transcribed_twice_is_marked_and_linked(application, tmp_pat
     recording = tmp_path / "riunione.wav"
     recording.write_bytes(b"RIFF")
     first = library.create(source=str(recording), title="Riunione")
+    first.write_transcript("Prima trascrizione.", [])
     second = library.create(source=str(recording), title="Riunione")
+    second.write_transcript("Seconda trascrizione.", [])
     panel = LibraryPanel(library)
-    assert [panel.table.item(row, 0).text() for row in range(2)] == [
-        "×2  Riunione", "×2  Riunione"]
+    assert panel.table.rowCount() == 1
+    assert panel.table.item(0, 0).text() == "×2  Riunione"
     assert "2" in panel.table.item(0, 0).toolTip()
+    assert panel.entry.id == second.id
+    assert "Seconda" in panel.transcript.toPlainText()
+    assert not panel.transcript_version.isHidden()
+    assert panel.transcript_version.count() == 2
 
-    panel.show_entry(second.id)
-    links = panel.details_form.itemAt(0, QFormLayout.ItemRole.FieldRole).widget()
-    assert first.id in links.text()
-    links.linkActivated.emit(first.id)
-    assert panel.selected_id() == first.id
+    panel.transcript_version.setCurrentIndex(1)
+    assert panel.entry.id == first.id
+    assert "Prima" in panel.transcript.toPlainText()
+    assert panel.selected_id() == second.id     # the row is the recording's
+    panel.reload()
+    assert panel.entry.id == first.id           # a reload keeps the choice
+    assert panel.show_entry(second.id)
+    assert panel.entry.id == second.id
+    assert panel.transcript_version.currentIndex() == 0
     panel.deleteLater()
 
 

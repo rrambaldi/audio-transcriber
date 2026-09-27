@@ -29,7 +29,7 @@ from ..jobs import (
     RUNNING,
     SUMMARY,
 )
-from ..library import LibraryError
+from ..library import Entry, LibraryError
 from ..summarizers import CHOICES as SUMMARY_ENGINES
 from ..summarizers import available as summary_engines_available
 from ..summarizers import plan
@@ -515,21 +515,6 @@ def folder_choices(folders):
         (folder, folder.replace("/", " › ")) for folder in folders]
 
 
-def summary_versions(entry):
-    """The summaries kept when newer ones were written, as ``(file, label)``.
-
-    Labelled by when it was written and by what: the two things that tell two
-    pages about the same meeting apart."""
-    try:
-        versions = entry.summary_versions()
-    except (LibraryError, OSError):
-        return []
-    return [(version["file"], " · ".join(part for part in (
-                (version.get("created_at") or "")[:16].replace("T", " "),
-                version.get("engine") or "") if part) or version["file"])
-            for version in versions]
-
-
 def entry_headers():
     """Column headings of the library table: one, as the queue's has.
 
@@ -591,26 +576,88 @@ def entry_row(entry):
 def entry_rows(entries, copies=None):
     """Every readable row, in the order the library returned them.
 
-    ``copies`` is :meth:`Library.copies`: each row says how many times its
-    recording has been transcribed, so the table can tell them apart."""
+    ``copies`` is :meth:`Library.copies`: a recording transcribed more than
+    once is one row, its newest transcription, saying how many there are -
+    the others are a menu on the Transcript tab, not rows reading as the same
+    name over and over."""
     copies = copies or {}
-    rows = [row for row in (entry_row(entry) for entry in entries) if row]
-    for row in rows:
-        row["copies"] = len(copies.get(row["id"], ()))
+    rows, shown = [], set()
+    for row in (entry_row(entry) for entry in entries):
+        if not row:
+            continue
+        group = copies.get(row["id"], ())
+        if group:
+            # Newest first, as the library lists them: the first one seen is
+            # the one the row stands for.
+            if group[0].id in shown:
+                continue
+            shown.add(group[0].id)
+            row["summary"] = row["summary"] or any(
+                member.has_summary() for member in group)
+        row["copies"] = len(group)
+        rows.append(row)
     return rows
 
 
-def copy_links(entry, copies):
-    """The other transcriptions of the same recording, as ``(id, label)``.
+def same_recording(copies, first, second):
+    """Whether two entry ids are transcriptions of one recording."""
+    return first == second or any(
+        entry.id == second for entry in copies.get(first, ()))
+
+
+def _recording(entry, copies):
+    """The transcriptions of the recording ``entry`` is one of, newest first,
+    read afresh: the ones in ``copies`` are as old as the list, and a summary
+    written since would be missing from them."""
+    return [entry if other.id == entry.id else Entry(other.path, other.root)
+            for other in copies.get(entry.id) or [entry]]
+
+
+def transcription_choices(entry, copies):
+    """The transcriptions of the recording ``entry`` is one of, newest first,
+    as ``(id, label)``; empty when it was transcribed once.
 
     Labelled by date and model, which is what differs between them: the
     title is the same file's name every time."""
-    links = []
-    for other in copies.get(entry.id, ()):
-        row = entry_row(other) if other.id != entry.id else None
+    choices = []
+    for other in _recording(entry, copies):
+        row = entry_row(other)
         if row:
-            links.append((other.id, f"{row['date']} · {row['model']}"))
-    return links
+            choices.append((other.id, f"{row['date']} · {row['model']}"))
+    return choices if len(choices) > 1 else []
+
+
+def summary_choices(entry, copies):
+    """Every summary of the recording ``entry`` is one of, newest first.
+
+    Each transcription's own and the ones it kept, because a summary written
+    from yesterday's transcription is still the latest page about the
+    meeting. Each is a dict: the ``entry`` it lives in, its ``file`` (None
+    for the current one), a ``label`` for the menu and the ``caption``."""
+    names = dict(transcription_choices(entry, copies))
+    found = []
+    for member in _recording(entry, copies):
+        try:
+            data = member.metadata
+        except LibraryError:
+            continue
+        pages = [(None, data.get("summary") or {})] if member.read_summary().strip() else []
+        pages += [(version["file"], version) for version in member.summary_versions()]
+        for file, made in pages:
+            caption = summary_caption(made)
+            if member.id != entry.id:
+                caption += t("gui.summary_from", version=names.get(member.id, member.id))
+            found.append({
+                "entry": member, "file": file,
+                "created_at": made.get("created_at") or "",
+                "label": " · ".join(part for part in (
+                    (made.get("created_at") or "")[:16].replace("T", " "),
+                    made.get("engine") or "") if part) or file or "-",
+                "caption": caption,
+            })
+    # Stable: a page with no date keeps its place after the one that replaced it.
+    found.sort(key=lambda choice: choice["created_at"], reverse=True)
+    return found
 
 
 def summary_engine_choices(settings=None):
@@ -750,21 +797,25 @@ def summary_template_choices(settings=None, language="it"):
     return choices
 
 
-def summary_state(entry):
-    """What the summary tab should show for this entry: the text and a caption.
+def summary_state(choices, index=0):
+    """What the summary tab shows: the page ``choices[index]`` and its caption.
 
-    The caption is what makes a summary trustworthy or not: which engine wrote
-    it and when. A page that does not say is a page somebody will quote in a
-    meeting without knowing whether a model or a sentence-picker produced it.
-    """
-    try:
-        data = entry.metadata
-    except LibraryError:
-        return "", ""
-    text = entry.read_summary()
-    if not text.strip():
+    ``choices`` is :func:`summary_choices`; with none, the caption says so
+    rather than leaving an empty box to be puzzled over."""
+    if not choices:
         return "", t("gui.summary_none")
-    made = data.get("summary") or {}
+    choice = choices[max(0, min(index, len(choices) - 1))]
+    entry, file = choice["entry"], choice["file"]
+    text = entry.read_summary_version(file) if file else entry.read_summary()
+    return text, choice["caption"]
+
+
+def summary_caption(made):
+    """Which engine wrote a summary and when, from what the metadata says.
+
+    The caption is what makes a summary trustworthy or not. A page that does
+    not say is a page somebody will quote in a meeting without knowing
+    whether a model or a sentence-picker produced it."""
     when = (made.get("created_at") or "")[:16].replace("T", " ")
     caption = t("gui.summary_made_by",
                 engine=made.get("engine") or "-", when=when or "-")
@@ -776,7 +827,7 @@ def summary_state(entry):
         caption += t("gui.summary_tier", tier=made["tier"])
     if made.get("caveat"):
         caption += f" — {made['caveat']}"
-    return text, caption
+    return caption
 
 
 def entry_details(entry):
