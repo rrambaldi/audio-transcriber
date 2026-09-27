@@ -1,7 +1,7 @@
 # Piano di restyle: audio-transcriber (pagina web e finestra Qt)
 
 - **Origine:** `docs/ux/analisi-2026-09-27.md` · commit analizzato `412a7ce` · web: `audio-transcriber web` (in produzione dietro nginx su `/transcriber/`)
-- **Stato del piano:** approvato fino alla fase 3 (27 settembre 2026)
+- **Stato del piano:** fasi 1-3 applicate e verificate il 27 settembre 2026 (commit `7421d2f`, `2ee4471`, `c83ba87`, `032bc73`, `a7be302`)
 - **Direzione scelta:** trasformativa: la libreria è la casa anche nel browser
 
 ## Da non toccare
@@ -49,33 +49,33 @@ Nessun colore nuovo: la palette resta quella del marchio.
 
 | ID | Fase | Severità | Dove | Correzione minima | Criterio di accettazione | Stato |
 |---|---|---|---|---|---|---|
-| C1 | 1 rapidi | Critica | `web/static/app.js:1752`, `startRecording`/`stopRecording` | istanza di `MediaRecorder` in una costante locale, letta dall'handler `stop` | registrare 4 s e fermare → file scelto, anteprima visibile, 0 eccezioni | da fare |
-| C2 | 1 rapidi | Critica | `app.js:2577` (chiusura del visualizzatore), `app.js:1882` (`applyBusy`) | domanda Salva / Scarta / Annulla se la nota è cambiata; `notes-save` fuori dal blocco | Esc con una nota cambiata apre la domanda; durante un lavoro "Salva" risponde "Salvate." | da fare |
-| A1 | 1 rapidi | Alta | `style.css` (in cima) | `[hidden] { display: none !important; }` | fuori da Trascrizione `#viewer-transcript` ha `display: none` | da fare |
-| A2 | 3 strutturali | Alta | `index.html:31`, `:209`, `:259`, `:182` | indice di tre link sotto il masthead; opzioni rare in `<details>` chiuso | ricerca della Libreria entro 2 Tab; a 390 Libreria a un tocco | da fare |
-| A3 | 1 rapidi | Alta | `gui/symbols.py:170-194` | `self.setAccessibleName(tooltip)` | nessun bottone visibile con testo e nome accessibile vuoti | da fare |
-| A4 | 1 rapidi | Alta | `gui/theme.py:524` | `::indicator` con bordo `{line}`, pieno `{signal}` se selezionato | contorno almeno 3:1 in entrambi gli schemi | da fare |
-| A5 | 2 sistema visivo | Alta | `gui/theme.py:479`, `:483`; `gui/widgets.py:163` | filetto di 3 px `{signal}` sulla riga selezionata | indicatore di selezione almeno 3:1 | da fare |
-| M1 | 3 strutturali | Media | piede del visualizzatore in `index.html` | comandi per scheda, download in "Scarica…", piede sticky | a 1440×900 il comando principale di ogni scheda è visibile | da fare |
-| M2 | 1 rapidi | Media | `web/api.py` (`/api/library`), `app.js:2233` | `has_summary` e `copies` nella risposta; "riassunto" e "×N" nella riga | voce con riassunto → "riassunto"; copie → "×2" | da fare |
-| M3 | 1 rapidi | Media | `app.js` (scheda Riassunto) | convertitore minimo per `#`, `##`, `- `, `_…_` su testo escapato | nessuna riga visibile comincia con `#` o `_` | da fare |
-| M4 | 3 strutturali | Media | `app.js:1852`, `docs/web.md` | upload accettato come "in attesa" durante un lavoro; riassunti ancora bloccati | con un lavoro in corso si accoda un secondo file | da fare |
-| M5 | 1 rapidi | Media | `i18n.py` (it), `app.js` (it), `data/vocabularies/*.txt` | accenti veri al posto dell'apostrofo | grep delle forme con apostrofo = 0 | da fare |
-| M6 | 1 rapidi | Media | testi pip, `paths.describe`, carico, slug, "prompt" | testi per la persona; comandi nei tooltip | nessun `pip `, `docs/`, chiave inglese o slug visibile | da fare |
-| M7 | 1 rapidi | Media | `gui/library_panel.py:666`; meta del visualizzatore in `app.js` | solo il titolo; id nel tooltip | titolo di 90 caratteri in al massimo 2 righe a 1366; nessuno slug visibile | da fare |
-| M8 | 1 rapidi | Media | `gui/window.py` (`launch`), `speakers_dialog.py` | `QTranslator` con `qtbase_<lingua>` | nessun bottone standard in inglese | da fare |
-| M9 | 1 rapidi | Media | `gui/window.py:327` | annunciare il titolo; aprire la voce se la coda è vuota | messaggio con il titolo; la trascrizione a un clic o meno | da fare |
-| M10 | 1 rapidi | Media | `gui/options.py` (`transcription_choices`) | titolo nell'etichetta se diverso; titoli nel tooltip di ×N | ogni titolo si legge nella lista o nel menu | da fare |
-| M11 | 1 rapidi | Media | `gui/library_panel.py` (`delete_entry`) | "le altre {n-1} restano"; percorso nei dettagli | la conferma dice quante trascrizioni restano | da fare |
-| M12 | 1 rapidi | Media | `gui/theme.py:504` | `max-height: 6px`, senza testo | barra alta al massimo 6 px | da fare |
-| M13 | 3 strutturali | Media | `gui/library_panel.py:462`, `home.py` | stretch 2:3, lista con minimo 260 px | a 1024×640 almeno 25 caratteri di titolo | da fare |
-| M14 | 1 rapidi | Media | `gui/options.py:723` | la voce predefinita nomina il motore che verrà usato | idem | da fare |
-| M15 | 2 sistema visivo | Media | `gui/theme.py` (pannello di lettura) | `--read-size` 15 px, interlinea 1,45 | trascrizione ad almeno 14 px | da fare |
-| B1 | 1 rapidi | Bassa | `#view-tabs`, `style.css` sotto 40rem | `flex-wrap: wrap` | a 390 nessuno scorrimento laterale delle schede | da fare |
-| B2 | 1 rapidi | Bassa | `app.js:443` (`summary_queued`) | frase solo con un lavoro in corso | idem | da fare |
-| B3 | 1 rapidi | Bassa | `gui/about_dialog.py:57` | icona e nome, motto tradotto | nessun testo non tradotto in Info | da fare |
-| B4 | 1 rapidi | Bassa | `app.js` (`#file-name`) | stesso formattatore della coda | una sola unità, niente "0 MB" | da fare |
-| B5 | 1 rapidi | Bassa | `i18n.py` (`gui.drop_hint`) | "della finestra"; una sola istruzione | idem | da fare |
+| C1 | 1 rapidi | Critica | `web/static/app.js:1752`, `startRecording`/`stopRecording` | istanza di `MediaRecorder` in una costante locale, letta dall'handler `stop` | registrare 4 s e fermare → file scelto, anteprima visibile, 0 eccezioni | verificato |
+| C2 | 1 rapidi | Critica | `app.js:2577` (chiusura del visualizzatore), `app.js:1882` (`applyBusy`) | domanda Salva / Scarta / Annulla se la nota è cambiata; `notes-save` fuori dal blocco | Esc con una nota cambiata apre la domanda; durante un lavoro "Salva" risponde "Salvate." | verificato |
+| A1 | 1 rapidi | Alta | `style.css` (in cima) | `[hidden] { display: none !important; }` | fuori da Trascrizione `#viewer-transcript` ha `display: none` | verificato |
+| A2 | 3 strutturali | Alta | `index.html:31`, `:209`, `:259`, `:182` | indice di tre link sotto il masthead; opzioni rare in `<details>` chiuso | ricerca della Libreria entro 2 Tab; a 390 Libreria a un tocco | verificato |
+| A3 | 1 rapidi | Alta | `gui/symbols.py:170-194` | `self.setAccessibleName(tooltip)` | nessun bottone visibile con testo e nome accessibile vuoti | verificato |
+| A4 | 1 rapidi | Alta | `gui/theme.py:524` | `::indicator` con bordo `{line}`, pieno `{signal}` se selezionato | contorno almeno 3:1 in entrambi gli schemi | verificato |
+| A5 | 2 sistema visivo | Alta | `gui/theme.py:479`, `:483`; `gui/widgets.py:163` | filetto di 3 px `{signal}` sulla riga selezionata | indicatore di selezione almeno 3:1 | verificato |
+| M1 | 3 strutturali | Media | piede del visualizzatore in `index.html` | comandi per scheda, download in "Scarica…", piede sticky | a 1440×900 il comando principale di ogni scheda è visibile | verificato |
+| M2 | 1 rapidi | Media | `web/api.py` (`/api/library`), `app.js:2233` | `has_summary` e `copies` nella risposta; "riassunto" e "×N" nella riga | voce con riassunto → "riassunto"; copie → "×2" | verificato |
+| M3 | 1 rapidi | Media | `app.js` (scheda Riassunto) | convertitore minimo per `#`, `##`, `- `, `_…_` su testo escapato | nessuna riga visibile comincia con `#` o `_` | verificato |
+| M4 | 3 strutturali | Media | `app.js:1852`, `docs/web.md` | upload accettato come "in attesa" durante un lavoro; riassunti ancora bloccati | con un lavoro in corso si accoda un secondo file | verificato |
+| M5 | 1 rapidi | Media | `i18n.py` (it), `app.js` (it), `data/vocabularies/*.txt` | accenti veri al posto dell'apostrofo | grep delle forme con apostrofo = 0 | verificato |
+| M6 | 1 rapidi | Media | testi pip, `paths.describe`, carico, slug, "prompt" | testi per la persona; comandi nei tooltip | nessun `pip `, `docs/`, chiave inglese o slug visibile | verificato |
+| M7 | 1 rapidi | Media | `gui/library_panel.py:666`; meta del visualizzatore in `app.js` | solo il titolo; id nel tooltip | titolo di 90 caratteri in al massimo 2 righe a 1366; nessuno slug visibile | verificato |
+| M8 | 1 rapidi | Media | `gui/window.py` (`launch`), `speakers_dialog.py` | `QTranslator` con `qtbase_<lingua>` | nessun bottone standard in inglese | verificato |
+| M9 | 1 rapidi | Media | `gui/window.py:327` | annunciare il titolo; aprire la voce se la coda è vuota | messaggio con il titolo; la trascrizione a un clic o meno | verificato |
+| M10 | 1 rapidi | Media | `gui/options.py` (`transcription_choices`) | titolo nell'etichetta se diverso; titoli nel tooltip di ×N | ogni titolo si legge nella lista o nel menu | verificato |
+| M11 | 1 rapidi | Media | `gui/library_panel.py` (`delete_entry`) | "le altre {n-1} restano"; percorso nei dettagli | la conferma dice quante trascrizioni restano | verificato (percorso tolto dal testo; la cartella resta in Dettagli) |
+| M12 | 1 rapidi | Media | `gui/theme.py:504` | `max-height: 6px`, senza testo | barra alta al massimo 6 px | verificato |
+| M13 | 3 strutturali | Media | `gui/library_panel.py:462`, `home.py` | stretch 2:3, lista con minimo 260 px | a 1024×640 almeno 25 caratteri di titolo | verificato |
+| M14 | 1 rapidi | Media | `gui/options.py:723` | la voce predefinita nomina il motore che verrà usato | idem | verificato |
+| M15 | 2 sistema visivo | Media | `gui/theme.py` (pannello di lettura) | `--read-size` 15 px, interlinea 1,45 | trascrizione ad almeno 14 px | verificato |
+| B1 | 1 rapidi | Bassa | `#view-tabs`, `style.css` sotto 40rem | `flex-wrap: wrap` | a 390 nessuno scorrimento laterale delle schede | verificato |
+| B2 | 1 rapidi | Bassa | `app.js:443` (`summary_queued`) | frase solo con un lavoro in corso | idem | verificato |
+| B3 | 1 rapidi | Bassa | `gui/about_dialog.py:57` | icona e nome, motto tradotto | nessun testo non tradotto in Info | verificato |
+| B4 | 1 rapidi | Bassa | `app.js` (`#file-name`) | stesso formattatore della coda | una sola unità, niente "0 MB" | verificato |
+| B5 | 1 rapidi | Bassa | `i18n.py` (`gui.drop_hint`) | "della finestra"; una sola istruzione | idem | verificato |
 
 Stati ammessi: da fare · fatto · verificato · ancora presente · nuovo problema · rinviato
 

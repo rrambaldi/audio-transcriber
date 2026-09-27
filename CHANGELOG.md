@@ -203,6 +203,10 @@ All notable changes to this project are documented here. The format follows
 - **The transcript, the summary and the notes are set to be read**: 15 px
   instead of the controls' 12, the transcript with a 145% leading.
 
+- **The list keeps its width on a small screen.** The library list and the
+  reading pane share the width two to three, and the list never goes below
+  about twenty-five characters of a title; at 1024 px it was 161 px wide.
+
 
 - **The library is the window's home, and the queue is inside it.** Two tabs
   instead of three: *Library*, with *In progress* as the first of its
