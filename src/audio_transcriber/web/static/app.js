@@ -117,8 +117,8 @@ const I18N = {
     sub_from_preset: "from the preset",
     download_srt: "subtitles (.srt)",
     download_vtt: "subtitles (.vtt)",
-    diarize_not_installed: "Needs pyannote, which is not installed on this machine: pip install \"audio-transcriber-ov[diarize]\"",
-    diarize_no_model: "pyannote is installed but has no model: set HUGGINGFACE_TOKEN on the server, or put a local config in place.",
+    diarize_not_installed_how: "Needs pyannote, which is not installed on this machine: pip install \"audio-transcriber-ov[diarize]\"",
+    diarize_no_model_how: "pyannote is installed but has no model: set HUGGINGFACE_TOKEN on the server, or put a local config in place.",
     speakers: "Speakers, if known",
     keywords: "Keyword sets",
     keywords_help: "Terms the transcription should get right: names, acronyms, jargon. " +
@@ -197,6 +197,14 @@ const I18N = {
     copied: "Copied to the clipboard.",
     copy_failed: "Not copied: the browser refused.",
     summary_queued: "In the queue, behind whatever is already running.",
+    summary_queued_next: "In the queue: it starts in a moment.",
+    has_summary: "summary",
+    copies_title: "The same recording, transcribed {count} times.",
+    notes_unsaved_title: "Unsaved notes",
+    notes_unsaved_body: "The notes on \u201c{title}\u201d have changed and are not saved.",
+    notes_discard: "Discard",
+    diarize_not_installed: "Who said what is not available on this server.",
+    diarize_no_model: "Who said what is installed on this server but not set up yet.",
     summary_running: "Being written\u2026 {stage}",
     summary_failed: "Could not summarise: {error}",
     summary_engine_extractive: "no model: the sentences that carry the transcript",
@@ -280,11 +288,11 @@ const I18N = {
     confirm_remove_job: "Togliere questo lavoro dalla lista?",
     confirm_remove_job_body: "\"{title}\" sparisce dall'elenco dei lavori.",
     confirm_remove_job_kept: "La trascrizione resta in libreria: non viene cancellato niente.",
-    confirm_remove_job_failed: "Questo lavoro non ha prodotto nessuna trascrizione, quindi non c'e' niente da conservare.",
+    confirm_remove_job_failed: "Questo lavoro non ha prodotto nessuna trascrizione, quindi non c'\u00e8 niente da conservare.",
     confirm_remove_job_ok: "Togli dalla lista",
     confirm_delete_entry: "Eliminare questa registrazione?",
     confirm_delete_entry_body: "Viene eliminata \"{title}\": la trascrizione, i timestamp, le tue note e la registrazione stessa.",
-    confirm_delete_entry_detail: "L'operazione non e' reversibile.",
+    confirm_delete_entry_detail: "L'operazione non \u00e8 reversibile.",
     confirm_delete_entry_ok: "Elimina definitivamente",
     confirm_delete_set: "Eliminare questo set di parole chiave?",
     confirm_delete_set_body: "\"{name}\" viene rimosso da questo browser.",
@@ -296,10 +304,10 @@ const I18N = {
     log_hide: "nascondi i messaggi",
     log_refresh: "aggiorna",
     log_clear: "svuotalo",
-    log_empty: "Ancora niente. Qui finisce quello che il server avrebbe scritto nel terminale da cui e' stato avviato.",
+    log_empty: "Ancora niente. Qui finisce quello che il server avrebbe scritto nel terminale da cui \u00e8 stato avviato.",
     log_where: "Scritto in {path}",
     confirm_clear_log: "Svuota il log",
-    confirm_clear_log_body: "Quello che c'e' adesso sparisce. Quello che succede dopo viene scritto da zero; nient'altro viene toccato.",
+    confirm_clear_log_body: "Quello che c'\u00e8 adesso sparisce. Quello che succede dopo viene scritto da zero; nient'altro viene toccato.",
     speakers_name: "dai un nome agli interlocutori",
     speakers_title: "Chi parla",
     speakers_intro: "La macchina ha distinto le voci ma non può sapere di chi sono. Dai loro un nome e la trascrizione viene riscritta con quello; lascia vuoto e resta l'etichetta che ha adesso.",
@@ -309,8 +317,8 @@ const I18N = {
     speakers_named: "Adesso gli interlocutori sono: {speakers}",
     speakers_failed: "Non rinominati: {error}",
     colophon: "audio-transcriber {version} — {sets} set di parole chiave installati. Tutto gira su questa macchina.",
-    reference_label: "Un testo che hai gia'",
-    reference_note: "Un copione, un comunicato, una trascrizione presa altrove. Le sue parole rare vengono passate al motore perche' le scriva giuste, e dopo correggono quelle che ha sentito male o troncato. Quello che e' stato detto davvero vince comunque: niente viene aggiunto perche' il testo se lo aspettava.",
+    reference_label: "Un testo che hai gi\u00e0",
+    reference_note: "Un copione, un comunicato, una trascrizione presa altrove. Le sue parole rare vengono passate al motore perch\u00e9 le scriva giuste, e dopo correggono quelle che ha sentito male o troncato. Quello che \u00e8 stato detto davvero vince comunque: niente viene aggiunto perch\u00e9 il testo se lo aspettava.",
     about_open: "Informazioni su questo programma",
     about_title: "Informazioni su audio-transcriber",
     about_version: "Versione {version}",
@@ -319,7 +327,7 @@ const I18N = {
     about_licence_missing: "Questa copia non ha un file di licenza da mostrare. I termini sono quelli della licenza MIT.",
     about_bundled: "Cosa è incluso",
     about_fonts: "Due caratteri tipografici, ognuno con la sua licenza:",
-    about_dependencies: "Costruito su Qt tramite PySide6, sotto LGPL v3, e legge l'audio con ffmpeg, sotto LGPL 2.1. Tutto il resto si installa a parte e mantiene la propria licenza: l'elenco e' in docs/third-party.md.",
+    about_dependencies: "Costruito su Qt tramite PySide6, sotto LGPL v3, e legge l'audio con ffmpeg, sotto LGPL 2.1. Tutto il resto si installa a parte e mantiene la propria licenza: l'elenco \u00e8 in docs/third-party.md.",
 
     new_transcription: "Nuova trascrizione",
     tab_file: "Carica un file",
@@ -328,9 +336,9 @@ const I18N = {
     or_drop: "oppure trascinalo qui (audio o video).",
     record_start: "Registra",
     record_stop: "Ferma",
-    record_hint: "Registra dal tuo microfono, in questo browser. Niente viene inviato finche' non avvii la trascrizione.",
+    record_hint: "Registra dal tuo microfono, in questo browser. Niente viene inviato finch\u00e9 non avvii la trascrizione.",
     recording_ready: "Registrazione pronta: {duration}. Avvia la trascrizione, o registra di nuovo.",
-    mic_unavailable: "Questo browser non da' il microfono a una pagina che non sia locale o servita in HTTPS. Carica un file, oppure raggiungi il server con un tunnel SSH.",
+    mic_unavailable: "Questo browser non d\u00e0 il microfono a una pagina che non sia locale o servita in HTTPS. Carica un file, oppure raggiungi il server con un tunnel SSH.",
     mic_denied: "Microfono negato: {error}",
     title: "Titolo",
     model: "Modello",
@@ -352,7 +360,7 @@ const I18N = {
     output_subtitles_speakers_note: "Le stesse battute, con il cambio di voce segnato dentro. Richiede la diarizzazione, che gira su CPU e ci mette un po'.",
     sub_legend: "Come vengono tagliati i sottotitoli",
     sub_preset: "Sottotitoli",
-    sub_note: "Come vengono tagliati i sottotitoli, se li vuoi. Le battute ci sono comunque: una voce si puo' scaricare in .srt o .vtt anche dopo, con altri numeri.",
+    sub_note: "Come vengono tagliati i sottotitoli, se li vuoi. Le battute ci sono comunque: una voce si pu\u00f2 scaricare in .srt o .vtt anche dopo, con altri numeri.",
     sub_chars: "Caratteri per riga di sottotitolo",
     sub_words: "Parole per sottotitolo",
     sub_save_srt: "Tieni un .srt nella voce",
@@ -361,8 +369,8 @@ const I18N = {
     sub_from_preset: "dal preset",
     download_srt: "sottotitoli (.srt)",
     download_vtt: "sottotitoli (.vtt)",
-    diarize_not_installed: "Richiede pyannote, che su questa macchina non e' installato: pip install \"audio-transcriber-ov[diarize]\"",
-    diarize_no_model: "pyannote c'e' ma manca il modello: imposta HUGGINGFACE_TOKEN sul server, oppure metti un config locale.",
+    diarize_not_installed_how: "Richiede pyannote, che su questa macchina non \u00e8 installato: pip install \"audio-transcriber-ov[diarize]\"",
+    diarize_no_model_how: "pyannote c'\u00e8 ma manca il modello: imposta HUGGINGFACE_TOKEN sul server, oppure metti un config locale.",
     speakers: "Speaker, se noti",
     keywords: "Set di parole chiave",
     keywords_help: "I termini che la trascrizione deve azzeccare: nomi, sigle, gergo. " +
@@ -376,10 +384,10 @@ const I18N = {
     my_sets: "I miei set",
     new_set: "nuovo set",
     my_sets_help: "I tuoi set restano in questo browser e viaggiano solo con le registrazioni che li usano.",
-    no_installed: "Nessun set installato. Chi ha configurato la macchina puo' aggiungerne con 'audio-transcriber vocab new'.",
+    no_installed: "Nessun set installato. Chi ha configurato la macchina pu\u00f2 aggiungerne con 'audio-transcriber vocab new'.",
     no_mine: "Non hai ancora scritto nessun set.",
     prompt_size: "{chars} caratteri su {limit}.",
-    prompt_too_long: "Troppo lungo: {chars} caratteri, il massimo e' {limit}. Whisper ignora il resto.",
+    prompt_too_long: "Troppo lungo: {chars} caratteri, il massimo \u00e8 {limit}. Whisper ignora il resto.",
     start: "Avvia la trascrizione",
     jobs: "Lavori",
     busy_note: "C'\u00e8 una trascrizione in corso: tutto il resto \u00e8 sospeso finch\u00e9 non finisce, o finch\u00e9 non la interrompi.",
@@ -429,7 +437,7 @@ const I18N = {
     summary_style_combined: "una richiesta",
     summary_style_split: "una per sezione",
     summary_template: "Quali sezioni",
-    summary_template_auto: "quelle di cui si e' parlato",
+    summary_template_auto: "quelle di cui si \u00e8 parlato",
     summary_template_own: "Le mie sezioni",
     summary_template_mine: "le mie sezioni\u2026",
     summary_template_help: "Una sezione per riga: l'intestazione, due punti, e cosa ci va sotto. Due come minimo, dodici come massimo. Restringere le sezioni restringe anche la lettura \u2014 un passaggio a cui non si chiedono le opinioni non le scrive.",
@@ -440,7 +448,15 @@ const I18N = {
     copy: "Copia",
     copied: "Copiato negli appunti.",
     copy_failed: "Non copiato: il browser ha rifiutato.",
-    summary_queued: "In coda, dietro a quello che sta gia' girando.",
+    summary_queued: "In coda, dietro a quello che sta gi\u00e0 girando.",
+    summary_queued_next: "In coda: parte tra un attimo.",
+    has_summary: "riassunto",
+    copies_title: "La stessa registrazione, trascritta {count} volte.",
+    notes_unsaved_title: "Note non salvate",
+    notes_unsaved_body: "Le note di \u201c{title}\u201d sono cambiate e non sono salvate.",
+    notes_discard: "Scarta",
+    diarize_not_installed: "Chi dice cosa non \u00e8 disponibile su questo server.",
+    diarize_no_model: "Chi dice cosa \u00e8 installato su questo server ma non ancora configurato.",
     summary_running: "Lo sto scrivendo\u2026 {stage}",
     summary_failed: "Non riassunto: {error}",
     summary_engine_extractive: "nessun modello: le frasi che reggono la trascrizione",
@@ -451,7 +467,7 @@ const I18N = {
     confirm_delete_summary_detail: "La trascrizione resta intatta: puoi chiederne un altro quando vuoi.",
     confirm_delete_summary_ok: "Elimina il riassunto",
     no_segments: "Questa voce non ha timestamp.",
-    notes_placeholder: "Cosa e' stato deciso, cosa fare, chi deve cosa.",
+    notes_placeholder: "Cosa \u00e8 stato deciso, cosa fare, chi deve cosa.",
     save_notes: "Salva le note",
     notes_saved: "Salvate.",
     notes_failed: "Non salvate: {error}",
@@ -480,7 +496,7 @@ const I18N = {
     stop_job: "ferma",
     confirm_stop_job: "Fermo questa trascrizione?",
     confirm_stop_job_body: "\"{title}\" si ferma e in libreria non arriva nulla.",
-    confirm_stop_job_detail: "Si ferma al prossimo avanzamento riportato dal motore: pochi secondi con faster-whisper, e non prima della fine del file con OpenVINO, che non ne riporta nessuno. La registrazione resta sul server in entrambi i casi, quindi si puo' rimettere in coda.",
+    confirm_stop_job_detail: "Si ferma al prossimo avanzamento riportato dal motore: pochi secondi con faster-whisper, e non prima della fine del file con OpenVINO, che non ne riporta nessuno. La registrazione resta sul server in entrambi i casi, quindi si pu\u00f2 rimettere in coda.",
     confirm_stop_job_ok: "Ferma",
     clear_finished: "svuota i finiti",
     confirm_clear_finished: "Svuoto i lavori finiti?",
@@ -490,7 +506,7 @@ const I18N = {
     level_label: "Livello in ingresso",
     trace_label: "Gli ultimi cinque secondi",
     wave_label: "Quanto è forte la registrazione, dall'inizio alla fine",
-    recording_silent: "Quella registrazione non e' mai salita sopra il silenzio: controlla che sia il microfono giusto prima di fidarti della prossima.",
+    recording_silent: "Quella registrazione non \u00e8 mai salita sopra il silenzio: controlla che sia il microfono giusto prima di fidarti della prossima.",
     no_file: "Scegli prima un file, o registra qualcosa.",
     uploading: "Caricamento...",
     terms: "{n} termini",
@@ -604,8 +620,8 @@ const I18N = {
     sub_from_preset: "du preset",
     download_srt: "sous-titres (.srt)",
     download_vtt: "sous-titres (.vtt)",
-    diarize_not_installed: "N\u00e9cessite pyannote, qui n'est pas install\u00e9 sur cette machine : pip install \"audio-transcriber-ov[diarize]\"",
-    diarize_no_model: "pyannote est install\u00e9 mais n'a pas de mod\u00e8le : d\u00e9finissez HUGGINGFACE_TOKEN sur le serveur, ou placez une configuration locale.",
+    diarize_not_installed_how: "N\u00e9cessite pyannote, qui n'est pas install\u00e9 sur cette machine : pip install \"audio-transcriber-ov[diarize]\"",
+    diarize_no_model_how: "pyannote est install\u00e9 mais n'a pas de mod\u00e8le : d\u00e9finissez HUGGINGFACE_TOKEN sur le serveur, ou placez une configuration locale.",
     speakers: "Locuteurs, si connus",
     keywords: "Jeux de mots-cl\u00e9s",
     keywords_help: "Les termes que la transcription doit bien reconna\u00eetre : noms, sigles, jargon. Choisissez les jeux adapt\u00e9s \u00e0 cet enregistrement.",
@@ -683,6 +699,14 @@ const I18N = {
     copied: "Copi\u00e9 dans le presse-papiers.",
     copy_failed: "Non copi\u00e9 : le navigateur a refus\u00e9.",
     summary_queued: "En attente, derri\u00e8re ce qui tourne d\u00e9j\u00e0.",
+    summary_queued_next: "En attente : il d\u00e9marre dans un instant.",
+    has_summary: "r\u00e9sum\u00e9",
+    copies_title: "Le m\u00eame enregistrement, transcrit {count} fois.",
+    notes_unsaved_title: "Notes non enregistr\u00e9es",
+    notes_unsaved_body: "Les notes de \u00ab {title} \u00bb ont chang\u00e9 et ne sont pas enregistr\u00e9es.",
+    notes_discard: "Ignorer",
+    diarize_not_installed: "\u00ab Qui dit quoi \u00bb n\u2019est pas disponible sur ce serveur.",
+    diarize_no_model: "\u00ab Qui dit quoi \u00bb est install\u00e9 sur ce serveur mais pas encore configur\u00e9.",
     summary_running: "En cours d'\u00e9criture\u2026 {stage}",
     summary_failed: "R\u00e9sum\u00e9 impossible : {error}",
     summary_engine_extractive: "aucun mod\u00e8le : les phrases qui portent la transcription",
@@ -846,8 +870,8 @@ const I18N = {
     sub_from_preset: "aus dem Preset",
     download_srt: "Untertitel (.srt)",
     download_vtt: "Untertitel (.vtt)",
-    diarize_not_installed: "Erfordert pyannote, das auf dieser Maschine nicht installiert ist: pip install \"audio-transcriber-ov[diarize]\"",
-    diarize_no_model: "pyannote ist installiert, hat aber kein Modell: HUGGINGFACE_TOKEN auf dem Server setzen, oder eine lokale Konfiguration bereitstellen.",
+    diarize_not_installed_how: "Erfordert pyannote, das auf dieser Maschine nicht installiert ist: pip install \"audio-transcriber-ov[diarize]\"",
+    diarize_no_model_how: "pyannote ist installiert, hat aber kein Modell: HUGGINGFACE_TOKEN auf dem Server setzen, oder eine lokale Konfiguration bereitstellen.",
     speakers: "Sprecher, falls bekannt",
     keywords: "Schl\u00fcsselwort-Sets",
     keywords_help: "Begriffe, die die Transkription richtig erfassen soll: Namen, Abk\u00fcrzungen, Fachjargon. W\u00e4hlen Sie die zu dieser Aufnahme passenden Sets.",
@@ -925,6 +949,14 @@ const I18N = {
     copied: "In die Zwischenablage kopiert.",
     copy_failed: "Nicht kopiert: Der Browser hat abgelehnt.",
     summary_queued: "In der Warteschlange, hinter dem, was bereits l\u00e4uft.",
+    summary_queued_next: "In der Warteschlange: Es beginnt gleich.",
+    has_summary: "Zusammenfassung",
+    copies_title: "Dieselbe Aufnahme, {count}-mal transkribiert.",
+    notes_unsaved_title: "Nicht gespeicherte Notizen",
+    notes_unsaved_body: "Die Notizen zu \u201e{title}\u201c haben sich ge\u00e4ndert und sind nicht gespeichert.",
+    notes_discard: "Verwerfen",
+    diarize_not_installed: "\u201eWer sagt was\u201c ist auf diesem Server nicht verf\u00fcgbar.",
+    diarize_no_model: "\u201eWer sagt was\u201c ist auf diesem Server installiert, aber noch nicht eingerichtet.",
     summary_running: "Wird geschrieben\u2026 {stage}",
     summary_failed: "Konnte nicht zusammengefasst werden: {error}",
     summary_engine_extractive: "kein Modell: die S\u00e4tze, die die Transkription tragen",
@@ -1049,7 +1081,8 @@ function t(key, values = {}) {
    says plainly what is NOT touched — "forget this job" once read as "delete
    the transcription", which is exactly the confusion worth spelling out.
    Resolves to false when refused, to the typed string when it asks for one. */
-function ask({ title, body, detail = "", confirmLabel, danger = true, input = null }) {
+function ask({ title, body, detail = "", confirmLabel, danger = true, input = null,
+              alternative = null }) {
   const dialog = $("ask");
   $("ask-title").textContent = title;
   $("ask-body").textContent = body;
@@ -1060,6 +1093,10 @@ function ask({ title, body, detail = "", confirmLabel, danger = true, input = nu
   okButton.textContent = confirmLabel;
   okButton.classList.toggle("danger", danger);
   okButton.classList.toggle("send", !danger);
+  // A third answer, when there is one: resolves to "alt".
+  const altButton = $("ask-alt");
+  altButton.hidden = !alternative;
+  altButton.textContent = alternative || "";
 
   const field = $("ask-field");
   field.hidden = !input;
@@ -1071,14 +1108,17 @@ function ask({ title, body, detail = "", confirmLabel, danger = true, input = nu
   return new Promise((resolve) => {
     const finish = (answer) => {
       okButton.removeEventListener("click", onOk);
+      altButton.removeEventListener("click", onAlt);
       $("ask-cancel").removeEventListener("click", onCancel);
       dialog.removeEventListener("close", onCancel);
       dialog.close();
       resolve(answer);
     };
     const onOk = () => finish(input ? $("ask-input").value.trim() || false : true);
+    const onAlt = () => finish("alt");
     const onCancel = () => finish(false);
     okButton.addEventListener("click", onOk);
+    altButton.addEventListener("click", onAlt);
     $("ask-cancel").addEventListener("click", onCancel);
     dialog.addEventListener("close", onCancel);
     dialog.showModal();
@@ -1542,7 +1582,7 @@ wireTabs($("source-tabs"), ["tab-file", "tab-record"],
 function chooseFile(file, note) {
   selectedFile = file || null;
   $("file-name").textContent = file && !note
-    ? `${file.name} (${Math.round(file.size / 1e6)} MB)` : "";
+    ? `${file.name} (${bytes(file.size)})` : "";
   if (note) $("record-hint").textContent = note;
   if (file && !$("title").value.trim()) {
     $("title").value = file.name.replace(/\.[^.]+$/, "");
@@ -1742,14 +1782,18 @@ async function startRecording() {
     return;
   }
   const mimeType = recorderMimeType();
-  recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
+  /* Held here and not only in the module's `recorder`: stopRecording() clears
+     that at once, and the "stop" event always arrives after it, so a handler
+     reading `recorder` found null and threw the recording away. */
+  const current = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
+  recorder = current;
   recordedChunks = [];
-  recorder.addEventListener("dataavailable", (event) => {
+  current.addEventListener("dataavailable", (event) => {
     if (event.data && event.data.size) recordedChunks.push(event.data);
   });
-  recorder.addEventListener("stop", () => {
+  current.addEventListener("stop", () => {
     for (const track of stream.getTracks()) track.stop();
-    const type = recorder.mimeType || mimeType || "audio/webm";
+    const type = current.mimeType || mimeType || "audio/webm";
     const blob = new Blob(recordedChunks, { type });
     const stamp = new Date().toISOString().slice(0, 16).replace(/[-:]/g, "").replace("T", "-");
     const name = `recording-${stamp}.${extensionFor(type)}`;
@@ -1768,7 +1812,7 @@ async function startRecording() {
     preview.hidden = false;
   });
   watchLevel(stream);
-  recorder.start();
+  current.start();
   recordStarted = Date.now();
   $("record").textContent = t("record_stop");
   $("record").classList.add("recording");
@@ -1860,6 +1904,14 @@ function announceJobs(jobs) {
    and downloading its transcript cost nothing and are the obvious thing to do
    while waiting. */
 let pageBusy = false;
+/* Whether a transcription or a summary is running right now, as the last poll
+   of the queue saw it: a job "queued behind what is running" needs something
+   to be running. */
+let somethingRunning = false;
+
+function queuedText() {
+  return t(somethingRunning ? "summary_queued" : "summary_queued_next");
+}
 
 function applyBusy() {
   const why = pageBusy ? t("busy_why") : "";
@@ -1879,7 +1931,9 @@ function applyBusy() {
   // to what the answer says, not to enabled: the count of voices is asked by
   // two of the four answers and by none of the others.
   if (!pageBusy) applyOutput();
-  for (const id of ["summary-run", "summary-delete", "notes-save",
+  /* Not the notes: saving a few kilobytes costs the machine nothing, and a
+     transcription can run for an hour and a half. */
+  for (const id of ["summary-run", "summary-delete",
                     "viewer-rename", "viewer-delete"]) {
     $(id).disabled = pageBusy;
     $(id).title = why;
@@ -2023,6 +2077,7 @@ async function refreshJobs() {
   const working = data.jobs.filter((job) => job.status === "queued"
                                             || job.status === "running");
   const busy = working.length > 0;
+  somethingRunning = data.jobs.some((job) => job.status === "running");
   // Before the rows are drawn, so they are drawn in the right state.
   setBusy(busy, working.length ? working[working.length - 1].kind : null);
   renderJobs(data.jobs);
@@ -2232,12 +2287,18 @@ async function refreshLibrary() {
     const facts = [entry.folder, (entry.created_at || "").slice(0, 16).replace("T", " "),
       duration(entry.duration_seconds), entry.words ? t("words", { n: entry.words }) : "",
       entry.model, (entry.vocabulary || []).join(", "),
+      entry.has_summary ? t("has_summary") : "",
       entry.has_notes ? t("has_notes") : ""].filter(Boolean).join(" · ");
+    /* One file transcribed twice is two rows with one name: the count goes in
+       front of the title, where a narrow column does not cut it off. */
+    const copies = entry.copies > 1 ? entry.copies : 0;
     const open = el("button", { type: "button", className: "link", textContent: t("open") });
     open.addEventListener("click", () => openEntry(entry.id));
     box.append(el("div", { className: "row" }, [
       el("div", {}, [
-        el("div", { className: "title", textContent: entry.title }),
+        el("div", { className: "title",
+                    textContent: copies ? `×${copies}  ${entry.title}` : entry.title,
+                    title: copies ? t("copies_title", { count: copies }) : "" }),
         // Under the name, because it says what the recording is in a way the
         // facts under it cannot: an hour of meeting and an hour of empty room
         // have the same date, the same length and the same model.
@@ -2316,11 +2377,52 @@ function showOwnTemplate() {
 
 $("summary-template").addEventListener("change", showOwnTemplate);
 
+/* The few pieces of markdown a summary is written in - two levels of heading,
+   a list, emphasis - drawn as what they are. Built from text nodes, never
+   innerHTML: the page is a model's output. Anything else stays as written. */
+function drawMarkdown(box, text) {
+  box.textContent = "";
+  let list = null;
+  let paragraph = null;
+  const inline = (line) => {
+    const parts = [];
+    const pattern = /\*\*([^*]+)\*\*|(?<!\w)_([^_]+)_(?!\w)/g;
+    let last = 0;
+    for (const match of line.matchAll(pattern)) {
+      parts.push(line.slice(last, match.index));
+      parts.push(el(match[1] ? "strong" : "em", { textContent: match[1] || match[2] }));
+      last = match.index + match[0].length;
+    }
+    parts.push(line.slice(last));
+    return parts.filter(Boolean);
+  };
+  for (const raw of String(text || "").split("\n")) {
+    const line = raw.trimEnd();
+    const heading = /^(#{1,3})\s+(.*)$/.exec(line);
+    const item = /^\s*[-*]\s+(.*)$/.exec(line);
+    if (!item) list = null;
+    if (!line.trim() || heading || item) paragraph = null;
+    if (heading) {
+      box.append(el(`h${heading[1].length + 2}`, {}, inline(heading[2])));
+    } else if (item) {
+      if (!list) box.append(list = el("ul"));
+      list.append(el("li", {}, inline(item[1])));
+    } else if (line.trim()) {
+      if (paragraph) paragraph.append(" ");
+      else box.append(paragraph = el("p"));
+      paragraph.append(...inline(line.trim()));
+    }
+  }
+}
+
+/* The markdown as it was written, for the copy button: the page on screen has
+   lost its hashes and underscores, and whoever pastes it wants them. */
+let summarySource = "";
+
 function showSummary(entry) {
   summaryPresent = Boolean((entry.summary || "").trim());
-  /* The summary is markdown, and markdown is readable as it stands: rendering
-     it would mean shipping a parser to show four headings and a list. */
-  $("summary-text").textContent = entry.summary || "";
+  summarySource = entry.summary || "";
+  drawMarkdown($("summary-text"), summarySource);
   $("summary-text").hidden = !summaryPresent;
   $("summary-empty").hidden = summaryPresent;
   $("summary-status").textContent = "";
@@ -2389,7 +2491,10 @@ async function openEntry(id) {
   const transcription = entry.transcription || {};
   const audio = entry.audio || {};
   $("viewer-title").textContent = entry.title || entry.id;
-  $("viewer-meta").textContent = [entry.id, duration(audio.duration_seconds),
+  // The id is the folder's name: worth finding, not worth reading.
+  $("viewer-title").title = entry.id;
+  $("viewer-meta").textContent = [entry.folder, when(entry.created_at),
+    duration(audio.duration_seconds),
     transcription.model, transcription.backend,
     (transcription.vocabulary || []).join(", ")].filter(Boolean).join(" · ");
   $("viewer-text").textContent = entry.transcript || "";
@@ -2401,6 +2506,7 @@ async function openEntry(id) {
      not apply to what is being read. */
   $("viewer-speakers").hidden = openSpeakers.length === 0;
   $("notes-text").value = entry.notes || "";
+  notesSaved = $("notes-text").value;
   $("notes-status").textContent = "";
   $("viewer-status").textContent = "";
   $("viewer-status").className = "note";
@@ -2434,6 +2540,7 @@ function closeViewer() {
   summaryWatch = null;
   showSummaryProgress(null);
   $("summary-run").disabled = pageBusy;
+  openEntryId = null;
   $("viewer").close();
 }
 
@@ -2469,7 +2576,7 @@ function watchSummaryJob(jobId) {
       return;
     }
     if (job.status === "queued") {
-      $("summary-status").textContent = t("summary_queued");
+      $("summary-status").textContent = queuedText();
       showSummaryProgress(null);
     } else if (job.status === "running") {
       const clock = duration(job.running_seconds);
@@ -2491,7 +2598,7 @@ function watchSummaryJob(jobId) {
 
 $("summary-run").addEventListener("click", async () => {
   $("summary-run").disabled = true;
-  $("summary-status").textContent = t("summary_queued");
+  $("summary-status").textContent = queuedText();
   const response = await fetch(api(`library/${encodeURIComponent(openEntryId)}/summary`), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -2556,7 +2663,7 @@ function copyPane(text, statusId) {
 $("copy-transcript").addEventListener(
   "click", copyPane(() => $("viewer-text").textContent || "", "viewer-status"));
 $("copy-summary").addEventListener(
-  "click", copyPane(() => $("summary-text").textContent || "", "summary-status"));
+  "click", copyPane(() => summarySource, "summary-status"));
 $("copy-notes").addEventListener(
   "click", copyPane(() => $("notes-text").value || "", "notes-status"));
 
@@ -2573,25 +2680,74 @@ function copyWithFallback(text) {
   area.remove();
 }
 
-$("viewer-close").addEventListener("click", closeViewer);
+$("viewer-close").addEventListener("click", async () => {
+  if (await leaveNotes()) closeViewer();
+});
+// Esc: the same question before the dialog goes.
+$("viewer").addEventListener("cancel", async (event) => {
+  if (!notesChanged()) return;
+  event.preventDefault();
+  if (await leaveNotes()) closeViewer();
+});
 $("viewer").addEventListener("close", () => $("viewer-audio").pause());
 
-$("notes-save").addEventListener("click", async () => {
-  const response = await fetch(api(`library/${encodeURIComponent(openEntryId)}/notes`), {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ notes: $("notes-text").value }),
-  });
+/* What the notes said when they were last read or saved. Anything else in the
+   box is typing that leaving the entry would lose, so leaving asks first. */
+let notesSaved = "";
+const notesChanged = () => openEntryId !== null && $("notes-text").value !== notesSaved;
+
+async function saveNotes() {
+  const text = $("notes-text").value;
   const box = $("notes-status");
+  let response;
+  try {
+    response = await fetch(api(`library/${encodeURIComponent(openEntryId)}/notes`), {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ notes: text }),
+    });
+  } catch (failure) {
+    box.textContent = t("notes_failed", { error: failure.message });
+    box.className = "error";
+    return false;
+  }
   if (response.ok) {
+    notesSaved = text;
     box.textContent = t("notes_saved");
     box.className = "ok";
     refreshLibrary();
-  } else {
-    const detail = await response.json().catch(() => ({}));
-    box.textContent = t("notes_failed", { error: detail.detail || response.statusText });
-    box.className = "error";
+    return true;
   }
+  const detail = await response.json().catch(() => ({}));
+  box.textContent = t("notes_failed", { error: detail.detail || response.statusText });
+  box.className = "error";
+  return false;
+}
+
+/* True when it is fine to leave the entry on screen: nothing unsaved, the
+   notes saved, or thrown away on purpose. The window asks the same question
+   when you click away from notes you have not saved. */
+async function leaveNotes() {
+  if (!notesChanged()) return true;
+  const answer = await ask({
+    title: t("notes_unsaved_title"),
+    body: t("notes_unsaved_body", { title: $("viewer-title").textContent }),
+    confirmLabel: t("save_notes"),
+    danger: false,
+    alternative: t("notes_discard"),
+  });
+  if (answer === "alt") {
+    $("notes-text").value = notesSaved;
+    return true;
+  }
+  return answer ? saveNotes() : false;
+}
+
+$("notes-save").addEventListener("click", saveNotes);
+window.addEventListener("beforeunload", (event) => {
+  if (!notesChanged()) return;
+  event.preventDefault();
+  event.returnValue = "";
 });
 
 $("viewer-rename").addEventListener("click", async () => {
@@ -2883,6 +3039,8 @@ async function start() {
       if ($(id).checked) $("output-text").checked = true;
     }
     $("diarize-note").textContent = t(`diarize_${diarization.reason}`);
+    // How to fix it is for whoever runs the server: there, not in the text.
+    $("diarize-note").title = t(`diarize_${diarization.reason}_how`);
     $("diarize-note").hidden = false;
   }
   applyOutput();

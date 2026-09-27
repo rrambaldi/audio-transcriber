@@ -341,6 +341,7 @@
   </div>
   <menu>
     <button type="button" class="button" id="ask-cancel"></button>
+    <button type="button" class="button" id="ask-alt" hidden></button>
     <button type="button" class="button danger" id="ask-ok"></button>
   </menu>
 </dialog>
@@ -395,7 +396,7 @@
        class="segments" tabindex="0" hidden></div>
   <div id="viewer-summary" role="tabpanel" aria-labelledby="tab-summary" hidden>
     <div class="with-copy">
-      <div id="summary-text" class="prose"></div>
+      <div id="summary-text" class="prose rendered" tabindex="0"></div>
       <button type="button" class="button copy" id="copy-summary"></button>
     </div>
     <p class="note" id="summary-empty" data-t="summary_none" hidden>No summary yet. The transcript is summarised on this machine \u2014 nothing is sent anywhere.</p>

@@ -416,6 +416,9 @@ def register_routes(app):
         """The entries, newest first; ``q`` searches transcripts and notes."""
         library = library_of(request)
         found = library.search(q) if q.strip() else library.entries()
+        # One file filed twice (two models compared, say) is two rows with one
+        # name; the row says how many there are, as the window's does.
+        copies = library.copies()
         entries = []
         for entry in found:
             try:
@@ -437,6 +440,8 @@ def register_routes(app):
                 "diarized": transcription.get("diarized"),
                 "vocabulary": transcription.get("vocabulary"),
                 "has_notes": entry.has_written_notes(),
+                "has_summary": entry.has_summary(),
+                "copies": len(copies.get(entry.id, ())) or 1,
                 "subtitles": entry.subtitles(),
                 # Only what has already been measured. An index page that
                 # decoded forty recordings to draw itself would be an index

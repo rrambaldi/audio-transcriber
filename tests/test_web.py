@@ -647,6 +647,18 @@ def test_notes_are_saved_and_show_up_in_the_listing(client, entry):
     assert client.get("/api/library").json()["entries"][0]["has_notes"] is True
 
 
+def test_the_listing_says_which_entries_have_a_summary_and_copies(client, queue,
+                                                                   entry, tmp_path):
+    [row] = client.get("/api/library").json()["entries"]
+    assert row["has_summary"] is False and row["copies"] == 1
+    entry.write_summary("# Riassunto\n")
+    # The same recording filed a second time, as "keep" in the window does.
+    queue.library.create(source=str(tmp_path / "board.wav"), title="Board meeting")
+    rows = client.get("/api/library").json()["entries"]
+    assert [row["copies"] for row in rows] == [2, 2]
+    assert sorted(row["has_summary"] for row in rows) == [False, True]
+
+
 def test_notes_beyond_the_limit_are_refused(client, entry):
     response = client.put(f"/api/library/{entry.id}/notes", json={"notes": "x" * 200_000})
     assert response.status_code == 413
