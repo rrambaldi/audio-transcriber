@@ -15,14 +15,17 @@ because a transcription that takes an hour is easier to watch than to wait for.
 **The library is the page.** The recordings are listed on the left and the one
 being read sits beside them on the right, so a click on the next row reads the
 next recording; on a wide screen the page opens on the entry read last in that
-browser, or on the newest. Work under way is the first group of the list, *In
-progress* — what is running, what is waiting and what failed, with the
-machine's CPU and memory while something runs and the server's messages one
-click away; a job that worked leaves the group, and its entry is the first row
-of the library under it. On a phone, or anything narrower than two columns,
-the list comes first and an entry is read across the whole width, with
-*‹ Library* to go back. This is the layout the desktop window has had since
-September.
+browser, or on the newest. The search comes first, above everything else in
+the column: finding a meeting again is what somebody coming back does. Work
+under way is the first group of the list, *In progress* — what is running and
+what is waiting, with the machine's CPU and memory while something runs and
+the server's messages one click away. What did not go through is one line,
+*3 did not go through · show*, whose rows open on request and stay open while
+the page refreshes; a job that worked leaves the group, and its entry is the
+first row of the library under it. On a phone, or anything narrower than two
+columns, the list comes first and an entry is read across the whole width,
+with *‹ Library* — a full 44 px touch target — to go back. This is the layout
+the desktop window has had since September.
 
 - **Two ways in.** *New transcription* and *Record*, at the top of the list,
   open one dialog: pick or drop a file, or record straight from the browser. A

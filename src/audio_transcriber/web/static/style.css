@@ -207,6 +207,8 @@ main { max-width: 80rem; margin: 0 auto; }
 .group.idle .machine { display: none; }
 .group #jobs-status { margin: 0 0 0.6rem; }
 #jobs .row:last-child { border-bottom: none; }
+/* What did not go through: one line, and its rows only when asked for. */
+.finished-line { display: flex; flex-wrap: wrap; gap: 0.4rem 1.2rem; margin: 0.2rem 0 0.8rem; }
 
 /* The reader keeps to the height of the screen, so its buttons never fall
    below it while the list beside it scrolls. */
@@ -261,7 +263,19 @@ details.downloads .menu {
 @media (max-width: 55rem) {
   .columns { grid-template-columns: minmax(0, 1fr); }
   .reader { position: static; max-height: none; overflow: visible; padding-top: 0; }
-  .reader-back { display: block; }
+  .reader-back { display: block; margin-bottom: 0.4rem; }
+  /* The only way back to the list, on the device where a finger is least
+     exact: a full touch target, still drawn as the link it is. */
+  .reader-back .link {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    padding-right: 0.75rem;
+    border-bottom: none;
+    text-decoration: underline;
+    text-decoration-color: var(--rule);
+    text-underline-offset: 0.35em;
+  }
   .reader .prose, .reader .segments { max-height: 60vh; min-height: 0; }
   body.reading .shelf { display: none; }
   body:not(.reading) .reader { display: none; }

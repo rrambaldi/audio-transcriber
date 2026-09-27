@@ -785,3 +785,19 @@ def test_the_transcript_s_copy_button_goes_away_with_its_panel(page, script):
     body = script.split("function showViewerTab(", 1)[1].split("\n}", 1)[0]
     assert '"viewer-transcript"' in body
     assert '"viewer-text"' not in body, "hiding the box would leave the button"
+
+
+def test_the_search_comes_before_the_work_under_way(page):
+    """Finding a meeting again is what somebody coming back does: three
+    failed jobs above the search used to push it off the first screen."""
+    assert page.index('id="search"') < page.index('id="working-group"')
+
+
+def test_what_did_not_go_through_folds_into_one_line_that_stays_open(script):
+    """One line with the count, opened on request, and still open after the
+    poll draws the list again three seconds later."""
+    body = script.split("function renderJobs(", 1)[1].split("\nfunction ", 1)[0]
+    assert '"failed", "cancelled"' in body
+    assert 'hidden: !finishedOpen' in body
+    assert 'setAttribute("aria-expanded"' in body
+    assert "let finishedOpen = false;" in script.split("function renderJobs(", 1)[0]

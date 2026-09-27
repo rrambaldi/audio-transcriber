@@ -255,6 +255,9 @@ const I18N = {
     confirm_stop_job_detail: "It stops at the engine's next progress report - seconds with faster-whisper, and not until the whole file is done with OpenVINO, which reports none. The recording stays on the server either way, so it can be queued again.",
     confirm_stop_job_ok: "Stop it",
     clear_finished: "clear the finished",
+    finished_one: "1 did not go through",
+    finished_many: "{count} did not go through",
+    finished_show: "show",
     confirm_clear_finished: "Clear the finished jobs?",
     confirm_clear_finished_body: "{count} rows disappear from Jobs.",
     confirm_clear_finished_detail: "The transcriptions stay in the library: nothing is deleted.",
@@ -515,6 +518,9 @@ const I18N = {
     confirm_stop_job_detail: "Si ferma al prossimo avanzamento riportato dal motore: pochi secondi con faster-whisper, e non prima della fine del file con OpenVINO, che non ne riporta nessuno. La registrazione resta sul server in entrambi i casi, quindi si pu\u00f2 rimettere in coda.",
     confirm_stop_job_ok: "Ferma",
     clear_finished: "svuota i finiti",
+    finished_one: "1 non riuscito",
+    finished_many: "{count} non riusciti",
+    finished_show: "mostra",
     confirm_clear_finished: "Svuoto i lavori finiti?",
     confirm_clear_finished_body: "{count} righe spariscono da Lavori.",
     confirm_clear_finished_detail: "Le trascrizioni restano in libreria: non si cancella nulla.",
@@ -773,6 +779,9 @@ const I18N = {
     confirm_stop_job_detail: "Elle s'arr\u00eate au prochain avancement signal\u00e9 par le moteur : quelques secondes avec faster-whisper, et pas avant la fin du fichier avec OpenVINO, qui n'en signale aucun. L'enregistrement reste sur le serveur dans les deux cas, il peut donc \u00eatre remis en attente.",
     confirm_stop_job_ok: "Arr\u00eater",
     clear_finished: "vider les termin\u00e9s",
+    finished_one: "1 non abouti",
+    finished_many: "{count} non aboutis",
+    finished_show: "afficher",
     confirm_clear_finished: "Vider les travaux termin\u00e9s ?",
     confirm_clear_finished_body: "{count} lignes disparaissent de Travaux.",
     confirm_clear_finished_detail: "Les transcriptions restent dans la biblioth\u00e8que : rien n'est supprim\u00e9.",
@@ -1031,6 +1040,9 @@ const I18N = {
     confirm_stop_job_detail: "Es stoppt beim n\u00e4chsten Fortschrittsbericht der Engine - Sekunden bei faster-whisper, und bei OpenVINO, das keinen liefert, erst wenn die ganze Datei fertig ist. Die Aufnahme bleibt so oder so auf dem Server, sie kann also erneut eingereiht werden.",
     confirm_stop_job_ok: "Stoppen",
     clear_finished: "fertige leeren",
+    finished_one: "1 nicht abgeschlossen",
+    finished_many: "{count} nicht abgeschlossen",
+    finished_show: "anzeigen",
     confirm_clear_finished: "Fertige Auftr\u00e4ge leeren?",
     confirm_clear_finished_body: "{count} Zeilen verschwinden aus Auftr\u00e4ge.",
     confirm_clear_finished_detail: "Die Transkriptionen bleiben in der Bibliothek: Nichts wird gel\u00f6scht.",
@@ -2026,16 +2038,45 @@ function setBusy(busy, kind) {
   applyBusy();
 }
 
+/* Whether the jobs that did not go through are shown. Kept outside the
+   drawing: the list is drawn again at every poll, and a disclosure that closed
+   itself every three seconds could not be read. */
+let finishedOpen = false;
+
 function renderJobs(allJobs) {
   const box = $("jobs");
   announceJobs(allJobs);
+  /* Drawn again under the keyboard: whoever had the line focused keeps it. */
+  const hadFocus = document.activeElement && document.activeElement.id === "finished-toggle";
   box.textContent = "";
   /* What is under way, waiting, or went wrong. A job that worked leaves the
      group, as it leaves the window's "In progress": its entry is the first
      row of the library right under it. */
   const jobs = allJobs.filter((job) => job.status !== "done");
   if (!jobs.length) return;
+  /* What went wrong is one line, opened on request: somebody coming back to
+     find a meeting should meet the library, not a column of red rows. What is
+     running or waiting stays in sight. */
   const finished = jobs.filter((job) => ["failed", "cancelled"].includes(job.status));
+  for (const job of jobs) {
+    if (!finished.includes(job)) box.append(jobRow(job));
+  }
+  if (!finished.length) return;
+  const rows = el("div", { id: "finished-jobs", hidden: !finishedOpen },
+                  finished.map(jobRow));
+  const label = () => `${t(finished.length === 1 ? "finished_one" : "finished_many",
+                           { count: finished.length })} · ${t(finishedOpen ? "hide" : "finished_show")}`;
+  const toggle = el("button", { type: "button", className: "link", id: "finished-toggle",
+                                textContent: label() });
+  toggle.setAttribute("aria-expanded", String(finishedOpen));
+  toggle.setAttribute("aria-controls", "finished-jobs");
+  toggle.addEventListener("click", () => {
+    finishedOpen = !finishedOpen;
+    rows.hidden = !finishedOpen;
+    toggle.setAttribute("aria-expanded", String(finishedOpen));
+    toggle.textContent = label();
+  });
+  const line = el("p", { className: "meta finished-line" }, [toggle]);
   if (finished.length > 1) {
     const clear = el("button", { type: "button", className: "link",
                                  textContent: t("clear_finished"),
@@ -2053,96 +2094,99 @@ function renderJobs(allJobs) {
         fetch(api(`jobs/${job.id}`), { method: "DELETE" })));
       refreshJobs();
     });
-    box.append(el("p", { className: "meta" }, [clear]));
+    line.append(clear);
   }
-  for (const job of jobs) {
-    /* What the recording is, before anything has been done to it - how big,
-       and when it was made - because a queue of a dozen files named by date
-       is told apart by those two before it is told apart by anything else.
-       A summary has none of them: no recording of its own, and the title of
-       the entry it reads, which made it the twin of the transcription that
-       produced that entry. It says what it is instead. */
-    const isSummary = job.kind === "summary";
-    const facts = [isSummary ? t("row_summary_of") : "",
-      duration(job.audio_duration), bytes(job.size_bytes),
-      when(job.source_created_at), job.model, job.language,
-      job.vocabularies.join(", "),
-      job.words ? t("words", { n: job.words }) : "",
-      job.elapsed_seconds ? t("took", { time: duration(job.elapsed_seconds) }) : ""]
-      .filter(Boolean).join(" · ");
-    const state = el("span", { className: `state${job.status === "failed" ? " failed" : ""}`,
-                               textContent: stateText(job) });
-    const meta = el("div", { className: "meta" }, [state]);
-    if (facts) meta.append(` · ${facts}`);
-    const actions = el("div", { className: "actions" });
-    const row = el("div", { className: "row" }, [
-      el("div", {}, [
-        el("div", { className: "title",
-                    textContent: isSummary
-                      ? t("row_summary_title", { title: job.title })
-                      : job.title }),
-        // Measured in the background while the row waits its turn, so a queue
-        // of half a dozen files named by date is told apart before any of
-        // them has been transcribed.
-        job.loudness && job.loudness.length ? waveDrawing(job.loudness) : null,
-        meta,
-        job.error ? el("div", { className: "error", textContent: job.error }) : null,
-      ]),
-      actions,
-    ]);
-    if (job.status === "done" && job.entry_id) {
-      const open = el("button", { type: "button", className: "link", textContent: t("view") });
-      open.addEventListener("click", () => openEntry(job.entry_id));
-      actions.append(open);
-    }
-    if (job.status === "held") {
-      const start = el("button", { type: "button", className: "link", textContent: t("start_job") });
-      start.addEventListener("click", async () => {
-        try {
-          await fetch(api(`jobs/${job.id}/start`), { method: "POST" });
-          refreshJobs();
-        } catch (error) {
-          console.error("Failed to start job:", error);
-        }
-      });
-      actions.append(start);
-    }
-    if (job.status === "queued" || job.status === "running") {
-      const stop = el("button", { type: "button", className: "link",
-                                  textContent: job.status === "running"
-                                    ? t("stop_job") : t("take_out_of_queue") });
-      stop.addEventListener("click", () => cancelJob(job));
-      actions.append(stop);
-    }
-    if (["done", "failed", "cancelled", "held"].includes(job.status)) {
-      const remove = el("button", { type: "button", className: "link",
-                                    textContent: t("remove_from_list"),
-                                    disabled: pageBusy && job.status !== "held",
-                                    title: (pageBusy && job.status !== "held") ? t("busy_why") : "" });
-      remove.addEventListener("click", async () => {
-        const sure = await ask({
-          title: t("confirm_remove_job"),
-          body: t("confirm_remove_job_body", { title: job.title }),
-          detail: job.entry_id ? t("confirm_remove_job_kept") : t("confirm_remove_job_failed"),
-          confirmLabel: t("confirm_remove_job_ok"),
-          danger: false,
-        });
-        if (!sure) return;
-        await fetch(api(`jobs/${job.id}`), { method: "DELETE" });
+  box.append(line, rows);
+  if (hadFocus) toggle.focus();
+}
+
+function jobRow(job) {
+  /* What the recording is, before anything has been done to it - how big,
+     and when it was made - because a queue of a dozen files named by date
+     is told apart by those two before it is told apart by anything else.
+     A summary has none of them: no recording of its own, and the title of
+     the entry it reads, which made it the twin of the transcription that
+     produced that entry. It says what it is instead. */
+  const isSummary = job.kind === "summary";
+  const facts = [isSummary ? t("row_summary_of") : "",
+    duration(job.audio_duration), bytes(job.size_bytes),
+    when(job.source_created_at), job.model, job.language,
+    job.vocabularies.join(", "),
+    job.words ? t("words", { n: job.words }) : "",
+    job.elapsed_seconds ? t("took", { time: duration(job.elapsed_seconds) }) : ""]
+    .filter(Boolean).join(" · ");
+  const state = el("span", { className: `state${job.status === "failed" ? " failed" : ""}`,
+                             textContent: stateText(job) });
+  const meta = el("div", { className: "meta" }, [state]);
+  if (facts) meta.append(` · ${facts}`);
+  const actions = el("div", { className: "actions" });
+  const row = el("div", { className: "row" }, [
+    el("div", {}, [
+      el("div", { className: "title",
+                  textContent: isSummary
+                    ? t("row_summary_title", { title: job.title })
+                    : job.title }),
+      // Measured in the background while the row waits its turn, so a queue
+      // of half a dozen files named by date is told apart before any of
+      // them has been transcribed.
+      job.loudness && job.loudness.length ? waveDrawing(job.loudness) : null,
+      meta,
+      job.error ? el("div", { className: "error", textContent: job.error }) : null,
+    ]),
+    actions,
+  ]);
+  if (job.status === "done" && job.entry_id) {
+    const open = el("button", { type: "button", className: "link", textContent: t("view") });
+    open.addEventListener("click", () => openEntry(job.entry_id));
+    actions.append(open);
+  }
+  if (job.status === "held") {
+    const start = el("button", { type: "button", className: "link", textContent: t("start_job") });
+    start.addEventListener("click", async () => {
+      try {
+        await fetch(api(`jobs/${job.id}/start`), { method: "POST" });
         refreshJobs();
-      });
-      actions.append(remove);
-    }
-    if (job.status === "running") {
-      row.append(el("div", { className: "bar", role: "progressbar",
-                             "aria-label": stateText(job),
-                             "aria-valuemin": 0, "aria-valuemax": 100,
-                             "aria-valuenow": job.progress }, [
-        el("span", { style: `width:${job.progress}%` }),
-      ]));
-    }
-    box.append(row);
+      } catch (error) {
+        console.error("Failed to start job:", error);
+      }
+    });
+    actions.append(start);
   }
+  if (job.status === "queued" || job.status === "running") {
+    const stop = el("button", { type: "button", className: "link",
+                                textContent: job.status === "running"
+                                  ? t("stop_job") : t("take_out_of_queue") });
+    stop.addEventListener("click", () => cancelJob(job));
+    actions.append(stop);
+  }
+  if (["done", "failed", "cancelled", "held"].includes(job.status)) {
+    const remove = el("button", { type: "button", className: "link",
+                                  textContent: t("remove_from_list"),
+                                  disabled: pageBusy && job.status !== "held",
+                                  title: (pageBusy && job.status !== "held") ? t("busy_why") : "" });
+    remove.addEventListener("click", async () => {
+      const sure = await ask({
+        title: t("confirm_remove_job"),
+        body: t("confirm_remove_job_body", { title: job.title }),
+        detail: job.entry_id ? t("confirm_remove_job_kept") : t("confirm_remove_job_failed"),
+        confirmLabel: t("confirm_remove_job_ok"),
+        danger: false,
+      });
+      if (!sure) return;
+      await fetch(api(`jobs/${job.id}`), { method: "DELETE" });
+      refreshJobs();
+    });
+    actions.append(remove);
+  }
+  if (job.status === "running") {
+    row.append(el("div", { className: "bar", role: "progressbar",
+                           "aria-label": stateText(job),
+                           "aria-valuemin": 0, "aria-valuemax": 100,
+                           "aria-valuenow": job.progress }, [
+      el("span", { style: `width:${job.progress}%` }),
+    ]));
+  }
+  return row;
 }
 
 async function refreshJobs() {

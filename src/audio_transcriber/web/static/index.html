@@ -42,6 +42,14 @@
         </p>
       </div>
 
+      <!-- The search first: finding a meeting again is what somebody coming
+           back does, and three failed jobs above it used to push it off the
+           first screen. -->
+      <div class="field search-field">
+        <label for="search" data-t="search_label">Search the transcripts</label>
+        <input type="search" id="search" name="search" autocomplete="off">
+      </div>
+
       <!-- ------------------------------------------------------ jobs -->
       <section class="group" id="working-group" aria-labelledby="working-title">
         <h3 id="working-title">
@@ -88,10 +96,6 @@
       </section>
 
       <!-- --------------------------------------------------- library -->
-      <div class="field search-field">
-        <label for="search" data-t="search_label">Search the transcripts</label>
-        <input type="search" id="search" name="search" autocomplete="off">
-      </div>
       <p class="note" id="library-status" aria-live="polite"></p>
       <div id="library"><p class="note" data-t="library_empty">No recording has been transcribed yet.</p></div>
     </section>
