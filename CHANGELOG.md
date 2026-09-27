@@ -124,6 +124,86 @@ All notable changes to this project are documented here. The format follows
 
 ### Changed
 
+- **The library is the web page.** The recordings are listed on the left and
+  the one being read sits beside them, opened by a click on its row - on a
+  wide screen the page opens on the entry read last in that browser. Work
+  under way is the first group of the list, *In progress*, with the machine's
+  meters while something runs; a job that worked leaves it. On a phone the
+  list comes first and an entry is read across the whole width, with
+  *‹ Library* to go back. The form that used to open the page, and the dialog
+  an entry was read in, are gone.
+
+- **A new transcription is a dialog** opened by *New transcription* or
+  *Record* at the top of the list, with the window's four questions on four
+  tabs - Result, Transcription, Subtitles, Keywords - and the start button
+  always in sight. A file dropped anywhere on the page opens it.
+
+- **A file can be queued while another is transcribing.** It waits its turn;
+  only summaries, and renaming or deleting entries, wait for the running job,
+  because they compete with it for the cores. Notes can be saved at any time.
+
+- **In the reader**, each tab keeps its own buttons, the five downloads are
+  one *Download…* menu, the recording's shape above the player is the seek
+  bar, and the summary is drawn as headings and lists instead of raw
+  markdown. A library row says when its entry has a summary, and `×2` in front
+  of the title when one file was transcribed twice. The line under the title
+  says where and when the recording was filed rather than its folder's name.
+
+- **The Italian is spelt properly.** The catalogue wrote "e'", "puo'",
+  "piu'" for "è", "può", "più" in 169 lines, and so did the Italian keyword
+  sets (whose terms are also what Whisper is prompted with); they have real
+  accents now.
+
+- **Qt's own buttons speak the interface language.** Save, Discard, Yes, No
+  and Cancel were in English whatever language the window was in; the
+  translations that ship with PySide6 are now loaded before the window is
+  built. *Name the speakers* says "Use these names" instead of OK.
+
+- **A finished job is announced by its title**, not by the name of its
+  folder, and somebody who watched the queue until it emptied is taken to the
+  transcript instead of being left in front of an empty list.
+
+- **The reading pane's title is the title.** The entry's folder name came
+  after it in brackets and took a line and a half of a long title; it is in
+  the title's tooltip now, and in *Details*.
+
+- **A copy renamed by hand is not lost under ×N.** When the transcriptions of
+  one recording have different titles, the *Version* menu and the row's
+  tooltip name them, and *Delete* on such a row says that only the
+  transcription being read goes and how many of the others stay.
+
+- **The running job's bar is a line**, 6 px and centred, instead of a grey
+  slab as tall as the row with "0%" squeezed into its edge.
+
+- **The About box opens on the mark, the name and the promise**, set by the
+  window and translated. It used to open on the README's banner, an English
+  picture promising an Intel iGPU.
+
+- **"Automatic" in the summary model menu says what it will use** when no
+  model fits in memory - the sentences that carry the transcript - instead of
+  only "no model fits".
+
+- **No commands or file names in the text on screen.** A missing component is
+  said in a sentence, with the `pip` command in the tooltip; a keyword set's
+  file name heads its tooltip rather than its label; "prompt" is "words
+  suggested to the engine"; *System* labels its folders in the interface
+  language and gives the load as "load 1.9 on 2 cores". The queue asks you to
+  press *Transcribe* in one place, not two, and talks of the window, not of a
+  tab that no longer exists.
+
+- **The selected row can be seen.** It was the accent's wash alone, 1.16:1 on
+  the list; it now has a 3 px rule in the accent down its left edge, in the
+  list and in the folder tree - which is also where the keyboard is.
+
+- **Tick boxes and radio buttons are drawn to be seen**: the field's rule as
+  their outline (3.17:1 light, 5.04:1 dark, where Fusion's box was 1.12:1),
+  filled in the accent when ticked. The icon-only buttons (*Rename*, *Copy*)
+  have a name for a screen reader.
+
+- **The transcript, the summary and the notes are set to be read**: 15 px
+  instead of the controls' 12, the transcript with a 145% leading.
+
+
 - **The library is the window's home, and the queue is inside it.** Two tabs
   instead of three: *Library*, with *In progress* as the first of its
   folders, and *This machine*. *Add files...* and *Recorder* are across the
@@ -397,6 +477,23 @@ All notable changes to this project are documented here. The format follows
   a drawing of nothing anybody is still looking at.
 
 ### Fixed
+
+- **A recording made in the browser was lost when it was stopped**: the
+  handler read the recorder after it had been cleared, and nothing was kept.
+- **Notes typed in the reader were thrown away without a word** when it was
+  closed. Leaving an entry with unsaved notes - another row, the way back,
+  closing the page - now asks *Save*, *Discard* or *Cancel*.
+- **Every tab of the reader showed the transcript as well**, and every tab's
+  buttons at once: a class's `display` beat the `hidden` attribute.
+- **"Name the speakers" did not open**: its dialog shared an id with the count
+  of voices in the form.
+- The tabs of the reader fold onto two lines on a phone instead of pushing it
+  sideways; the size of a chosen file is given in the unit the queue uses
+  (not "0 MB" for 375 KB); a queued summary no longer says it is behind
+  something when nothing is running; the page says "who said what" is not
+  available instead of printing a `pip install` line; the Italian page has its
+  accents.
+
 
 - **The text you already have can be given for plain text.** The box for a
   script or a press release sat on the *Subtitles* tab of the dialog, which is
