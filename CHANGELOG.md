@@ -124,6 +124,15 @@ All notable changes to this project are documented here. The format follows
 
 ### Changed
 
+- **The page's search comes first.** It sits at the top of the library
+  column, above the work under way, and the jobs that did not go through are
+  one line - *3 did not go through · show* - whose rows open on request and
+  stay open while the page refreshes. Three failed jobs used to push the
+  search off the first screen, on a laptop and on a phone alike.
+- **The way back from an entry on a phone is a full touch target**: *‹ Library*
+  is 44 px tall instead of 24, still drawn as a link.
+
+
 - **The library is the web page.** The recordings are listed on the left and
   the one being read sits beside them, opened by a click on its row - on a
   wide screen the page opens on the entry read last in that browser. Work
@@ -481,6 +490,13 @@ All notable changes to this project are documented here. The format follows
   a drawing of nothing anybody is still looking at.
 
 ### Fixed
+
+- **Move to did nothing in a library without folders**: its menu listed
+  the other folders, and there were none. It now always ends with *New
+  folder…*, which makes the folder where the recording is and moves it
+  there. A button that is off no longer looks as if its symbol had turned
+  white: the symbol is drawn in the fields' rule (3.17:1), not the hairline.
+
 
 - **A recording made in the browser was lost when it was stopped**: the
   handler read the recorder after it had been cleared, and nothing was kept.
