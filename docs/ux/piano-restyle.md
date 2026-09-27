@@ -76,6 +76,8 @@ Nessun colore nuovo: la palette resta quella del marchio.
 | B3 | 1 rapidi | Bassa | `gui/about_dialog.py:57` | icona e nome, motto tradotto | nessun testo non tradotto in Info | verificato |
 | B4 | 1 rapidi | Bassa | `app.js` (`#file-name`) | stesso formattatore della coda | una sola unità, niente "0 MB" | verificato |
 | B5 | 1 rapidi | Bassa | `i18n.py` (`gui.drop_hint`) | "della finestra"; una sola istruzione | idem | verificato |
+| N1 | 1 rapidi | Media | `index.html:87-91` (ordine), gruppo "In corso" in `app.js` | ricerca in cima alla colonna; falliti e finiti riassunti in una riga apribile | con 5 lavori falliti la ricerca comincia sopra y=500 a 1440 e sopra y=844 a 390 | nuovo problema (verifica rapida della sera, da approvare) |
+| N2 | 1 rapidi | Bassa | link "‹ Libreria", `style.css` sotto 40rem | `min-height: 44px` | a 390 il ritorno è alto almeno 44 px | nuovo problema (verifica rapida della sera, da approvare) |
 
 Stati ammessi: da fare · fatto · verificato · ancora presente · nuovo problema · rinviato
 
