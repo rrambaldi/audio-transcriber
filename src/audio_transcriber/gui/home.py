@@ -34,7 +34,7 @@ from PySide6.QtWidgets import (
 
 from ..i18n import t
 from ..library import LibraryError
-from . import options
+from . import options, symbols
 
 #: The tree's key for the work under way. Not a folder name: a folder can be
 #: called anything, but not something that starts with a NUL.
@@ -156,6 +156,8 @@ class Home(QWidget):
         self.record = QPushButton(t("gui.recorder"))
         self.record.setCheckable(True)
         self.record.toggled.connect(self._show_recorder)
+        symbols.dress(self.add, "add_file", "go")
+        symbols.dress(self.record, "mic", "record")
         toolbar = QHBoxLayout()
         toolbar.addWidget(self.add)
         toolbar.addWidget(self.record)
@@ -184,6 +186,7 @@ class Home(QWidget):
         self.tree.customContextMenuRequested.connect(self._tree_menu)
         self.new_folder_button = QPushButton(t("gui.folder_new"))
         self.new_folder_button.clicked.connect(self.new_folder)
+        symbols.dress(self.new_folder_button, "folder_add")
         left = QWidget()
         left_layout = QVBoxLayout(left)
         left_layout.setContentsMargins(0, 0, 0, 0)

@@ -20,7 +20,7 @@ from PySide6.QtWidgets import (
 )
 
 from ..i18n import t
-from . import style, theme
+from . import style, symbols, theme
 from .options_form import OptionsForm
 
 
@@ -60,6 +60,8 @@ class JobDialog(QDialog):
             t("gui.cancel"))
         buttons.accepted.connect(self.accept)
         buttons.rejected.connect(self.reject)
+        symbols.dress(self.start, "transcribe", "go")
+        symbols.dress(buttons.button(QDialogButtonBox.StandardButton.Cancel), "dismiss")
 
         layout = QVBoxLayout(self)
         # A dialog has no pane to take its gutter from.

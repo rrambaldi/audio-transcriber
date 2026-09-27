@@ -18,7 +18,7 @@ the moment it came from — without a browser, a server or a port.
 ## What it does
 
 One window: the **library**. What the machine can do — *This machine* — is a
-link in the masthead and opens a window of its own: it is looked at when
+link in the masthead, *System*, and opens a window of its own: it is looked at when
 something does not work, not all day, and as a tab beside the library it took
 a place in the one strip of navigation the window has.
 
@@ -239,7 +239,7 @@ model reading an hour of transcript is minutes of the same cores a
 transcription needs, and a window that does that work itself is a window that
 has stopped responding.
 
-**This machine** — the link in the masthead. What `audio-transcriber hardware` and `paths` report:
+**This machine** — *System*, in the masthead. What `audio-transcriber hardware` and `paths` report:
 the CPU and memory found, the engine and model `auto` would pick, whether
 diarization is available, and every directory in use — with a button that opens
 `config.toml` and one that opens the library folder.
@@ -574,7 +574,8 @@ dependencies. `audio-transcriber gui` says so rather than showing a traceback.
 | `gui/qt_recorder.py` | the fallback recorder, on QtMultimedia alone |
 | `gui/system_panel.py` | hardware and directories |
 | `gui/multimedia.py` | QtMultimedia when it is there, and a clear answer when it is not |
-| `gui/masthead.py` | the band across the top: the mark, the name, the promise, *This machine*, *About*, the language |
+| `gui/masthead.py` | the band across the top: the mark, the name, the promise, *System*, *About*, the language |
+| `gui/symbols.py` | the symbols on buttons, in the palette's colours, and the role each button's colour says |
 | `gui/theme.py` | the web page's palette and typefaces, as a Qt palette, fonts and style sheet |
 | `gui/about_dialog.py` | what the program is, and the licence it is given under |
 
@@ -611,6 +612,23 @@ stylesheet's own token values, by `tests/test_gui_theme.py`.
 | `.tab` | `QTabBar::tab`, a word with the accent under it — see below |
 | `.row .title` in the serif | the queue and library rows, painted by `widgets.JobDelegate` |
 | `.drop`, dashed | `QFrame#drop`, dashed, washed in the accent while a file is over it |
+| `.button.danger`, in clay | `QPushButton[role="danger"]` — and four more roles, below |
+
+**Every button says what it does three ways**: its word, a symbol beside it
+(Fluent's 20 px regular cut, recoloured to the palette at render time, see
+`gui/symbols.py`), and the colour of the kind of thing it does. Start
+something in the accent (*Add files…*, *Transcribe*, *Transcribe again…*,
+*Summarise…*, *Try again*), record in amber (*Recorder*, *Record*, *Pause*),
+remove or interrupt in clay (*Delete*, *Remove*, *Stop* on a running job,
+*Clear the finished*), put something out of the program in moss (*Export*,
+*Save the notes*), listen in plum (*Play*, *Listen*, *Test*); organising —
+*New folder…*, *Move to*, *Open the folder*, *Cancel* — keeps the ink. The
+three hues that are not the page's own (`--moss`, `--amber`, `--plum`) are in
+`style.css` too, and held to the same 4.5:1 against paper and sheet in both
+schemes. A button that changes what it does — *Record* becoming *Stop*,
+*Play* becoming *Pause*, a queue row's *Transcribe* becoming *Stop* — changes
+its symbol and colour with its word, and every symbol is drawn again when the
+desktop switches scheme.
 
 **The window loads static cuts of the serif, not the variable file, and that
 is the second time the same class of bug has been paid for.** Qt does not
@@ -746,7 +764,7 @@ Above the library there is a masthead, the page's in one line: the mark,
 `audio-transcriber` in Fraunces — lower case, as on the page and in the
 README, because it is a command's name and not a product's — and the promise
 beside it in Fraunces italic, over a rule drawn in the ink colour; on the
-right, *This machine*, *About* and the language. It was the page's three
+right, *System* and *About* — short, each with its symbol — and the language. It was the page's three
 lines, eyebrow included, and took 130 pixels of an 800-pixel laptop screen;
 the promise is now the first thing to give way when the window is narrow. The
 name shown and the name the desktop is told are two different strings on

@@ -128,6 +128,15 @@ All notable changes to this project are documented here. The format follows
   top of the library, and the recorder only shows when it is asked for. A job
   that worked leaves the queue by itself; what failed stays.
 
+- **Every button has a symbol, and a colour for what it does.** Starting
+  something is the accent, recording amber, removing or interrupting clay,
+  exporting or saving moss, listening plum, and organising keeps the ink;
+  three hues joined the palette for it, in the web page's stylesheet too,
+  each clearing 4.5:1 in both schemes. A button that changes what it does -
+  Record to Stop, Play to Pause - changes its symbol and colour with it. The
+  masthead's links are short now - *System* and *About* (*Sistema*, *Info*) -
+  each with its symbol.
+
 - **More of the window is the library.** The masthead is one line - the mark,
   the name, the promise, then *This machine*, *About* and the language - where
   it was three lines and 130 pixels. *This machine* opens a window of its own

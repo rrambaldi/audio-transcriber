@@ -40,7 +40,7 @@ from PySide6.QtWidgets import (
 from .. import paths, recording
 from ..formatting import format_clock
 from ..i18n import t
-from . import options, widgets
+from . import options, symbols, widgets
 from .qt_recorder import QtRecorder
 
 #: How often the elapsed time, the levels and the engine's health are re-read.
@@ -106,6 +106,7 @@ class DeviceRecorder(QWidget):
         self.reload_button = QPushButton(t("gui.reload"))
         self.reload_button.setToolTip(t("gui.rec_reload_tip"))
         self.reload_button.clicked.connect(self.rescan)
+        symbols.dress(self.reload_button, "refresh")
         self.level = _level_bar()
         self.mix_level = _level_bar()
         # Beside each meter, the last few seconds of the same source: the bar
@@ -115,6 +116,7 @@ class DeviceRecorder(QWidget):
         self.test_button = QPushButton(t("gui.rec_test"))
         self.test_button.setToolTip(t("gui.rec_test_tip"))
         self.test_button.clicked.connect(self.toggle_test)
+        symbols.dress(self.test_button, "speaker", "listen")
         # A recording is a file, and the first thing wanted of a file is
         # often not a transcription: send it to somebody, keep it, play it in
         # something else. Until now the window recorded into a folder it
@@ -122,11 +124,14 @@ class DeviceRecorder(QWidget):
         self.folder_button = QPushButton(t("gui.open_folder"))
         self.folder_button.setToolTip(t("gui.rec_open_folder_tip"))
         self.folder_button.clicked.connect(self.open_folder)
+        symbols.dress(self.folder_button, "folder_open")
         self.verdict = _Line()
         self.button = QPushButton(t("gui.rec_start"))
         self.button.clicked.connect(self.toggle)
+        symbols.dress(self.button, "record", "record")
         self.pause_button = QPushButton(t("gui.rec_pause"))
         self.pause_button.clicked.connect(self.toggle_pause)
+        symbols.dress(self.pause_button, "pause", "record")
         self.pause_button.setEnabled(False)
         self.elapsed = QLabel(format_clock(0))
         self.message = _Line()
@@ -291,12 +296,14 @@ class DeviceRecorder(QWidget):
         self.message.setText("")
         self.verdict.setText(t("gui.rec_test_listening"))
         self.test_button.setText(t("gui.rec_test_stop"))
+        symbols.dress(self.test_button, "stop", "listen")
         self._freeze(True)
 
     def stop_test(self, timed_out=False):
         """Let go of the device, keeping the verdict on screen."""
         monitor, self._monitor = self._monitor, None
         self.test_button.setText(t("gui.rec_test"))
+        symbols.dress(self.test_button, "speaker", "listen")
         self._freeze(False)
         self._show_levels([])
         if monitor is None:
@@ -393,12 +400,15 @@ class DeviceRecorder(QWidget):
             self._session.pause()
         self.pause_button.setText(t("gui.rec_resume") if self._session.paused
                                   else t("gui.rec_pause"))
+        symbols.dress(self.pause_button, "play" if self._session.paused else "pause", "record")
 
     def _show_recording(self, recording_now):
         self.button.setText(t("gui.rec_stop") if recording_now
                             else t("gui.rec_start"))
+        symbols.dress(self.button, "stop" if recording_now else "record", "record")
         self.pause_button.setEnabled(recording_now)
         self.pause_button.setText(t("gui.rec_pause"))
+        symbols.dress(self.pause_button, "pause", "record")
         self.test_button.setEnabled(not recording_now)
         self._freeze(recording_now)
 

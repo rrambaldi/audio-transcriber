@@ -28,7 +28,7 @@ from PySide6.QtWidgets import (
 
 from .. import __version__, about, branding
 from ..i18n import t
-from . import style, theme
+from . import style, symbols, theme
 
 #: How tall the licence gets to be before it starts scrolling. The file is
 #: forty lines; this shows about half of it, which is enough to see that it
@@ -105,6 +105,8 @@ class AboutDialog(QDialog):
         close.setObjectName("primary")
         close.setDefault(True)
         close.clicked.connect(self.accept)
+        symbols.dress(self.open_file, "document")
+        symbols.dress(close, "checkmark")
         buttons.addWidget(self.open_file)
         buttons.addStretch(1)
         buttons.addWidget(close)

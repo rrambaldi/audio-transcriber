@@ -16,13 +16,14 @@ ffmpeg, which reads the audio. Everything else on this page is permissive
 |---|---|---|
 | **Fraunces** (four cuts: the variable file and three static instances) | `src/audio_transcriber/data/brand/fonts/` | SIL Open Font License 1.1 — `fraunces-OFL.txt` beside it |
 | **Karla** | same | SIL Open Font License 1.1 — `karla-OFL.txt` beside it |
-| **Fluent UI System Icons** (two drawings: `copy`, `edit`) | `src/audio_transcriber/data/brand/symbols/` | MIT — `fluent-MIT.txt` beside them |
+| **Fluent UI System Icons** (32 drawings, one per kind of button) | `src/audio_transcriber/data/brand/symbols/` | MIT — `fluent-MIT.txt` beside them |
 | The mark, the icon set, the banner | `data/brand/`, `docs/assets/` | This project's, under this project's licence |
 
-The two Fluent drawings are the 20 px regular cut, vendored byte for byte and
-recoloured at render time rather than edited, so that what ships can be
-diffed against what Microsoft publishes. They are the only two the window
-draws: every other button here says what it does in words.
+The Fluent drawings are the 20 px regular cut, vendored byte for byte from
+`microsoft/fluentui-system-icons` (`assets/<Name>/SVG/ic_fluent_<name>_20_regular.svg`,
+saved under the short name the window asks for) and recoloured at render time
+rather than edited, so that what ships can be diffed against what Microsoft
+publishes. Every button carries one beside its word.
 
 The static cuts of Fraunces are instanced from its variable file and carry
 derived family names (`Fraunces Display`, `Fraunces Text`). The OFL allows

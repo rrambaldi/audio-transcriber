@@ -45,6 +45,9 @@ CONTRAST_RULES = [
     ("muted", "paper", 4.5), ("muted", "sheet", 4.5),
     ("signal", "paper", 4.5), ("signal", "sheet", 4.5),
     ("clay", "paper", 4.5), ("clay", "sheet", 4.5),
+    ("moss", "paper", 4.5), ("moss", "sheet", 4.5),
+    ("amber", "paper", 4.5), ("amber", "sheet", 4.5),
+    ("plum", "paper", 4.5), ("plum", "sheet", 4.5),
     ("line", "paper", 3.0), ("line", "sheet", 3.0),
     ("ink", "signal-wash", 4.5), ("muted", "signal-wash", 4.5),
 ]

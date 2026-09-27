@@ -25,7 +25,7 @@ from PySide6.QtWidgets import (
 )
 
 from ..i18n import t
-from . import style, theme
+from . import style, symbols, theme
 
 #: How much of a speaker's first line is shown beside their field. Long enough
 #: to recognise a voice by, short enough not to widen the dialog.
@@ -82,6 +82,8 @@ class SpeakersDialog(QDialog):
             | QDialogButtonBox.StandardButton.Cancel)
         buttons.accepted.connect(self.accept)
         buttons.rejected.connect(self.reject)
+        symbols.dress(buttons.button(QDialogButtonBox.StandardButton.Ok), "save", "out")
+        symbols.dress(buttons.button(QDialogButtonBox.StandardButton.Cancel), "dismiss")
         layout.addWidget(buttons)
         if self.speakers:
             self.fields[self.speakers[0]].setFocus()

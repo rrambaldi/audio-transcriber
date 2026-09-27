@@ -427,6 +427,7 @@ MESSAGES = {
     "gui.badge_speakers": "wer was sagt",
     "gui.badge_notes": "Notizen",
     "gui.system_open_tip": "Was dieser Rechner kann, und wo die Dateien liegen",
+    "gui.system_link": "System",
     "gui.summary_keep": "Die aktuelle Zusammenfassung als frühere Version behalten",
     "gui.summary_replace": "Die aktuelle Zusammenfassung ersetzen",
     "gui.summary_dialog_title": "'{title}' zusammenfassen",

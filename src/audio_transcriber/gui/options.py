@@ -423,18 +423,23 @@ def job_actions(job):
     "Start it" and "stop it" are the same place in the row and never both
     apply, so the first button changes rather than the row growing a fourth
     button that is disabled most of the time."""
+    # And what it looks like: a symbol and a role, which gui/symbols.py turns
+    # into a drawing and a colour. Stopping a transcription throws away what
+    # it has done, so it is said in the colour of the other things that lose
+    # something.
     if job.status == HELD:
-        action = t("gui.row_transcribe")
+        action, look = t("gui.row_transcribe"), ("transcribe", "go")
     elif job.status in (QUEUED, RUNNING):
-        action = t("gui.row_stop")
+        action, look = t("gui.row_stop"), ("stop", "danger")
     elif job.status == DONE and job.entry_id:
-        action = t("gui.row_open")
+        action, look = t("gui.row_open"), ("open", None)
     elif job.status in (FAILED, CANCELLED):
-        action = t("gui.row_retry")
+        action, look = t("gui.row_retry"), ("retry", "go")
     else:
-        action = ""
+        action, look = "", None
     return {
         "action": action,
+        "action_look": look,
         # A summary is not asked what it is for: the four questions are about
         # transcribing, and a summary job that went through them would have
         # its settings replaced with answers about something else.

@@ -205,6 +205,7 @@ class LibraryPanel(QWidget):
         self.copy_notes = _copy_button(self._copy_notes)
         self.save_notes = QPushButton(t("gui.notes_save"))
         self.save_notes.clicked.connect(self.write_notes)
+        symbols.dress(self.save_notes, "save", "out")
         self.save_notes.setEnabled(False)
         notes_page = QWidget()
         notes_layout = QVBoxLayout(notes_page)
@@ -256,6 +257,7 @@ class LibraryPanel(QWidget):
         self.copy_summary = _copy_button(self._copy_summary)
         self.summarise = QPushButton(t("gui.summary_run"))
         self.summarise.clicked.connect(self.summarise_entry)
+        symbols.dress(self.summarise, "summary", "go")
         summary_page = QWidget()
         summary_layout = QVBoxLayout(summary_page)
         version_row = QHBoxLayout()
@@ -320,6 +322,8 @@ class LibraryPanel(QWidget):
         start.setDefault(True)
         buttons.button(QDialogButtonBox.StandardButton.Cancel).setText(
             t("gui.cancel"))
+        symbols.dress(start, "summary", "go")
+        symbols.dress(buttons.button(QDialogButtonBox.StandardButton.Cancel), "dismiss")
         buttons.accepted.connect(self.summary_dialog.accept)
         buttons.rejected.connect(self.summary_dialog.reject)
         dialog_layout = QVBoxLayout(self.summary_dialog)
@@ -341,6 +345,7 @@ class LibraryPanel(QWidget):
     def _build_player(self):
         self.play = QPushButton(t("gui.play"))
         self.play.clicked.connect(self.toggle_play)
+        symbols.dress(self.play, "play", "listen")
         self.position = QSlider(Qt.Orientation.Horizontal)
         self.position.setRange(0, 0)
         self.position.sliderMoved.connect(self._seek_ms)
@@ -373,6 +378,7 @@ class LibraryPanel(QWidget):
         search_row.addWidget(self.search, 1)
         reload_button = QPushButton(t("gui.reload"))
         reload_button.clicked.connect(lambda: self.reload())
+        symbols.dress(reload_button, "refresh")
         search_row.addWidget(reload_button)
         left_layout.addLayout(search_row)
         left_layout.addWidget(self.table, 1)
@@ -422,6 +428,14 @@ class LibraryPanel(QWidget):
         self.move_menu = QMenu(self.move_to)
         self.move_menu.aboutToShow.connect(self._fill_move_menu)
         self.move_to.setMenu(self.move_menu)
+        for button, name, role in ((self.retranscribe, "redo", "go"),
+                                   (self.move_to, "move", None),
+                                   (self.name_speakers, "people", None),
+                                   (self.export, "export", "out"),
+                                   (self.export_subtitles_button, "captions", "out"),
+                                   (self.open_folder, "folder_open", None),
+                                   (self.delete, "delete", "danger")):
+            symbols.dress(button, name, role)
         # Two rows - what is done to the entry, and how it gets out - because
         # one row of seven buttons was the reading pane's minimum width, and
         # the list beside it was left a column and a half.
@@ -759,6 +773,7 @@ class LibraryPanel(QWidget):
     def _playback_changed(self, state):
         playing = state == multimedia.QMediaPlayer.PlaybackState.PlayingState
         self.play.setText(t("gui.pause") if playing else t("gui.play"))
+        symbols.dress(self.play, "pause" if playing else "play", "listen")
 
     # --- notes ------------------------------------------------------------
 

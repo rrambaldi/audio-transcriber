@@ -63,6 +63,12 @@
   --signal: #1C4FD8;
   --signal-wash: #E4EBFA;
   --clay: #A6371B;
+  /* What a button does, said in its colour as well as its words: export in
+     moss, recording in amber, listening in plum - the desktop window's
+     buttons. Each clears 4.5:1 on paper, sheet and the wash. */
+  --moss: #2D6A4F;
+  --amber: #8F4A00;
+  --plum: #6A3C9C;
 
   /* What a field is painted on. A field is drawn as a bare underline, so this
      is normally the page itself — but the browser paints two things with it
@@ -88,6 +94,9 @@
     --signal: #22D3EE;
     --signal-wash: #132A42;
     --clay: #F2957A;
+    --moss: #6FD6A2;
+    --amber: #F6B24B;
+    --plum: #C9B2F5;
     --field-bg: #0C1526;
   }
 }

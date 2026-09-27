@@ -27,7 +27,7 @@ from .. import __version__, branding, i18n, paths
 from ..hardware import Meter
 from ..i18n import t
 from ..jobs import JobQueue
-from . import style, theme
+from . import style, symbols, theme
 from .about_dialog import AboutDialog
 from .home import Home
 from .library_panel import LibraryPanel
@@ -191,6 +191,8 @@ class MainWindow(QMainWindow):
         # Every note is a colour written into a widget's own style sheet, so
         # the new palette does not reach them on its own.
         style.renote(self)
+        # The symbols are pictures in the old scheme's colours until drawn again.
+        symbols.redress(self)
 
     # --- the status line --------------------------------------------------
 

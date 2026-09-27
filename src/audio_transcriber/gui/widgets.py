@@ -33,7 +33,7 @@ from PySide6.QtWidgets import (
 )
 
 from ..i18n import t
-from . import style, theme, wave
+from . import style, symbols, theme, wave
 
 #: Where the second line of a queue row is kept.
 DETAILS_ROLE = Qt.ItemDataRole.UserRole + 1
@@ -269,8 +269,12 @@ class JobActions(QWidget):
         self.run.setText(row["action"])
         self.run.setEnabled(bool(row["action"]))
         self.run.setVisible(bool(row["action"]))
+        if row.get("action_look"):
+            symbols.dress(self.run, *row["action_look"])
         self.drop.setText(row["removable_label"])
         self.drop.setEnabled(row["removable"])
+        symbols.dress(self.drop, "dismiss", "danger")
         self.listen.setText(row["stop_audio"] if playing else row["play_audio"])
+        symbols.dress(self.listen, "stop" if playing else "listen", "listen")
         self.listen.setEnabled(playable)
         self.listen.setToolTip("" if playable else reason)

@@ -800,6 +800,7 @@ MESSAGES = {
         "gui.badge_speakers": "who said what",
         "gui.badge_notes": "notes",
         "gui.system_open_tip": "What this machine can do, and where the files are",
+        "gui.system_link": "System",
         "gui.summary_keep": "Keep the current summary as an earlier version",
         "gui.summary_replace": "Replace the current summary",
         "gui.summary_dialog_title": "Summarise '{title}'",
@@ -1599,7 +1600,7 @@ MESSAGES = {
         "gui.close": "Chiudi",
 
         # --- informazioni e licenza -------------------------------------------
-        "about.open": "Informazioni",
+        "about.open": "Info",
         "about.open_tip": "Cos'e' questo programma e con quale licenza e' dato",
         "gui.language": "La lingua di questa finestra",
         "gui.language_next_time": "La finestra sara' in {language} la prossima volta che la apri.",
@@ -1824,6 +1825,7 @@ MESSAGES = {
         "gui.badge_speakers": "chi dice cosa",
         "gui.badge_notes": "note",
         "gui.system_open_tip": "Cosa sa fare questa macchina, e dove stanno i file",
+        "gui.system_link": "Sistema",
         "gui.summary_keep": "Tieni il riassunto attuale come versione precedente",
         "gui.summary_replace": "Sostituisci il riassunto attuale",
         "gui.summary_dialog_title": "Riassumi '{title}'",

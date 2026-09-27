@@ -34,6 +34,7 @@ from PySide6.QtWidgets import (
 from .. import logs, paths
 from ..hardware import Meter
 from ..i18n import t
+from . import symbols
 from .meters import SAMPLE_MS, TIGHT_PERCENT, gib, paint_tight
 
 #: How many lines of the log the panel shows before it starts scrolling.
@@ -80,6 +81,8 @@ class SystemPanel(QWidget):
         config_button.clicked.connect(self.open_config)
         library_button = QPushButton(t("gui.open_library"))
         library_button.clicked.connect(self.open_library)
+        symbols.dress(config_button, "settings")
+        symbols.dress(library_button, "folder_open")
         buttons.addWidget(config_button)
         buttons.addWidget(library_button)
         buttons.addStretch(1)
@@ -143,6 +146,8 @@ class SystemPanel(QWidget):
         open_log.clicked.connect(self.open_log)
         clear_log = QPushButton(t("gui.clear_log"))
         clear_log.clicked.connect(self.clear_log)
+        symbols.dress(open_log, "log")
+        symbols.dress(clear_log, "broom", "danger")
         row.addWidget(open_log)
         row.addWidget(clear_log)
         row.addStretch(1)

@@ -28,7 +28,7 @@ from PySide6.QtWidgets import (
 from .. import paths
 from ..formatting import format_clock
 from ..i18n import t
-from . import multimedia, options, widgets
+from . import multimedia, options, symbols, widgets
 
 
 class QtRecorder(QWidget):
@@ -73,6 +73,9 @@ class QtRecorder(QWidget):
         self.folder_button = QPushButton(t("gui.open_folder"))
         self.folder_button.setToolTip(t("gui.rec_open_folder_tip"))
         self.folder_button.clicked.connect(self.open_folder)
+        symbols.dress(self.button, "record", "record")
+        symbols.dress(self.pause_button, "pause", "record")
+        symbols.dress(self.folder_button, "folder_open")
         self.elapsed = QLabel(format_clock(0))
         self.message = QLabel("")
         self.message.setWordWrap(True)
@@ -219,6 +222,9 @@ class QtRecorder(QWidget):
         self.pause_button.setText(t("gui.rec_resume")
                                   if state == states.PausedState
                                   else t("gui.rec_pause"))
+        symbols.dress(self.button, "stop" if recording else "record", "record")
+        symbols.dress(self.pause_button, "play" if state == states.PausedState else "pause",
+                      "record")
         self.devices.setEnabled(not recording)
         if recording:
             return

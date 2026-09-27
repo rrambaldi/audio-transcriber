@@ -33,7 +33,7 @@ from PySide6.QtWidgets import (
 from ..i18n import t
 from ..jobs import HELD
 from ..library import STORE_COPY, STORE_MOVE, LibraryError
-from . import multimedia, options, style, widgets
+from . import multimedia, options, style, symbols, widgets
 from .job_dialog import JobDialog
 from .recorder import make_recorder
 
@@ -228,6 +228,8 @@ class TranscribePanel(QWidget):
         self.start.clicked.connect(self.start_queue)
         self.clear_finished = QPushButton(t("gui.clear_finished"))
         self.clear_finished.clicked.connect(self.forget_finished)
+        symbols.dress(self.start, "transcribe", "go")
+        symbols.dress(self.clear_finished, "broom", "danger")
         actions = QHBoxLayout()
         actions.addWidget(self.start)
         actions.addStretch(1)

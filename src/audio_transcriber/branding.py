@@ -62,17 +62,47 @@ SYMBOL_SUBDIR = "symbols"
 #: They are Microsoft's Fluent UI System Icons, the 20 px regular cut, which
 #: is the size these are actually drawn at: an icon set has a drawing per
 #: size, and scaling the 24 px one down thickens its strokes until it is a
-#: blot next to a hairline rule. Two of them, because two is what the window
-#: has a use for - a button whose job can be *said* says it, in the interface
-#: font, like every other button here. A symbol is for the ones that would
-#: otherwise repeat a word three times down the same column.
+#: blot next to a hairline rule. Every button carries one beside its word -
+#: the word still says what it does, the drawing lets a row of buttons be
+#: read at a glance - and ``copy`` and ``edit`` stand alone, where the word
+#: would repeat three times down one column.
 #:
 #: They were glyphs from the text font before this - ✎ and ⎘ - which is the
 #: cheap way to have an icon and looks it: the glyph is whatever weight the
 #: interface font draws it at, it is missing from some faces entirely, and no
 #: two platforms agree on how much of the em it fills.
 SYMBOLS = (("copy", "copy.svg"),
-           ("edit", "edit.svg"))
+           ("edit", "edit.svg"),
+           ("add_file", "add_file.svg"),
+           ("mic", "mic.svg"),
+           ("record", "record.svg"),
+           ("stop", "stop.svg"),
+           ("pause", "pause.svg"),
+           ("play", "play.svg"),
+           ("folder_add", "folder_add.svg"),
+           ("refresh", "refresh.svg"),
+           ("redo", "redo.svg"),
+           ("move", "move.svg"),
+           ("people", "people.svg"),
+           ("delete", "delete.svg"),
+           ("export", "export.svg"),
+           ("captions", "captions.svg"),
+           ("folder_open", "folder_open.svg"),
+           ("summary", "summary.svg"),
+           ("save", "save.svg"),
+           ("transcribe", "transcribe.svg"),
+           ("open", "open.svg"),
+           ("retry", "retry.svg"),
+           ("listen", "listen.svg"),
+           ("dismiss", "dismiss.svg"),
+           ("broom", "broom.svg"),
+           ("checkmark", "checkmark.svg"),
+           ("settings", "settings.svg"),
+           ("desktop", "desktop.svg"),
+           ("info", "info.svg"),
+           ("document", "document.svg"),
+           ("speaker", "speaker.svg"),
+           ("log", "log.svg"))
 
 #: The set to cite, and the licence that travels with it. MIT asks only that
 #: the notice go with the copies; it does, in this file, and ``docs/

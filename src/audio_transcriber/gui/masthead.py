@@ -28,7 +28,7 @@ from PySide6.QtWidgets import (
 
 from .. import branding
 from ..i18n import LANGUAGE_NAMES, language, t
-from . import style, theme
+from . import style, symbols, theme
 
 #: How tall the mark is drawn, in logical pixels. The band is one line now -
 #: it took 130 pixels of an 800-pixel laptop screen as three - so the mark is
@@ -155,7 +155,7 @@ class Masthead(QWidget):
         # read as an action on the recordings, which neither is. What this
         # machine can do is here too, and no longer a tab beside the library:
         # it is looked at once, when something does not work, not all day.
-        self.system = self._link("#system", t("gui.tab_system"),
+        self.system = self._link("#system", t("gui.system_link"),
                                  t("gui.system_open_tip"), self.system_requested)
         self.about = self._link("#about", t("about.open"), t("about.open_tip"),
                                 self.about_requested)
@@ -184,8 +184,17 @@ class Masthead(QWidget):
         band.addWidget(self.mark, 0, Qt.AlignmentFlag.AlignVCenter)
         band.addWidget(self.name, 0, Qt.AlignmentFlag.AlignVCenter)
         band.addWidget(self.tagline, 1, Qt.AlignmentFlag.AlignVCenter)
-        band.addWidget(self.system, 0, Qt.AlignmentFlag.AlignVCenter)
-        band.addWidget(self.about, 0, Qt.AlignmentFlag.AlignVCenter)
+        # Each link with its symbol, the way every button has one: a gear-less
+        # desktop for the machine, an "i" for what the program is.
+        self.system_icon, self.about_icon = QLabel(), QLabel()
+        for icon, link in ((self.system_icon, self.system),
+                           (self.about_icon, self.about)):
+            pair = QHBoxLayout()
+            pair.setSpacing(4)
+            pair.addWidget(icon, 0, Qt.AlignmentFlag.AlignVCenter)
+            pair.addWidget(link, 0, Qt.AlignmentFlag.AlignVCenter)
+            band.addLayout(pair)
+        self._paint_icons()
         band.addWidget(self.language, 0, Qt.AlignmentFlag.AlignVCenter)
 
         # The page draws this rule in the ink colour, not in the divider grey:
@@ -230,6 +239,20 @@ class Masthead(QWidget):
             style.note(label)
         self._paint_link()
         self._paint_rule()
+        self._paint_icons()
+
+    def _paint_icons(self):
+        """The links' symbols, in the accent the links are written in."""
+        if not hasattr(self, "system_icon"):
+            return
+        which = "dark" if self.palette().color(
+            QPalette.ColorRole.Window).lightnessF() < 0.5 else "light"
+        size = max(symbols.MINIMUM, round(self.about.fontMetrics().height() * symbols.BESIDE))
+        for label, name in ((self.system_icon, "desktop"), (self.about_icon, "info")):
+            drawn = symbols.icon(name, size, which, ratio=self.devicePixelRatioF(),
+                                 normal="signal")
+            label.setPixmap(drawn.pixmap(QSize(size, size)))
+            label.setVisible(not drawn.isNull())
 
     def _link(self, href, text, tip, signal):
         link = QLabel(f'<a href="{href}">{text}</a>')

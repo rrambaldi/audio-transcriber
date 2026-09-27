@@ -32,7 +32,7 @@ through to the next family in the stack.
 from PySide6.QtCore import QByteArray, QEvent, QSize, Qt
 from PySide6.QtGui import QIcon, QPainter, QPixmap
 from PySide6.QtSvg import QSvgRenderer
-from PySide6.QtWidgets import QApplication, QToolButton
+from PySide6.QtWidgets import QAbstractButton, QApplication, QToolButton
 
 from .. import branding
 from . import theme
@@ -94,19 +94,67 @@ def render(name, size, colour, ratio=1.0):
     return pixmap
 
 
-def icon(name, size, which=None, ratio=1.0):
+def icon(name, size, which=None, ratio=1.0, normal="ink", active="signal"):
     """One symbol as a QIcon, with a pixmap for each of :data:`STATES`.
 
-    A null icon - not an exception - when the drawing is not there, so that a
-    caller can ask ``isNull()`` and draw its glyph instead."""
+    ``normal`` and ``active`` are the tokens it is drawn in at rest and under
+    the pointer: the ink and the accent, unless the button has a colour of its
+    own. A null icon - not an exception - when the drawing is not there, so
+    that a caller can ask ``isNull()`` and draw its glyph instead."""
     which = which or theme.scheme(QApplication.instance())
     built = QIcon()
-    for mode, token in STATES:
+    for mode, token in ((QIcon.Mode.Normal, normal), (QIcon.Mode.Active, active),
+                        (QIcon.Mode.Disabled, "rule")):
         pixmap = render(name, size, theme.colour(token, which).name(), ratio)
         if pixmap is None:
             return QIcon()
         built.addPixmap(pixmap, mode)
     return built
+
+
+#: A symbol beside a word is a little smaller than one standing alone: it is
+#: read with the word, and at the lone symbol's size it outweighs it.
+BESIDE = 1.1
+
+
+def dress(button, name, role=None):
+    """A symbol beside a push button's word, and its role in its colour.
+
+    Called again whenever the button changes what it does - Record becomes
+    Stop, Play becomes Pause - and cheap when nothing has changed: the drawing
+    is only asked for when the symbol, the role or the scheme is new."""
+    role = role or ""
+    if (button.property("role") or "") != role:
+        button.setProperty("role", role)
+        # A style sheet does not look at a property again unless asked to.
+        button.style().unpolish(button)
+        button.style().polish(button)
+    button.setProperty("symbol", name)
+    _draw(button)
+    return button
+
+
+def _draw(button):
+    name = button.property("symbol")
+    role = button.property("role") or ""
+    token = "signal" if button.objectName() == "primary" else theme.ROLES.get(role, "ink")
+    which = theme.scheme(QApplication.instance())
+    size = max(MINIMUM, round(button.fontMetrics().height() * BESIDE))
+    key = f"{name}|{token}|{which}|{size}|{button.devicePixelRatioF()}"
+    if button.property("symbol_drawn") == key:
+        return
+    drawn = icon(name, size, which, ratio=button.devicePixelRatioF(),
+                 normal=token, active=token if token != "ink" else "signal")
+    button.setIcon(drawn)
+    button.setIconSize(QSize(size, size))
+    button.setProperty("symbol_drawn", key)
+
+
+def redress(root):
+    """Draw every dressed button under ``root`` again, for a new scheme."""
+    for button in root.findChildren(QAbstractButton):
+        if button.property("symbol"):
+            _draw(button)
 
 
 def size_for(widget):

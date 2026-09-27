@@ -54,6 +54,9 @@ TOKENS = {
         "signal": "#1C4FD8",
         "signal-wash": "#E4EBFA",
         "clay": "#A6371B",
+        "moss": "#2D6A4F",
+        "amber": "#8F4A00",
+        "plum": "#6A3C9C",
     },
     "dark": {
         "paper": "#0C1526",
@@ -65,6 +68,9 @@ TOKENS = {
         "signal": "#22D3EE",
         "signal-wash": "#132A42",
         "clay": "#F2957A",
+        "moss": "#6FD6A2",
+        "amber": "#F6B24B",
+        "plum": "#C9B2F5",
     },
 }
 
@@ -310,6 +316,45 @@ def _scale(font, factor):
     return font
 
 
+#: What a button does, and the token it is said in. The words say it first;
+#: the colour lets a row of six buttons be read before any of them is: start
+#: something in the accent, record in amber, remove or interrupt in clay - the
+#: page's own .button.danger - put something out of the program in moss, and
+#: listen in plum. A button with no role keeps the ink, as every one did.
+ROLES = {"go": "signal", "record": "amber", "danger": "clay",
+         "out": "moss", "listen": "plum"}
+
+#: How much of a role's colour its hover wash is mixed from, over the sheet.
+#: The accent has a wash in the palette; the others are made the same way.
+WASH = 0.12
+
+
+def wash(name, which="light"):
+    """A token's colour, laid thin over the sheet: the ground a hover is."""
+    ink, sheet = colour(name, which), colour("sheet", which)
+    mixed = QColor()
+    mixed.setRgbF(*(sheet_part + (ink_part - sheet_part) * WASH for ink_part, sheet_part in
+                    zip(ink.getRgbF()[:3], sheet.getRgbF()[:3], strict=True)))
+    return mixed
+
+
+def role_rules(which="light"):
+    """A button's role, said in its colour: the word, the rule under it, the
+    hover. Disabled goes back to the ink every disabled button has."""
+    token = TOKENS[which]
+    rules = []
+    for role, name in ROLES.items():
+        ink = token[name]
+        rules.append(
+            f'QPushButton[role="{role}"] {{ color: {ink}; border-bottom-color: {ink}; }}\n'
+            f'QPushButton[role="{role}"]:hover, QPushButton[role="{role}"]:pressed {{'
+            f' color: {ink}; border-color: {ink};'
+            f' background: {wash(name, which).name()}; }}\n'
+            f'QPushButton[role="{role}"]:disabled {{ color: {token["line"]};'
+            f' background: transparent; border-color: {token["rule"]}; }}\n')
+    return "".join(rules)
+
+
 def qss(which="light"):
     """The chrome: what the stylesheet does to controls, said in Qt's dialect.
 
@@ -327,6 +372,7 @@ def qss(which="light"):
     left to the style, which is Fusion on all three platforms so that these
     rules land the same way on each."""
     token = dict(TOKENS[which])
+    roles = role_rules(which)
     return f"""
 QMainWindow, QDialog, QWidget#masthead {{ background: {token['paper']}; }}
 QToolTip {{ background: {token['sheet']}; color: {token['ink']};
@@ -395,7 +441,7 @@ QPushButton#primary:hover {{ color: {token['ink']};
                              border-color: {token['ink']}; }}
 QPushButton#primary:disabled {{ background: transparent;
                                 border-color: {token['rule']}; }}
-
+{roles}
 /* --- fields: one rule under the text ------------------------------------ */
 QLineEdit, QComboBox, QSpinBox, QDoubleSpinBox, QTimeEdit {{
     background: transparent; border: none;

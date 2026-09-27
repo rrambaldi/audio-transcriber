@@ -2034,3 +2034,32 @@ def test_an_earlier_summary_can_be_read(window, queue):
     assert "prima" in library.summary.toPlainText()
     library.summary_version.setCurrentIndex(0)
     assert "seconda" in library.summary.toPlainText()
+
+
+# --- what a button does, said three ways -----------------------------------
+
+def test_every_button_in_the_window_carries_a_symbol(window, tmp_path):
+    """The word says what it does, the drawing lets a row be read at a
+    glance - and a button left without one is the one that looks broken."""
+    from PySide6.QtWidgets import QPushButton
+
+    window.transcribe.add_files([sample(tmp_path)])
+    window.transcribe.refresh()
+    bare = [button.text() for button in window.findChildren(QPushButton)
+            if not button.property("symbol") or button.icon().isNull()]
+    assert bare == []
+
+
+def test_a_button_says_what_it_does_in_its_colour(window):
+    """Start in the accent, remove in clay, put out in moss, listen in plum,
+    record in amber; organising keeps the ink."""
+    from audio_transcriber.gui import theme
+
+    library, home = window.library, window.home
+    roles = {library.retranscribe: "go", library.delete: "danger",
+             library.export: "out", library.play: "listen",
+             home.record: "record", library.move_to: ""}
+    assert {button: button.property("role") or "" for button in roles} == roles
+    sheet = theme.qss("light")
+    for role, token in theme.ROLES.items():
+        assert f'QPushButton[role="{role}"] {{ color: {theme.TOKENS["light"][token]};' in sheet

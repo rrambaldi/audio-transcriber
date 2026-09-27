@@ -513,6 +513,9 @@ def test_what_was_finished_is_still_listed_and_not_run_again(queue, tmp_path):
     source.write_bytes(b"x")
     job = queue.submit(str(source))
     wait_for(queue, job.id)
+    # The worker sets the status first and writes the file a moment after:
+    # read too soon, under a loaded machine, the file still says "queued".
+    queue._persist()
 
     ran = []
     later = restarted(runner=ran.append)
