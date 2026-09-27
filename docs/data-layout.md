@@ -165,9 +165,11 @@ library can be a symlink, or on Windows a junction, to a folder on another disk:
 mklink /J "%LOCALAPPDATA%\audio-transcriber\library\ACME" "D:\Clienti\ACME\audio"
 ```
 
-What is filed in `ACME` then lands on `D:`. Removing that folder removes the
-link and never what it points at, and a directory reached twice — a link back
-up the tree — is only walked once.
+What is filed in `ACME` then lands on `D:`. The window makes the same link
+with *Link a folder on the disk…* (`Library.link_folder`), refusing a folder
+that holds the library or sits inside it. Removing that folder removes the
+link and never what it points at - full or not - and a directory reached twice
+— a link back up the tree — is only walked once.
 
 ### Summaries kept
 

@@ -491,3 +491,28 @@ def test_a_summary_put_aside_can_be_listed_and_read_back(library, recording):
                    "/etc/passwd"):
         with pytest.raises(LibraryError):
             entry.read_summary_version(sneaky)
+
+
+def test_a_folder_can_live_elsewhere_and_be_let_go_of_without_losing_it(tmp_path):
+    """Linked from the program, not only with mklink or ln -s: what is filed
+    there lands on the other disk, and unlinking - full as it is - leaves it."""
+    library = Library(str(tmp_path / "library"))
+    elsewhere = tmp_path / "nas" / "audio"
+    elsewhere.mkdir(parents=True)
+    assert library.link_folder("ACME", str(elsewhere)) == "ACME"
+    assert "ACME" in library.folders()
+    assert library.folder_target("ACME") == os.path.realpath(elsewhere)
+    library.create_folder("Interna")
+    assert library.folder_target("Interna") is None
+
+    moved = library.move(library.create(title="Riunione"), "ACME")
+    assert (elsewhere / moved.name / "metadata.json").exists()
+    library.remove_folder("ACME")
+    assert "ACME" not in library.folders()
+    assert (elsewhere / moved.name / "metadata.json").exists()
+
+    for inside_or_above in (tmp_path / "library", tmp_path):
+        with pytest.raises(LibraryError):
+            library.link_folder("Anello", str(inside_or_above))
+    with pytest.raises(LibraryError):
+        library.link_folder("Niente", str(tmp_path / "missing"))

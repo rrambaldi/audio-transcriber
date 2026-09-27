@@ -8,6 +8,15 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- **A folder of the library can be a folder on another disk, made from the
+  window.** *Link a folder on the disk…*, at the end of *Move to* and in the
+  tree's right-click menu, asks for the folder and a name; what is filed there
+  is stored there - a NAS, a USB drive, a client's share. It is a junction on
+  Windows (no administrator needed) and a symlink elsewhere. The tree marks it
+  with the link symbol and gives the path in its tooltip, *Move to* writes the
+  path after its name, and *Unlink* removes only the link, full or not.
+
+
 - **The library has folders.** Folders and folders inside them, on the left
   of the window, created, renamed and deleted (an empty one only) from there;
   a recording moves by dragging its row onto a folder, or with *Move to*. A
@@ -123,6 +132,12 @@ All notable changes to this project are documented here. The format follows
   again, S only sends.
 
 ### Changed
+
+- **The interface language has its symbol**, the translation mark, beside
+  the menu in the window's masthead and before *Language* at the foot of the
+  page: the one control somebody who cannot read the current language has to
+  find.
+
 
 - **The page's search comes first.** It sits at the top of the library
   column, above the work under way, and the jobs that did not go through are

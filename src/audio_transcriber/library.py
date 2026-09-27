@@ -569,6 +569,50 @@ class Library:
         os.makedirs(target)
         return folder
 
+    def link_folder(self, path, target):
+        """Make a folder of the library that is a folder elsewhere on the disk.
+
+        A symlink, or on Windows a junction, which needs no administrator the
+        way a symlink does. What is filed in it lands in ``target``; removing
+        it removes the link and never what it points at. ``target`` has to be
+        an existing folder that neither holds the library nor sits inside it.
+        Returns the new folder's path."""
+        folder, link = self._folder_path(path)
+        if not folder:
+            raise LibraryError("a folder needs a name")
+        self._refuse_inside_entry(folder)
+        if os.path.lexists(link):
+            raise LibraryError(f"'{folder}' already exists")
+        target = os.path.abspath(os.path.expanduser(str(target or "")))
+        if not os.path.isdir(target):
+            raise LibraryError(f"no folder at {target}")
+        if _nested(os.path.realpath(self.root), os.path.realpath(target)):
+            raise LibraryError(f"{target} holds the library or is inside it")
+        os.makedirs(os.path.dirname(link), exist_ok=True)
+        if os.name == "nt":
+            import _winapi
+            _winapi.CreateJunction(target, link)
+        else:
+            os.symlink(target, link, target_is_directory=True)
+        return folder
+
+    def folder_target(self, path):
+        """Where a folder of the library really is, when that is somewhere
+        else - it is a link - or ``None`` for a folder of the library's own.
+
+        By comparing where it resolves with where it sits, not by asking
+        whether it is a link: ``os.path`` only knows a junction from 3.12."""
+        try:
+            folder, target = self._folder_path(path)
+        except LibraryError:
+            return None
+        if not folder or not os.path.isdir(target):
+            return None
+        real = os.path.realpath(target)
+        sits = os.path.join(os.path.realpath(os.path.dirname(target)),
+                            os.path.basename(target))
+        return real if os.path.normcase(real) != os.path.normcase(sits) else None
+
     def rename_folder(self, path, new_name):
         """Call a folder something else, where it is; return its new path."""
         folder, source = self._existing_folder(path)
@@ -589,9 +633,10 @@ class Library:
         """Delete a folder, but only an empty one; return its path.
 
         A folder that is a link to somewhere else - a symlink, a Windows
-        junction - loses the link and nothing else: what it pointed at is
-        somebody's folder, not this library's to delete. One whose target has
-        gone, a disk that is not plugged in, can always be let go of."""
+        junction - loses the link and nothing else, full or not: what it
+        pointed at is somebody's folder, not this library's to delete. One
+        whose target has gone, a disk that is not plugged in, can always be
+        let go of."""
         folder, target = self._folder_path(path)
         if not folder:
             raise LibraryError("the top of the library cannot be removed")
@@ -599,7 +644,7 @@ class Library:
         linked = os.path.islink(target) or _isjunction(target)
         if not linked and not os.path.isdir(target):
             raise LibraryError(f"no folder '{folder}' in the library")
-        if os.path.isdir(target) and os.listdir(target):
+        if not linked and os.path.isdir(target) and os.listdir(target):
             raise LibraryError(f"'{folder}' is not empty")
         if linked:
             try:
@@ -791,6 +836,16 @@ class Library:
         self._refuse_outside(path)
         shutil.rmtree(path)
         return path
+
+
+def _nested(one, other):
+    """Whether either folder is the other or holds it."""
+    one, other = os.path.normcase(one), os.path.normcase(other)
+    try:
+        common = os.path.commonpath([one, other])
+    except ValueError:      # two drives on Windows: neither holds the other
+        return False
+    return common in (one, other)
 
 
 def _free_name(name, parent):

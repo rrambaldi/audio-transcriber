@@ -1595,7 +1595,8 @@ def test_move_to_offers_a_new_folder_in_a_library_without_folders(window, queue,
     library.show_entry(entry.id)
     library.move_menu.aboutToShow.emit()
     offered = [a for a in library.move_menu.actions() if not a.isSeparator()]
-    assert [a.text() for a in offered] == [i18n.t("gui.folder_new")]
+    assert [a.text() for a in offered] == [i18n.t("gui.folder_new"),
+                                           i18n.t("gui.folder_link")]
 
     monkeypatch.setattr(QInputDialog, "getText",
                         staticmethod(lambda *args, **kwargs: ("Clienti", True)))
@@ -1603,6 +1604,38 @@ def test_move_to_offers_a_new_folder_in_a_library_without_folders(window, queue,
     assert queue.library.folders() == ["Clienti"]
     assert [e.id.partition("/")[0] for e in queue.library.entries()] == ["Clienti"]
     assert window.home.tree.item_for("Clienti") is not None
+
+
+def test_a_folder_on_another_disk_is_linked_from_move_to_and_says_so(window, queue,
+                                                                     tmp_path, monkeypatch):
+    """Move to can file a recording in a folder that is somewhere else on the
+    disk; the tree and the menu then say where that folder really is."""
+    from PySide6.QtWidgets import QFileDialog, QInputDialog
+
+    elsewhere = tmp_path / "nas"
+    elsewhere.mkdir()
+    entry = filed_entry(queue, title="Riunione")
+    library = window.library
+    library.reload()
+    library.show_entry(entry.id)
+    monkeypatch.setattr(QFileDialog, "getExistingDirectory",
+                        staticmethod(lambda *args, **kwargs: str(elsewhere)))
+    monkeypatch.setattr(QInputDialog, "getText",
+                        staticmethod(lambda *args, **kwargs: ("Archivio", True)))
+    assert library.move_to_linked_folder()
+
+    [moved] = queue.library.entries()
+    assert moved.id.startswith("Archivio/")
+    assert (elsewhere / moved.name / "metadata.json").exists()
+    item = window.home.tree.item_for("Archivio")
+    assert str(elsewhere) in item.toolTip(0) and not item.icon(0).isNull()
+
+    other = filed_entry(queue, title="Altra riunione")
+    library.show_entry(other.id)
+    library.move_menu.aboutToShow.emit()
+    labels = [a.text() for a in library.move_menu.actions()]
+    assert f"Archivio  →  {os.path.realpath(elsewhere)}" in labels
+    assert not window.masthead.language_icon.pixmap().isNull()
 
 
 def test_the_library_pane_has_a_summary_tab(window, queue):

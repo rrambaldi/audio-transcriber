@@ -181,9 +181,18 @@ where an hour of meeting is read.
 **Moving** a recording: drag its row onto a folder, or *Move to* under the
 reading pane, which lists them and ends with *New folder…*: a folder made
 where the recording is, and the recording moved into it - so the menu is never
-empty, not even in a library with no folders yet. A folder of the library can also be a link to
-a folder elsewhere on the disk — `mklink /J` on Windows, `ln -s` elsewhere —
-and the window shows it like any other; see [data-layout.md](data-layout.md).
+empty, not even in a library with no folders yet.
+
+**A folder can live on another disk.** *Link a folder on the disk…* - at the
+end of *Move to*, and in the tree's right-click menu - asks for a folder
+anywhere on the disk, a NAS or a USB drive included, and a name, and makes a
+folder of the library that *is* that folder: what is filed in it is stored
+there. It is a junction on Windows, which needs no administrator, and a
+symlink elsewhere. The tree draws it with the link symbol and says where it
+points in its tooltip; *Move to* writes the path after its name. *Unlink* on
+it removes the link, full or not, and never what it points at. A folder made
+by hand with `mklink /J` or `ln -s` is shown the same way; see
+[data-layout.md](data-layout.md).
 
 **Doing it again.** *Transcribe again…* opens the same dialog a new recording
 gets, with one more question at the bottom: *keep* the transcription the

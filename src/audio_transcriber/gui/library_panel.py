@@ -1177,14 +1177,22 @@ class LibraryPanel(QWidget):
             return
         here = options.folder_of(self.entry.id)
         for folder, label in options.folder_choices(self.library.folders()):
-            if folder != here:
-                action = self.move_menu.addAction(label)
-                action.triggered.connect(
-                    lambda _checked=False, where=folder: self.move_entry(
-                        self.entry.id, where))
+            if folder == here:
+                continue
+            # A folder that is really somewhere else says where: that is
+            # where the recording will be stored.
+            target = self.library.folder_target(folder)
+            action = self.move_menu.addAction(
+                f"{label}  →  {target}" if target else label)
+            if target:
+                action.setIcon(symbols.icon("folder_link", symbols.size_for(self)))
+            action.triggered.connect(
+                lambda _checked=False, where=folder: self.move_entry(
+                    self.entry.id, where))
         if self.move_menu.actions():
             self.move_menu.addSeparator()
         self.move_menu.addAction(t("gui.folder_new"), self.move_to_new_folder)
+        self.move_menu.addAction(t("gui.folder_link"), self.move_to_linked_folder)
 
     def move_to_new_folder(self):
         """Make a folder where the entry is, and move the entry into it."""
@@ -1200,6 +1208,21 @@ class LibraryPanel(QWidget):
                 f"{here}/{name.strip()}" if here else name.strip())
         except (LibraryError, OSError) as exc:
             self.message.emit(t("gui.folder_failed", error=exc))
+            return False
+        self.folders_changed.emit(made)
+        return self.move_entry(self.entry.id, made)
+
+    def move_to_linked_folder(self):
+        """Link a folder on the disk where the entry is, and move it there."""
+        if self.entry is None:
+            return False
+        try:
+            made = ask_linked_folder(self, self.library,
+                                     options.folder_of(self.entry.id))
+        except (LibraryError, OSError) as exc:
+            self.message.emit(t("gui.folder_failed", error=exc))
+            return False
+        if made is None:
             return False
         self.folders_changed.emit(made)
         return self.move_entry(self.entry.id, made)
@@ -1302,6 +1325,23 @@ class _AsResult:
 
     def __init__(self, segments):
         self.segments = segments
+
+
+def ask_linked_folder(parent, library, where):
+    """Ask for a folder on the disk and a name, and link it inside ``where``.
+
+    The new folder's path, or ``None`` when either question was cancelled;
+    what the library refuses is raised, for the caller to say."""
+    chosen = QFileDialog.getExistingDirectory(parent, t("gui.folder_link_pick"))
+    if not chosen:
+        return None
+    name, accepted = QInputDialog.getText(
+        parent, t("gui.folder_link"), t("gui.folder_name"),
+        QLineEdit.EchoMode.Normal, os.path.basename(os.path.normpath(chosen)))
+    if not accepted or not name.strip():
+        return None
+    return library.link_folder(f"{where}/{name.strip()}" if where else name.strip(),
+                               chosen)
 
 
 def _symbol_button(name, glyph, tooltip, handler):

@@ -35,6 +35,7 @@ from PySide6.QtWidgets import (
 from ..i18n import t
 from ..library import LibraryError
 from . import options, symbols
+from .library_panel import ask_linked_folder
 
 #: The tree's key for the work under way. Not a folder name: a folder can be
 #: called anything, but not something that starts with a NUL.
@@ -57,8 +58,12 @@ class FolderTree(QTreeWidget):
         self.setDragDropMode(QTreeWidget.DragDropMode.DropOnly)
         self.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
 
-    def fill(self, folders, working, keep=None):
-        """Rebuild the tree, and select ``keep`` if it is still there."""
+    def fill(self, folders, working, keep=None, targets=None):
+        """Rebuild the tree, and select ``keep`` if it is still there.
+
+        ``targets`` maps a folder that is a link to where it really is: it
+        is drawn with the link symbol, and its tooltip says where."""
+        targets = targets or {}
         keep = self.current_key() if keep is None else keep
         self.blockSignals(True)
         self.clear()
@@ -72,6 +77,9 @@ class FolderTree(QTreeWidget):
             parent = items.get(folder.rpartition("/")[0], self.root)
             item = QTreeWidgetItem(parent, [folder.rpartition("/")[2]])
             item.setData(0, Qt.ItemDataRole.UserRole, folder)
+            if targets.get(folder):
+                item.setIcon(0, symbols.icon("folder_link", symbols.size_for(self)))
+                item.setToolTip(0, t("gui.folder_linked_tip", path=targets[folder]))
             items[folder] = item
         self.expandAll()
         self.blockSignals(False)
@@ -265,7 +273,9 @@ class Home(QWidget):
             folders = self.library.folders()
         except (LibraryError, OSError):
             folders = []
-        self.tree.fill(folders, len(self.transcribe._rows), keep=keep)
+        self.tree.fill(folders, len(self.transcribe._rows), keep=keep,
+                       targets={folder: self.library.folder_target(folder)
+                                for folder in folders})
         chosen = self.record_folder.currentData()
         self.record_folder.blockSignals(True)
         self.record_folder.clear()
@@ -318,9 +328,11 @@ class Home(QWidget):
         self.tree.setCurrentItem(item)
         menu = QMenu(self)
         menu.addAction(t("gui.folder_new"), self.new_folder)
+        menu.addAction(t("gui.folder_link"), self.link_folder)
         if key:
             menu.addAction(t("gui.folder_rename"), self.rename_folder)
-            menu.addAction(t("gui.folder_delete"), self.delete_folder)
+            menu.addAction(t("gui.folder_unlink" if self.library.folder_target(key)
+                             else "gui.folder_delete"), self.delete_folder)
         menu.exec(self.tree.viewport().mapToGlobal(point))
 
     def _chosen_folder(self):
@@ -335,6 +347,17 @@ class Home(QWidget):
         if not accepted or not name.strip():
             return None
         return self.make_folder(parent, name.strip())
+
+    def link_folder(self):
+        """A folder on the disk, linked inside the one selected or at the top."""
+        try:
+            made = ask_linked_folder(self, self.library, self._chosen_folder())
+        except (LibraryError, OSError) as exc:
+            self.message.emit(t("gui.folder_failed", error=exc))
+            return None
+        if made:
+            self.refresh_folders(keep=made)
+        return made
 
     def make_folder(self, parent, name):
         path = f"{parent}/{name}" if parent else name
@@ -377,16 +400,20 @@ class Home(QWidget):
         return renamed
 
     def delete_folder(self):
-        """Only an empty folder, and only after asking."""
+        """Only an empty folder, and only after asking. A linked one is only
+        unlinked, full or not: its recordings stay where they are."""
         folder = self._chosen_folder()
         if not folder:
             return False
-        if self.library.entries(folder) or any(
-                other.startswith(folder + "/") for other in self.library.folders()):
+        target = self.library.folder_target(folder)
+        if target is None and (self.library.entries(folder) or any(
+                other.startswith(folder + "/") for other in self.library.folders())):
             self.message.emit(t("gui.folder_not_empty", folder=folder))
             return False
         answer = QMessageBox.question(
-            self, t("gui.folder_delete"), t("gui.folder_delete_confirm", folder=folder),
+            self, t("gui.folder_unlink" if target else "gui.folder_delete"),
+            t("gui.folder_unlink_confirm", folder=folder, path=target) if target
+            else t("gui.folder_delete_confirm", folder=folder),
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
             QMessageBox.StandardButton.No)
         if answer != QMessageBox.StandardButton.Yes:
