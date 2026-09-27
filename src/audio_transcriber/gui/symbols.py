@@ -37,12 +37,13 @@ from PySide6.QtWidgets import QAbstractButton, QApplication, QToolButton
 from .. import branding
 from . import theme
 
-#: Which palette token each state is drawn in. Hover is the accent and
-#: disabled is the rule, which is what ``theme.qss`` does to the underline of
-#: every button in the window; normal is the ink of the text beside it.
+#: Which palette token each state is drawn in. Normal is the ink of the text
+#: beside it, hover the accent. Disabled is the fields' rule, not the hairline
+#: a disabled button's underline goes to: at 1.27:1 on the paper the hairline
+#: read as a white symbol, a button that looked broken rather than off.
 STATES = ((QIcon.Mode.Normal, "ink"),
           (QIcon.Mode.Active, "signal"),
-          (QIcon.Mode.Disabled, "rule"))
+          (QIcon.Mode.Disabled, "line"))
 
 #: How large a symbol is, as a multiple of the interface font's line height.
 #: Comfortably over it: a line height is the box a character is drawn *in*,
@@ -104,7 +105,7 @@ def icon(name, size, which=None, ratio=1.0, normal="ink", active="signal"):
     which = which or theme.scheme(QApplication.instance())
     built = QIcon()
     for mode, token in ((QIcon.Mode.Normal, normal), (QIcon.Mode.Active, active),
-                        (QIcon.Mode.Disabled, "rule")):
+                        STATES[2]):
         pixmap = render(name, size, theme.colour(token, which).name(), ratio)
         if pixmap is None:
             return QIcon()

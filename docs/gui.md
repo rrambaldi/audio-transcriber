@@ -179,7 +179,9 @@ transcript, the summary and the notes are set a size up from the controls —
 where an hour of meeting is read.
 
 **Moving** a recording: drag its row onto a folder, or *Move to* under the
-reading pane, which lists them. A folder of the library can also be a link to
+reading pane, which lists them and ends with *New folder…*: a folder made
+where the recording is, and the recording moved into it - so the menu is never
+empty, not even in a library with no folders yet. A folder of the library can also be a link to
 a folder elsewhere on the disk — `mklink /J` on Windows, `ln -s` elsewhere —
 and the window shows it like any other; see [data-layout.md](data-layout.md).
 

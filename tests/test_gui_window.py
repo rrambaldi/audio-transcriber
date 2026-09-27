@@ -1582,6 +1582,29 @@ def filed_entry(queue, title="Riunione ISO"):
     return entry
 
 
+def test_move_to_offers_a_new_folder_in_a_library_without_folders(window, queue,
+                                                                  monkeypatch):
+    """With no folder but the top the menu was empty, and the button did
+    nothing at all. It always ends with New folder, which makes the folder
+    where the entry is, moves it there and shows it in the tree."""
+    from PySide6.QtWidgets import QInputDialog
+
+    entry = filed_entry(queue, title="Riunione")
+    library = window.library
+    library.reload()
+    library.show_entry(entry.id)
+    library.move_menu.aboutToShow.emit()
+    offered = [a for a in library.move_menu.actions() if not a.isSeparator()]
+    assert [a.text() for a in offered] == [i18n.t("gui.folder_new")]
+
+    monkeypatch.setattr(QInputDialog, "getText",
+                        staticmethod(lambda *args, **kwargs: ("Clienti", True)))
+    offered[0].trigger()
+    assert queue.library.folders() == ["Clienti"]
+    assert [e.id.partition("/")[0] for e in queue.library.entries()] == ["Clienti"]
+    assert window.home.tree.item_for("Clienti") is not None
+
+
 def test_the_library_pane_has_a_summary_tab(window, queue):
     entry = filed_entry(queue)
     window.library.reload()

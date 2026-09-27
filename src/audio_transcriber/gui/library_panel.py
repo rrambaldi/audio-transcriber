@@ -113,6 +113,8 @@ class LibraryPanel(QWidget):
     message = Signal(str)
     #: "Transcribe again" was pressed; the window's queue asks how, and runs it.
     retranscribe_requested = Signal(str, str)
+    #: A folder was made from the Move menu: the tree has to show it.
+    folders_changed = Signal(str)
 
     def __init__(self, library, settings=None, parent=None, queue=None):
         super().__init__(parent)
@@ -1167,7 +1169,9 @@ class LibraryPanel(QWidget):
         self.reload(keep=None)
 
     def _fill_move_menu(self):
-        """Every folder but the one the entry is in, the top first."""
+        """Every folder but the one the entry is in, the top first, and a new
+        one: in a library with no folders yet the menu was empty, and the
+        button did nothing at all."""
         self.move_menu.clear()
         if self.entry is None:
             return
@@ -1178,6 +1182,27 @@ class LibraryPanel(QWidget):
                 action.triggered.connect(
                     lambda _checked=False, where=folder: self.move_entry(
                         self.entry.id, where))
+        if self.move_menu.actions():
+            self.move_menu.addSeparator()
+        self.move_menu.addAction(t("gui.folder_new"), self.move_to_new_folder)
+
+    def move_to_new_folder(self):
+        """Make a folder where the entry is, and move the entry into it."""
+        if self.entry is None:
+            return False
+        name, accepted = QInputDialog.getText(self, t("gui.folder_new"),
+                                              t("gui.folder_name"))
+        if not accepted or not name.strip():
+            return False
+        here = options.folder_of(self.entry.id)
+        try:
+            made = self.library.create_folder(
+                f"{here}/{name.strip()}" if here else name.strip())
+        except (LibraryError, OSError) as exc:
+            self.message.emit(t("gui.folder_failed", error=exc))
+            return False
+        self.folders_changed.emit(made)
+        return self.move_entry(self.entry.id, made)
 
     def move_entry(self, entry_id, folder):
         """Move one entry to another folder; say where it went.

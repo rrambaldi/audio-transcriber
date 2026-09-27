@@ -183,6 +183,7 @@ class Home(QWidget):
         self.tree = FolderTree()
         self.tree.currentItemChanged.connect(self._folder_chosen)
         self.tree.entry_dropped.connect(self.panel.move_entry)
+        self.panel.folders_changed.connect(lambda _made: self.refresh_folders())
         self.tree.customContextMenuRequested.connect(self._tree_menu)
         self.new_folder_button = QPushButton(t("gui.folder_new"))
         self.new_folder_button.clicked.connect(self.new_folder)

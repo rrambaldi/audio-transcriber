@@ -22,7 +22,7 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 try:
     from PySide6.QtCore import Qt
-    from PySide6.QtGui import QFont, QIcon, QPalette
+    from PySide6.QtGui import QColor, QFont, QIcon, QPalette
     from PySide6.QtWidgets import QApplication
 except ImportError as exc:      # pragma: no cover - depends on the machine
     pytest.skip(f"PySide6 cannot be loaded here: {exc}", allow_module_level=True)
@@ -108,13 +108,20 @@ def test_a_symbol_is_painted_in_the_scheme_s_ink(application, which):
 
 
 def test_the_three_states_are_the_three_colours_the_style_sheet_uses(application):
-    """Ink at rest, the accent under the mouse, the rule when it is off:
-    the same three a push button's underline goes through, so that these
-    behave like the buttons around them and not like clickable pictures."""
+    """Ink at rest, the accent under the mouse, the fields' rule when it is
+    off - dimmer than the ink, and not the hairline, which read as white."""
     drawn = symbols.icon("copy", 24, which="light")
     for mode, token in symbols.STATES:
         assert theme.colour(token, "light").name() in inks(
             drawn.pixmap(24, 24, mode)), mode
+
+
+@pytest.mark.parametrize("which", ["light", "dark"])
+def test_a_disabled_symbol_can_still_be_seen(application, which):
+    """At least 3:1 on the paper, as the outline of any other control."""
+    drawn = symbols.icon("move", 24, which=which).pixmap(24, 24, QIcon.Mode.Disabled)
+    paper = theme.colour("paper", which)
+    assert all(style.contrast(QColor(ink), paper) >= 3 for ink in inks(drawn))
 
 
 def test_two_asks_for_the_same_symbol_render_it_once(application):
