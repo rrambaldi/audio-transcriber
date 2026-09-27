@@ -193,6 +193,7 @@ class LibraryPanel(QWidget):
         self.transcript.setOpenLinks(False)
         self.transcript.setOpenExternalLinks(False)
         self.transcript.anchorClicked.connect(self._anchor_clicked)
+        self.transcript.setFont(theme.reading_font(self.transcript.font()))
         self.copy_transcript = _copy_button(self._copy_transcript)
         # The other transcriptions of the same recording, newest first: shown
         # only when there are any, and picking one reads that one instead.
@@ -212,6 +213,7 @@ class LibraryPanel(QWidget):
                                                self.copy_transcript), 1)
 
         self.notes = QPlainTextEdit()
+        self.notes.setFont(theme.reading_font(self.notes.font()))
         self.notes.setPlaceholderText(t("gui.notes_hint"))
         self.notes.textChanged.connect(self._notes_changed)
         self.copy_notes = _copy_button(self._copy_notes)
@@ -231,6 +233,7 @@ class LibraryPanel(QWidget):
         self.details_form = QFormLayout(self.details)
 
         self.summary = QPlainTextEdit()
+        self.summary.setFont(theme.reading_font(self.summary.font()))
         self.summary.setReadOnly(True)
         # Every summary of the recording, newest first: shown only when there
         # is more than one, and the older ones only for reading.
@@ -1328,12 +1331,13 @@ def _transcript_html(segments, text):
     if not blocks:
         return f"<p><i>{html.escape(t('gui.no_transcript'))}</i></p>"
     parts = []
+    leading = f'style="line-height:{theme.READING_LEADING}%"'
     for start, clock, body in blocks:
         body_html = html.escape(body)
         if start is None:
-            parts.append(f"<p>{body_html}</p>")
+            parts.append(f"<p {leading}>{body_html}</p>")
             continue
-        parts.append(f'<p><a href="#t={start:.2f}">[{clock}]</a> {body_html}</p>')
+        parts.append(f'<p {leading}><a href="#t={start:.2f}">[{clock}]</a> {body_html}</p>')
     return "\n".join(parts)
 
 

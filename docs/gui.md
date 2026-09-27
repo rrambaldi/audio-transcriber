@@ -170,7 +170,10 @@ terminal copy back while debugging.
 first. Search the transcripts and the notes — a search reaches every folder,
 and says which one a result is in — read the transcript with a clickable
 timestamp per block, play the recording while reading along, jump to any
-moment, write notes, rename, export the text, open the folder, delete.
+moment, write notes, rename, export the text, open the folder, delete. The
+transcript, the summary and the notes are set a size up from the controls —
+11 pt against 9, the transcript with a 145% leading — because that pane is
+where an hour of meeting is read.
 
 **Moving** a recording: drag its row onto a folder, or *Move to* under the
 reading pane, which lists them. A folder of the library can also be a link to
@@ -623,6 +626,7 @@ stylesheet's own token values, by `tests/test_gui_theme.py`.
 | `.row .title` in the serif | the queue and library rows, painted by `widgets.JobDelegate` |
 | `.drop`, dashed | `QFrame#drop`, dashed, washed in the accent while a file is over it |
 | `.button.danger`, in clay | `QPushButton[role="danger"]` — and four more roles, below |
+| a selected row or folder | the accent's wash, plus a 3 px rule in the accent down its left edge: the wash alone is 1.16:1 on the sheet, a selection only somebody already looking for it finds; the rule is 6.42:1 light and 9.04:1 dark, and it is also where the keyboard is |
 | a checkbox or a radio button | drawn by the stylesheet, not by Fusion: the field's rule as its outline (3.17:1 light, 5.04:1 dark), filled in the accent when ticked. Fusion's own box was the sheet on the paper, 1.12:1 in the dark scheme |
 
 **Every button says what it does three ways**: its word, a symbol beside it

@@ -281,6 +281,23 @@ def label_font(base, scale=LABEL_SCALE):
     return font
 
 
+#: How much larger than the interface font the reading pane is set: 9 pt
+#: becomes 11, about fifteen pixels. The transcript is where an hour of
+#: meeting is read, and it was in the size of the buttons beside it - with
+#: lines of ninety characters, which is where an eye loses its place.
+READING_SCALE = 11 / 9
+
+#: And the leading of that text, as a CSS percentage for rich text.
+READING_LEADING = 145
+
+
+def reading_font(base):
+    """The interface face, at the size a long text is read at."""
+    font = QFont(base)
+    _scale(font, READING_SCALE)
+    return font
+
+
 def title_font(base, scale=TITLE_SCALE, italic=False, weight=QFont.Weight.Medium,
                display=TEXT, tracking=None):
     """A heading in the serif: the masthead, a section title, a row's title.
@@ -479,8 +496,12 @@ QTableView, QTreeView, QListView {{ background: {token['sheet']};
                                     outline: none; }}
 QTableView::item, QTreeView::item, QListView::item {{ padding: 2px 4px;
                                                       border: none; }}
+/* The wash alone is 1.16:1 on the sheet, which is a selection only somebody
+   already looking for it finds: the accent's rule down its left edge says
+   which row it is, and where the keyboard is, at 6:1 and more. */
 QTableView::item:selected, QTreeView::item:selected, QListView::item:selected {{
-    background: {token['signal-wash']}; color: {token['ink']}; }}
+    background: {token['signal-wash']}; color: {token['ink']};
+    border-left: 3px solid {token['signal']}; }}
 QHeaderView {{ background: transparent; }}
 QHeaderView::section {{ background: {token['paper']}; color: {token['muted']};
                         border: none; border-bottom: 1px solid {token['ink']};
