@@ -141,6 +141,8 @@ class OptionsForm(QWidget):
             self.output_unavailable.setText(t(
                 "gui.output_speakers_unconfigured" if state == NO_MODEL
                 else "gui.output_speakers_missing", detail=detail))
+            if state != NO_MODEL:
+                self.output_unavailable.setToolTip(options.INSTALL_COMMANDS["diarize"])
 
         self.vocabularies = QListWidget()
         self.vocabularies.setToolTip(t("gui.vocab_hint"))

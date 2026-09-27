@@ -70,7 +70,10 @@ def test_the_installed_keyword_sets_are_offered_by_name():
     assert "iso27001-it" in names
     bundled = next(item for item in items if item["name"] == "iso27001-it")
     assert bundled["terms"] > 0 and bundled["source"] == "bundled"
-    assert bundled["name"] in bundled["label"]
+    # The file name is for the command line: in the list it stays out of the
+    # label, and heads the tooltip.
+    assert bundled["name"] not in bundled["label"]
+    assert bundled["tooltip"].startswith(bundled["name"])
 
 
 def test_a_hand_written_set_shadows_a_bundled_one(tmp_path, monkeypatch):
@@ -360,6 +363,16 @@ def test_a_recording_transcribed_twice_is_one_row_with_its_versions(library, tmp
     assert options.transcription_choices(alone, copies) == []
     assert options.same_recording(copies, second.id, first.id)
     assert not options.same_recording(copies, second.id, alone.id)
+    assert rows[second.id]["titles"] == []          # one name: nothing to list
+
+    # A copy renamed by hand is named in the tooltip and in the menu, or it
+    # would be found nowhere.
+    first.update(title="Call settimanale")
+    renamed = library.copies()
+    rows = {row["id"]: row for row in options.entry_rows(library.entries(), renamed)}
+    assert rows[second.id]["titles"] == ["riunione", "Call settimanale"]
+    assert options.transcription_choices(second, renamed)[1][1].endswith(
+        " · small · Call settimanale")
 
     # The newest summary of the recording, whichever transcription wrote it.
     text, note = options.summary_state(options.summary_choices(second, copies))

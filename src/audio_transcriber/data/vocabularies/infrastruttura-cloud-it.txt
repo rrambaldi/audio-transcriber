@@ -1,11 +1,11 @@
 # title: Infrastruttura e cloud
 # language: it
-# Sistemisti, cloud, esercizio: macchine, reti, continuita'.
+# Sistemisti, cloud, esercizio: macchine, reti, continuità.
 #
 #   audio-transcriber riunione.wav --vocab infrastruttura-cloud-it
 
 on premise, container, Docker, Kubernetes, cluster, pod, Terraform,
 infrastructure as code, provisioning, VPC, subnet, load balancer,
 reverse proxy, certificato TLS, snapshot, disaster recovery, RTO, RPO,
-uptime, downtime, osservabilita', autoscaling, latenza, throughput,
+uptime, downtime, osservabilità, autoscaling, latenza, throughput,
 capacity planning, FinOps, availability zone

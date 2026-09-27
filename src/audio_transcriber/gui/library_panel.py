@@ -381,6 +381,7 @@ class LibraryPanel(QWidget):
             self.play.setEnabled(False)
             self.position.setEnabled(False)
             self.player_note.setText(t("gui.player_no_multimedia"))
+            self.player_note.setToolTip(options.INSTALL_COMMANDS["multimedia"])
             self.player_note.show()
 
     def _assemble(self):
@@ -507,7 +508,8 @@ class LibraryPanel(QWidget):
                 text = f"×{row['copies']}  {text}"
             item = QTableWidgetItem(text)
             if row["copies"]:
-                item.setToolTip(t("gui.copies_tooltip", count=row["copies"]))
+                item.setToolTip("\n".join([t("gui.copies_tooltip", count=row["copies"])]
+                                          + row["titles"]))
             item.setData(Qt.ItemDataRole.UserRole, row["id"])
             item.setData(widgets.DETAILS_ROLE, options.entry_facts(row))
             item.setData(widgets.LOUDNESS_ROLE, row["loudness"])
@@ -663,7 +665,10 @@ class LibraryPanel(QWidget):
         except LibraryError as exc:
             self.message.emit(str(exc))
             return
-        self.title.setText(f"{data.get('title') or entry.id}  ({entry.id})")
+        # The title alone: the id is a folder name, which the person did not
+        # choose and does not search by. It is in the tooltip and in Details.
+        self.title.setText(str(data.get("title") or entry.id))
+        self.title.setToolTip(entry.id)
         segments = entry.read_segments()
         self.transcript.setHtml(_transcript_html(segments,
                                                  entry.read_transcript()))
@@ -1223,9 +1228,15 @@ class LibraryPanel(QWidget):
         if self.entry is None:
             return
         title = _title_of(self.entry)
+        text = t("gui.delete_confirm", title=title)
+        versions = dict(options.transcription_choices(self.entry, self._copies))
+        if versions:
+            # A row marked ×3 is three transcriptions: say that one goes, and
+            # which, or "delete" reads as all three.
+            text += "\n\n" + t("gui.delete_one_of", version=versions[self.entry.id],
+                                 left=len(versions) - 1)
         answer = QMessageBox.question(
-            self, t("gui.delete_title"),
-            t("gui.delete_confirm", title=title, path=self.entry.path),
+            self, t("gui.delete_title"), text,
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
             QMessageBox.StandardButton.No)
         if answer != QMessageBox.StandardButton.Yes:

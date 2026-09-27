@@ -1,6 +1,6 @@
 # title: Riunioni di lavoro (generico)
 # language: it
-# Il vocabolario comune a qualunque riunione. Volutamente corto: e' quello che
+# Il vocabolario comune a qualunque riunione. Volutamente corto: è quello che
 # si combina con il set del dominio di cui si parla.
 #
 #   audio-transcriber riunione.wav --vocab riunione-generale-it

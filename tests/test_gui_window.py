@@ -323,12 +323,12 @@ def test_the_about_box_is_where_the_version_number_lives(window):
     try:
         written = [label.text() for label in dialog.findChildren(QLabel)]
         assert any(__version__ in text for text in written)
-        # The name is in the banner at the head, and named for a reader
-        # that cannot see it.
-        assert not dialog.banner.pixmap().isNull()
-        assert dialog.banner.accessibleName() == i18n.t("gui.wordmark")
-        assert dialog.banner.pixmap().deviceIndependentSize().width() == (
-            dialog.width())
+        # The head is the mark, the name and the promise, drawn by the window
+        # and translated - not the README's picture with English in it.
+        assert not dialog.mark.pixmap().isNull()
+        assert dialog.name.text() == i18n.t("gui.wordmark")
+        assert dialog.tagline.text() == i18n.t("gui.tagline")
+        assert not hasattr(dialog, "banner")
     finally:
         dialog.deleteLater()
 
@@ -1371,6 +1371,40 @@ def test_a_finished_job_opens_in_the_library(window, tmp_path, queue):
     assert window.home.stack.currentWidget() is window.library
     assert window.library.entry.id == entry_id
     assert "Hello everyone." in window.library.transcript.toPlainText()
+
+
+def test_somebody_watching_the_queue_is_taken_to_what_it_filed(window, tmp_path,
+                                                                queue):
+    """The message names the recording, not its folder, and a queue that has
+    emptied under somebody's eyes hands them the transcript."""
+    window.home.show_working()
+    window.transcribe.add_files([sample(tmp_path, "riunione-fornitori.wav")])
+    window.transcribe.start_queue()
+    assert wait_for(lambda: filed(queue))
+    window.transcribe.refresh()
+
+    entry = queue.library.entries()[0]
+    assert entry.metadata["title"] in window.status_line.text()
+    assert entry.id not in window.status_line.text()
+    assert window.home.stack.currentWidget() is window.library
+    assert window.library.entry.id == entry.id
+
+
+def test_qt_s_own_buttons_speak_the_interface_language(application):
+    """Save, Discard, Yes and No are Qt's words, not the program's: without
+    Qt's translation a question asked in Italian was answered in English."""
+    from audio_transcriber.gui.window import install_qt_translation
+
+    with i18n.speaking("it"):
+        installed = install_qt_translation(application)
+    try:
+        assert installed is not None
+        box = QMessageBox(QMessageBox.Icon.Question, "", "",
+                          QMessageBox.StandardButton.Save
+                          | QMessageBox.StandardButton.Discard)
+        assert {button.text() for button in box.buttons()} == {"Salva", "Scarta"}
+    finally:
+        application.removeTranslator(installed)
 
 
 def test_the_transcript_offers_a_timestamp_to_click(window, tmp_path, queue):

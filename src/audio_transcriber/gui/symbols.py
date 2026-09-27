@@ -188,6 +188,9 @@ class Button(QToolButton):
         self.fallback = fallback
         self.setAutoRaise(True)
         self.setToolTip(tooltip)
+        # A screen reader reads the name, not the tooltip: without it the
+        # button is announced as "button" and nothing else.
+        self.setAccessibleName(tooltip)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
         self._redraw()
 

@@ -432,7 +432,7 @@ MESSAGES = {
             "the notes do not say, one that repeats another, one that does not "
             "read as a sentence. Nothing is changed. A pass more per section.",
         "gui.summary_model_auto": "automatic \u2014 now {model}",
-        "gui.summary_model_nothing_fits": "no model fits",
+        "gui.summary_model_nothing_fits": "the sentences that carry the transcript (no model fits in memory)",
         "gui.summary_model_group": "{where} \u00b7 {engine}",
         "gui.summary_model_group_none": "No model",
         "gui.summary_model_extractive": "the sentences that carry the transcript",
@@ -469,7 +469,7 @@ MESSAGES = {
         "gui.group_record": "Record a meeting",
         "gui.add_files": "Add files...",
         "gui.choose_files": "Choose audio or video files",
-        "gui.drop_hint": "Drop audio or video files anywhere on this tab.",
+        "gui.drop_hint": "Drop audio or video files anywhere on this window.",
         "gui.filter_media": "Audio and video",
         "gui.filter_any": "Every file",
         "gui.filter_text": "Text file",
@@ -547,9 +547,7 @@ MESSAGES = {
         "gui.backend_auto": "auto",
         "gui.backend_missing": "'{name}' is not installed in this environment.",
         "gui.diarize": "Who said what",
-        "gui.output_speakers_missing":
-            "Not on this machine: pyannote is missing. Install it with "
-            "pip install \"audio-transcriber-ov[diarize]\"",
+        "gui.output_speakers_missing": "Not on this machine: it needs one more component. The command that installs it is in the tooltip.",
         "gui.output_speakers_unconfigured":
             "Not on this machine: pyannote has no model. Set HUGGINGFACE_TOKEN, "
             "or put a local config in {detail}.",
@@ -560,12 +558,12 @@ MESSAGES = {
 
         "gui.tab_vocabulary": "Keywords",
         "gui.vocab_hint": "Tick the sets whose terms turn up in these recordings.",
-        "gui.vocab_label": "{title}  [{name}]  {terms} terms",
+        "gui.vocab_label": "{title}  ·  {terms} terms",
         "gui.vocab_custom": "Your own terms, kept on this machine only:",
         "gui.vocab_custom_hint":
             "One term per line, or separated by commas: the names, products and acronyms "
             "Whisper keeps getting wrong.",
-        "gui.vocab_chars": "prompt: {chars} characters (Whisper reliably takes about {limit})",
+        "gui.vocab_chars": "words suggested to the engine: {chars} characters (it reliably takes about {limit})",
         "gui.vocab_too_long": "The terms typed here are limited to {limit} characters.",
 
         "gui.group_queue": "Transcription queue",
@@ -592,11 +590,7 @@ MESSAGES = {
         # The two copyleft ones are named here because an About box is where
         # a user can reasonably be expected to find them; the rest are
         # permissive and are listed in docs/third-party.md.
-        "about.dependencies":
-            "Built on Qt through PySide6, under the LGPL v3, and it reads "
-            "audio with ffmpeg, under the LGPL 2.1. Everything else it uses "
-            "is installed separately and keeps its own licence: "
-            "docs/third-party.md lists them.",
+        "about.dependencies": "Built on Qt through PySide6, under the LGPL v3, and it reads audio with ffmpeg, under the LGPL 2.1. Everything else it uses is installed separately and keeps its own licence; the source code linked above lists them.",
         "gui.row_transcribe": "Transcribe",
         "gui.row_retry": "Try again",
         "gui.row_stop": "Stop",
@@ -672,8 +666,8 @@ MESSAGES = {
         "gui.status_cancelled": "cancelled",
         "gui.queue_empty": "Nothing in the queue.",
         "gui.queue_idle": "Finished: {done} transcribed, {failed} failed, {cancelled} cancelled.",
-        "gui.queued": "In the queue: {count}. Press Transcribe to start.",
-        "gui.job_finished": "Filed in the library: {entry}",
+        "gui.queued": "In the queue: {count}.",
+        "gui.job_finished": "Filed in the library: {title}",
 
         "gui.rec_host_api": "Audio system",
         "gui.rec_host_api_tip":
@@ -695,9 +689,7 @@ MESSAGES = {
             "of the speakers are the two halves of a call: your voice and everyone "
             "else's. The two sound cards keep their own time, so the first source sets "
             "the pace and the second is held alongside it.",
-        "gui.rec_basic":
-            "This engine records from a microphone only. Choosing the audio system, and "
-            "recording what the speakers play, need: pip install \"audio-transcriber-ov[record]\"",
+        "gui.rec_basic": "This engine records from a microphone only. Choosing the audio system, and recording what the speakers play, need one more component: the command that installs it is in the tooltip.",
         "gui.rec_device": "Microphone",
         "gui.rec_device_tip": "Where the recording comes from; the list follows what the system offers.",
         "gui.rec_level_tip":
@@ -743,7 +735,7 @@ MESSAGES = {
         "gui.rec_stop": "Stop",
         "gui.rec_pause": "Pause",
         "gui.rec_resume": "Resume",
-        "gui.rec_queued": "The recording is in the queue; press Transcribe to start.",
+        "gui.rec_queued": "The recording is in the queue.",
         "gui.rec_empty": "Nothing was recorded: the microphone produced no sound.",
         "gui.rec_failed": "Recording failed.",
         "gui.rec_no_device": "No microphone found. Connect one — the menu notices by itself.",
@@ -759,8 +751,7 @@ MESSAGES = {
         "gui.play": "Play",
         "gui.pause": "Pause",
         "gui.player_no_audio": "This entry does not hold its recording: there is nothing to play.",
-        "gui.player_no_multimedia":
-            "Playback needs QtMultimedia: pip install PySide6-Addons (or the full PySide6).",
+        "gui.player_no_multimedia": "Playback needs one more component of PySide6. The command that installs it is in the tooltip.",
         "gui.detail_created": "Recorded",
         "gui.detail_duration": "Length",
         "gui.detail_size": "Recording",
@@ -825,13 +816,14 @@ MESSAGES = {
             "are run together.",
         "gui.speakers_named": "The speakers are now: {speakers}",
         "gui.speakers_unchanged": "Nothing to change.",
+        "gui.name_speakers_save": "Use these names",
         "gui.export": "Export the transcript",
         "gui.exported": "Transcript written to {path}",
         "gui.open_folder": "Open the folder",
         "gui.delete": "Delete",
         "gui.delete_title": "Delete this recording",
-        "gui.delete_confirm":
-            "Delete '{title}' with its transcript, its notes and its recording?\n\n{path}",
+        "gui.delete_confirm": "Delete '{title}' with its transcript, its notes and its recording?",
+        "gui.delete_one_of": "Only this transcription ({version}) goes. The others of the same recording stay: {left}.",
         "gui.deleted": "Deleted: {title}",
 
         "gui.group_hardware": "What this machine can do",
@@ -850,7 +842,7 @@ MESSAGES = {
         "gui.row_ram": "Memory",
         "gui.cpu_reading": "{percent}% of {cores} cores",
         "gui.ram_reading": "{used} GiB of {total} in use",
-        "gui.load_queue": "run queue {load}  \u00b7  {where}",
+        "gui.load_queue": "load {load} on {cores} cores  ·  {where}",
         "gui.load_sampling": "reading...",
         "gui.load_unmeasured": "this system does not report it",
         "gui.engine_on": "{engine} would run on {device}",
@@ -865,6 +857,16 @@ MESSAGES = {
         "gui.diar_unconfigured":
             "installed, but no model: set HUGGINGFACE_TOKEN, or put a local config at {detail}",
         "gui.path_missing": "not created yet",
+        "gui.path_label_config": "Settings",
+        "gui.path_label_config_file": "Settings file",
+        "gui.path_label_vocabularies": "Keyword sets",
+        "gui.path_label_srt_presets": "Subtitle presets",
+        "gui.path_label_data": "Data",
+        "gui.path_label_models": "Models",
+        "gui.path_label_library": "Library",
+        "gui.path_label_diarization": "Who-said-what settings",
+        "gui.path_label_cache": "Cache",
+        "gui.path_label_log": "Log",
         "gui.path_configured": "from config.toml",
         "gui.open_config": "Open config.toml",
         "gui.open_library": "Open the library folder",
@@ -1058,7 +1060,7 @@ MESSAGES = {
     "it": {
         # --- audio decoding -------------------------------------------------
         "audio.no_bundled_ffmpeg":
-            "  ATTENZIONE: 'imageio-ffmpeg' non e' installato: uso il ffmpeg di sistema.\n"
+            "  ATTENZIONE: 'imageio-ffmpeg' non è installato: uso il ffmpeg di sistema.\n"
             "  Se vedi errori di DLL (libintl/fontconfig) esegui: pip install imageio-ffmpeg",
         "audio.ffmpeg_not_found": "ffmpeg non trovato. Esegui: pip install imageio-ffmpeg",
         "audio.decode_failed": "Errore ffmpeg nel decodificare l'audio:\n{details}",
@@ -1084,14 +1086,14 @@ MESSAGES = {
         # --- backend selection ----------------------------------------------
         "backend.unknown": "Backend sconosciuto: {name}. Valori validi: {valid}",
         "backend.will_not_load":
-            "Motore: '{module}' e' installato ma non si carica.\n"
+            "Motore: '{module}' è installato ma non si carica.\n"
             "  {error}\n"
-            "  E' un'installazione rotta, non mancante: vale la pena reinstallarlo -\n"
+            "  È un'installazione rotta, non mancante: vale la pena reinstallarlo -\n"
             "  nell'ambiente da cui stai davvero lanciando, che 'audio-transcriber\n"
-            "  hardware' ti dice qual e'.",
+            "  hardware' ti dice qual è.",
         "backend.not_installed":
-            "Il motore '{name}' non e' installato in questo ambiente.\n"
-            "  Qui c'e': {installed}\n"
+            "Il motore '{name}' non è installato in questo ambiente.\n"
+            "  Qui c'è: {installed}\n"
             "  O lo installi, o lasci il motore su 'auto' e decide la macchina:\n"
             "  'audio-transcriber hardware' dice cosa sceglierebbe.",
         "backend.none": "nessuno",
@@ -1102,11 +1104,11 @@ MESSAGES = {
         "backend.low_ram":
             "  ATTENZIONE: '{model}' richiede circa {needed:.1f} GiB ma ne risultano liberi {free:.1f}.\n"
             "  Rischi swap o OOM: valuta --model medium/small{hint}.",
-        "backend.low_ram_hint": " oppure --backend faster-whisper (int8, meta' memoria)",
+        "backend.low_ram_hint": " oppure --backend faster-whisper (int8, metà memoria)",
         "backend.few_cores":
-            "  ATTENZIONE: solo {cores} core disponibili: '{model}' su CPU puo' richiedere\n"
-            "  molto piu' tempo della durata dell'audio. Su una macchina cosi' '--model small'\n"
-            "  e' molto piu' pratico (circa 0.6x realtime).",
+            "  ATTENZIONE: solo {cores} core disponibili: '{model}' su CPU può richiedere\n"
+            "  molto più tempo della durata dell'audio. Su una macchina così '--model small'\n"
+            "  è molto più pratico (circa 0.6x realtime).",
 
         # --- OpenVINO backend -----------------------------------------------
         "openvino.missing":
@@ -1115,15 +1117,15 @@ MESSAGES = {
             "  (oppure: pip install \"optimum-intel[openvino]\" transformers)",
         "openvino.device_unavailable":
             "  ATTENZIONE: device '{requested}' non disponibile (visti: {found}); uso {fallback}.",
-        "openvino.reusing_model": "Uso il modello OpenVINO gia' convertito: {path}",
+        "openvino.reusing_model": "Uso il modello OpenVINO già convertito: {path}",
         "openvino.converting": "Scarico e converto '{model}' in OpenVINO (solo la prima volta)...",
         "openvino.model_saved": "Modello salvato in: {path}",
         "openvino.compiling": "Compilazione per il device '{device}'...",
         "openvino.compile_warning": "  (compile: {error})",
         "openvino.no_vad":
-            "  NOTA: il filtro del silenzio e' Silero e arriva con faster-whisper, che\n"
-            "  qui non e' installato - quindi i silenzi arrivano a Whisper come sono, e\n"
-            "  su uno lungo puo' inventare una frase ('Grazie a tutti'). Quelle evidenti\n"
+            "  NOTA: il filtro del silenzio è Silero e arriva con faster-whisper, che\n"
+            "  qui non è installato - quindi i silenzi arrivano a Whisper come sono, e\n"
+            "  su uno lungo può inventare una frase ('Grazie a tutti'). Quelle evidenti\n"
             "  vengono tolte dalla trascrizione dopo. Installando faster-whisper anche\n"
             "  questo backend ha il filtro.",
         "openvino.vad_trimmed":
@@ -1135,14 +1137,14 @@ MESSAGES = {
             "  (questo optimum-intel non sa eseguire il ciclo long-form di Whisper: {error}\n"
             "   torno a finestre fisse da 30 s. Dove due finestre si sovrappongono le parole\n"
             "   possono uscire due volte; i doppioni vengono tagliati dalla trascrizione dopo,\n"
-            "   e il prompt di parole chiave viene lasciato cadere perche' peggiora la cosa.\n"
-            "   E' optimum-intel e transformers che non vanno d'accordo, non qualcosa di\n"
+            "   e il prompt di parole chiave viene lasciato cadere perché peggiora la cosa.\n"
+            "   È optimum-intel e transformers che non vanno d'accordo, non qualcosa di\n"
             "   questa registrazione. Di solito si sistema con:\n"
             "     pip install -U \"optimum-intel[openvino]\" transformers\n"
             "   Nel frattempo --backend faster-whisper ha il ciclo long-form e il filtro\n"
             "   del silenzio, sul processore.)",
         "openvino.transcription_failed":
-            "Backend 'openvino': la trascrizione non e' partita.\n  {error}",
+            "Backend 'openvino': la trascrizione non è partita.\n  {error}",
 
         # --- faster-whisper backend -----------------------------------------
         "faster_whisper.missing":
@@ -1152,7 +1154,7 @@ MESSAGES = {
         "faster_whisper.no_cuda":
             "  ATTENZIONE: nessuna GPU CUDA disponibile per faster-whisper; uso la CPU.",
         "faster_whisper.unknown_size":
-            "  ATTENZIONE: '{model}' non e' una taglia nota a faster-whisper; provo comunque a caricarlo.",
+            "  ATTENZIONE: '{model}' non è una taglia nota a faster-whisper; provo comunque a caricarlo.",
         "faster_whisper.loading":
             "Carico Whisper '{model}' con faster-whisper "
             "(device: {device}, precisione: {compute_type}, thread: {threads})...",
@@ -1181,65 +1183,65 @@ MESSAGES = {
             "  repository pyannote nominandoli, cosa che un token fine-grained non ha\n"
             "  per default. Vedi 'audio-transcriber diarize check'.",
         "diarize.online_ok":
-            "  Pre-flight: nessun file locale in uso; scarichero' il repo HF {model}, "
+            "  Pre-flight: nessun file locale in uso; scaricherò il repo HF {model}, "
             "token presente.",
         "diarize.config_unreadable": "Diarizzazione: impossibile leggere il config {path}: {error}",
         "diarize.missing_files":
             "Diarizzazione: nel config mancano file locali (non trovati):\n{files}\n"
             "  Cercati come sono scritti, accanto a {path} e una cartella sopra.\n"
             "  File di modello che ci sono davvero in {folder}:\n{found}\n"
-            "  O correggi i percorsi nel config, o rinomina i file perche' combacino.",
+            "  O correggi i percorsi nel config, o rinomina i file perché combacino.",
         "diarize.nothing_nearby": "    (nessuno: i modelli non sono affatto in quella cartella)",
         "diarize.using": "La diarizzazione userebbe: {path}",
         "diarize.fetch_start":
             "Scarico {repo} in {path}\n"
-            "  (file normali, non la cache dell'hub: questa cartella si puo' copiare,\n"
+            "  (file normali, non la cache dell'hub: questa cartella si può copiare,\n"
             "  salvare in un backup o portare su una macchina senza rete.)",
         "diarize.fetch_got": "  preso {repo}",
         "diarize.fetch_done":
             "Fatto: {path}\n"
-            "  Da li' viene usata da sola. Per tenerla altrove, passa --diar-model con\n"
+            "  Da lì viene usata da sola. Per tenerla altrove, passa --diar-model con\n"
             "  quella cartella, o impostala sotto [diarization] in config.toml.\n"
             "  Verifica con: audio-transcriber diarize check",
         "diarize.fetch_failed": "Non riesco a scaricare {repo}:\n  {error}",
         "diarize.fetch_no_config":
-            "{repo} e' stato scaricato in {path}, ma non ha un config.yaml: non e'\n"
+            "{repo} è stato scaricato in {path}, ma non ha un config.yaml: non è\n"
             "  un repository di pipeline. Indica la pipeline con --model.",
         "diarize.fetch_no_token":
             "Per scaricare i modelli serve un token Hugging Face: passa --hf-token,\n"
             "  o imposta HUGGINGFACE_TOKEN nell'ambiente o in un file .env.\n"
-            "  L'altra meta' sono i permessi del token: accetta le condizioni su ogni\n"
+            "  L'altra metà sono i permessi del token: accetta le condizioni su ogni\n"
             "  pagina dei modelli, poi modifica il token e dagli accesso in lettura a\n"
             "  quei repository pyannote nominandoli. Senza, viene rifiutato.",
         "diarize.hub_ok": "  OK  {repo}",
         "diarize.hub_denied": "  NO  {repo}\n      {error}",
         "diarize.hub_offline":
-            "L'hub non e' stato contattato affatto: {variable} e' impostata, e dice\n"
-            "  a huggingface_hub di usare solo quello che e' gia' scaricato.\n"
+            "L'hub non è stato contattato affatto: {variable} è impostata, e dice\n"
+            "  a huggingface_hub di usare solo quello che è già scaricato.\n"
             "  Toglila per questo download - in PowerShell:\n"
             "      Remove-Item Env:{variable}\n"
-            "  e togli la riga dal file .env se sta li' dentro:\n"
+            "  e togli la riga dal file .env se sta lì dentro:\n"
             "      {files}\n"
             "  Rimettila dopo, se vuoi che le trascrizioni restino senza rete.",
         "diarize.hub_unreachable":
-            "Non riesco a raggiungere l'hub. Questo e' un problema di rete, non di\n"
-            "  licenza: connessione giu', un proxy da configurare, o huggingface.co\n"
-            "  bloccato. Sul token non si e' stabilito niente, ne' in un senso ne'\n"
-            "  nell'altro: riprova quando la connessione c'e'.",
+            "Non riesco a raggiungere l'hub. Questo è un problema di rete, non di\n"
+            "  licenza: connessione giù, un proxy da configurare, o huggingface.co\n"
+            "  bloccato. Sul token non si è stabilito niente, né in un senso né\n"
+            "  nell'altro: riprova quando la connessione c'è.",
         "diarize.hub_help":
             "L'hub ha rifiutato almeno uno di quei repository. Devono essere vere\n"
-            "  tre cose, e di solito e' il token a mancarne due:\n"
+            "  tre cose, e di solito è il token a mancarne due:\n"
             "  1. le condizioni sono accettate, con questo account, sulla pagina di\n"
             "     ogni repository elencato sopra - si accettano uno per uno;\n"
             "  2. MODIFICA IL TOKEN su huggingface.co/settings/tokens e nominaci\n"
             "     dentro quei repository: sotto 'Repository permissions' aggiungi\n"
             "     ogni repository pyannote qui sopra e dagli accesso in lettura. Un\n"
-            "     token che non li nomina viene rifiutato anche se tutto il resto e'\n"
+            "     token che non li nomina viene rifiutato anche se tutto il resto è\n"
             "     a posto, e il rifiuto non dice quale repository voleva;\n"
             "  3. nello stesso token, spunta 'Read access to the contents of all\n"
-            "     public gated repos you can access'. Senza, l'hub ti da' la scheda\n"
+            "     public gated repos you can access'. Senza, l'hub ti dà la scheda\n"
             "     del modello e ti nega i file, che sembra un bug.\n"
-            "  Un token classico 'Read' e' la scorciatoia per il 2 e il 3; le\n"
+            "  Un token classico 'Read' è la scorciatoia per il 2 e il 3; le\n"
             "  condizioni vanno accettate comunque.\n"
             "  Il token si legge da HUGGINGFACE_TOKEN o HF_TOKEN, nell'ambiente o in\n"
             "  un file .env; 'audio-transcriber paths' dice dove viene cercato.",
@@ -1249,21 +1251,21 @@ MESSAGES = {
             "  segmentation: {segmentation}\n"
             "  Verificalo con: audio-transcriber diarize check",
         "diarize.init_exists":
-            "Qui c'e' gia' un config: {path}\n"
+            "Qui c'è già un config: {path}\n"
             "  Usa --force per sovrascriverlo.",
         "diarize.init_no_models":
             "Nessun file di modello pyannote trovato in {path}\n"
-            "  Quello che c'e':\n{found}\n"
+            "  Quello che c'è:\n{found}\n"
             "  Servono un modello di embedding (wespeaker...) e uno di segmentazione,\n"
             "  ciascuno un 'pytorch_model.bin' nella sua cartella.",
         "diarize.init_community":
-            "  NOTA: in questa cartella c'e' anche 'plda/', che appartiene alla\n"
-            "  pipeline community-1 di pyannote 4. Il config scritto qui e' quello\n"
+            "  NOTA: in questa cartella c'è anche 'plda/', che appartiene alla\n"
+            "  pipeline community-1 di pyannote 4. Il config scritto qui è quello\n"
             "  3.1 e la ignora: per community-1 usa il config.yaml di quel\n"
             "  repository e punta --diar-model alla cartella.",
         "diarize.config_settled":
             "  (i percorsi in {path} sono relativi: uso una copia con i percorsi risolti,\n"
-            "  cosi' la cartella si trova da qualunque directory si sia lanciato il programma)",
+            "  così la cartella si trova da qualunque directory si sia lanciato il programma)",
         "diarize.online_failed":
             "Diarizzazione: non riesco a caricare {model} da Hugging Face.\n"
             "  {error}\n"
@@ -1271,7 +1273,7 @@ MESSAGES = {
             "  - le condizioni di quel repository non sono state accettate con questo\n"
             "    account: apri huggingface.co/{model} e accettale;\n"
             "  - un token fine-grained vuole la spunta 'Read access to the contents of all\n"
-            "    public gated repos you can access'; un token classico read ce l'ha gia'.\n"
+            "    public gated repos you can access'; un token classico read ce l'ha già.\n"
             "  Oppure lavora offline: punta --diar-model a un config.yaml locale, o alla\n"
             "  cartella di un repository di pipeline clonato dall'hub.",
         "diarize.preflight_ok":
@@ -1294,34 +1296,34 @@ MESSAGES = {
         "diarize.no_annotation":
             "Diarizzazione: questo pyannote ha restituito un '{kind}', e i turni di\n"
             "  parlato non stanno in nessuno dei posti in cui questa versione di\n"
-            "  audio-transcriber sa guardare. La trascrizione non e' persa - rifalla\n"
+            "  audio-transcriber sa guardare. La trascrizione non è persa - rifalla\n"
             "  senza --diarize - ma pipeline e programma devono essere una coppia.",
         "diarize.not_initialised":
             "Diarizzazione non inizializzata: token non valido o condizioni dei modelli non accettate.",
-        "diarize.running": "Diarizzazione in corso (puo' richiedere qualche minuto)...",
+        "diarize.running": "Diarizzazione in corso (può richiedere qualche minuto)...",
         "diarize.no_hook":
-            "  (questo pyannote non riporta avanzamento: la barra sta ferma finche' "
+            "  (questo pyannote non riporta avanzamento: la barra sta ferma finché "
             "non finisce)",
         "diarize.result": "   turni rilevati: {turns} | speaker: {speakers}",
         "diarize.failed_keeping_text":
-            "  ATTENZIONE: ricostruire chi ha detto cosa e' fallito, quindi la\n"
-            "  trascrizione viene scritta come testo semplice. L'audio e' stato\n"
-            "  trascritto e di quello non si perde niente. Cosa e' andato storto:\n  {error}",
+            "  ATTENZIONE: ricostruire chi ha detto cosa è fallito, quindi la\n"
+            "  trascrizione viene scritta come testo semplice. L'audio è stato\n"
+            "  trascritto e di quello non si perde niente. Cosa è andato storto:\n  {error}",
         "diarize.no_turns":
             "  ATTENZIONE: diarizzazione senza turni o senza segmenti: scrivo il testo semplice.",
 
         # --- library --------------------------------------------------------
         "jobs.summary_not_queued":
-            "  La trascrizione di '{title}' e' archiviata, ma il suo riassunto non "
-            "e' stato messo in coda: {error}",
+            "  La trascrizione di '{title}' è archiviata, ma il suo riassunto non "
+            "è stato messo in coda: {error}",
         "jobs.interrupted_again":
             "Interrotta da un riavvio {count} volte: la lascio stare invece di "
             "riprovarci. Usa 'riprova' per rimetterla in coda.",
         "library.titled": "Intitolata con quello che ci si dice dentro: {title}",
         "library.created": "Voce di libreria creata: {path}",
         "library.not_found": "Nessuna voce di libreria corrisponde a '{query}'.",
-        "library.ambiguous": "'{query}' corrisponde a piu' voci: {matches}",
-        "library.empty": "La libreria e' vuota ({path}).",
+        "library.ambiguous": "'{query}' corrisponde a più voci: {matches}",
+        "library.empty": "La libreria è vuota ({path}).",
         "library.removed": "Rimossa: {path}",
         "library.no_match": "Nessuna voce corrisponde a '{query}'.",
         "library.header_id": "ID",
@@ -1343,8 +1345,8 @@ MESSAGES = {
         "vocab.header_terms": "TERMINI",
         "vocab.header_title": "TITOLO",
         "vocab.prompt_too_long":
-            "  ATTENZIONE: il vocabolario e' di {chars} caratteri, oltre i {limit} che Whisper\n"
-            "  considera davvero: la parte finale viene ignorata. Usa meno termini, piu' mirati.",
+            "  ATTENZIONE: il vocabolario è di {chars} caratteri, oltre i {limit} che Whisper\n"
+            "  considera davvero: la parte finale viene ignorata. Usa meno termini, più mirati.",
         "vocab.unknown": "Set di parole chiave '{name}' sconosciuto.",
         "vocab.show_stats": "{source}  {language}  {terms} termini  {chars} caratteri",
 
@@ -1387,22 +1389,22 @@ MESSAGES = {
         "web.starting": "Interfaccia web: http://{host}:{port}  (Ctrl-C per fermarla)",
         "web.exposed":
             "  ATTENZIONE: in ascolto su un indirizzo pubblico e senza autenticazione.\n"
-            "  Chi raggiunge questa porta puo' leggere e cancellare le tue registrazioni.",
+            "  Chi raggiunge questa porta può leggere e cancellare le tue registrazioni.",
         "web.missing":
             "L'interfaccia web richiede FastAPI e Uvicorn.\n"
             "  pip install \"audio-transcriber-ov[web]\"",
-        # --- un testo che hai gia' ---------------------------------------------
+        # --- un testo che hai già ---------------------------------------------
         "reference.unreadable": "Non riesco a leggere il testo in {path}: {error}",
         "reference.corrected":
             "  Il testo che hai dato ha corretto {corrected} parole su "
             "{heard} sentite.",
         "reference.matched":
             "  Il {percent}% di quel testo si ritrova nell'audio; il resto "
-            "non e' stato detto, e non e' stato aggiunto niente per questo.",
+            "non è stato detto, e non è stato aggiunto niente per questo.",
         "reference.poor":
             "  ATTENZIONE: solo il {percent}% del tuo testo si ritrova "
-            "nell'audio. Se e' di un'altra registrazione non ha corretto "
-            "quasi nulla, che e' il risultato giusto ma probabilmente non "
+            "nell'audio. Se è di un'altra registrazione non ha corretto "
+            "quasi nulla, che è il risultato giusto ma probabilmente non "
             "quello che volevi.",
 
         "web.job_queued": "in coda",
@@ -1415,7 +1417,7 @@ MESSAGES = {
             "L'interfaccia desktop richiede Qt (PySide6).\n"
             "  pip install \"audio-transcriber-ov[gui]\"",
         "gui.broken":
-            "PySide6 e' installato ma non si carica: {error}\n"
+            "PySide6 è installato ma non si carica: {error}\n"
             "  Un errore di DLL o di libreria condivisa qui vuol dire quasi sempre due Qt\n"
             "  nello stesso ambiente - quello di conda trovato nel PATH prima di quello\n"
             "  che pip si porta dietro - oppure, su una macchina senza ambiente grafico,\n"
@@ -1438,7 +1440,7 @@ MESSAGES = {
         "gui.auto_title": "Intitolala con quello che ci si dice dentro",
         "gui.auto_title_tip":
             "Invece che con il nome del file. Presa dalla trascrizione quando ha "
-            "finito: la frase piu' forte, ridotta a titolo. Nessun modello viene "
+            "finito: la frase più forte, ridotta a titolo. Nessun modello viene "
             "caricato e niente esce da questa macchina.",
         "gui.summary_after": "Scrivi anche il riassunto, quando ha finito",
         "gui.summary_after_tip":
@@ -1452,10 +1454,10 @@ MESSAGES = {
             "Scritta la pagina, il modello rilegge ogni sezione accanto ai suoi "
             "appunti ed elenca in fondo le righe da ricontrollare: una che gli "
             "appunti non dicono, una che ne ripete un'altra, una che non si "
-            "legge come una frase. Non cambia niente. Una passata in piu' per "
+            "legge come una frase. Non cambia niente. Una passata in più per "
             "sezione.",
         "gui.summary_model_auto": "automatico \u2014 adesso {model}",
-        "gui.summary_model_nothing_fits": "nessun modello ci sta",
+        "gui.summary_model_nothing_fits": "le frasi che reggono la trascrizione (nessun modello ci sta in memoria)",
         "gui.summary_model_group": "{where} \u00b7 {engine}",
         "gui.summary_model_group_none": "Nessun modello",
         "gui.summary_model_extractive": "le frasi che reggono la trascrizione",
@@ -1467,7 +1469,7 @@ MESSAGES = {
             "il sistema; si rimisura ogni volta che apri questo menu.",
         "gui.summary_length": "Quanto tenere",
         "gui.summary_template": "Quali sezioni",
-        "gui.summary_template_auto": "quelle di cui si e' parlato",
+        "gui.summary_template_auto": "quelle di cui si è parlato",
         "gui.summary_template_mine": "le mie sezioni\u2026",
         "gui.summary_template_own": "Le mie sezioni",
         "gui.summary_template_help":
@@ -1492,7 +1494,7 @@ MESSAGES = {
         "gui.group_record": "Registra una riunione",
         "gui.add_files": "Aggiungi file...",
         "gui.choose_files": "Scegli i file audio o video",
-        "gui.drop_hint": "Trascina i file audio o video in un punto qualsiasi di questa scheda.",
+        "gui.drop_hint": "Trascina i file audio o video in un punto qualsiasi della finestra.",
         "gui.filter_media": "Audio e video",
         "gui.filter_any": "Tutti i file",
         "gui.filter_text": "File di testo",
@@ -1512,7 +1514,7 @@ MESSAGES = {
         "gui.output_subtitles": "Sottotitoli",
         "gui.output_subtitles_note":
             "Battute con i tempi, tagliate per essere leggibili, salvate in .srt o "
-            ".vtt. Nessun nome: il parlato, nell'ordine in cui e' stato detto.",
+            ".vtt. Nessun nome: il parlato, nell'ordine in cui è stato detto.",
         "gui.output_subtitles_speakers": "Sottotitoli, con chi dice cosa",
         "gui.output_subtitles_speakers_note":
             "Le stesse battute, con il cambio di voce segnato dentro. Richiede "
@@ -1534,46 +1536,44 @@ MESSAGES = {
         "gui.sub_preset_tip":
             "I numeri con cui si taglia un sottotitolo, come insieme con un nome. I tuoi "
             "insiemi vanno in srt-presets.json accanto a config.toml e vincono su questi "
-            "a parita' di nome.",
+            "a parità di nome.",
         "gui.sub_chars_tip":
             "Caratteri su una riga, spazi compresi. Lascialo al preset se non conosci il "
-            "player: 42 e' il riferimento professionale, 32 il piu' stretto in uso.",
+            "player: 42 è il riferimento professionale, 32 il più stretto in uso.",
         "gui.label_reference": "Un testo che hai",
         "gui.reference_note":
             "Un copione, un comunicato, una trascrizione presa altrove: le "
-            "sue parole rare vengono passate al motore perche' le scriva "
+            "sue parole rare vengono passate al motore perché le scriva "
             "giuste, e dopo correggono quello che ha sentito male o troncato. "
-            "Quello che e' stato detto davvero vince comunque: niente viene "
-            "aggiunto perche' il testo se lo aspettava.",
+            "Quello che è stato detto davvero vince comunque: niente viene "
+            "aggiunto perché il testo se lo aspettava.",
         "gui.reference_hint":
             "Incolla un copione, un comunicato, una trascrizione presa "
             "altrove. Vuoto: la registrazione viene semplicemente trascritta.",
         "gui.reference_tip":
             "Fa due cose: i nomi e le parole rare vanno al motore prima che "
             "cominci, e dopo correggono quello che ha sentito male o "
-            "troncato. Non aggiunge mai quello che non e' stato detto.",
+            "troncato. Non aggiunge mai quello che non è stato detto.",
         "gui.sub_words_tip":
-            "Un sottotitolo nuovo ogni tot parole. Non e' uno dei numeri del mestiere - "
-            "quello misura caratteri e velocita' di lettura - ma viene rispettato.",
+            "Un sottotitolo nuovo ogni tot parole. Non è uno dei numeri del mestiere - "
+            "quello misura caratteri e velocità di lettura - ma viene rispettato.",
         "gui.sub_save_srt": ".srt",
         "gui.sub_save_vtt": ".vtt",
         "gui.sub_save_tip":
             "Tiene un file di sottotitoli nella voce di libreria, accanto alla "
-            "trascrizione. Le battute ci sono comunque: una voce si puo' esportare dopo, "
+            "trascrizione. Le battute ci sono comunque: una voce si può esportare dopo, "
             "con altri numeri, dalla stessa trascrizione.",
         "gui.sub_saved": "{formats} - {cues} battute, tagliate con '{preset}'",
         "gui.sub_export": "Esporta i sottotitoli",
         "gui.sub_exported": "Sottotitoli scritti in {path}  ({cues} battute, {problems} rilievi)",
-        "gui.sub_none": "Questa voce non ha timestamp, quindi non c'e' nulla da tagliare in sottotitoli.",
+        "gui.sub_none": "Questa voce non ha timestamp, quindi non c'è nulla da tagliare in sottotitoli.",
         "gui.detail_subtitles": "Sottotitoli",
         "gui.model_auto": "auto ({model} su questa macchina)",
         "gui.language_auto": "riconoscila",
         "gui.backend_auto": "auto",
-        "gui.backend_missing": "'{name}' non e' installato in questo ambiente.",
+        "gui.backend_missing": "'{name}' non è installato in questo ambiente.",
         "gui.diarize": "Chi ha detto cosa",
-        "gui.output_speakers_missing":
-            "Non disponibile su questa macchina: manca pyannote. Si installa con "
-            "pip install \"audio-transcriber-ov[diarize]\"",
+        "gui.output_speakers_missing": "Non disponibile su questa macchina: serve un componente in più. Il comando per installarlo è nel suggerimento.",
         "gui.output_speakers_unconfigured":
             "Non disponibile su questa macchina: pyannote non ha un modello. "
             "Imposta HUGGINGFACE_TOKEN, oppure metti un config locale in {detail}.",
@@ -1584,12 +1584,12 @@ MESSAGES = {
 
         "gui.tab_vocabulary": "Parole chiave",
         "gui.vocab_hint": "Spunta i set con i termini che compaiono in queste registrazioni.",
-        "gui.vocab_label": "{title}  [{name}]  {terms} termini",
+        "gui.vocab_label": "{title}  ·  {terms} termini",
         "gui.vocab_custom": "I tuoi termini, solo su questa macchina:",
         "gui.vocab_custom_hint":
             "Un termine per riga, o separati da virgole: i nomi, i prodotti e le sigle "
             "che Whisper continua a storpiare.",
-        "gui.vocab_chars": "prompt: {chars} caratteri (Whisper ne considera davvero circa {limit})",
+        "gui.vocab_chars": "parole suggerite al motore: {chars} caratteri (ne legge davvero circa {limit})",
         "gui.vocab_too_long": "I termini scritti qui sono limitati a {limit} caratteri.",
 
         "gui.group_queue": "Coda di trascrizione",
@@ -1599,9 +1599,9 @@ MESSAGES = {
 
         # --- informazioni e licenza -------------------------------------------
         "about.open": "Info",
-        "about.open_tip": "Cos'e' questo programma e con quale licenza e' dato",
+        "about.open_tip": "Cos'è questo programma e con quale licenza è dato",
         "gui.language": "La lingua di questa finestra",
-        "gui.language_next_time": "La finestra sara' in {language} la prossima volta che la apri.",
+        "gui.language_next_time": "La finestra sarà in {language} la prossima volta che la apri.",
         "about.title": "Informazioni su audio-transcriber",
         "about.version": "Versione {version}",
         "about.source": "Codice sorgente:",
@@ -1610,13 +1610,9 @@ MESSAGES = {
             "Questa copia non ha un file di licenza da mostrare. I termini sono "
             "quelli della licenza MIT.",
         "about.open_licence": "Apri il file di licenza",
-        "about.bundled": "Cosa e' incluso",
+        "about.bundled": "Cosa è incluso",
         "about.fonts": "Due caratteri tipografici, ognuno con la sua licenza:",
-        "about.dependencies":
-            "Costruito su Qt tramite PySide6, sotto LGPL v3, e legge l'audio "
-            "con ffmpeg, sotto LGPL 2.1. Tutto il resto si installa a parte e "
-            "mantiene la propria licenza: l'elenco e' in "
-            "docs/third-party.md.",
+        "about.dependencies": "Costruito su Qt tramite PySide6, sotto LGPL v3, e legge l'audio con ffmpeg, sotto LGPL 2.1. Tutto il resto si installa a parte e mantiene la propria licenza: l'elenco è nel codice sorgente, al link qui sopra.",
         "gui.row_transcribe": "Trascrivi",
         "gui.row_retry": "Riprova",
         "gui.row_stop": "Interrompi",
@@ -1630,8 +1626,8 @@ MESSAGES = {
         "gui.job_dialog_title": "Trascrivi \"{title}\"",
         "gui.job_dialog_all": "Trascrivi {count} registrazioni",
         "gui.job_dialog_note":
-            "Le risposte restano, cosi' la prossima registrazione parte da queste.",
-        "gui.row_no_audio": "La registrazione non e' piu' dov'era: non c'e' nulla da ascoltare.",
+            "Le risposte restano, così la prossima registrazione parte da queste.",
+        "gui.row_no_audio": "La registrazione non è più dov'era: non c'è nulla da ascoltare.",
         "gui.row_no_multimedia":
             "Per ascoltare serve QtMultimedia: pip install PySide6-Addons (o "
             "PySide6 completo).",
@@ -1647,7 +1643,7 @@ MESSAGES = {
         "gui.tab_record": "Registra",
         "gui.vocab_none": "nessuno",
         "gui.vocab_chosen": "{count} scelti",
-        "gui.vocab_chosen_terms": "{count} scelti, piu' i tuoi termini",
+        "gui.vocab_chosen_terms": "{count} scelti, più i tuoi termini",
         "gui.vocab_terms_only": "i tuoi termini",
         "gui.n_words": "{count} parole",
         "gui.queue_part_running": "{count} in corso, al {percent}%",
@@ -1660,20 +1656,20 @@ MESSAGES = {
         "gui.started": "Avviate: {count}.",
         "gui.status_held": "da avviare",
         "gui.queue_hint":
-            "Quello che aggiungi resta in attesa finche' non premi Trascrivi.",
+            "Quello che aggiungi resta in attesa finché non premi Trascrivi.",
         "gui.cancel_job": "Togli dalla coda",
         "gui.cancel_job_tip":
-            "Togli un lavoro che non e' ancora partito. Non si perde niente: il file "
-            "resta dov'e'.",
+            "Togli un lavoro che non è ancora partito. Non si perde niente: il file "
+            "resta dov'è.",
         "gui.stop_job": "Ferma",
         "gui.stop_job_tip": "Interrompi la trascrizione in corso.",
         "gui.stop_job_title": "Ferma questa trascrizione",
         "gui.stop_job_confirm":
             "Fermo la trascrizione di '{title}'?\n\nQuello che ha fatto finora viene "
-            "scartato - in libreria non arriva nulla - e la registrazione resta dov'e', "
+            "scartato - in libreria non arriva nulla - e la registrazione resta dov'è, "
             "quindi puoi rimetterla in coda.\n\nSi ferma al prossimo avanzamento "
-            "riportato dal motore: con faster-whisper e' il segmento successivo, pochi "
-            "secondi. Il motore OpenVINO non ne riporta nessuno finche' non ha finito "
+            "riportato dal motore: con faster-whisper è il segmento successivo, pochi "
+            "secondi. Il motore OpenVINO non ne riporta nessuno finché non ha finito "
             "tutto il file: in quel caso la trascrizione arriva alla fine e il risultato "
             "viene buttato.",
         "gui.job_cancelled": "Tolto dalla coda: {title}",
@@ -1685,7 +1681,7 @@ MESSAGES = {
         "gui.col_recording": "Registrazione",
         "gui.col_status": "Stato",
         "gui.col_progress": "Avanzamento",
-        "gui.notes_yes": "si'",
+        "gui.notes_yes": "sì",
         "gui.status_queued": "in coda",
         "gui.status_running": "in corso",
         "gui.status_done": "completata",
@@ -1693,14 +1689,14 @@ MESSAGES = {
         "gui.status_cancelled": "annullata",
         "gui.queue_empty": "Nessun lavoro in coda.",
         "gui.queue_idle": "Finito: {done} trascritte, {failed} fallite, {cancelled} annullate.",
-        "gui.queued": "In coda: {count}. Premi Trascrivi per partire.",
-        "gui.job_finished": "Archiviata in libreria: {entry}",
+        "gui.queued": "In coda: {count}.",
+        "gui.job_finished": "Archiviata in libreria: {title}",
 
         "gui.rec_host_api": "Sistema audio",
         "gui.rec_host_api_tip":
-            "Come si chiede il suono. Su Windows: WASAPI e' la via nativa ed e' la sola "
-            "che puo' registrare quello che riproducono gli altoparlanti, mentre MME e "
-            "DirectSound sono involucri piu' vecchi sugli stessi dispositivi. Su Linux: "
+            "Come si chiede il suono. Su Windows: WASAPI è la via nativa ed è la sola "
+            "che può registrare quello che riproducono gli altoparlanti, mentre MME e "
+            "DirectSound sono involucri più vecchi sugli stessi dispositivi. Su Linux: "
             "ALSA, JACK o OSS, e il gruppo PulseAudio contiene quello che suona. Su "
             "macOS: Core Audio, che non sa registrare la propria uscita senza un "
             "dispositivo virtuale.",
@@ -1708,66 +1704,64 @@ MESSAGES = {
         "gui.rec_source": "Sorgente",
         "gui.rec_reload_tip":
             "Cerca di nuovo i dispositivi. PortAudio li legge una volta sola, all'avvio,\n"
-            "percio' un microfono collegato dopo questa finestra va chiesto.",
+            "perciò un microfono collegato dopo questa finestra va chiesto.",
         "gui.rec_source_tip": "Il dispositivo da cui registrare, fra quelli che offre questo sistema audio.",
         "gui.rec_loopback_label": "[loopback] {name}",
         "gui.rec_mix": "Insieme a",
         "gui.rec_mix_tip":
-            "Registra una seconda sorgente nello stesso file. Un microfono piu' il loopback "
-            "degli altoparlanti sono le due meta' di una call: la tua voce e quella degli "
-            "altri. Le due schede audio hanno ciascuna il proprio tempo, percio' la prima "
-            "sorgente da' il ritmo e la seconda le viene tenuta accanto.",
-        "gui.rec_basic":
-            "Questo motore registra solo da microfono. Per scegliere il sistema audio, e per "
-            "registrare quello che riproducono gli altoparlanti: pip install \"audio-transcriber-ov[record]\"",
+            "Registra una seconda sorgente nello stesso file. Un microfono più il loopback "
+            "degli altoparlanti sono le due metà di una call: la tua voce e quella degli "
+            "altri. Le due schede audio hanno ciascuna il proprio tempo, perciò la prima "
+            "sorgente dà il ritmo e la seconda le viene tenuta accanto.",
+        "gui.rec_basic": "Questo motore registra solo da microfono. Per scegliere il sistema audio, e per registrare quello che riproducono gli altoparlanti, serve un componente in più: il comando per installarlo è nel suggerimento.",
         "gui.rec_device": "Microfono",
         "gui.rec_device_tip": "Da dove arriva la registrazione; l'elenco segue quello che offre il sistema.",
         "gui.rec_level_tip":
             "Livello in ingresso. Se resta piatto mentre qualcuno parla, da quella sorgente "
             "non arriva nulla: dispositivo sbagliato, microfono disattivato, oppure Windows "
             "che nega il microfono a questa applicazione (Impostazioni, Privacy, Microfono). "
-            "La scala e' in decibel, percio' il parlato normale ne riempie circa due terzi.",
+            "La scala è in decibel, perciò il parlato normale ne riempie circa due terzi.",
         "gui.rec_silent":
-            "Quella registrazione non e' mai salita sopra il silenzio. Controlla la barra del "
-            "livello e la sorgente prima di fidarti della prossima: il file e' comunque in coda.",
+            "Quella registrazione non è mai salita sopra il silenzio. Controlla la barra del "
+            "livello e la sorgente prima di fidarti della prossima: il file è comunque in coda.",
         "gui.rec_trace_name": "Gli ultimi cinque secondi",
         "gui.rec_trace_tip":
-            "Gli ultimi cinque secondi di quello che da' questa sorgente, letti sulla "
+            "Gli ultimi cinque secondi di quello che dà questa sorgente, letti sulla "
             "stessa scala della barra accanto. La barra dice se sta arrivando qualcosa; "
-            "questa dice se e' una voce o la stanza, cosa che una barra ferma a "
-            "un'altezza sola non puo' dire.",
+            "questa dice se è una voce o la stanza, cosa che una barra ferma a "
+            "un'altezza sola non può dire.",
         "gui.rec_test": "Prova audio",
         "gui.rec_test_stop": "Ferma la prova",
         "gui.rec_open_folder_tip":
             "Mostra nel gestore file l'ultima registrazione di questa sessione. "
             "Dopo la trascrizione la registrazione sta con la sua voce di "
-            "libreria, e questo apre la cartella dove finira' la prossima.",
-        "gui.rec_no_folder": "Non c'e' ancora nessuna cartella da aprire: {path}",
+            "libreria, e questo apre la cartella dove finirà la prossima.",
+        "gui.rec_no_folder": "Non c'è ancora nessuna cartella da aprire: {path}",
         "gui.rec_test_tip":
             "Apre la sorgente scelta senza registrare niente: le barre del livello si "
             "muovono e dopo un secondo e mezzo qui viene detto se quello che arriva si "
-            "comporta come qualcuno che parla. E' una stima basata sul livello, sulla sua "
-            "dinamica e sulla banda in cui vive una voce - non un riconoscimento, che e' "
-            "il mestiere di Whisper e richiede un modello e un file. Si ferma da se' dopo "
+            "comporta come qualcuno che parla. È una stima basata sul livello, sulla sua "
+            "dinamica e sulla banda in cui vive una voce - non un riconoscimento, che è "
+            "il mestiere di Whisper e richiede un modello e un file. Si ferma da sé dopo "
             "30 secondi.",
         "gui.rec_test_listening": "Ascolto...",
         "gui.rec_test_silence":
             "Non arriva nulla ({level} dB). Sorgente sbagliata, microfono disattivato, "
             "oppure Windows che nega il microfono a questa applicazione.",
         "gui.rec_test_sound":
-            "C'e' del suono, ma non si comporta come una voce: {level} dB, {dynamic} dB "
+            "C'è del suono, ma non si comporta come una voce: {level} dB, {dynamic} dB "
             "fra i momenti piano e quelli forti, {band}% in banda vocale. Una ventola, un "
             "tono o della musica danno questo risultato.",
         "gui.rec_test_speech":
             "Sembra parlato: picchi a {level} dB, {dynamic} dB di dinamica, {band}% in "
             "banda vocale.",
-        "gui.rec_test_over": "La prova si e' fermata da se' dopo 30 secondi.",
+        "gui.rec_test_over": "La prova si è fermata da sé dopo 30 secondi.",
         "gui.rec_start": "Registra",
         "gui.rec_stop": "Ferma",
         "gui.rec_pause": "Pausa",
         "gui.rec_resume": "Riprendi",
-        "gui.rec_queued": "La registrazione e' in coda; premi Trascrivi per partire.",
-        "gui.rec_empty": "Non e' stato registrato nulla: dal microfono non arrivava suono.",
+        "gui.rec_queued": "La registrazione è in coda.",
+        "gui.rec_empty": "Non è stato registrato nulla: dal microfono non arrivava suono.",
         "gui.rec_failed": "Registrazione fallita.",
         "gui.rec_no_device": "Nessun microfono trovato. Collegane uno: l'elenco se ne accorge da solo.",
         "gui.rec_no_multimedia":
@@ -1781,9 +1775,8 @@ MESSAGES = {
         "gui.no_transcript": "Questa voce non contiene una trascrizione.",
         "gui.play": "Riproduci",
         "gui.pause": "Pausa",
-        "gui.player_no_audio": "Questa voce non contiene la registrazione: non c'e' nulla da riprodurre.",
-        "gui.player_no_multimedia":
-            "Per riprodurre serve QtMultimedia: pip install PySide6-Addons (o PySide6 completo).",
+        "gui.player_no_audio": "Questa voce non contiene la registrazione: non c'è nulla da riprodurre.",
+        "gui.player_no_multimedia": "Per riprodurre serve un componente in più di PySide6. Il comando per installarlo è nel suggerimento.",
         "gui.detail_created": "Registrata il",
         "gui.detail_duration": "Durata",
         "gui.detail_size": "Registrazione",
@@ -1805,11 +1798,11 @@ MESSAGES = {
         "gui.folder_delete": "Elimina cartella",
         "gui.folder_name": "Nome della cartella:",
         "gui.folder_failed": "Non riesco a cambiare la cartella: {error}",
-        "gui.folder_not_empty": "'{folder}' non e' vuota: prima sposta o elimina quello che contiene.",
+        "gui.folder_not_empty": "'{folder}' non è vuota: prima sposta o elimina quello che contiene.",
         "gui.folder_delete_confirm": "Eliminare la cartella vuota '{folder}'?",
         "gui.retranscribe": "Ritrascrivi…",
-        "gui.retranscribe_no_audio": "La registrazione non e' piu' in questa voce",
-        "gui.retranscribe_queued": "'{title}' e' di nuovo in lavorazione: la trovi in In lavorazione.",
+        "gui.retranscribe_no_audio": "La registrazione non è più in questa voce",
+        "gui.retranscribe_queued": "'{title}' è di nuovo in lavorazione: la trovi in In lavorazione.",
         "gui.move_to": "Sposta in",
         "gui.moved": "'{title}' spostata in {folder}",
         "gui.redo_keep": "Tieni la trascrizione attuale e aggiungi la nuova accanto",
@@ -1848,32 +1841,33 @@ MESSAGES = {
             "vengono uniti.",
         "gui.speakers_named": "Adesso gli interlocutori sono: {speakers}",
         "gui.speakers_unchanged": "Niente da cambiare.",
+        "gui.name_speakers_save": "Usa questi nomi",
         "gui.export": "Esporta la trascrizione",
         "gui.exported": "Trascrizione scritta in {path}",
         "gui.open_folder": "Apri la cartella",
         "gui.delete": "Elimina",
         "gui.delete_title": "Elimina questa registrazione",
-        "gui.delete_confirm":
-            "Elimino '{title}' con la sua trascrizione, le note e la registrazione?\n\n{path}",
+        "gui.delete_confirm": "Elimino '{title}' con la sua trascrizione, le note e la registrazione?",
+        "gui.delete_one_of": "Si elimina solo questa trascrizione ({version}). Restano le altre della stessa registrazione: {left}.",
         "gui.deleted": "Eliminata: {title}",
 
-        "gui.group_hardware": "Cosa puo' fare questa macchina",
+        "gui.group_hardware": "Cosa può fare questa macchina",
         "gui.group_paths": "Cartelle in uso",
-        "gui.group_load": "Quanto e' occupata adesso",
+        "gui.group_load": "Quanto è occupata adesso",
         "gui.free_for_better": "\u00b7 liberando {gb} GiB i riassunti userebbero {model}, un modello migliore",
         "gui.free_for_better_tip":
             "I riassunti li scrive il modello migliore che sta nella memoria libera "
             "adesso. Chiudere i programmi che non usi la libera.",
         "gui.meter_device": "{engine} \u00b7 {device}",
         "gui.meter_tip":
-            "Quanto e' occupata questa macchina, e il motore su cui girerebbe una "
-            "trascrizione. Non c'e' una percentuale GPU perche' OpenVINO non la "
-            "espone: il dispositivo e' la risposta onesta.",
+            "Quanto è occupata questa macchina, e il motore su cui girerebbe una "
+            "trascrizione. Non c'è una percentuale GPU perché OpenVINO non la "
+            "espone: il dispositivo è la risposta onesta.",
         "gui.row_cpu": "CPU",
         "gui.row_ram": "Memoria",
         "gui.cpu_reading": "{percent}% di {cores} core",
         "gui.ram_reading": "{used} GiB usati su {total}",
-        "gui.load_queue": "coda {load}  \u00b7  {where}",
+        "gui.load_queue": "carico {load} su {cores} core  ·  {where}",
         "gui.load_sampling": "sto leggendo...",
         "gui.load_unmeasured": "questo sistema non lo dice",
         "gui.engine_on": "{engine} girerebbe su {device}",
@@ -1888,18 +1882,28 @@ MESSAGES = {
         "gui.diar_unconfigured":
             "installata, ma senza modello: imposta HUGGINGFACE_TOKEN, oppure metti un config locale in {detail}",
         "gui.path_missing": "non creata ancora",
+        "gui.path_label_config": "Impostazioni",
+        "gui.path_label_config_file": "File delle impostazioni",
+        "gui.path_label_vocabularies": "Set di parole chiave",
+        "gui.path_label_srt_presets": "Preset dei sottotitoli",
+        "gui.path_label_data": "Dati",
+        "gui.path_label_models": "Modelli",
+        "gui.path_label_library": "Libreria",
+        "gui.path_label_diarization": "Impostazioni di chi dice cosa",
+        "gui.path_label_cache": "Cache",
+        "gui.path_label_log": "Registro",
         "gui.path_configured": "da config.toml",
         "gui.open_config": "Apri config.toml",
         "gui.open_library": "Apri la cartella della libreria",
         "gui.group_log": "Messaggi",
         "gui.log_empty":
             "Ancora niente. Qui finisce quello che la finestra avrebbe "
-            "scritto nel terminale da cui e' stata avviata.",
+            "scritto nel terminale da cui è stata avviata.",
         "gui.open_log": "Apri il file di log",
         "gui.clear_log": "Svuotalo",
         "gui.clear_log_title": "Svuota il log",
         "gui.clear_log_confirm":
-            "Svuotare {path}?\n\nQuello che c'e' adesso sparisce. Quello che "
+            "Svuotare {path}?\n\nQuello che c'è adesso sparisce. Quello che "
             "succede dopo viene scritto da zero; nient'altro viene toccato.",
 
         "gui.quit_title": "Esci",
@@ -1919,7 +1923,7 @@ MESSAGES = {
         "cli.input_required": "serve un file audio o video",
         "cli.elapsed": "   tempo impiegato: {elapsed} ({speed})",
         "cli.speed_realtime": "{factor:.1f}x realtime",
-        "cli.speed_unknown": "velocita' non nota",
+        "cli.speed_unknown": "velocità non nota",
         "cli.config_loaded": "  (default letti da {path})",
         "cli.config_invalid": "File di configurazione non valido {path}: {error}",
         "cli.paths_header": "Cartelle usate da audio-transcriber:",
@@ -1928,12 +1932,12 @@ MESSAGES = {
         "cli.subtitles_written": "Sottotitoli scritti in {path}  ({cues} battute)",
         "cli.subtitles_problems": "  {total} rilievi sulle battute tagliate con '{preset}':",
         "cli.subtitles_from_speech":
-            "    da quanto velocemente si e' parlato - il rimedio del mestiere e' accorciare\n"
+            "    da quanto velocemente si è parlato - il rimedio del mestiere è accorciare\n"
             "    il testo, e riscrivere quello che uno ha detto questo programma non lo fa:",
         "cli.subtitles_from_timings":
             "    dai tempi riportati dal motore:",
         "cli.subtitles_from_layout":
-            "    dall'impaginazione delle battute - questi sono responsabilita' del programma:",
+            "    dall'impaginazione delle battute - questi sono responsabilità del programma:",
         "cli.subtitles_interpolated":
             "    Nota: il motore ha dato i tempi dei segmenti ma non delle singole parole,\n"
             "    quindi i tempi di ogni battuta sono interpolati sul segmento a conteggio di\n"
@@ -1942,18 +1946,18 @@ MESSAGES = {
             "    ogni parola quando si chiedono i sottotitoli.",
         "subtitles.empty": "senza testo",
         "subtitles.backwards": "finisce prima di iniziare",
-        "subtitles.too_wide": "una riga piu' larga di quanto il preset consenta",
-        "subtitles.too_many_lines": "piu' righe di quante il preset consenta",
+        "subtitles.too_wide": "una riga più larga di quanto il preset consenta",
+        "subtitles.too_many_lines": "più righe di quante il preset consenta",
         "subtitles.too_short": "in scena troppo poco per essere letta",
-        "subtitles.too_long": "in scena piu' a lungo di quanto il preset consenta",
-        "subtitles.too_fast": "piu' caratteri al secondo di quanti il preset consenta",
-        "subtitles.too_many_words": "piu' parole al minuto di quante il preset consenta",
+        "subtitles.too_long": "in scena più a lungo di quanto il preset consenta",
+        "subtitles.too_fast": "più caratteri al secondo di quanti il preset consenta",
+        "subtitles.too_many_words": "più parole al minuto di quante il preset consenta",
         "subtitles.overlap": "si sovrappone alla battuta successiva",
         "subtitles.gap_too_small": "stacco troppo piccolo prima della battuta successiva",
         # --- summaries ------------------------------------------------------
-        "summary.empty": "Non c'e' niente da riassumere: la trascrizione e' vuota.",
+        "summary.empty": "Non c'è niente da riassumere: la trascrizione è vuota.",
         "summary.unknown_engine": "Motore di riassunto sconosciuto: {name}. Valori validi: {valid}",
-        "summary.engine_missing": "Il motore di riassunto '{name}' non e' installato su questa macchina.",
+        "summary.engine_missing": "Il motore di riassunto '{name}' non è installato su questa macchina.",
         "summary.none_installed": "Nessun motore di riassunto disponibile su questa macchina.",
         "summary.written": "Riassunto scritto in {path}",
         "summary.stats":
@@ -1970,9 +1974,9 @@ MESSAGES = {
             "  ATTENZIONE: l'NPU esegue gli LLM a forme statiche, con il prompt limitato\n"
             "  a 1024 token di default e 8K al massimo. Un'ora di trascrizione sono circa\n"
             "  15000 token: aspettati un errore o un riassunto troncato. Per questo\n"
-            "  lavoro l'acceleratore giusto e' '--device GPU'.",
+            "  lavoro l'acceleratore giusto è '--device GPU'.",
         "summary.openvino_missing":
-            "Motore di riassunto 'openvino': openvino-genai non e' installato.\n"
+            "Motore di riassunto 'openvino': openvino-genai non è installato.\n"
             "  pip install \"audio-transcriber-ov[summarize-ov]\"",
         "summary.openvino_convert_missing":
             "Per convertire un modello servono optimum-intel e transformers.\n"
@@ -1983,50 +1987,50 @@ MESSAGES = {
         "summary.conversion_failed": "Non sono riuscito a convertire {model}: {error}",
         "summary.conversion_too_new":
             "Non posso convertire {model}: il convertitore per questo "
-            "modello vuole transformers {ceiling} al massimo, e ne e' "
+            "modello vuole transformers {ceiling} al massimo, e ne è "
             "installato {installed}.\n"
             "  pip install \"transformers<={ceiling}\"   (riguarda solo la conversione:\n"
-            "  un modello gia' convertito si carica senza transformers)",
+            "  un modello già convertito si carica senza transformers)",
         "summary.loading_model": "  Carico {path} su {device}...",
         "summary.load_failed":
-            "Il modello non si e' potuto caricare su {device}: {error}",
+            "Il modello non si è potuto caricare su {device}: {error}",
         "summary.pass": "  Leggo la parte {part} di {total}...",
         "summary.pass_cached":
-            "  La parte {part} di {total} era gia' letta: la riuso.",
+            "  La parte {part} di {total} era già letta: la riuso.",
         "summary.pass_echoed":
-            "  La parte {part} di {total} e' tornata indietro come domanda: "
+            "  La parte {part} di {total} è tornata indietro come domanda: "
             "cito quella parte invece.",
         "summary.partials_lost":
             "  {lost} riassunti parziali buttati via: {folds} fusioni non "
             "hanno prodotto nulla e hanno tenuto solo il primo di quello che "
-            "avevano. Quella parte della registrazione non e' sulla pagina.",
+            "avevano. Quella parte della registrazione non è sulla pagina.",
         "summary.echoed_chunks":
-            "  {chunks} parti sono state citate invece che riassunte, perche' "
+            "  {chunks} parti sono state citate invece che riassunte, perché "
             "il modello ha restituito la domanda. Quelle righe sono parlato, "
             "non un riassunto del parlato.",
         "summary.lost_on_the_way":
             "  Le passate di lettura hanno coperto il {read}% della "
             "registrazione, la pagina ne porta il {written}%. La differenza "
-            "non e' sopravvissuta alla fusione, e nessun altro l'avrebbe detto.",
+            "non è sopravvissuta alla fusione, e nessun altro l'avrebbe detto.",
         "summary.more_room_would_buy":
             "  Di questa macchina sono liberi {free} GB, e il riassunto lo "
             "scrive quello che ci sta dentro. Con {needed} GB liberi lo "
-            "scriverebbe {model}, che e' un modello migliore: chiudere quello "
-            "che non serve vale piu' di qualunque impostazione.",
+            "scriverebbe {model}, che è un modello migliore: chiudere quello "
+            "che non serve vale più di qualunque impostazione.",
         "summary.no_room_for_answer":
             "  Un chunk da {chunk} token e una risposta da {answer} non ci "
-            "stanno insieme in {context}: c'e' posto per {room}. I chunk "
+            "stanno insieme in {context}: c'è posto per {room}. I chunk "
             "verranno tagliati rispetto a quanto chiesto.",
         "summary.low_coverage":
             "  Questa pagina nomina solo il {percent}% dei minuti della "
-            "registrazione. Sembra il riassunto di tutta e non lo e'.",
+            "registrazione. Sembra il riassunto di tutta e non lo è.",
         "summary.high_copy_rate":
-            "  Il {percent}% di questa pagina e' parola per parola dalla "
-            "trascrizione: e' stata selezionata, non scritta.",
+            "  Il {percent}% di questa pagina è parola per parola dalla "
+            "trascrizione: è stata selezionata, non scritta.",
         "summary.dump_failed":
             "  Non ho potuto scrivere gli appunti in {path}: {error}",
         "summary.still_thinking":
-            "  Il modello stava ancora ragionando quando la risposta e' "
+            "  Il modello stava ancora ragionando quando la risposta è "
             "finita: richiedo con {tokens} token.",
         "summary.folding": "  Fondo {groups} gruppi (livello {level})...",
         "summary.prereducing":
@@ -2036,22 +2040,22 @@ MESSAGES = {
             "Nessun modello entra nella memoria di questa macchina: {needed} "
             "GB richiesti, {free} GB liberi. Cito la trascrizione.",
         "summary.over_budget":
-            "  ATTENZIONE: {model} e' stimato in {needed} GB e questa "
+            "  ATTENZIONE: {model} è stimato in {needed} GB e questa "
             "macchina ne ha {free} liberi. Lo carico lo stesso, come chiesto.",
         "summary.reducing": "  Scrivo il riassunto dalle {total} parti...",
         "summary.llamacpp_missing":
-            "llama.cpp non e' installato. Esegui: pip install llama-cpp-python\n"
+            "llama.cpp non è installato. Esegui: pip install llama-cpp-python\n"
             "  oppure metti l'eseguibile 'llama-server' nel PATH, oppure\n"
             "  scrivilo in config.toml:  [summary]  llama_server = \"...\"",
-        "summary.no_gguf": "Per {model} non e' pubblicato nessun GGUF.",
+        "summary.no_gguf": "Per {model} non è pubblicato nessun GGUF.",
         "summary.downloading":
             "Scarico {model} ({quant}): una volta sola, adesso...",
         "summary.model_ready": "Modello pronto in: {path}",
         "summary.download_truncated":
-            "Lo scaricamento di {model} si e' interrotto: {got} byte su {expected}.",
+            "Lo scaricamento di {model} si è interrotto: {got} byte su {expected}.",
         "summary.download_failed": "Non riesco a scaricare {model}: {error}",
         "summary.server_stopped":
-            "llama-server si e' fermato prima di rispondere (uscita {code}).",
+            "llama-server si è fermato prima di rispondere (uscita {code}).",
         "summary.server_silent": "llama-server non ha risposto entro {seconds}s.",
         "summary.server_said": "  llama-server ha scritto:",
         "summary.server_failed": "llama-server ha rifiutato la richiesta: {error}",
@@ -2062,16 +2066,16 @@ MESSAGES = {
             "  NOTA: questo runtime non permette di spegnere il ragionamento del\n"
             "  modello, quindi ogni risposta lo paga e qualcuna torna vuota.",
         "summary.model_unusable_next":
-            "  {model} non e' utilizzabile su questa installazione: provo il modello "
+            "  {model} non è utilizzabile su questa installazione: provo il modello "
             "sotto. Cosa ha detto:\n  {error}",
         "summary.model_said_nothing":
             "{model} non ha restituito niente di utilizzabile: {detail}\n"
-            "  Prova un altro modello, piu' token a disposizione, oppure "
+            "  Prova un altro modello, più token a disposizione, oppure "
             "'--engine extractive'.",
         "summary.nothing_at_all": "non ha prodotto nessun testo",
         "summary.all_thinking":
             "tutti i suoi {chars} caratteri sono il modello che racconta il proprio "
-            "ragionamento, e dopo non c'e' niente - un modello \"thinking\" tagliato "
+            "ragionamento, e dopo non c'è niente - un modello \"thinking\" tagliato "
             "prima di cominciare la risposta",
         "summary.unusable_answer":
             "sono tornati {chars} caratteri, e nessuno parla della registrazione: "
@@ -2251,7 +2255,7 @@ HELP = {
   # "chi dice cosa" con 3 speaker noti
   audio-transcriber riunione.wav --diarize --speakers 3
 
-  # server senza GPU: motore CPU e modello piu' leggero
+  # server senza GPU: motore CPU e modello più leggero
   audio-transcriber riunione.wav --backend faster-whisper --model small
 
   # forza la iGPU Intel
@@ -2260,11 +2264,11 @@ HELP = {
   # archivia in libreria invece di scrivere un .txt accanto al file
   audio-transcriber riunione.mp4 --library --title "Riunione settimanale"
 
-  # usa un set di parole chiave perche' i termini tecnici sopravvivano
+  # usa un set di parole chiave perché i termini tecnici sopravvivano
   audio-transcriber riunione.wav --vocab iso27001-it
   audio-transcriber vocab list
 
-  # sfoglia quello che hai gia' trascritto
+  # sfoglia quello che hai già trascritto
   audio-transcriber library list
   audio-transcriber library search "analisi dei rischi"
 
@@ -2286,7 +2290,7 @@ HELP = {
         "help.sum_style":
             "combined (default): una richiesta per le quattro sezioni; "
             "split: una richiesta per sezione, controllate poi fra loro",
-        "help.sum_model": "quale modello lo scrive: auto, un id Hugging Face, o una cartella gia' convertita",
+        "help.sum_model": "quale modello lo scrive: auto, un id Hugging Face, o una cartella già convertita",
         "help.sum_context":
             "token di contesto da dare al modello (default: dal piano)",
         "help.sum_kv":
@@ -2335,7 +2339,7 @@ HELP = {
             "intitola la voce di libreria con quello che ci si dice dentro, non con il file",
         "help.diar_model": "id HF (online, con token) o percorso a un config.yaml locale (offline)",
         "help.library": "archivia il risultato in libreria invece di scrivere un .txt accanto al file",
-        "help.library_store": "come la libreria conserva l'originale: copy (default), move, oppure reference (lascialo dov'e')",
+        "help.library_store": "come la libreria conserva l'originale: copy (default), move, oppure reference (lascialo dov'è)",
         "help.title": "titolo della voce di libreria (default: il nome del file)",
         "help.json": "scrivi anche i segmenti, con i timestamp, in formato JSON",
         "help.srt": "salva anche i sottotitoli in .srt",
@@ -2345,10 +2349,10 @@ HELP = {
         "help.subtitle_lines": "righe per sottotitolo, invece di quelle del preset",
         "help.subtitle_words": "parole per sottotitolo, se preferisci limitare quelle",
         "help.reference":
-            "un testo che hai gia' per questa registrazione: le sue parole "
+            "un testo che hai già per questa registrazione: le sue parole "
             "rare aiutano il motore a scrivere giusto, e dopo correggono "
             "quello che ha sentito male",
-        "help.lib_list": "elenca le voci, dalla piu' recente",
+        "help.lib_list": "elenca le voci, dalla più recente",
         "help.lib_show": "mostra una voce e la sua trascrizione",
         "help.lib_search": "cerca le voci il cui testo o le cui note contengono qualcosa",
         "help.lib_remove": "elimina una voce e tutto il suo contenuto",
@@ -2366,7 +2370,7 @@ HELP = {
         "help.diar_repo": "quale pipeline scaricare (default: quella che userebbe una corsa)",
         "help.diar_init": "scrive un config.yaml per i file di modello in una cartella",
         "help.diar_dir": "la cartella che li contiene (default: quella gestita)",
-        "help.diar_force": "sovrascrive un config.yaml gia' presente",
+        "help.diar_force": "sovrascrive un config.yaml già presente",
         "help.cmd_web": "avvia l'interfaccia web locale",
         "help.cmd_gui": "apri la finestra desktop",
         "help.vocab": "set di parole chiave da usare, per nome (ripetibile, o separati da virgola); vedi 'vocab list'",
@@ -2379,9 +2383,9 @@ HELP = {
         "help.vocab_title": "titolo leggibile, mostrato negli elenchi e nell'interfaccia web",
         "help.vocab_language": "lingua dei termini, es. it, en",
         "help.vocab_from": "parti da un file di testo esistente invece che da un modello vuoto",
-        "help.vocab_force": "sovrascrivi il set se esiste gia'",
+        "help.vocab_force": "sovrascrivi il set se esiste già",
         "help.sum_template":
-            "di quali sezioni e' fatta la pagina, per nome; vedi 'template list'",
+            "di quali sezioni è fatta la pagina, per nome; vedi 'template list'",
         "help.cmd_template":
             "elenca, ispeziona e crea i set di sezioni per i riassunti",
         "help.tpl_dir": "cerca i template anche in questa cartella, per prima",
@@ -2394,14 +2398,14 @@ HELP = {
         "help.tpl_title": "titolo leggibile, mostrato negli elenchi e nell'interfaccia web",
         "help.tpl_language": "lingua delle intestazioni, es. it, en",
         "help.tpl_from": "parti da un file di testo esistente invece che da un modello vuoto",
-        "help.tpl_force": "sovrascrivi il template se esiste gia'",
+        "help.tpl_force": "sovrascrivi il template se esiste già",
         "help.web_host": "indirizzo su cui ascoltare (default: 127.0.0.1, solo questa macchina)",
         "help.web_port": "porta su cui ascoltare (default: 8765)",
         "help.web_root_path": "prefisso che un reverse proxy toglie, es. /transcriber (serve solo alla documentazione API)",
         "help.cfg_show": "mostra le impostazioni attualmente in vigore",
         "help.cfg_path": "stampa il percorso del file di configurazione",
         "help.cfg_init": "scrivi un file di configurazione commentato da completare",
-        "help.cfg_force": "sovrascrivi il file di configurazione se esiste gia'",
+        "help.cfg_force": "sovrascrivi il file di configurazione se esiste già",
     },
 }
 

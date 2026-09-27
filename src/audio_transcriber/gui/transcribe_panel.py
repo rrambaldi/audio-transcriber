@@ -41,6 +41,11 @@ from .recorder import make_recorder
 #: transcription measured in minutes, and costs nothing.
 REFRESH_MS = 500
 
+#: How thick a running job's bar is: the page's, a line and not a slab. The
+#: table would otherwise stretch it to the height of the row, and a grey
+#: block that tall reads as an empty field rather than as progress.
+PROGRESS_PX = 6
+
 
 class TranscribePanel(QWidget):
     """Recordings first, then what to do with them.
@@ -489,19 +494,26 @@ class TranscribePanel(QWidget):
 
         A bar at 0% on a row that failed, or on one that has not started, is
         a measurement of something that is not happening."""
-        bar = self.table.cellWidget(index, 2)
+        holder = self.table.cellWidget(index, 2)
         if not row["running"]:
-            if bar is not None:
+            if holder is not None:
                 self.table.removeCellWidget(index, 2)
             if self.table.item(index, 2) is None:
                 self.table.setItem(index, 2, _cell("", row["id"]))
             return
-        if bar is None:
-            bar = QProgressBar()
+        if holder is None:
+            # In a holder, centred: a cell widget is given the whole cell.
+            # No text on it - the percentage is in the line under the table.
+            holder = QWidget()
+            bar = QProgressBar(holder)
             bar.setRange(0, 100)
-            bar.setTextVisible(True)
-            self.table.setCellWidget(index, 2, bar)
-        bar.setValue(row["progress"])
+            bar.setTextVisible(False)
+            bar.setFixedHeight(PROGRESS_PX)
+            layout = QVBoxLayout(holder)
+            layout.setContentsMargins(4, 0, 4, 0)
+            layout.addWidget(bar, 0, Qt.AlignmentFlag.AlignVCenter)
+            self.table.setCellWidget(index, 2, holder)
+        holder.findChild(QProgressBar).setValue(row["progress"])
 
     def _update_table(self, rows):
         for index, row in enumerate(rows):

@@ -5,7 +5,7 @@
 #   audio-transcriber riunione.wav --vocab dati-analytics-it
 
 data warehouse, data lake, lakehouse, ETL, ELT, pipeline dati, ingestion,
-staging, modello dimensionale, tabella dei fatti, granularita', KPI,
+staging, modello dimensionale, tabella dei fatti, granularità, KPI,
 dashboard, self service BI, Power BI, Tableau, SQL, data quality,
 data governance, data catalog, lineage, master data, data mart, outlier,
 serie storica, forecast

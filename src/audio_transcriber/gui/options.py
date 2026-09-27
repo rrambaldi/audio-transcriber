@@ -187,9 +187,11 @@ def vocabulary_items(vocab_dir=None):
             "language": item.language,
             "terms": len(vocabularies.terms(text)),
             "chars": len(text),
-            "label": t("gui.vocab_label", title=item.title, name=item.name,
+            "label": t("gui.vocab_label", title=item.title,
                        terms=len(vocabularies.terms(text))),
-            "tooltip": text,
+            # The file name is what a set is called on the command line; in
+            # the list it is noise, so it heads the tooltip instead.
+            "tooltip": f"{item.name}\n\n{text}",
         })
     return items
 
@@ -497,6 +499,15 @@ def queue_summary(jobs):
 # the library table and the reading pane
 # --------------------------------------------------------------------------
 
+#: The commands that add what an option needs. They go in tooltips, never in
+#: the text on screen: whoever reads the window is not necessarily whoever
+#: installs it, and a pip command is not a sentence.
+INSTALL_COMMANDS = {
+    "diarize": 'pip install "audio-transcriber-ov[diarize]"',
+    "multimedia": "pip install PySide6-Addons",
+    "record": 'pip install "audio-transcriber-ov[record]"',
+}
+
 #: What a row of the library carries when it is dragged onto a folder.
 ENTRY_MIME = "application/x-audio-transcriber-entry"
 
@@ -595,8 +606,20 @@ def entry_rows(entries, copies=None):
             row["summary"] = row["summary"] or any(
                 member.has_summary() for member in group)
         row["copies"] = len(group)
+        # The one row shows the newest title: the others are named in its
+        # tooltip, or a copy renamed by hand would vanish from the list.
+        titles = list(dict.fromkeys(_title(member) for member in group))
+        row["titles"] = titles if len(titles) > 1 else []
         rows.append(row)
     return rows
+
+
+def _title(entry):
+    """An entry's title, its id when the metadata cannot be read."""
+    try:
+        return str(entry.metadata.get("title") or entry.id)
+    except LibraryError:
+        return entry.id
 
 
 def same_recording(copies, first, second):
@@ -617,13 +640,15 @@ def transcription_choices(entry, copies):
     """The transcriptions of the recording ``entry`` is one of, newest first,
     as ``(id, label)``; empty when it was transcribed once.
 
-    Labelled by date and model, which is what differs between them: the
-    title is the same file's name every time."""
-    choices = []
-    for other in _recording(entry, copies):
-        row = entry_row(other)
-        if row:
-            choices.append((other.id, f"{row['date']} · {row['model']}"))
+    Labelled by date and model, which is what differs between them, and by
+    title too when the titles are not all the same: a copy renamed by hand is
+    otherwise found nowhere but here."""
+    rows = [row for row in (entry_row(other) for other in _recording(entry, copies))
+            if row]
+    named = len({row["title"] for row in rows}) > 1
+    choices = [(row["id"], " · ".join([row["date"], row["model"]]
+                                      + ([row["title"]] if named else [])))
+               for row in rows]
     return choices if len(choices) > 1 else []
 
 

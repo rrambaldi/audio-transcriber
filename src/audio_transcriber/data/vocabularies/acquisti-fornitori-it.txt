@@ -9,4 +9,4 @@ qualifica fornitore, RFI, RFP, RFQ, capitolato, offerta tecnica,
 offerta economica, aggiudicazione, trattativa privata, contratto quadro,
 termini di consegna, DDT, collaudo, penale, SLA contrattuale, disdetta,
 canone annuo, TCO, spending review, vendor lock in, subfornitura,
-non conformita'
+non conformità

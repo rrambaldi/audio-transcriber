@@ -101,6 +101,7 @@ class QtRecorder(QWidget):
         # one that can is a pip install away.
         self._note = t("gui.rec_basic")
         self.message.setText(self._note)
+        self.message.setToolTip(options.INSTALL_COMMANDS["record"])
         self._build_session()
         # Qt tells us when a microphone is plugged in or taken away, so the
         # menu is never a snapshot of what was there when the window opened.

@@ -82,6 +82,10 @@ class SpeakersDialog(QDialog):
             | QDialogButtonBox.StandardButton.Cancel)
         buttons.accepted.connect(self.accept)
         buttons.rejected.connect(self.reject)
+        # Worded here rather than left to Qt: its own OK and Cancel are in
+        # English unless a translation happens to be installed.
+        buttons.button(QDialogButtonBox.StandardButton.Ok).setText(t("gui.name_speakers_save"))
+        buttons.button(QDialogButtonBox.StandardButton.Cancel).setText(t("gui.cancel"))
         symbols.dress(buttons.button(QDialogButtonBox.StandardButton.Ok), "save", "out")
         symbols.dress(buttons.button(QDialogButtonBox.StandardButton.Cancel), "dismiss")
         layout.addWidget(buttons)

@@ -71,6 +71,9 @@ class SystemPanel(QWidget):
         locations = QGroupBox(t("gui.group_paths"))
         form = QFormLayout(locations)
         for label, path, exists, configured in paths.describe(self.settings):
+            # describe() names them for the command line, in English; here
+            # they are said in the interface language.
+            label = t(f"gui.path_label_{label.replace(' ', '_')}")
             note = "" if exists else f"  ({t('gui.path_missing')})"
             if configured:
                 note += f"  ({t('gui.path_configured')})"
@@ -276,7 +279,8 @@ class SystemPanel(QWidget):
         queue = reading["load"]
         if queue is None:
             return where
-        return t("gui.load_queue", load=f"{queue[0]:.2f}", where=where)
+        return t("gui.load_queue", load=f"{queue[0]:.1f}", cores=reading["cores"],
+                 where=where)
 
     # --- only while it is on screen ---------------------------------------
 

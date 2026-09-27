@@ -6,7 +6,7 @@
 
 clausola, premesse, corrispettivo, decorrenza, rinnovo tacito, disdetta,
 recesso, risoluzione, inadempimento, diffida, penale, manleva, indennizzo,
-limitazione di responsabilita', forza maggiore, NDA,
-accordo di riservatezza, proprieta' intellettuale, licenza d'uso,
+limitazione di responsabilità, forza maggiore, NDA,
+accordo di riservatezza, proprietà intellettuale, licenza d'uso,
 subappalto, foro competente, legge applicabile, arbitrato, firma digitale,
 PEC, procura, DPA, clausola risolutiva espressa

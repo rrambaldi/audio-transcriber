@@ -10,7 +10,7 @@ it adds is a microphone, a player and a folder-free way of reaching them.
 import os
 import sys
 
-from PySide6.QtCore import QSettings, QSize, Qt, QTimer
+from PySide6.QtCore import QLibraryInfo, QSettings, QSize, Qt, QTimer, QTranslator
 from PySide6.QtGui import QIcon, QKeySequence, QShortcut
 from PySide6.QtWidgets import (
     QApplication,
@@ -27,9 +27,10 @@ from .. import __version__, branding, i18n, paths
 from ..hardware import Meter
 from ..i18n import t
 from ..jobs import JobQueue
+from ..library import LibraryError
 from . import style, symbols, theme
 from .about_dialog import AboutDialog
-from .home import Home
+from .home import WORKING, Home
 from .library_panel import LibraryPanel
 from .masthead import Masthead
 from .meters import MachineMeters
@@ -300,9 +301,21 @@ class MainWindow(QMainWindow):
         if entry_id:
             # Done again in place: the pane may be showing the old one.
             self.library.entry_changed(entry_id)
-            self.announce(t("gui.job_finished", entry=entry_id))
+            self.announce(t("gui.job_finished", title=self._title(entry_id)))
+            # Somebody who watched the queue until it emptied was waiting for
+            # this one: they are taken to it, not left in front of an empty list.
+            if (not self.queue.pending_count()
+                    and self.home.tree.current_key() == WORKING):
+                self.show_entry(entry_id)
         else:
             self.rest()
+
+    def _title(self, entry_id):
+        """An entry's title for a message, its id if the title cannot be read."""
+        try:
+            return str(self.queue.library.get(entry_id).metadata.get("title") or entry_id)
+        except LibraryError:
+            return entry_id
 
     # --- geometry ---------------------------------------------------------
 
@@ -351,6 +364,19 @@ def apply_chosen_language(lang=None):
     return i18n.language()
 
 
+def install_qt_translation(application):
+    """Qt's own words - Save, Discard, Yes, No, Cancel - in the interface
+    language. They are drawn by Qt, not by this program, and without its
+    translation a dialog asked in Italian was answered in English. The
+    translations ship with PySide6; one that is missing leaves Qt's English."""
+    translator = QTranslator(application)
+    folder = QLibraryInfo.path(QLibraryInfo.LibraryPath.TranslationsPath)
+    if translator.load(f"qtbase_{i18n.language()}", folder):
+        application.installTranslator(translator)
+        return translator
+    return None
+
+
 def launch(settings=None, argv=None, lang=None):
     """Show the window and run the event loop until it is closed.
 
@@ -367,6 +393,7 @@ def launch(settings=None, argv=None, lang=None):
     # Before the first window exists: Windows reads the identity when the
     # task bar button is created, and does not look again.
     claim_taskbar_identity()
+    install_qt_translation(application)
     application.setApplicationName("audio-transcriber")
     application.setApplicationDisplayName(t("gui.app_name"))
     application.setApplicationVersion(__version__)

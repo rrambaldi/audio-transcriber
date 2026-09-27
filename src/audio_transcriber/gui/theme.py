@@ -520,6 +520,24 @@ QScrollBar::add-line, QScrollBar::sub-line {{ height: 0; width: 0; }}
 QScrollBar::add-page, QScrollBar::sub-page {{ background: transparent; }}
 
 QCheckBox, QRadioButton {{ spacing: 8px; }}
+/* Drawn here rather than left to Fusion, whose empty box is the sheet on the
+   paper - 1.12:1 in the dark scheme, a control nobody can see. The outline is
+   the field's own rule; ticked is filled, not merely recoloured. */
+QCheckBox::indicator, QRadioButton::indicator {{
+    width: 14px; height: 14px; border: 1px solid {token['line']};
+    background: {token['sheet']}; }}
+QRadioButton::indicator {{ border-radius: 8px; }}
+QCheckBox::indicator:hover, QRadioButton::indicator:hover {{
+    border-color: {token['signal']}; }}
+QCheckBox::indicator:checked {{ background: {token['signal']};
+                                border-color: {token['signal']}; }}
+QRadioButton::indicator:checked {{
+    border-color: {token['signal']};
+    background: qradialgradient(cx: 0.5, cy: 0.5, radius: 0.5, fx: 0.5, fy: 0.5,
+                                stop: 0 {token['signal']}, stop: 0.5 {token['signal']},
+                                stop: 0.56 {token['sheet']}, stop: 1 {token['sheet']}); }}
+QCheckBox::indicator:disabled, QRadioButton::indicator:disabled {{
+    border-color: {token['rule']}; }}
 QSplitter::handle {{ background: {token['rule']}; }}
 QMenu {{ background: {token['sheet']}; color: {token['ink']};
          border: 1px solid {token['rule']}; }}

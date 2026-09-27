@@ -1,6 +1,6 @@
 # title: Cybersecurity operativa
 # language: it
-# SOC, incidenti, vulnerabilita'. Per conformita' e analisi del rischio
+# SOC, incidenti, vulnerabilità. Per conformità e analisi del rischio
 # combinalo con iso27001-it.
 #
 #   audio-transcriber riunione.wav --vocab cybersecurity-it

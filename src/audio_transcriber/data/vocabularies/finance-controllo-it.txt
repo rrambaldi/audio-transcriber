@@ -1,6 +1,6 @@
 # title: Finance e controllo di gestione
 # language: it
-# Budget, consuntivi, marginalita', cassa.
+# Budget, consuntivi, marginalità, cassa.
 #
 #   audio-transcriber riunione.wav --vocab finance-controllo-it
 

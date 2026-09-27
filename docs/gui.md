@@ -196,8 +196,11 @@ the background, one at a time; see [data-layout.md](data-layout.md).
 A recording transcribed more than once — to compare two models, say — is
 **one row, marked with how many times**, `×3` in front of its title, and it
 opens on the newest transcription. The others are in the *Version* menu over
-the transcript, by date and model; picking one reads that one, notes and
-details included, and the row stays where it was. The same recording is the
+the transcript, by date and model — and by title as well when a copy was
+renamed, since otherwise that title would be found nowhere; the row's tooltip
+lists the titles too. Picking one reads that one, notes and details included,
+and the row stays where it was. *Delete* on such a row says that only the
+transcription being read goes, and how many of the others stay. The same recording is the
 same file, found by the SHA-256 in `metadata.json`: renamed it is still the
 same one, and two different files with one name are not.
 
@@ -538,7 +541,10 @@ move for an hour without anything being pushed at the GUI from the worker
 thread.
 
 Closing the window ends any transcription still running, so it asks first.
-Every finished job is filed in the library, exactly as `--library` does.
+Every finished job is filed in the library, exactly as `--library` does. The
+message names the recording by its title, and somebody who watched the queue
+until it emptied is taken to the transcript rather than left in front of an
+empty list.
 
 **A file you picked is copied into the library entry; a recording the window
 made is moved.** Moving someone's own recording out of their Documents folder
@@ -617,6 +623,7 @@ stylesheet's own token values, by `tests/test_gui_theme.py`.
 | `.row .title` in the serif | the queue and library rows, painted by `widgets.JobDelegate` |
 | `.drop`, dashed | `QFrame#drop`, dashed, washed in the accent while a file is over it |
 | `.button.danger`, in clay | `QPushButton[role="danger"]` — and four more roles, below |
+| a checkbox or a radio button | drawn by the stylesheet, not by Fusion: the field's rule as its outline (3.17:1 light, 5.04:1 dark), filled in the accent when ticked. Fusion's own box was the sheet on the paper, 1.12:1 in the dark scheme |
 
 **Every button says what it does three ways**: its word, a symbol beside it
 (Fluent's 20 px regular cut, recoloured to the palette at render time, see
@@ -709,15 +716,18 @@ Under the link, a menu of the four interface languages, each by its own
 name. The choice goes to `gui.ini` and the window opens in it the next time;
 the one already open is not rebuilt under a transcription that may be
 running, and the note that says so is written in the language just picked.
-A `--lang` on the command line still wins over it.
+A `--lang` on the command line still wins over it. Qt's own buttons — *Save*,
+*Discard*, *Yes*, *No*, *Cancel* — speak it too: the translations that ship
+with PySide6 are loaded before the window is built.
 
 The version number is *not* in the masthead: apart from the title bar, the
 About box is the only place the window writes it down. A band somebody reads
 all day is not where a build number belongs, and it is one click from it.
 
-It opens on the banner the README opens with — the mark, the name and the
-tagline in one picture, edge to edge, `data/brand/banner.png` — and the page's
-About box opens on the same one. Under it: the version, the licence *whole*,
+It opens on the mark, the name and the promise, set by the window in its own
+two faces and in the interface language, as the masthead is. The README's
+banner used to be here, and it was a picture with English words in it that
+promised an Intel iGPU to machines that transcribe on the processor. Under it: the version, the licence *whole*,
 in a read-only field that grows with the dialog, and a line about what is
 bundled: the two typefaces, which are
 somebody else's work under OFL, and the Python packages, which are installed

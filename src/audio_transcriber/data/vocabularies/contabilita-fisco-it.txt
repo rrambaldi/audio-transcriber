@@ -1,4 +1,4 @@
-# title: Contabilita' e fisco (Italia)
+# title: Contabilità e fisco (Italia)
 # language: it
 # Amministrazione, adempimenti, scadenze fiscali italiane.
 #

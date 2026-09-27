@@ -4,7 +4,7 @@
 #
 #   audio-transcriber riunione.wav --vocab vendite-crm-it
 
-CRM, pipeline, opportunita', lead, prospect, qualifica, marginalita',
+CRM, pipeline, opportunità, lead, prospect, qualifica, marginalità,
 closing, tasso di chiusura, ciclo di vendita, forecast, quota, upselling,
 cross selling, churn, tasso di abbandono, key account, provvigione,
 contratto quadro, canone, ARR, MRR, LTV, CAC, capitolato
