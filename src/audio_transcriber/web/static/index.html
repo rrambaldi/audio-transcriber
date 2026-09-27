@@ -243,9 +243,16 @@
   </p>
   <!-- Each language by its own name, filled in by the script: see
        LANGUAGE_NAMES in app.js. -->
+  <!-- The globe and the code - IT, EN - on the page; the list the select
+       drops is where each language is named in full. The select lies over
+       them, transparent, so it is still the control the keyboard and a
+       screen reader use. -->
   <p class="note footer-language">
-    <label for="interface-language" data-t="interface_language">Language</label>
-    <select id="interface-language"></select>
+    <label for="interface-language" class="visually-hidden" data-t="interface_language">Language</label>
+    <span class="language-pick">
+      <span id="interface-language-code" aria-hidden="true"></span>
+      <select id="interface-language"></select>
+    </span>
   </p>
 </footer>
 

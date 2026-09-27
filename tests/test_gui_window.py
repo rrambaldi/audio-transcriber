@@ -341,6 +341,8 @@ def test_the_language_is_picked_in_the_masthead_and_kept_for_next_time(window):
     menu = window.masthead.language
     assert [menu.itemData(i) for i in range(menu.count())] == list(i18n.LANGUAGE_NAMES)
     assert menu.itemText(menu.findData("de")) == "Deutsch"
+    # Two letters wide when closed: the names are for the list it drops.
+    assert menu.minimumContentsLength() == 3
 
     box = window.choose_language("de")
     try:

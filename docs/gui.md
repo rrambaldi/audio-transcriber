@@ -730,8 +730,10 @@ into the About box is **a link in the masthead**, on the right, where the
 version number used to be. **F1** opens the same box, being the key people
 press looking for help on a program that has none.
 
-Under the link, a menu of the four interface languages, each by its own
-name. The choice goes to `gui.ini` and the window opens in it the next time;
+Under the link, a menu of the four interface languages, behind a globe.
+Closed it shows the language's code - *IT*, *EN* - which is all a corner of
+the band has room for; opened, each language by its own name. The page's foot
+has the same globe and code. The choice goes to `gui.ini` and the window opens in it the next time;
 the one already open is not rebuilt under a transcription that may be
 running, and the note that says so is written in the language just picked.
 A `--lang` on the command line still wins over it. Qt's own buttons — *Save*,

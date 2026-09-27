@@ -3182,6 +3182,7 @@ function fillLanguages() {
     menu.append(el("option", { value: code, textContent: LANGUAGE_NAMES[code] || code,
       selected: code === lang }));
   }
+  $("interface-language-code").textContent = lang.toUpperCase();
 }
 
 /* The page is loaded again in the new language: every label written since it

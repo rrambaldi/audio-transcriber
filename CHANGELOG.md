@@ -133,9 +133,10 @@ All notable changes to this project are documented here. The format follows
 
 ### Changed
 
-- **The interface language has its symbol**, the translation mark, beside
-  the menu in the window's masthead and before *Language* at the foot of the
-  page: the one control somebody who cannot read the current language has to
+- **The interface language is a globe and a code.** In the window's
+  masthead and at the foot of the page the menu shows the globe and *IT*,
+  *EN*, *FR* or *DE*; opened, it lists each language by its own name. It is
+  the one control somebody who cannot read the current language has to
   find.
 
 

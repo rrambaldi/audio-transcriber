@@ -209,6 +209,9 @@ def test_the_language_menu_names_every_language_in_its_own_words(page, script):
     from audio_transcriber import i18n
 
     assert '<select id="interface-language">' in page
+    # The code on the page, the names in full in the list it drops.
+    assert 'id="interface-language-code"' in page
+    assert '$("interface-language-code").textContent = lang.toUpperCase();' in script
     names = re.search(r"const LANGUAGE_NAMES = \{(.*?)\};", script).group(1)
     assert set(re.findall(r"(\w+):", names)) == set(catalogues(script))
     assert set(catalogues(script)) == set(i18n.AVAILABLE_LANGUAGES)

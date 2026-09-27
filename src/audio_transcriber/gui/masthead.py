@@ -22,6 +22,9 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QSizePolicy,
+    QStyle,
+    QStyleOptionComboBox,
+    QStylePainter,
     QVBoxLayout,
     QWidget,
 )
@@ -163,7 +166,7 @@ class Masthead(QWidget):
         # Each language by its own name, under the About link: the other
         # thing somebody looks for in a corner of a window, and the one a
         # reader who cannot read the current language has to be able to find.
-        self.language = QComboBox()
+        self.language = LanguageMenu()
         for code, name in LANGUAGE_NAMES.items():
             self.language.addItem(name, code)
         self.language.setCurrentIndex(max(0, self.language.findData(language())))
@@ -194,9 +197,8 @@ class Masthead(QWidget):
             pair.addWidget(icon, 0, Qt.AlignmentFlag.AlignVCenter)
             pair.addWidget(link, 0, Qt.AlignmentFlag.AlignVCenter)
             band.addLayout(pair)
-        # The language with its symbol too, the translation mark: it is the
-        # one control here somebody who cannot read the current language has
-        # to find.
+        # The language with its symbol too, the globe: it is the one control
+        # here somebody who cannot read the current language has to find.
         self.language_icon = QLabel()
         pair = QHBoxLayout()
         pair.setSpacing(4)
@@ -314,3 +316,29 @@ class Masthead(QWidget):
             ink = style.note_colour(link).name()
             link.setStyleSheet(
                 f"color: {ink}; a {{ color: {signal}; text-decoration: none; }}")
+
+
+class LanguageMenu(QComboBox):
+    """The language by its code when closed - IT, EN - and by its own name in
+    the list: a corner of the masthead has room for two letters, and the list
+    is where somebody reads which language each one is."""
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setSizeAdjustPolicy(
+            QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
+        self.setMinimumContentsLength(3)
+
+    def paintEvent(self, _event):
+        painter = QStylePainter(self)
+        option = QStyleOptionComboBox()
+        self.initStyleOption(option)
+        option.currentText = str(self.currentData() or "").upper()
+        painter.drawComplexControl(QStyle.ComplexControl.CC_ComboBox, option)
+        painter.drawControl(QStyle.ControlElement.CE_ComboBoxLabel, option)
+
+    def showPopup(self):
+        # The list as wide as its longest name, not as the two letters above.
+        view = self.view()
+        view.setMinimumWidth(view.sizeHintForColumn(0) + 2 * view.frameWidth() + 24)
+        super().showPopup()
