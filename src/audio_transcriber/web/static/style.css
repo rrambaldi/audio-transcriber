@@ -125,7 +125,7 @@ body {
 /* --- masthead ---------------------------------------------------------- */
 
 .masthead {
-  max-width: 72rem;
+  max-width: 80rem;
   margin: 0 auto;
   padding: clamp(2.5rem, 7vw, 5rem) 0 1.6rem;
   border-bottom: 1px solid var(--ink);
@@ -173,22 +173,101 @@ h1 {
   max-width: 42ch;
 }
 
-/* --- the sheet: narrow column of prose, wide column of controls -------- */
+/* --- the page: the library on the left, the entry being read on the right */
+/*  The library is what somebody comes back for, so it is the page. The work
+    under way is its first group, a new transcription is a dialog opened from
+    the top of the list, and the entry being read sits beside the list rather
+    than in a dialog over it - so a click on the next row reads the next
+    recording. The window has been laid out this way since September.  */
 
-main { max-width: 72rem; margin: 0 auto; }
+main { max-width: 80rem; margin: 0 auto; }
 
-.sheet {
+.columns {
   display: grid;
-  grid-template-columns: minmax(0, 15rem) minmax(0, 1fr);
-  gap: clamp(1.5rem, 5vw, 4rem);
-  padding: clamp(2rem, 5vw, 3.5rem) 0;
-  border-bottom: 1px solid var(--rule);
+  grid-template-columns: minmax(19rem, 26rem) minmax(0, 1fr);
+  gap: clamp(1.5rem, 4vw, 3.5rem);
+  align-items: start;
+  padding-top: clamp(1.4rem, 3vw, 2.4rem);
 }
-@media (max-width: 55rem) {
-  .sheet { grid-template-columns: minmax(0, 1fr); gap: 1.2rem; }
+.shelf { min-width: 0; }
+.shelf-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.6rem 1rem;
+  margin-bottom: 1.2rem;
+}
+.shelf-actions { display: flex; flex-wrap: wrap; gap: 0.8rem; margin: 0; }
+
+/* The work under way: a group of the list, between two rules, with the
+   machine's meters in it while something runs. */
+.group { border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule); padding: 0.9rem 0 0.2rem; margin-bottom: 1.4rem; }
+.group h3 { margin: 0 0 0.5rem; justify-content: space-between; }
+.group.idle .machine { display: none; }
+.group #jobs-status { margin: 0 0 0.6rem; }
+#jobs .row:last-child { border-bottom: none; }
+
+/* The reader keeps to the height of the screen, so its buttons never fall
+   below it while the list beside it scrolls. */
+.reader {
+  position: sticky;
+  top: 0;
+  max-height: 100vh;
+  overflow: auto;
+  padding: 0.4rem 0.2rem 2rem;
+  min-width: 0;
+}
+.reader-back { display: none; margin: 0 0 1rem; }
+.reader .prose, .reader .segments { max-height: calc(100vh - 30rem); min-height: 12rem; }
+/* A line that says nothing yet takes no room: the reader has to fit a screen. */
+.reader p.note:empty { margin: 0; }
+.summary-options { margin: 1rem 0 0; }
+.summary-options > summary { cursor: pointer; color: var(--signal); font-size: 0.9rem; }
+.summary-options[open] > summary { margin-bottom: 0.8rem; }
+.viewer-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 0.6rem 0.9rem; margin: 0.9rem 0 0; }
+.viewer-actions .spacer { flex: 1; }
+.panel-foot { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 1rem; margin: 1rem 0 0; }
+
+/* Downloads: five links under one button rather than five buttons in a row. */
+details.downloads { position: relative; }
+details.downloads > summary { list-style: none; }
+details.downloads > summary::-webkit-details-marker { display: none; }
+details.downloads > summary::after { content: " \25BE"; }
+details.downloads .menu {
+  position: absolute;
+  z-index: 2;
+  top: calc(100% + 0.3rem);
+  left: 0;
+  display: grid;
+  gap: 0.25rem;
+  min-width: 13rem;
+  padding: 0.6rem 0.9rem;
+  background: var(--sheet);
+  border: 1px solid var(--ink);
 }
 
-.lede h2 {
+/* The recording's shape is the seek bar: click where somebody was talking.
+   The player under it stays, for the keyboard and for play and pause. */
+.player { margin: 1rem 0 1.4rem; }
+.wave-seek { position: relative; height: 44px; cursor: pointer; margin-bottom: 0.4rem; }
+.wave-seek svg { display: block; width: 100%; height: 100%; }
+.wave-seek path { fill: var(--line); }
+.playhead { position: absolute; top: 0; bottom: 0; left: 0; width: 2px; background: var(--signal); pointer-events: none; }
+.wave-seek:hover path { fill: var(--muted); }
+
+/* A phone, and anything too narrow for two columns: the list, or the entry
+   read across the whole width with a way back to the list. */
+@media (max-width: 55rem) {
+  .columns { grid-template-columns: minmax(0, 1fr); }
+  .reader { position: static; max-height: none; overflow: visible; padding-top: 0; }
+  .reader-back { display: block; }
+  .reader .prose, .reader .segments { max-height: 60vh; min-height: 0; }
+  body.reading .shelf { display: none; }
+  body:not(.reading) .reader { display: none; }
+}
+
+.shelf-head h2 {
   font-family: var(--serif);
   font-weight: 500;
   font-size: clamp(1.5rem, 3vw, 2rem);
@@ -197,7 +276,6 @@ main { max-width: 72rem; margin: 0 auto; }
   margin: 0 0 0.6rem;
   font-variation-settings: "opsz" 72, "WONK" 1;
 }
-.lede .note { margin: 0; }
 .fields { min-width: 0; max-width: var(--measure); }
 
 h3 {
@@ -475,11 +553,6 @@ menu .spacer { flex: 1; }
 .drop p { margin: 0.3rem 0; }
 .drop.over { border-color: var(--signal); background: var(--signal-wash); }
 
-/* While something is transcribing every other action is off, and the page has
-   to look it: a control that is disabled but looks clickable reads as a bug.
-   The drop zone is a div, so it cannot be disabled - it is dimmed and it
-   stops accepting files. */
-.drop.blocked { opacity: 0.45; border-style: solid; }
 .busy { font-weight: 600; }
 .record-line { display: flex; align-items: baseline; gap: 1rem; flex-wrap: wrap; }
 /* The input level while recording: the answer to "is anything arriving",
@@ -513,9 +586,7 @@ menu .spacer { flex: 1; }
 .timer { font-variant-numeric: tabular-nums; font-size: 1.4rem; font-family: var(--serif); color: var(--muted); }
 button.recording { color: var(--clay); border-color: var(--clay); border-bottom-width: 2px; }
 audio { width: 100%; margin-top: 1rem; }
-/* Inside the viewer the player sits right on top of the tabs: hold it off
-   them with a band of empty border. */
-audio#viewer-audio { border-bottom: 2rem solid transparent; }
+audio#viewer-audio { margin-top: 0; }
 
 /* --- how busy the machine is -------------------------------------------- */
 
@@ -612,6 +683,16 @@ legend { color: var(--muted); padding: 0; }
    that reflows under the pointer as the pictures land is worse than one that
    holds the space for them. */
 .row .wave-slot { display: block; height: 26px; margin-top: 0.35rem; }
+/* A row of the library is read by clicking it; the one open in the reader
+   is marked by a rule down its edge, not by the wash alone, which is too
+   faint on its own to find. */
+.row.entry { cursor: pointer; }
+.row.entry:hover .title { color: var(--signal); }
+.row.on {
+  background: var(--signal-wash);
+  box-shadow: inset 3px 0 0 var(--signal);
+  padding: 1rem 0.6rem 1rem 0.9rem;
+}
 .row .state { color: var(--signal); }
 .row .state.failed { color: var(--clay); }
 .bar { grid-column: 1 / -1; height: 4px; background: var(--line); margin-top: 0.5rem; }
@@ -639,7 +720,7 @@ dialog .about-head {
   margin: calc(-1 * var(--dialog-pad)) calc(-1 * var(--dialog-pad)) 1.2rem;
 }
 dialog::backdrop { background: rgba(6, 10, 19, 0.62); }
-dialog h2 {
+dialog h2, .reader h2 {
   font-family: var(--serif);
   font-weight: 500;
   font-size: 1.6rem;
@@ -648,6 +729,17 @@ dialog h2 {
   font-variation-settings: "opsz" 72, "WONK" 1;
 }
 .viewer-head { border-bottom: 1px solid var(--rule); padding-bottom: 0.8rem; margin-bottom: 1rem; }
+
+/* The new-transcription dialog: what to transcribe at the top, the four
+   questions on tabs, and the start button always in sight at the bottom
+   while the tab in between scrolls. */
+dialog#new-transcription[open] { display: flex; flex-direction: column; max-height: calc(100vh - 2rem); }
+dialog#new-transcription form { display: flex; flex-direction: column; min-height: 0; max-width: none; }
+#q-tabs { margin-top: 1.4rem; }
+.dialog-body { flex: 1 1 auto; min-height: 0; overflow: auto; padding: 0 0.2rem; }
+.dialog-body > div > :first-child { margin-top: 0; }
+.dialog-body > div > fieldset:first-child { border-top: none; padding-top: 0; }
+dialog#new-transcription .submit-line { margin-top: 0; padding-top: 1rem; border-top: 1px solid var(--rule); }
 menu { display: flex; gap: 1.2rem; align-items: center; padding: 0; margin: 1.8rem 0 0; flex-wrap: wrap; }
 
 /* --- a pane and its copy button ---------------------------------------- */
@@ -745,6 +837,6 @@ menu { display: flex; gap: 1.2rem; align-items: center; padding: 0; margin: 1.8r
   margin-right: 0.5rem;
 }
 
-footer { max-width: 72rem; margin: 0 auto; padding-top: 2rem; }
+footer { max-width: 80rem; margin: 0 auto; padding-top: 2rem; }
 .footer-language { display: flex; align-items: baseline; gap: 0.6rem; }
 .footer-language select { width: auto; }

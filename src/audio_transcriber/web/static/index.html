@@ -27,14 +27,232 @@
   <!-- The page polls; when the server stops answering it has to say so, or the
        last known state sits there looking alive. -->
   <p class="banner" id="offline" role="status" hidden></p>
-  <!-- ------------------------------------------------ new transcription -->
-  <section class="sheet">
-    <div class="lede">
-      <h2 data-t="new_transcription">New transcription</h2>
-      <p class="note" data-t="new_transcription_note">Upload a recording or record one here. It is transcribed on this machine, in the background: nothing is sent anywhere.</p>
-    </div>
 
-    <form class="fields" id="job-form" autocomplete="off">
+  <!-- The library is the page: the recordings on the left, the one being read
+       on the right. A new transcription is a dialog opened from the top of the
+       list, the way the window does it, and the work under way is the first
+       group of the list rather than a section of its own. -->
+  <div class="columns">
+    <section class="shelf" aria-labelledby="library-title">
+      <div class="shelf-head">
+        <h2 id="library-title" data-t="library">Library</h2>
+        <p class="shelf-actions">
+          <button type="button" class="button send" id="new-job" data-t="new_transcription">New transcription</button>
+          <button type="button" class="button" id="new-recording" data-t="record_start">Record</button>
+        </p>
+      </div>
+
+      <!-- ------------------------------------------------------ jobs -->
+      <section class="group" id="working-group" aria-labelledby="working-title">
+        <h3 id="working-title">
+          <span data-t="working">In progress</span>
+          <!-- What the server would otherwise have printed into the terminal
+               it was started from. Folded away, because it is the answer to
+               one question and that question is not asked most days. -->
+          <button type="button" class="link" id="log-toggle" aria-expanded="false"
+                  aria-controls="log-panel" data-t="log_show">messages</button>
+        </h3>
+        <!-- What the machine is doing underneath, while something is. Two
+             meters rather than one number, because on a two-core server the
+             CPU sits at 100% for the whole of a transcription and says
+             nothing, while the memory left is the figure that decides whether
+             the next job survives. A meter this system cannot measure is not
+             drawn at all: see /api/machine. -->
+        <div class="machine" id="machine" hidden>
+          <p class="meter" id="cpu-meter">
+            <span class="meter-name" id="cpu-name" data-t="cpu">CPU</span>
+            <span class="level" id="cpu-level" role="progressbar" aria-labelledby="cpu-name"
+                  aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"
+                  aria-live="off"><span></span></span>
+            <span class="note" id="cpu-note"></span>
+          </p>
+          <p class="meter" id="ram-meter">
+            <span class="meter-name" id="ram-name" data-t="ram">RAM</span>
+            <span class="level" id="ram-level" role="progressbar" aria-labelledby="ram-name"
+                  aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"
+                  aria-live="off"><span></span></span>
+            <span class="note" id="ram-note"></span>
+          </p>
+          <p class="note" id="machine-engine"></p>
+        </div>
+        <div id="log-panel" hidden>
+          <pre class="log" id="log-text" tabindex="0" aria-live="off"></pre>
+          <p class="note" id="log-path"></p>
+          <p class="note">
+            <button type="button" class="link" id="log-refresh" data-t="log_refresh">refresh</button>
+            <button type="button" class="link" id="log-clear" data-t="log_clear">empty it</button>
+          </p>
+        </div>
+        <p class="note" id="jobs-status" aria-live="polite"></p>
+        <div id="jobs"></div>
+      </section>
+
+      <!-- --------------------------------------------------- library -->
+      <div class="field search-field">
+        <label for="search" data-t="search_label">Search the transcripts</label>
+        <input type="search" id="search" name="search" autocomplete="off">
+      </div>
+      <p class="note" id="library-status" aria-live="polite"></p>
+      <div id="library"><p class="note" data-t="library_empty">No recording has been transcribed yet.</p></div>
+    </section>
+
+    <!-- -------------------------------------------------------- reader -->
+    <section class="reader" id="reader" aria-labelledby="viewer-title">
+      <p class="reader-back"><button type="button" class="link" id="reader-back" data-t="reader_back">‹ Library</button></p>
+      <p class="note" id="reader-empty" data-t="reader_empty">Pick a recording on the left to read it here.</p>
+      <div id="reader-body" hidden>
+        <div class="viewer-head">
+          <h2 id="viewer-title"></h2>
+          <p class="note" id="viewer-meta"></p>
+          <!-- What is done to the entry as a whole, next to its name: the
+               panels below each keep their own buttons. -->
+          <div class="viewer-actions">
+            <button type="button" class="button" id="viewer-rename" data-t="rename">rename</button>
+            <button type="button" class="button" id="viewer-speakers" hidden
+                    data-t="speakers_name">name the speakers</button>
+            <details class="downloads" id="downloads">
+              <summary class="button" data-t="download_menu">Download…</summary>
+              <span class="menu">
+                <a id="viewer-download" class="link" download data-t="download">Transcript (.txt)</a>
+                <a id="viewer-download-json" class="link" download data-t="download_json">Timestamps (.json)</a>
+                <a id="viewer-download-srt" class="link" download data-t="download_srt">Subtitles (.srt)</a>
+                <a id="viewer-download-vtt" class="link" download data-t="download_vtt">Subtitles (.vtt)</a>
+                <a id="viewer-download-summary" class="link" download data-t="download_summary">Summary (.md)</a>
+              </span>
+            </details>
+            <span class="spacer"></span>
+            <button type="button" class="button danger" id="viewer-delete" data-t="delete_entry">delete</button>
+          </div>
+          <p class="note" id="viewer-status" aria-live="polite"></p>
+        </div>
+        <!-- The recording's own shape is the bar you move along: click where
+             somebody was talking. The player under it stays for the keyboard
+             and for play and pause. -->
+        <div class="player" id="player" hidden>
+          <div class="wave-seek" id="viewer-wave" aria-hidden="true"><span class="playhead" id="playhead"></span></div>
+          <audio id="viewer-audio" controls></audio>
+        </div>
+
+        <div class="tabs" id="view-tabs" role="tablist">
+          <button type="button" class="tab on" id="tab-transcript" role="tab"
+                  aria-selected="true" aria-controls="viewer-transcript" data-t="transcript">Transcript</button>
+          <button type="button" class="tab" id="tab-segments" role="tab"
+                  aria-selected="false" aria-controls="viewer-segments" data-t="segments">Timestamps</button>
+          <button type="button" class="tab" id="tab-summary" role="tab"
+                  aria-selected="false" aria-controls="viewer-summary" data-t="summary">Summary</button>
+          <button type="button" class="tab" id="tab-notes" role="tab"
+                  aria-selected="false" aria-controls="viewer-notes" data-t="notes">Notes</button>
+        </div>
+
+        <!-- The pane and its copy button share a row and the pane's bottom
+             line, exactly as they do in the window. The row is the panel, not
+             the box inside it: hiding the box alone would leave its copy
+             button on whichever tab you switched to. -->
+        <div class="with-copy" id="viewer-transcript" role="tabpanel"
+             aria-labelledby="tab-transcript">
+          <div id="viewer-text" class="prose" tabindex="0"></div>
+          <button type="button" class="button copy" id="copy-transcript"></button>
+        </div>
+        <div id="viewer-segments" role="tabpanel" aria-labelledby="tab-segments"
+             class="segments" tabindex="0" hidden></div>
+        <div id="viewer-summary" role="tabpanel" aria-labelledby="tab-summary" hidden>
+          <div class="with-copy">
+            <div id="summary-text" class="prose rendered" tabindex="0"></div>
+            <button type="button" class="button copy" id="copy-summary"></button>
+          </div>
+          <p class="note" id="summary-empty" data-t="summary_none" hidden>No summary yet. The transcript is summarised on this machine \u2014 nothing is sent anywhere.</p>
+          <!-- How to write it, asked when there is a page to write: folded away
+               once there is one, so the page and its buttons fit the screen. -->
+          <details class="summary-options" id="summary-options">
+          <summary data-t="summary_options">How to write it</summary>
+          <div class="row" id="summary-controls">
+            <div class="field">
+              <label for="summary-engine" data-t="summary_engine">Written by</label>
+              <select id="summary-engine"></select>
+            </div>
+            <div class="field">
+              <label for="summary-length" data-t="summary_length">How much to keep</label>
+              <select id="summary-length">
+                <option value="short" data-t="summary_short">short</option>
+                <option value="medium" selected data-t="summary_medium">medium</option>
+                <option value="long" data-t="summary_long">long</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="summary-style" data-t="summary_style">Written as</label>
+              <select id="summary-style">
+                <option value="combined" selected data-t="summary_style_combined">one request</option>
+                <option value="split" data-t="summary_style_split">one per section</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="summary-template" data-t="summary_template">Which sections</label>
+              <select id="summary-template"></select>
+            </div>
+          </div>
+          <!-- Revealed by the last entry of the menu above. A page wanted once
+               and not saved under a name: the same bargain the terms box makes. -->
+          <div class="field" id="summary-template-own" hidden>
+            <label for="summary-template-text" data-t="summary_template_own">My sections</label>
+            <textarea id="summary-template-text" rows="5" spellcheck="false"
+                      aria-describedby="summary-template-note"></textarea>
+            <p class="note" id="summary-template-note" data-t="summary_template_help">One section a line: the heading, a colon, and what belongs under it. Two at least, twelve at most. Restricting the sections restricts the reading as well as the page — a pass not asked for opinions does not write them down.</p>
+          </div>
+          </details>
+          <p class="note" id="summary-status" aria-live="polite"></p>
+          <!-- A summary reads an hour of transcript on this machine: the panel
+               says how far it has got, like any other job in the queue. -->
+          <span class="bar" id="summary-progress" role="progressbar" aria-valuemin="0"
+                aria-valuemax="100" aria-valuenow="0" aria-live="off" hidden><span></span></span>
+          <p class="panel-foot">
+            <button type="button" class="button danger" id="summary-delete" hidden
+                    data-t="summary_delete">delete the summary</button>
+            <button type="button" class="button send" id="summary-run"
+                    data-t="summary_run">Summarise</button>
+          </p>
+        </div>
+        <div id="viewer-notes" role="tabpanel" aria-labelledby="tab-notes" hidden>
+          <div class="field">
+            <label for="notes-text" data-t="notes_label">Notes on this recording</label>
+            <div class="with-copy">
+              <textarea id="notes-text" rows="12"></textarea>
+              <button type="button" class="button copy" id="copy-notes"></button>
+            </div>
+          </div>
+          <p class="note" id="notes-status" aria-live="polite"></p>
+          <p class="panel-foot">
+            <button type="button" class="button send" id="notes-save" data-t="save_notes">Save the notes</button>
+          </p>
+        </div>
+      </div>
+    </section>
+  </div>
+</main>
+
+<footer>
+  <p class="note" id="colophon"></p>
+  <!-- The licence lives one click from the bottom of the page rather than in
+       a page of its own: it is short, and the wish in front of it is the part
+       worth reading. -->
+  <p class="note">
+    <button type="button" class="link" id="about-open" data-t="about_open">About this program</button>
+  </p>
+  <!-- Each language by its own name, filled in by the script: see
+       LANGUAGE_NAMES in app.js. -->
+  <p class="note footer-language">
+    <label for="interface-language" data-t="interface_language">Language</label>
+    <select id="interface-language"></select>
+  </p>
+</footer>
+
+<!-- --------------------------------------------------------- dialogs -->
+<!-- A new transcription: what to transcribe at the top, then the four
+     questions the window's dialog asks, on four tabs. -->
+<dialog id="new-transcription" aria-labelledby="new-title">
+  <form class="fields" id="job-form" autocomplete="off">
+    <div class="dialog-head">
+      <h2 id="new-title" data-t="new_transcription">New transcription</h2>
+      <p class="note" data-t="new_transcription_note">Upload a recording or record one here. It is transcribed on this machine, in the background: nothing is sent anywhere.</p>
       <div class="tabs" id="source-tabs" role="tablist">
         <button type="button" class="tab on" id="tab-file" role="tab"
                 aria-selected="true" aria-controls="pane-file" data-t="tab_file">Upload a file</button>
@@ -69,100 +287,84 @@
           <audio id="record-preview" controls hidden></audio>
         </div>
       </div>
+    </div>
 
-      <!-- The first thing to decide, and the one thing the form never asked:
-           what the run is for. Everything below is a detail of one of these
-           four, and the details of the others are put away.
+    <div class="tabs" id="q-tabs" role="tablist">
+      <button type="button" class="tab on" id="tab-q-result" role="tab"
+              aria-selected="true" aria-controls="q-result" data-t="q_result">Result</button>
+      <button type="button" class="tab" id="tab-q-transcription" role="tab"
+              aria-selected="false" aria-controls="q-transcription" data-t="q_transcription">Transcription</button>
+      <button type="button" class="tab" id="tab-q-subtitles" role="tab"
+              aria-selected="false" aria-controls="q-subtitles" data-t="q_subtitles">Subtitles</button>
+      <button type="button" class="tab" id="tab-q-keywords" role="tab"
+              aria-selected="false" aria-controls="q-keywords" data-t="q_keywords">Keywords</button>
+    </div>
 
-           Who said what is one of the answers rather than a tick box beside
-           them: as a box it sat in the subtitle section, meaning nothing for
-           the other two answers, and made "subtitles" two answers wearing one
-           name. How many voices there are is the one detail those answers
-           have, so it is asked on the line that asks the question. -->
-      <fieldset class="outputs" id="outputs">
-        <legend data-t="output_legend">What do you want out of it?</legend>
-        <div class="field checkbox">
-          <input type="radio" id="output-text" name="output" value="text" checked>
-          <label for="output-text" data-t="output_text">Just the text</label>
-        </div>
-        <div class="field checkbox with-beside">
-          <input type="radio" id="output-speakers" name="output" value="speakers"
-                 aria-describedby="diarize-note">
-          <label for="output-speakers" data-t="output_speakers">The text, with who said what</label>
-          <span class="beside" id="speakers-field">
-            <label for="speakers" data-t="speakers">Speakers, if known</label>
-            <input type="number" id="speakers" name="speakers" min="1" max="20" disabled>
-          </span>
-        </div>
-        <div class="field checkbox">
-          <input type="radio" id="output-subtitles" name="output" value="subtitles">
-          <label for="output-subtitles" data-t="output_subtitles">Subtitles</label>
-        </div>
-        <div class="field checkbox">
-          <input type="radio" id="output-subtitles-speakers" name="output"
-                 value="subtitles_speakers" aria-describedby="diarize-note">
-          <label for="output-subtitles-speakers" data-t="output_subtitles_speakers">Subtitles, with who said what</label>
-        </div>
-        <p class="note" id="output-note" aria-live="polite"></p>
-        <p class="note" id="diarize-note" hidden></p>
-        <!-- An extra of every answer rather than a fifth one: it does not
-             change what the transcription is, it adds a second job behind
-             it. -->
-        <div class="field checkbox" id="auto-title-field">
-          <input type="checkbox" id="auto-title" name="auto_title">
-          <label for="auto-title" data-t="auto_title">Name it after what was said in it</label>
-          <p class="note" data-t="auto_title_note">Instead of the file name. Taken from the transcript when it is done — nothing is sent anywhere and no model is loaded.</p>
-        </div>
-        <div class="field checkbox" id="summary-after-field">
-          <input type="checkbox" id="summary-after" name="summary_after">
-          <label for="summary-after" data-t="summary_after">Write a summary as well, when it is done</label>
-          <p class="note" data-t="summary_after_note">A second job, queued behind this one: the transcript first, the summary after it, on this machine.</p>
-        </div>
-      </fieldset>
+    <div class="dialog-body">
+      <div id="q-result" role="tabpanel" aria-labelledby="tab-q-result">
+        <!-- The first thing to decide, and the one thing the form never asked:
+             what the run is for. Everything below is a detail of one of these
+             four, and the details of the others are put away.
 
-      <div class="grid">
-        <div class="field">
-          <label for="title" data-t="title">Title</label>
-          <input type="text" id="title" name="title" autocomplete="off">
-        </div>
-        <div class="field">
-          <label for="model" data-t="model">Model</label>
-          <select id="model" name="model" autocomplete="off"></select>
-        </div>
-        <div class="field">
-          <label for="language" data-t="language">Spoken language</label>
-          <select id="language" name="language" autocomplete="off"></select>
-        </div>
+             Who said what is one of the answers rather than a tick box beside
+             them: as a box it sat in the subtitle section, meaning nothing for
+             the other two answers, and made "subtitles" two answers wearing one
+             name. How many voices there are is the one detail those answers
+             have, so it is asked on the line that asks the question. -->
+        <fieldset class="outputs" id="outputs">
+          <legend data-t="output_legend">What do you want out of it?</legend>
+          <div class="field checkbox">
+            <input type="radio" id="output-text" name="output" value="text" checked>
+            <label for="output-text" data-t="output_text">Just the text</label>
+          </div>
+          <div class="field checkbox with-beside">
+            <input type="radio" id="output-speakers" name="output" value="speakers"
+                   aria-describedby="diarize-note">
+            <label for="output-speakers" data-t="output_speakers">The text, with who said what</label>
+            <span class="beside" id="speakers-field">
+              <label for="speakers" data-t="speakers">Speakers, if known</label>
+              <input type="number" id="speakers" name="speakers" min="1" max="20" disabled>
+            </span>
+          </div>
+          <div class="field checkbox">
+            <input type="radio" id="output-subtitles" name="output" value="subtitles">
+            <label for="output-subtitles" data-t="output_subtitles">Subtitles</label>
+          </div>
+          <div class="field checkbox">
+            <input type="radio" id="output-subtitles-speakers" name="output"
+                   value="subtitles_speakers" aria-describedby="diarize-note">
+            <label for="output-subtitles-speakers" data-t="output_subtitles_speakers">Subtitles, with who said what</label>
+          </div>
+          <p class="note" id="output-note" aria-live="polite"></p>
+          <p class="note" id="diarize-note" hidden></p>
+          <!-- An extra of every answer rather than a fifth one: it does not
+               change what the transcription is, it adds a second job behind
+               it. -->
+          <div class="field checkbox" id="auto-title-field">
+            <input type="checkbox" id="auto-title" name="auto_title">
+            <label for="auto-title" data-t="auto_title">Name it after what was said in it</label>
+            <p class="note" data-t="auto_title_note">Instead of the file name. Taken from the transcript when it is done — nothing is sent anywhere and no model is loaded.</p>
+          </div>
+          <div class="field checkbox" id="summary-after-field">
+            <input type="checkbox" id="summary-after" name="summary_after">
+            <label for="summary-after" data-t="summary_after">Write a summary as well, when it is done</label>
+            <p class="note" data-t="summary_after_note">A second job, queued behind this one: the transcript first, the summary after it, on this machine.</p>
+          </div>
+        </fieldset>
       </div>
-
-      <!-- How the cues are cut: a detail of the third answer, so it appears
-           with it instead of sitting there for the other two. -->
-      <fieldset class="subs" id="subtitle-fields" hidden>
-        <legend data-t="sub_legend">How the subtitles are cut</legend>
+      <div id="q-transcription" role="tabpanel" aria-labelledby="tab-q-transcription" hidden>
         <div class="grid">
           <div class="field">
-            <label for="subtitle-preset" data-t="sub_preset">Subtitles</label>
-            <select id="subtitle-preset" name="subtitle_preset" autocomplete="off"
-                    aria-describedby="sub-note"></select>
-            <p class="note" id="sub-note" data-t="sub_note">How subtitles are cut, if you want them. The cues exist either way: an entry can be downloaded as .srt or .vtt later, with other numbers.</p>
+            <label for="title" data-t="title">Title</label>
+            <input type="text" id="title" name="title" autocomplete="off">
           </div>
           <div class="field">
-            <label for="subtitle-chars" data-t="sub_chars">Characters per subtitle line</label>
-            <input type="number" id="subtitle-chars" name="subtitle_chars" min="0"
-                   max="120" placeholder="0">
+            <label for="model" data-t="model">Model</label>
+            <select id="model" name="model" autocomplete="off"></select>
           </div>
           <div class="field">
-            <label for="subtitle-words" data-t="sub_words">Words per subtitle</label>
-            <input type="number" id="subtitle-words" name="subtitle_words" min="0"
-                   max="60" placeholder="0">
-          </div>
-          <div class="field checkbox">
-            <input type="checkbox" id="save-srt" name="save_srt">
-            <label for="save-srt" data-t="sub_save_srt">Keep an .srt with the entry</label>
-          </div>
-          <div class="field checkbox">
-            <input type="checkbox" id="save-vtt" name="save_vtt">
-            <label for="save-vtt" data-t="sub_save_vtt">Keep a .vtt with the entry</label>
+            <label for="language" data-t="language">Spoken language</label>
+            <select id="language" name="language" autocomplete="off"></select>
           </div>
         </div>
         <!-- A text you already have for this recording. Outside the grid
@@ -173,122 +375,75 @@
                     aria-describedby="reference-note"></textarea>
           <p class="note" id="reference-note" data-t="reference_note">A script, a press release, a transcript from elsewhere. Its rare words are given to the engine so it spells them right, and afterwards it corrects the words it misheard or cut short. What was actually said still wins: nothing is added because the text expected it.</p>
         </div>
-      </fieldset>
+      </div>
+      <div id="q-subtitles" role="tabpanel" aria-labelledby="tab-q-subtitles" hidden>
+        <p class="note" id="sub-off" data-t="sub_off">Subtitles are cut only when the result asks for them: see the first tab.</p>
+        <!-- How the cues are cut: a detail of the third answer, so it appears
+             with it instead of sitting there for the other two. -->
+        <fieldset class="subs" id="subtitle-fields" hidden>
+          <legend data-t="sub_legend">How the subtitles are cut</legend>
+          <div class="grid">
+            <div class="field">
+              <label for="subtitle-preset" data-t="sub_preset">Subtitles</label>
+              <select id="subtitle-preset" name="subtitle_preset" autocomplete="off"
+                      aria-describedby="sub-note"></select>
+              <p class="note" id="sub-note" data-t="sub_note">How subtitles are cut, if you want them. The cues exist either way: an entry can be downloaded as .srt or .vtt later, with other numbers.</p>
+            </div>
+            <div class="field">
+              <label for="subtitle-chars" data-t="sub_chars">Characters per subtitle line</label>
+              <input type="number" id="subtitle-chars" name="subtitle_chars" min="0"
+                     max="120" placeholder="0">
+            </div>
+            <div class="field">
+              <label for="subtitle-words" data-t="sub_words">Words per subtitle</label>
+              <input type="number" id="subtitle-words" name="subtitle_words" min="0"
+                     max="60" placeholder="0">
+            </div>
+            <div class="field checkbox">
+              <input type="checkbox" id="save-srt" name="save_srt">
+              <label for="save-srt" data-t="sub_save_srt">Keep an .srt with the entry</label>
+            </div>
+            <div class="field checkbox">
+              <input type="checkbox" id="save-vtt" name="save_vtt">
+              <label for="save-vtt" data-t="sub_save_vtt">Keep a .vtt with the entry</label>
+            </div>
+          </div>
+        </fieldset>
+      </div>
+      <div id="q-keywords" role="tabpanel" aria-labelledby="tab-q-keywords" hidden>
+        <fieldset class="vocab">
+          <legend data-t="keywords">Keyword sets</legend>
+          <p class="note" data-t="keywords_help">Terms the transcription should get right: names, acronyms, jargon. Pick the sets that fit this recording.</p>
 
-      <fieldset class="vocab">
-        <legend data-t="keywords">Keyword sets</legend>
-        <p class="note" data-t="keywords_help">Terms the transcription should get right: names, acronyms, jargon. Pick the sets that fit this recording.</p>
+          <h3 data-t="installed_sets">Installed on this machine</h3>
+          <div class="field set-filter">
+            <label for="set-search" data-t="filter_sets">Filter the sets</label>
+            <input type="search" id="set-search" autocomplete="off">
+          </div>
+          <p class="note count" id="sets-count" aria-live="polite"></p>
+          <div id="installed" class="sets"></div>
 
-        <h3 data-t="installed_sets">Installed on this machine</h3>
-        <div class="field set-filter">
-          <label for="set-search" data-t="filter_sets">Filter the sets</label>
-          <input type="search" id="set-search" autocomplete="off">
-        </div>
-        <p class="note count" id="sets-count" aria-live="polite"></p>
-        <div id="installed" class="sets"></div>
+          <h3>
+            <span data-t="my_sets">My sets</span>
+            <button type="button" class="link" id="new-set" data-t="new_set">new set</button>
+          </h3>
+          <div id="mine" class="sets"></div>
+          <p class="note" data-t="my_sets_help">Your sets stay in this browser and are sent only with the recordings that use them.</p>
 
-        <h3>
-          <span data-t="my_sets">My sets</span>
-          <button type="button" class="link" id="new-set" data-t="new_set">new set</button>
-        </h3>
-        <div id="mine" class="sets"></div>
-        <p class="note" data-t="my_sets_help">Your sets stay in this browser and are sent only with the recordings that use them.</p>
-
-        <p class="budget" id="prompt-size" aria-live="polite"></p>
-      </fieldset>
+          <p class="budget" id="prompt-size" aria-live="polite"></p>
+        </fieldset>
+      </div>
+    </div>
 
       <div class="submit-line">
+        <button type="button" class="button" id="job-cancel" data-t="cancel">Cancel</button>
         <button type="submit" id="submit" class="button send" data-t="start">Start transcribing</button>
         <p class="note busy" id="busy-note" role="status" hidden data-t="busy_note">A transcription is running: everything else is off until it finishes, or you stop it.</p>
         <p class="error" id="form-error" role="alert" hidden></p>
       </div>
-    </form>
-  </section>
+  </form>
+</dialog>
 
-  <!-- ------------------------------------------------------------ jobs -->
-  <section class="sheet">
-    <div class="lede">
-      <h2 data-t="jobs">Jobs</h2>
-      <p class="note" data-t="jobs_note">One transcription at a time. Leaving this page does not stop anything.</p>
-    </div>
-    <div class="fields">
-      <!-- What the machine is doing underneath. Two meters rather than one
-           number, because on a two-core server the CPU sits at 100% for the
-           whole of a transcription and says nothing, while the memory left is
-           the figure that decides whether the next job survives. A meter this
-           system cannot measure is not drawn at all: see /api/machine. -->
-      <div class="machine" id="machine" hidden>
-        <p class="meter" id="cpu-meter">
-          <span class="meter-name" id="cpu-name" data-t="cpu">CPU</span>
-          <span class="level" id="cpu-level" role="progressbar" aria-labelledby="cpu-name"
-                aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"
-                aria-live="off"><span></span></span>
-          <span class="note" id="cpu-note"></span>
-        </p>
-        <p class="meter" id="ram-meter">
-          <span class="meter-name" id="ram-name" data-t="ram">RAM</span>
-          <span class="level" id="ram-level" role="progressbar" aria-labelledby="ram-name"
-                aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"
-                aria-live="off"><span></span></span>
-          <span class="note" id="ram-note"></span>
-        </p>
-        <p class="note" id="machine-engine"></p>
-      </div>
-      <p class="note" id="jobs-status" aria-live="polite"></p>
-      <div id="jobs"><p class="note" data-t="no_jobs">Nothing running.</p></div>
-
-      <!-- What the server would otherwise have printed into the terminal it
-           was started from. Folded away, because it is the answer to one
-           question and that question is not asked most days. -->
-      <p class="note">
-        <button type="button" class="link" id="log-toggle" aria-expanded="false"
-                aria-controls="log-panel" data-t="log_show">messages</button>
-      </p>
-      <div id="log-panel" hidden>
-        <pre class="log" id="log-text" tabindex="0" aria-live="off"></pre>
-        <p class="note" id="log-path"></p>
-        <p class="note">
-          <button type="button" class="link" id="log-refresh" data-t="log_refresh">refresh</button>
-          <button type="button" class="link" id="log-clear" data-t="log_clear">empty it</button>
-        </p>
-      </div>
-    </div>
-  </section>
-
-  <!-- --------------------------------------------------------- library -->
-  <section class="sheet">
-    <div class="lede">
-      <h2 data-t="library">Library</h2>
-      <p class="note" data-t="library_note">Every finished transcription, with its recording, its text and your notes.</p>
-    </div>
-    <div class="fields">
-      <div class="field search-field">
-        <label for="search" data-t="search_label">Search the transcripts</label>
-        <input type="search" id="search" name="search" autocomplete="off">
-      </div>
-      <p class="note" id="library-status" aria-live="polite"></p>
-      <div id="library"><p class="note" data-t="library_empty">No recording has been transcribed yet.</p></div>
-    </div>
-  </section>
-</main>
-
-<footer>
-  <p class="note" id="colophon"></p>
-  <!-- The licence lives one click from the bottom of the page rather than in
-       a page of its own: it is short, and the wish in front of it is the part
-       worth reading. -->
-  <p class="note">
-    <button type="button" class="link" id="about-open" data-t="about_open">About this program</button>
-  </p>
-  <!-- Each language by its own name, filled in by the script: see
-       LANGUAGE_NAMES in app.js. -->
-  <p class="note footer-language">
-    <label for="interface-language" data-t="interface_language">Language</label>
-    <select id="interface-language"></select>
-  </p>
-</footer>
-
-<!-- --------------------------------------------------------- dialogs -->
 <dialog id="about" aria-labelledby="about-title">
   <!-- The banner the README opens with, edge to edge: it carries the mark,
        the name and the tagline, so the heading is there for a screen reader
@@ -348,7 +503,7 @@
 
 <!-- Who is speaking. One field per voice, built from the entry's own labels,
      so this dialog is empty markup until there is something to put in it. -->
-<dialog id="speakers" aria-labelledby="speakers-title">
+<dialog id="speakers-dialog" aria-labelledby="speakers-title">
   <h2 id="speakers-title" data-t="speakers_title">Who is speaking</h2>
   <p class="note" id="speakers-intro" data-t="speakers_intro">The machine heard the voices apart but cannot know whose they are. Give them names and the transcript is rewritten to use them; leave one blank and it keeps the label it has.</p>
   <div id="speakers-fields"></div>
@@ -359,116 +514,6 @@
   </menu>
 </dialog>
 
-<dialog id="viewer" aria-labelledby="viewer-title">
-  <div class="viewer-head">
-    <h2 id="viewer-title"></h2>
-    <p class="note" id="viewer-meta"></p>
-    <!-- What the entry as a whole has to say back: the panels each have their
-         own line, and renaming the speakers belongs to none of them. -->
-    <p class="note" id="viewer-status" aria-live="polite"></p>
-  </div>
-  <audio id="viewer-audio" controls hidden></audio>
-
-  <div class="tabs" id="view-tabs" role="tablist">
-    <button type="button" class="tab on" id="tab-transcript" role="tab"
-            aria-selected="true" aria-controls="viewer-transcript" data-t="transcript">Transcript</button>
-    <button type="button" class="tab" id="tab-segments" role="tab"
-            aria-selected="false" aria-controls="viewer-segments" data-t="segments">Timestamps</button>
-    <button type="button" class="tab" id="tab-summary" role="tab"
-            aria-selected="false" aria-controls="viewer-summary" data-t="summary">Summary</button>
-    <button type="button" class="tab" id="tab-notes" role="tab"
-            aria-selected="false" aria-controls="viewer-notes" data-t="notes">Notes</button>
-  </div>
-
-  <!-- The pane and its copy button share a row and the pane's bottom line,
-       exactly as they do in the window: beside the box rather than under it,
-       because a row of its own would cost height on every tab. -->
-  <!-- The row is the panel, not the box inside it: hiding the box alone
-       would leave its copy button sitting on whichever tab you switched to.
-       The box keeps the id, because it is the box that holds the text, and
-       tabindex, because it is the box that scrolls. -->
-  <div class="with-copy" id="viewer-transcript" role="tabpanel"
-       aria-labelledby="tab-transcript">
-    <div id="viewer-text" class="prose" tabindex="0"></div>
-    <button type="button" class="button copy" id="copy-transcript"></button>
-  </div>
-  <div id="viewer-segments" role="tabpanel" aria-labelledby="tab-segments"
-       class="segments" tabindex="0" hidden></div>
-  <div id="viewer-summary" role="tabpanel" aria-labelledby="tab-summary" hidden>
-    <div class="with-copy">
-      <div id="summary-text" class="prose rendered" tabindex="0"></div>
-      <button type="button" class="button copy" id="copy-summary"></button>
-    </div>
-    <p class="note" id="summary-empty" data-t="summary_none" hidden>No summary yet. The transcript is summarised on this machine \u2014 nothing is sent anywhere.</p>
-    <div class="row" id="summary-controls">
-      <div class="field">
-        <label for="summary-engine" data-t="summary_engine">Written by</label>
-        <select id="summary-engine"></select>
-      </div>
-      <div class="field">
-        <label for="summary-length" data-t="summary_length">How much to keep</label>
-        <select id="summary-length">
-          <option value="short" data-t="summary_short">short</option>
-          <option value="medium" selected data-t="summary_medium">medium</option>
-          <option value="long" data-t="summary_long">long</option>
-        </select>
-      </div>
-      <div class="field">
-        <label for="summary-style" data-t="summary_style">Written as</label>
-        <select id="summary-style">
-          <option value="combined" selected data-t="summary_style_combined">one request</option>
-          <option value="split" data-t="summary_style_split">one per section</option>
-        </select>
-      </div>
-      <div class="field">
-        <label for="summary-template" data-t="summary_template">Which sections</label>
-        <select id="summary-template"></select>
-      </div>
-    </div>
-    <!-- Revealed by the last entry of the menu above. A page wanted once and
-         not saved under a name: the same bargain the terms box makes. -->
-    <div class="field" id="summary-template-own" hidden>
-      <label for="summary-template-text" data-t="summary_template_own">My sections</label>
-      <textarea id="summary-template-text" rows="5" spellcheck="false"
-                aria-describedby="summary-template-note"></textarea>
-      <p class="note" id="summary-template-note" data-t="summary_template_help">One section a line: the heading, a colon, and what belongs under it. Two at least, twelve at most. Restricting the sections restricts the reading as well as the page — a pass not asked for opinions does not write them down.</p>
-    </div>
-    <p class="note" id="summary-status" aria-live="polite"></p>
-    <!-- A summary reads an hour of transcript on this machine: the panel says
-         how far it has got, like any other job in the queue. -->
-    <span class="bar" id="summary-progress" role="progressbar" aria-valuemin="0"
-          aria-valuemax="100" aria-valuenow="0" aria-live="off" hidden><span></span></span>
-  </div>
-  <div id="viewer-notes" role="tabpanel" aria-labelledby="tab-notes" hidden>
-    <div class="field">
-      <label for="notes-text" data-t="notes_label">Notes on this recording</label>
-      <div class="with-copy">
-        <textarea id="notes-text" rows="12"></textarea>
-        <button type="button" class="button copy" id="copy-notes"></button>
-      </div>
-    </div>
-    <p class="note" id="notes-status" aria-live="polite"></p>
-  </div>
-
-  <menu>
-    <button type="button" class="button danger" id="viewer-delete" data-t="delete_entry">delete</button>
-    <span class="spacer"></span>
-    <button type="button" class="button" id="viewer-speakers" hidden
-            data-t="speakers_name">name the speakers</button>
-    <button type="button" class="button" id="viewer-rename" data-t="rename">rename</button>
-    <a id="viewer-download" class="button" download data-t="download">Transcript</a>
-    <a id="viewer-download-json" class="button" download data-t="download_json">Timestamps</a>
-    <a id="viewer-download-srt" class="button" download data-t="download_srt">subtitles (.srt)</a>
-    <a id="viewer-download-vtt" class="button" download data-t="download_vtt">subtitles (.vtt)</a>
-    <a id="viewer-download-summary" class="button" download data-t="download_summary">summary (.md)</a>
-    <button type="button" class="button danger" id="summary-delete" hidden
-            data-t="summary_delete">delete the summary</button>
-    <button type="button" class="button send" id="summary-run" hidden
-            data-t="summary_run">Summarise</button>
-    <button type="button" class="button send" id="notes-save" hidden data-t="save_notes">Save the notes</button>
-    <button type="button" class="button" id="viewer-close" data-t="close">Close</button>
-  </menu>
-</dialog>
 
 <script src="static/app.js"></script>
 </body>

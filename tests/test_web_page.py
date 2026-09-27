@@ -447,14 +447,12 @@ def test_an_output_the_machine_cannot_produce_is_not_offered(page, script):
 
 
 def test_it_stays_off_when_a_transcription_ends(script):
-    """The busy state re-enables the form wholesale; a control that is off
-    because this machine cannot do the thing at all must not come back with
-    it."""
+    """A control that is off because this machine cannot do the thing at all
+    is marked as such, and the busy state does not touch the form at all - so
+    the end of a transcription cannot hand it back."""
     assert '$(id).dataset.locked = "1"' in script
-    assert 'if (control.dataset.locked) continue;' in script
-    # ...and a control that belongs to an answer goes back to what the answer
-    # says, rather than to enabled.
-    assert "if (!pageBusy) applyOutput();" in script
+    busy = script.split("function applyBusy(")[1].split("\n}\n")[0]
+    assert "job-form" not in busy
 
 
 def test_an_entry_can_be_downloaded_as_subtitles(page, script):
@@ -547,13 +545,14 @@ def test_both_schemes_define_every_colour(stylesheet):
 # --- a text you already have ----------------------------------------------
 
 def test_the_page_takes_a_text_you_already_have(page, script):
-    """It helps the engine spell and then corrects what it misheard. It lives
-    with the subtitle numbers, which is where the use case comes up."""
+    """It helps the engine spell and then corrects what it misheard. It is
+    asked on the Transcription tab of the dialog, with the title and the
+    model: on the Subtitles tab it was out of reach for plain text."""
     assert 'id="reference"' in page
     assert 'data-t="reference_label"' in page
     assert 'data-t="reference_note"' in page
-    subs = page.split('id="subtitle-fields"')[1].split("</fieldset>")[0]
-    assert 'id="reference"' in subs
+    tab = page.split('id="q-transcription"')[1].split('id="q-subtitles"')[0]
+    assert 'id="reference"' in tab
     assert 'body.append("reference"' in script
 
 
@@ -658,18 +657,15 @@ def test_the_stylesheet_is_balanced(stylesheet):
 # --- one thing at a time --------------------------------------------------
 
 def test_the_page_offers_one_action_while_something_is_running(script):
-    """On two cores, anything asked for during a transcription either waits
-    for nothing or competes with it. The page therefore offers exactly one
-    thing: stop."""
+    """On two cores, what competes with a transcription waits for it: a
+    summary, and the actions that change an entry under it. Saving notes does
+    not compete, and neither does a new file, which only joins the queue."""
     assert "let pageBusy = false;" in script
-    assert "function applyBusy(" in script
-    # The whole form goes off in one sweep...
-    assert '$("job-form").querySelectorAll("input, select, textarea, button")' in script
-    # ...and so do the actions that change an entry.
-    for name in ("summary-run", "summary-delete", "notes-save",
-                 "viewer-rename", "viewer-delete"):
-        assert name in script
-    assert 'for (const id of ["summary-run", "summary-delete", "notes-save",' in script
+    busy = script.split("function applyBusy(")[1].split("\n}\n")[0]
+    for name in ("summary-run", "summary-delete", "viewer-rename", "viewer-delete"):
+        assert f'"{name}"' in busy
+    assert '"notes-save"' not in busy
+    assert "job-form" not in busy
 
 
 def test_stopping_is_the_one_thing_that_stays_available(script):
@@ -689,10 +685,42 @@ def test_the_rows_that_change_the_list_are_off_while_busy(script):
         assert "disabled: pageBusy" in after
 
 
-def test_the_ways_round_a_disabled_button_are_closed_too(script):
-    """A drop zone is a div, and a form can be submitted with the keyboard."""
-    assert "if (pageBusy) return;      // the zone is a div" in script
-    assert "if (pageBusy) return event.preventDefault();" in script
+def test_a_new_file_joins_the_queue_while_one_runs(script):
+    """Somebody back from a day of meetings uploads all of them at once: the
+    form, the drop zone and the keyboard's submit all take a file while a job
+    runs, and the queue runs them one after the other."""
+    submit = script.split('$("job-form").addEventListener("submit"')[1][:200]
+    assert "pageBusy" not in submit
+    dropped = script.split('drop.addEventListener("drop"')[1][:200]
+    assert "pageBusy" not in dropped
+
+
+# --- what must not be lost -------------------------------------------------
+
+def test_a_stopped_recording_is_kept(script):
+    """The "stop" event arrives after stopRecording() has cleared the module's
+    recorder: the handler reads the one it was attached to."""
+    handler = script.split('current.addEventListener("stop"')[1][:300]
+    assert "current.mimeType" in handler
+    assert "recorder.mimeType" not in script
+
+
+def test_notes_are_not_thrown_away_without_asking(script):
+    """Leaving an entry - another row, back to the list, closing the page -
+    with notes that are not saved asks first, as the window does."""
+    assert "async function leaveNotes()" in script
+    assert "alternative: t(\"notes_discard\")" in script
+    opening = script.split("async function openEntry(")[1][:300]
+    assert "leaveNotes()" in opening
+    assert 'window.addEventListener("beforeunload"' in script
+
+
+def test_the_summary_is_drawn_without_innerhtml(script):
+    """The summary is a model's output: it is drawn into headings and lists
+    from text nodes, never parsed as HTML."""
+    drawing = script.split("function drawMarkdown(")[1].split("\n}\n")[0]
+    assert "innerHTML" not in drawing
+    assert 'el("ul")' in drawing
 
 
 def test_reading_is_not_an_action(script, page):

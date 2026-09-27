@@ -28,8 +28,6 @@ const I18N = {
     tagline: "Local transcription. Nothing leaves this machine.",
     eyebrow: "Recordings and transcripts",
     new_transcription_note: "Upload a recording or record one here. It is transcribed on this machine, in the background: nothing is sent anywhere.",
-    jobs_note: "One transcription at a time. Leaving this page does not stop anything.",
-    library_note: "Every finished transcription, with its recording, its text and your notes.",
     search_label: "Search the transcripts",
     notes_label: "Notes on this recording",
     remove_from_list: "remove from the list",
@@ -115,8 +113,8 @@ const I18N = {
     sub_save_vtt: "Keep a .vtt with the entry",
     sub_preset_numbers: "{chars} x {lines}, {cps} CPS",
     sub_from_preset: "from the preset",
-    download_srt: "subtitles (.srt)",
-    download_vtt: "subtitles (.vtt)",
+    download_srt: "Subtitles (.srt)",
+    download_vtt: "Subtitles (.vtt)",
     diarize_not_installed_how: "Needs pyannote, which is not installed on this machine: pip install \"audio-transcriber-ov[diarize]\"",
     diarize_no_model_how: "pyannote is installed but has no model: set HUGGINGFACE_TOKEN on the server, or put a local config in place.",
     speakers: "Speakers, if known",
@@ -138,10 +136,9 @@ const I18N = {
     prompt_too_long: "Too long: {chars} characters, {limit} at most. Whisper ignores the rest.",
     start: "Start transcribing",
     jobs: "Jobs",
-    busy_note: "A transcription is running: everything else is off until it finishes, or you stop it.",
-    busy_note_summary: "A summary is being written: everything else is off until it finishes, or you stop it.",
+    busy_note: "A transcription is running: this one waits in the queue behind it.",
+    busy_note_summary: "A summary is being written: this transcription waits in the queue behind it.",
     busy_why: "Not while a transcription is running.",
-    no_jobs: "Nothing running.",
     took: "took {time}",
     cpu: "CPU",
     ram: "RAM",
@@ -166,8 +163,8 @@ const I18N = {
     remove: "delete",
     preview: "preview",
     hide: "hide",
-    download: "Transcript",
-    download_json: "Timestamps",
+    download: "Transcript (.txt)",
+    download_json: "Timestamps (.json)",
     close: "Close",
     open: "Open",
     view: "view",
@@ -192,12 +189,23 @@ const I18N = {
     summary_run: "Summarise",
     summary_again: "Summarise again",
     summary_delete: "delete the summary",
-    download_summary: "summary (.md)",
+    download_summary: "Summary (.md)",
     copy: "Copy",
     copied: "Copied to the clipboard.",
     copy_failed: "Not copied: the browser refused.",
     summary_queued: "In the queue, behind whatever is already running.",
     summary_queued_next: "In the queue: it starts in a moment.",
+    summary_options: "How to write it",
+    working: "In progress",
+    reader_back: "\u2039 Library",
+    reader_empty: "Pick a recording on the left to read it here.",
+    download_menu: "Download\u2026",
+    q_result: "Result",
+    q_transcription: "Transcription",
+    q_subtitles: "Subtitles",
+    q_keywords: "Keywords",
+    q_tabs: "What the transcription is for",
+    sub_off: "Subtitles are cut only when the result asks for them: see the first tab.",
     has_summary: "summary",
     copies_title: "The same recording, transcribed {count} times.",
     notes_unsaved_title: "Unsaved notes",
@@ -280,8 +288,6 @@ const I18N = {
     tagline: "Trascrizione locale. Niente esce da questa macchina.",
     eyebrow: "Registrazioni e trascrizioni",
     new_transcription_note: "Carica una registrazione o registrala qui. Viene trascritta su questa macchina, in background: non viene inviata da nessuna parte.",
-    jobs_note: "Una trascrizione alla volta. Se lasci la pagina non si ferma niente.",
-    library_note: "Tutte le trascrizioni fatte, con la registrazione, il testo e le tue note.",
     search_label: "Cerca nelle trascrizioni",
     notes_label: "Note su questa registrazione",
     remove_from_list: "togli dalla lista",
@@ -367,8 +373,8 @@ const I18N = {
     sub_save_vtt: "Tieni un .vtt nella voce",
     sub_preset_numbers: "{chars} x {lines}, {cps} CPS",
     sub_from_preset: "dal preset",
-    download_srt: "sottotitoli (.srt)",
-    download_vtt: "sottotitoli (.vtt)",
+    download_srt: "Sottotitoli (.srt)",
+    download_vtt: "Sottotitoli (.vtt)",
     diarize_not_installed_how: "Richiede pyannote, che su questa macchina non \u00e8 installato: pip install \"audio-transcriber-ov[diarize]\"",
     diarize_no_model_how: "pyannote c'\u00e8 ma manca il modello: imposta HUGGINGFACE_TOKEN sul server, oppure metti un config locale.",
     speakers: "Speaker, se noti",
@@ -390,10 +396,9 @@ const I18N = {
     prompt_too_long: "Troppo lungo: {chars} caratteri, il massimo \u00e8 {limit}. Whisper ignora il resto.",
     start: "Avvia la trascrizione",
     jobs: "Lavori",
-    busy_note: "C'\u00e8 una trascrizione in corso: tutto il resto \u00e8 sospeso finch\u00e9 non finisce, o finch\u00e9 non la interrompi.",
-    busy_note_summary: "Si sta scrivendo un riassunto: tutto il resto \u00e8 sospeso finch\u00e9 non finisce, o finch\u00e9 non lo interrompi.",
+    busy_note: "C\u2019\u00e8 una trascrizione in corso: questa aspetta in coda dopo di lei.",
+    busy_note_summary: "Si sta scrivendo un riassunto: questa trascrizione aspetta in coda dopo di lui.",
     busy_why: "Non mentre una trascrizione \u00e8 in corso.",
-    no_jobs: "Niente in corso.",
     took: "ci ha messo {time}",
     cpu: "CPU",
     ram: "RAM",
@@ -418,8 +423,8 @@ const I18N = {
     remove: "elimina",
     preview: "anteprima",
     hide: "nascondi",
-    download: "Trascrizione",
-    download_json: "Timestamp",
+    download: "Trascrizione (.txt)",
+    download_json: "Timestamp (.json)",
     close: "Chiudi",
     open: "Apri",
     view: "vedi",
@@ -444,12 +449,23 @@ const I18N = {
     summary_run: "Riassumi",
     summary_again: "Riassumi di nuovo",
     summary_delete: "elimina il riassunto",
-    download_summary: "riassunto (.md)",
+    download_summary: "Riassunto (.md)",
     copy: "Copia",
     copied: "Copiato negli appunti.",
     copy_failed: "Non copiato: il browser ha rifiutato.",
     summary_queued: "In coda, dietro a quello che sta gi\u00e0 girando.",
     summary_queued_next: "In coda: parte tra un attimo.",
+    summary_options: "Come scriverlo",
+    working: "In corso",
+    reader_back: "\u2039 Libreria",
+    reader_empty: "Scegli una registrazione a sinistra per leggerla qui.",
+    download_menu: "Scarica\u2026",
+    q_result: "Risultato",
+    q_transcription: "Trascrizione",
+    q_subtitles: "Sottotitoli",
+    q_keywords: "Parole chiave",
+    q_tabs: "A cosa serve la trascrizione",
+    sub_off: "I sottotitoli si tagliano solo se il risultato li chiede: vedi la prima scheda.",
     has_summary: "riassunto",
     copies_title: "La stessa registrazione, trascritta {count} volte.",
     notes_unsaved_title: "Note non salvate",
@@ -532,8 +548,6 @@ const I18N = {
     tagline: "Transcription locale. Rien ne quitte cette machine.",
     eyebrow: "Enregistrements et transcriptions",
     new_transcription_note: "Chargez un enregistrement ou enregistrez-en un ici. Il est transcrit sur cette machine, en arri\u00e8re-plan : rien n'est envoy\u00e9 nulle part.",
-    jobs_note: "Une transcription \u00e0 la fois. Quitter cette page n'arr\u00eate rien.",
-    library_note: "Chaque transcription termin\u00e9e, avec son enregistrement, son texte et vos notes.",
     search_label: "Rechercher dans les transcriptions",
     notes_label: "Notes sur cet enregistrement",
     remove_from_list: "retirer de la liste",
@@ -618,8 +632,8 @@ const I18N = {
     sub_save_vtt: "Garder un .vtt dans la fiche",
     sub_preset_numbers: "{chars} x {lines}, {cps} CPS",
     sub_from_preset: "du preset",
-    download_srt: "sous-titres (.srt)",
-    download_vtt: "sous-titres (.vtt)",
+    download_srt: "Sous-titres (.srt)",
+    download_vtt: "Sous-titres (.vtt)",
     diarize_not_installed_how: "N\u00e9cessite pyannote, qui n'est pas install\u00e9 sur cette machine : pip install \"audio-transcriber-ov[diarize]\"",
     diarize_no_model_how: "pyannote est install\u00e9 mais n'a pas de mod\u00e8le : d\u00e9finissez HUGGINGFACE_TOKEN sur le serveur, ou placez une configuration locale.",
     speakers: "Locuteurs, si connus",
@@ -640,10 +654,9 @@ const I18N = {
     prompt_too_long: "Trop long : {chars} caract\u00e8res, {limit} au maximum. Whisper ignore le reste.",
     start: "D\u00e9marrer la transcription",
     jobs: "Travaux",
-    busy_note: "Une transcription est en cours : tout le reste est suspendu jusqu'\u00e0 ce qu'elle se termine, ou que vous l'arr\u00eatiez.",
-    busy_note_summary: "Un r\u00e9sum\u00e9 est en cours d'\u00e9criture : tout le reste est suspendu jusqu'\u00e0 ce qu'il se termine, ou que vous l'arr\u00eatiez.",
+    busy_note: "Une transcription est en cours : celle-ci attend dans la file derri\u00e8re elle.",
+    busy_note_summary: "Un r\u00e9sum\u00e9 est en cours d\u2019\u00e9criture : cette transcription attend dans la file derri\u00e8re lui.",
     busy_why: "Pas pendant qu'une transcription est en cours.",
-    no_jobs: "Rien en cours.",
     took: "a pris {time}",
     cpu: "CPU",
     ram: "RAM",
@@ -668,8 +681,8 @@ const I18N = {
     remove: "supprimer",
     preview: "aper\u00e7u",
     hide: "masquer",
-    download: "Transcription",
-    download_json: "Timestamps",
+    download: "Transcription (.txt)",
+    download_json: "Horodatages (.json)",
     close: "Fermer",
     open: "Ouvrir",
     view: "voir",
@@ -694,12 +707,23 @@ const I18N = {
     summary_run: "R\u00e9sumer",
     summary_again: "R\u00e9sumer \u00e0 nouveau",
     summary_delete: "supprimer le r\u00e9sum\u00e9",
-    download_summary: "r\u00e9sum\u00e9 (.md)",
+    download_summary: "R\u00e9sum\u00e9 (.md)",
     copy: "Copier",
     copied: "Copi\u00e9 dans le presse-papiers.",
     copy_failed: "Non copi\u00e9 : le navigateur a refus\u00e9.",
     summary_queued: "En attente, derri\u00e8re ce qui tourne d\u00e9j\u00e0.",
     summary_queued_next: "En attente : il d\u00e9marre dans un instant.",
+    summary_options: "Comment l\u2019\u00e9crire",
+    working: "En cours",
+    reader_back: "\u2039 Biblioth\u00e8que",
+    reader_empty: "Choisissez un enregistrement \u00e0 gauche pour le lire ici.",
+    download_menu: "T\u00e9l\u00e9charger\u2026",
+    q_result: "R\u00e9sultat",
+    q_transcription: "Transcription",
+    q_subtitles: "Sous-titres",
+    q_keywords: "Mots-cl\u00e9s",
+    q_tabs: "\u00c0 quoi sert la transcription",
+    sub_off: "Les sous-titres ne sont d\u00e9coup\u00e9s que si le r\u00e9sultat les demande : voir le premier onglet.",
     has_summary: "r\u00e9sum\u00e9",
     copies_title: "Le m\u00eame enregistrement, transcrit {count} fois.",
     notes_unsaved_title: "Notes non enregistr\u00e9es",
@@ -782,8 +806,6 @@ const I18N = {
     tagline: "Lokale Transkription. Nichts verl\u00e4sst diese Maschine.",
     eyebrow: "Aufnahmen und Transkriptionen",
     new_transcription_note: "Eine Aufnahme hochladen oder hier aufnehmen. Sie wird auf dieser Maschine im Hintergrund transkribiert: Nichts wird irgendwohin gesendet.",
-    jobs_note: "Jeweils eine Transkription. Das Verlassen dieser Seite stoppt nichts.",
-    library_note: "Jede fertige Transkription, mit Aufnahme, Text und Ihren Notizen.",
     search_label: "Transkriptionen durchsuchen",
     notes_label: "Notizen zu dieser Aufnahme",
     remove_from_list: "aus der Liste entfernen",
@@ -890,10 +912,9 @@ const I18N = {
     prompt_too_long: "Zu lang: {chars} Zeichen, maximal {limit}. Whisper ignoriert den Rest.",
     start: "Transkription starten",
     jobs: "Auftr\u00e4ge",
-    busy_note: "Eine Transkription l\u00e4uft: Alles andere ist gesperrt, bis sie fertig ist oder Sie sie stoppen.",
-    busy_note_summary: "Eine Zusammenfassung wird geschrieben: Alles andere ist gesperrt, bis sie fertig ist oder Sie sie stoppen.",
+    busy_note: "Eine Transkription l\u00e4uft: diese wartet in der Warteschlange dahinter.",
+    busy_note_summary: "Eine Zusammenfassung wird geschrieben: diese Transkription wartet in der Warteschlange dahinter.",
     busy_why: "Nicht w\u00e4hrend eine Transkription l\u00e4uft.",
-    no_jobs: "Nichts l\u00e4uft.",
     took: "hat {time} gedauert",
     cpu: "CPU",
     ram: "RAM",
@@ -918,8 +939,8 @@ const I18N = {
     remove: "l\u00f6schen",
     preview: "Vorschau",
     hide: "ausblenden",
-    download: "Transkription",
-    download_json: "Zeitstempel",
+    download: "Transkript (.txt)",
+    download_json: "Zeitmarken (.json)",
     close: "Schlie\u00dfen",
     open: "\u00d6ffnen",
     view: "ansehen",
@@ -950,6 +971,17 @@ const I18N = {
     copy_failed: "Nicht kopiert: Der Browser hat abgelehnt.",
     summary_queued: "In der Warteschlange, hinter dem, was bereits l\u00e4uft.",
     summary_queued_next: "In der Warteschlange: Es beginnt gleich.",
+    summary_options: "Wie sie geschrieben wird",
+    working: "In Arbeit",
+    reader_back: "\u2039 Bibliothek",
+    reader_empty: "W\u00e4hlen Sie links eine Aufnahme, um sie hier zu lesen.",
+    download_menu: "Herunterladen\u2026",
+    q_result: "Ergebnis",
+    q_transcription: "Transkription",
+    q_subtitles: "Untertitel",
+    q_keywords: "Schl\u00fcsselw\u00f6rter",
+    q_tabs: "Wof\u00fcr die Transkription ist",
+    sub_off: "Untertitel werden nur geschnitten, wenn das Ergebnis sie verlangt: siehe den ersten Reiter.",
     has_summary: "Zusammenfassung",
     copies_title: "Dieselbe Aufnahme, {count}-mal transkribiert.",
     notes_unsaved_title: "Nicht gespeicherte Notizen",
@@ -1170,7 +1202,7 @@ function showLog(open) {
    Resolves to {label: name} for the fields that were filled in, or to false.
    The blanks are left out, so naming one person does not rename the rest. */
 function askSpeakers(speakers, samples = {}) {
-  const dialog = $("speakers");
+  const dialog = $("speakers-dialog");
   const box = $("speakers-fields");
   box.textContent = "";
   const fields = {};
@@ -1267,6 +1299,7 @@ function translatePage() {
      one language while it shows another. */
   $("source-tabs").setAttribute("aria-label", t("source_tabs"));
   $("view-tabs").setAttribute("aria-label", t("view_tabs"));
+  $("q-tabs").setAttribute("aria-label", t("q_tabs"));
   $("record-level").setAttribute("aria-label", t("level_label"));
   $("record-trace").setAttribute("aria-label", t("trace_label"));
   /* Zero is not a value here, it is "whatever the preset says" - which is what
@@ -1579,6 +1612,66 @@ $("tab-record").addEventListener("click", () => showPane("record"));
 wireTabs($("source-tabs"), ["tab-file", "tab-record"],
          (index) => showPane(["file", "record"][index]));
 
+/* The four questions of a new transcription, on tabs. */
+function showQuestion(which) {
+  for (const name of ["result", "transcription", "subtitles", "keywords"]) {
+    const tab = $(`tab-q-${name}`);
+    tab.classList.toggle("on", name === which);
+    tab.setAttribute("aria-selected", String(name === which));
+    tab.tabIndex = name === which ? 0 : -1;
+    $(`q-${name}`).hidden = name !== which;
+  }
+}
+
+const QUESTIONS = ["result", "transcription", "subtitles", "keywords"];
+for (const name of QUESTIONS) {
+  $(`tab-q-${name}`).addEventListener("click", () => showQuestion(name));
+}
+wireTabs($("q-tabs"), QUESTIONS.map((name) => `tab-q-${name}`),
+         (index) => showQuestion(QUESTIONS[index]));
+
+let jobOpener = null;
+
+function openJobDialog(source, opener) {
+  jobOpener = opener || document.activeElement;
+  showPane(source);
+  showQuestion("result");
+  $("form-error").hidden = true;
+  $("new-transcription").showModal();
+  // The first thing to do: pick a file (its label carries the focus ring),
+  // or press record.
+  (source === "record" ? $("record") : $("file")).focus();
+}
+
+function closeJobDialog() {
+  if (recorder) stopRecording();
+  $("new-transcription").close();
+}
+
+$("new-transcription").addEventListener("close", () => {
+  if (recorder) stopRecording();
+  if (jobOpener && jobOpener.isConnected) jobOpener.focus();
+  jobOpener = null;
+});
+$("new-job").addEventListener("click", (event) => openJobDialog("file", event.currentTarget));
+$("new-recording").addEventListener("click", (event) => openJobDialog("record", event.currentTarget));
+$("job-cancel").addEventListener("click", closeJobDialog);
+
+/* A file dropped anywhere on the page is a new transcription of it: the drop
+   zone lives in the dialog now, and a page that ignored a dropped file would
+   let the browser open it instead. */
+document.addEventListener("dragover", (event) => {
+  if ([...(event.dataTransfer?.types || [])].includes("Files")) event.preventDefault();
+});
+document.addEventListener("drop", (event) => {
+  const file = event.dataTransfer?.files?.[0];
+  if (!file || event.target.closest?.("#drop")) return;
+  event.preventDefault();
+  if (!$("new-transcription").open) openJobDialog("file", $("new-job"));
+  showPane("file");
+  chooseFile(file);
+});
+
 function chooseFile(file, note) {
   selectedFile = file || null;
   $("file-name").textContent = file && !note
@@ -1611,6 +1704,7 @@ function applyOutput() {
   const subtitling = SUBTITLING.includes(output);
   $("output-note").textContent = t(`output_${output}_note`);
   $("subtitle-fields").hidden = !subtitling;
+  $("sub-off").hidden = subtitling;
   /* Disabled, not hidden: it sits on the line of the answer it belongs to,
      and a line that appears and disappears moves the answers underneath it
      out from under the pointer. */
@@ -1640,7 +1734,6 @@ for (const name of ["dragleave", "drop"]) {
 }
 drop.addEventListener("drop", (event) => {
   event.preventDefault();
-  if (pageBusy) return;      // the zone is a div: it cannot be disabled
   showPane("file");
   chooseFile(event.dataTransfer.files[0]);
 });
@@ -1893,16 +1986,14 @@ function announceJobs(jobs) {
   if (box.textContent !== line) box.textContent = line;
 }
 
-/* While a transcription is under way the page offers exactly one action: stop
-   it. Everything else -- starting another, recording, summarising, renaming,
-   deleting, even clearing the finished rows -- is off until it ends.
+/* While a job is under way, what would compete with it for the machine is
+   off: summarising, and renaming, deleting or clearing entries under it. The
+   reason is the machine, not tidiness: this runs on two cores.
 
-   The reason is the machine, not tidiness. This runs on two cores; the queue
-   already refuses to transcribe two things at once, and anything else asked
-   for meanwhile either waits pointlessly or competes for the same cores and
-   makes the transcription slower. Reading stays available: opening an entry
-   and downloading its transcript cost nothing and are the obvious thing to do
-   while waiting. */
+   A new file is not one of those. It waits in the queue behind the running
+   job and costs nothing until its turn, so the form takes it. Reading and
+   writing notes stay available too: they cost nothing, and are the obvious
+   thing to do while waiting. */
 let pageBusy = false;
 /* Whether a transcription or a summary is running right now, as the last poll
    of the queue saw it: a job "queued behind what is running" needs something
@@ -1915,22 +2006,10 @@ function queuedText() {
 
 function applyBusy() {
   const why = pageBusy ? t("busy_why") : "";
-  for (const control of $("job-form").querySelectorAll("input, select, textarea, button")) {
-    // Something this machine cannot do at all -- "who said what" without
-    // pyannote -- is off for good; the end of a transcription must not hand
-    // it back.
-    if (control.dataset.locked) continue;
-    control.disabled = pageBusy;
-    control.title = why;
-  }
-  // The drop zone is a div: it cannot be disabled, so it is dimmed and its
-  // handler refuses.
-  $("drop").classList.toggle("blocked", pageBusy);
+  /* The form stays open: a new file waits in the queue behind the one that
+     is running, which costs the machine nothing until its turn. Somebody back
+     from a day of meetings uploads all of them at once. The note says so. */
   $("busy-note").hidden = !pageBusy;
-  // The controls that belong to an answer rather than to the queue go back
-  // to what the answer says, not to enabled: the count of voices is asked by
-  // two of the four answers and by none of the others.
-  if (!pageBusy) applyOutput();
   /* Not the notes: saving a few kilobytes costs the machine nothing, and a
      transcription can run for an hour and a half. */
   for (const id of ["summary-run", "summary-delete",
@@ -1947,15 +2026,16 @@ function setBusy(busy, kind) {
   applyBusy();
 }
 
-function renderJobs(jobs) {
+function renderJobs(allJobs) {
   const box = $("jobs");
-  announceJobs(jobs);
+  announceJobs(allJobs);
   box.textContent = "";
-  if (!jobs.length) {
-    box.append(el("p", { className: "note", textContent: t("no_jobs") }));
-    return;
-  }
-  const finished = jobs.filter((job) => ["done", "failed", "cancelled"].includes(job.status));
+  /* What is under way, waiting, or went wrong. A job that worked leaves the
+     group, as it leaves the window's "In progress": its entry is the first
+     row of the library right under it. */
+  const jobs = allJobs.filter((job) => job.status !== "done");
+  if (!jobs.length) return;
+  const finished = jobs.filter((job) => ["failed", "cancelled"].includes(job.status));
   if (finished.length > 1) {
     const clear = el("button", { type: "button", className: "link",
                                  textContent: t("clear_finished"),
@@ -2078,6 +2158,8 @@ async function refreshJobs() {
                                             || job.status === "running");
   const busy = working.length > 0;
   somethingRunning = data.jobs.some((job) => job.status === "running");
+  // The meters say something only while something runs.
+  $("working-group").classList.toggle("idle", !busy);
   // Before the rows are drawn, so they are drawn in the right state.
   setBusy(busy, working.length ? working[working.length - 1].kind : null);
   renderJobs(data.jobs);
@@ -2293,8 +2375,17 @@ async function refreshLibrary() {
        front of the title, where a narrow column does not cut it off. */
     const copies = entry.copies > 1 ? entry.copies : 0;
     const open = el("button", { type: "button", className: "link", textContent: t("open") });
-    open.addEventListener("click", () => openEntry(entry.id));
-    box.append(el("div", { className: "row" }, [
+    open.addEventListener("click", (event) => {
+      event.stopPropagation();
+      openEntry(entry.id);
+    });
+    const row = el("div", { className: "row entry" });
+    row.dataset.entry = entry.id;
+    // The row is the target a pointer aims at; the button is the one the
+    // keyboard reaches.
+    row.addEventListener("click", () => openEntry(entry.id));
+    box.append(row);
+    row.append(...[
       el("div", {}, [
         el("div", { className: "title",
                     textContent: copies ? `×${copies}  ${entry.title}` : entry.title,
@@ -2307,8 +2398,25 @@ async function refreshLibrary() {
         el("div", { className: "meta", textContent: facts }),
       ]),
       open,
-    ]));
+    ]);
   }
+  markOpenRow();
+  if (firstLibrary) {
+    firstLibrary = false;
+    openFirstEntry(data.entries);
+  }
+}
+
+/* On a wide screen the reader beside the list is never empty on arrival: it
+   opens the entry read last in this browser, or the newest one. */
+let firstLibrary = true;
+
+function openFirstEntry(entries) {
+  if (NARROW.matches || openEntryId || !entries.length) return;
+  let last = null;
+  try { last = localStorage.getItem(LAST_ENTRY_KEY); } catch { /* private window */ }
+  const found = entries.find((entry) => entry.id === last) || entries[0];
+  openEntry(found.id);
 }
 
 /* --- one entry --------------------------------------------------------- */
@@ -2427,6 +2535,8 @@ function showSummary(entry) {
   $("summary-empty").hidden = summaryPresent;
   $("summary-status").textContent = "";
   $("summary-run").textContent = t(summaryPresent ? "summary_again" : "summary_run");
+  // The questions are open when there is no page yet, folded when there is.
+  $("summary-options").open = !summaryPresent;
   $("viewer-download-summary").href =
     api(`library/${encodeURIComponent(entry.id)}/summary.md`);
 }
@@ -2443,21 +2553,19 @@ function showViewerTab(which) {
     $(tab).tabIndex = name === which ? 0 : -1;
     $(pane).hidden = name !== which;
   }
-  /* Each tab owns its own buttons in the shared footer, so the row never
-     offers an action that belongs to a panel nobody is looking at. */
-  $("notes-save").hidden = which !== "notes";
-  $("summary-run").hidden = which !== "summary";
-  $("summary-delete").hidden = which !== "summary" || !summaryPresent;
-  $("viewer-download-summary").hidden = which !== "summary" || !summaryPresent;
-  $("copy-summary").hidden = which !== "summary" || !summaryPresent;
+  /* Each panel carries its own buttons, so switching tabs never leaves an
+     action on screen that belongs to a panel nobody is looking at. */
+  $("summary-delete").hidden = !summaryPresent;
+  $("viewer-download-summary").hidden = !summaryPresent;
+  $("copy-summary").hidden = !summaryPresent;
 }
 
 $("tab-transcript").addEventListener("click", () => showViewerTab("transcript"));
 $("tab-segments").addEventListener("click", () => showViewerTab("segments"));
 $("tab-summary").addEventListener("click", () => showViewerTab("summary"));
 $("tab-notes").addEventListener("click", () => showViewerTab("notes"));
-wireTabs($("view-tabs"), ["tab-transcript", "tab-segments", "tab-notes"],
-         (index) => showViewerTab(["transcript", "segments", "notes"][index]));
+wireTabs($("view-tabs"), ["tab-transcript", "tab-segments", "tab-summary", "tab-notes"],
+         (index) => showViewerTab(["transcript", "segments", "summary", "notes"][index]));
 
 function renderSegments(segments) {
   const box = $("viewer-segments");
@@ -2471,9 +2579,9 @@ function renderSegments(segments) {
     const stamp = el("button", { type: "button", className: "stamp",
       textContent: clock(segment.start) });
     stamp.addEventListener("click", () => {
-      if (audio.hidden) return;
+      if ($("player").hidden) return;
       audio.currentTime = segment.start || 0;
-      audio.play();
+      audio.play().catch(() => {});
     });
     box.append(el("div", { className: "segment" }, [
       stamp,
@@ -2485,9 +2593,33 @@ function renderSegments(segments) {
   }
 }
 
+/* One column below this width: the list, or the entry being read. */
+const NARROW = window.matchMedia("(max-width: 55rem)");
+const LAST_ENTRY_KEY = "audio-transcriber.last-entry";
+
+function markOpenRow() {
+  for (const row of document.querySelectorAll("#library .row")) {
+    const on = row.dataset.entry === openEntryId;
+    row.classList.toggle("on", on);
+    if (on) row.setAttribute("aria-current", "true");
+    else row.removeAttribute("aria-current");
+  }
+}
+
 async function openEntry(id) {
-  const entry = await fetch(api(`library/${encodeURIComponent(id)}`)).then((r) => r.json());
+  // Notes being typed on the entry already open are not dropped by a click.
+  if (openEntryId && openEntryId !== id && !(await leaveNotes())) return;
+  let entry;
+  try {
+    entry = await fetch(api(`library/${encodeURIComponent(id)}`)).then((r) => {
+      if (!r.ok) throw new Error(r.statusText);
+      return r.json();
+    });
+  } catch {
+    return;
+  }
   openEntryId = entry.id;
+  try { localStorage.setItem(LAST_ENTRY_KEY, entry.id); } catch { /* private window */ }
   const transcription = entry.transcription || {};
   const audio = entry.audio || {};
   $("viewer-title").textContent = entry.title || entry.id;
@@ -2512,8 +2644,9 @@ async function openEntry(id) {
   $("viewer-status").className = "note";
   showSummary(entry);
   const player = $("viewer-audio");
-  player.hidden = !entry.has_audio;
+  $("player").hidden = !entry.has_audio;
   player.src = entry.has_audio ? api(`library/${encodeURIComponent(entry.id)}/audio`) : "";
+  drawSeekWave(entry.has_audio ? entry.id : null);
   $("viewer-download").href = api(`library/${encodeURIComponent(entry.id)}/transcript.txt`);
   $("viewer-download-json").href = api(`library/${encodeURIComponent(entry.id)}/transcript.json`);
   $("viewer-download-json").hidden = !(entry.segments || []).length;
@@ -2529,7 +2662,15 @@ async function openEntry(id) {
   }
   showViewerTab("transcript");
   applyBusy();
-  $("viewer").showModal();
+  $("reader-empty").hidden = true;
+  $("reader-body").hidden = false;
+  markOpenRow();
+  if (NARROW.matches && !document.body.classList.contains("reading")) {
+    // On a phone the entry takes the screen; "back" returns to the list.
+    document.body.classList.add("reading");
+    history.pushState({ reading: entry.id }, "");
+    window.scrollTo(0, 0);
+  }
 }
 
 function closeViewer() {
@@ -2541,8 +2682,62 @@ function closeViewer() {
   showSummaryProgress(null);
   $("summary-run").disabled = pageBusy;
   openEntryId = null;
-  $("viewer").close();
+  $("reader-body").hidden = true;
+  $("reader-empty").hidden = false;
+  document.body.classList.remove("reading");
+  markOpenRow();
 }
+
+/* Back to the list, on a phone: asks about unsaved notes first. */
+async function leaveReader() {
+  if (!(await leaveNotes())) return false;
+  const id = openEntryId;
+  closeViewer();
+  const row = document.querySelector(`#library .row[data-entry="${CSS.escape(id || "")}"] button`);
+  if (row) row.focus();
+  return true;
+}
+
+$("reader-back").addEventListener("click", () => {
+  if (history.state && history.state.reading) history.back();
+  else leaveReader();
+});
+window.addEventListener("popstate", async () => {
+  if (!document.body.classList.contains("reading")) return;
+  // Refused (notes kept): stay on the entry, and put the step back.
+  if (!(await leaveReader())) history.pushState({ reading: openEntryId }, "");
+});
+
+/* --- the recording's shape as the seek bar ----------------------------- */
+
+async function drawSeekWave(entryId) {
+  const box = $("viewer-wave");
+  box.querySelector("svg")?.remove();
+  if (!entryId) return;
+  try {
+    const found = await fetch(api(`library/${encodeURIComponent(entryId)}/waveform`))
+      .then((answer) => (answer.ok ? answer.json() : null));
+    if (found && found.loudness && found.loudness.length && openEntryId === entryId) {
+      box.prepend(waveDrawing(found.loudness));
+    }
+  } catch {
+    /* No drawing: the player under it still works. */
+  }
+}
+
+$("viewer-wave").addEventListener("click", (event) => {
+  const audio = $("viewer-audio");
+  if (!audio.duration) return;
+  const box = $("viewer-wave").getBoundingClientRect();
+  audio.currentTime = Math.min(1, Math.max(0, (event.clientX - box.left) / box.width))
+                      * audio.duration;
+  audio.play().catch(() => {});
+});
+$("viewer-audio").addEventListener("timeupdate", () => {
+  const audio = $("viewer-audio");
+  $("playhead").style.left = audio.duration
+    ? `${(audio.currentTime / audio.duration) * 100}%` : "0";
+});
 
 async function reloadOpenEntry() {
   const entry = await fetch(api(`library/${encodeURIComponent(openEntryId)}`))
@@ -2680,16 +2875,6 @@ function copyWithFallback(text) {
   area.remove();
 }
 
-$("viewer-close").addEventListener("click", async () => {
-  if (await leaveNotes()) closeViewer();
-});
-// Esc: the same question before the dialog goes.
-$("viewer").addEventListener("cancel", async (event) => {
-  if (!notesChanged()) return;
-  event.preventDefault();
-  if (await leaveNotes()) closeViewer();
-});
-$("viewer").addEventListener("close", () => $("viewer-audio").pause());
 
 /* What the notes said when they were last read or saved. Anything else in the
    box is typing that leaving the entry would lose, so leaving asks first. */
@@ -2830,7 +3015,6 @@ $("viewer-delete").addEventListener("click", async () => {
 /* --- the upload form --------------------------------------------------- */
 
 $("job-form").addEventListener("submit", async (event) => {
-  if (pageBusy) return event.preventDefault();   // Enter, with the button off
   event.preventDefault();
   const error = $("form-error");
   error.hidden = true;
@@ -2888,15 +3072,14 @@ $("job-form").addEventListener("submit", async (event) => {
     $("record-preview").hidden = true;
     $("record-time").textContent = "";
     $("record-hint").textContent = t("record_hint");
+    $("new-transcription").close();
     refreshJobs();
   } catch (failure) {
     error.textContent = t("upload_failed", { error: failure.message });
     error.hidden = false;
   } finally {
     uploading = false;
-    // Not simply "false": the upload has just made the page busy, and the
-    // button it was clicked on is one of the things that goes off.
-    button.disabled = pageBusy;
+    button.disabled = false;
     button.textContent = t("start");
   }
 });

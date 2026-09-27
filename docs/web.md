@@ -12,8 +12,26 @@ because a transcription that takes an hour is easier to watch than to wait for.
 
 ## What it does
 
-- **Two ways in.** Drop a recording on the page (or pick one), or record
-  straight from the browser with the *Record* tab.
+**The library is the page.** The recordings are listed on the left and the one
+being read sits beside them on the right, so a click on the next row reads the
+next recording; on a wide screen the page opens on the entry read last in that
+browser, or on the newest. Work under way is the first group of the list, *In
+progress* — what is running, what is waiting and what failed, with the
+machine's CPU and memory while something runs and the server's messages one
+click away; a job that worked leaves the group, and its entry is the first row
+of the library under it. On a phone, or anything narrower than two columns,
+the list comes first and an entry is read across the whole width, with
+*‹ Library* to go back. This is the layout the desktop window has had since
+September.
+
+- **Two ways in.** *New transcription* and *Record*, at the top of the list,
+  open one dialog: pick or drop a file, or record straight from the browser. A
+  file dropped anywhere on the page opens it with that file already chosen.
+- **The four questions, on four tabs**, as the window's dialog asks them:
+  *Result* (what the run is for), *Transcription* (title, model, language, and
+  a text you already have), *Subtitles* (how the cues are cut, when the result
+  asks for them) and *Keywords*. The start button stays in sight at the foot of
+  the dialog whichever tab is open.
 - **Say what the run is for, first**: *just the text*, *the text with who said
   what*, *subtitles*, or *subtitles with who said what*. A note under the four
   says what the chosen one produces, and the controls belonging to the others
@@ -39,7 +57,15 @@ because a transcription that takes an hour is easier to watch than to wait for.
   started.
 - **Browse the library**: search the transcripts and notes, open an entry, play
   the recording while reading along, jump to any moment from its timestamp,
-  write notes, rename, delete, download the text or the timestamps.
+  write notes, rename, delete, download the text or the timestamps. The
+  recording's own shape is the seek bar above the player: click where somebody
+  was talking. Each tab keeps its own buttons — *Save the notes* under the
+  notes, *Summarise* under the summary — and the downloads are one *Download…*
+  menu beside the title. A row says when its entry has a summary, and `×2` in
+  front of the title when one file has been transcribed twice.
+- **Notes are never thrown away without asking.** Leaving an entry with notes
+  that are not saved — another row, back to the list, closing the page — asks
+  *Save*, *Discard* or *Cancel*, the question the window asks.
 - **See the recording under its name**, in the library and in the queue: how
   loud it was from start to end. An hour of meeting and an hour of empty room
   have the same date, the same length and the same model, and they do not look
@@ -58,7 +84,8 @@ made, renamed and filled from the desktop window, not from the page.
 
 ## Recording in the browser
 
-The *Record* tab uses `MediaRecorder`: audio is captured in the browser, kept
+*Record* opens the new-transcription dialog on its *Record* tab, which uses
+`MediaRecorder`: audio is captured in the browser, kept
 there while you record, and uploaded as one file when you start the
 transcription — it is `audio/webm` (Opus) in most browsers, which ffmpeg reads
 without help.
@@ -240,27 +267,33 @@ like a gateway error.
 
 ## One thing at a time
 
-While a job is running the page offers exactly one action: stop it. Uploading,
-recording, transcribing, summarising, renaming, deleting, saving notes,
-clearing finished rows — all off, dimmed, with the reason on them.
+The queue runs one job at a time, and while one runs the page switches off
+what would compete with it: *Summarise* and deleting a summary, renaming and
+deleting an entry, clearing the finished rows — dimmed, with the reason on
+them. That is the machine talking, not tidiness: this runs on two cores, and a
+summary asked for meanwhile competes for the same cores and makes the
+transcription slower. A page that lets you ask anyway is a page that lets you
+make things worse by accident.
 
-That is the machine talking, not tidiness. This runs on two cores. The queue
-already refuses to transcribe two things at once, so a second job asked for
-meanwhile only waits; a summary asked for meanwhile is worse, because it
-competes for the same cores and makes the transcription slower. A page that
-lets you ask anyway is a page that lets you make things worse by accident.
+**A new file is not one of those.** It joins the queue behind the running job
+and costs the machine nothing until its turn, so the dialog still takes it,
+and says it will wait: somebody back from a day of meetings uploads all of
+them at once rather than one every hour and a half. Until September the whole
+form went off, and the second recording had to wait for the person as well as
+for the machine.
 
-**Reading stays available.** Opening an entry, reading its transcript, jumping
-around the recording, downloading the text or the subtitles — none of that
-costs the machine anything, and it is the obvious thing to do while waiting.
+**Reading and writing notes stay available.** Opening an entry, reading its
+transcript, jumping around the recording, downloading the text or the
+subtitles and saving notes cost the machine nothing, and are the obvious thing
+to do while waiting. Saving the notes used to be off too, which on a long
+transcription meant typing for an hour into a box that could not be saved.
 
 Two details worth knowing. A control that is off because this machine *cannot*
-do the thing at all — "who said what" with no diarization installed — stays off
-when the job ends; it is marked separately, so the busy state cannot hand it
-back. And the block is the page's, not the API's: the endpoints still accept
-what they always did, because the queue is what actually serialises the work,
-and another client (or a tab left open from before) must not be able to wedge
-itself.
+do the thing at all — "who said what" with no diarization installed — is
+marked separately and the busy state never touches it. And the block is the
+page's, not the API's: the endpoints still accept what they always did,
+because the queue is what actually serialises the work, and another client
+(or a tab left open from before) must not be able to wedge itself.
 
 ## The API
 
@@ -347,11 +380,12 @@ with no licence file — a wheel built without it — answers `null` and the pag
 says so rather than showing a blank box. See [gui.md](gui.md) for the same box
 in the window, and `audio_transcriber/about.py`, which both ask.
 
-It is laid out as a sheet of paper rather than as an application: each section
-puts its explanation in a narrow column and its controls in a wide one, fields
-are a single rule under the text, and a button is a quiet surface with that
-same rule along its foot — enough to tell the two apart at a glance, which an
-underline alone was not. Two
+It is drawn as a sheet of paper rather than as an application chrome: the
+library and the reader are two columns under the masthead, fields are a single
+rule under the text, and a button is a quiet surface with that same rule along
+its foot — enough to tell the two apart at a glance, which an underline alone
+was not. The entry open in the reader is marked in the list by a rule down its
+edge, not by a tint alone. Two
 typefaces — Fraunces for the headings, Karla for everything else — both
 self-hosted with their OFL licences under the package's `data/brand/fonts/`
 and served from `/brand`, so the page loads with no network and calls nobody.
