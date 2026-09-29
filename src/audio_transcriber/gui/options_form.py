@@ -29,7 +29,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from ..diarization import NO_MODEL
+from ..diarization import LEARN_MINUTES, NO_MODEL
 from ..diarization import availability as diarization_availability
 from ..i18n import t
 from ..vocabularies import MAX_PROMPT_CHARS
@@ -122,6 +122,12 @@ class OptionsForm(QWidget):
         self.speakers.setSpecialValueText(t("gui.speakers_unknown"))
         self.speakers.setToolTip(t("gui.speakers_tip"))
         self.speakers.setValue(defaults["speakers"])
+        # The other detail of the two answers that ask who is speaking: how
+        # much of the recording pyannote hears in full. See
+        # audio_transcriber.diarization.learn_speakers.
+        self.learn_voices = QCheckBox(t("gui.learn_voices", minutes=LEARN_MINUTES))
+        self.learn_voices.setToolTip(t("gui.learn_voices_tip", minutes=LEARN_MINUTES))
+        self.learn_voices.setChecked(defaults["learn_voices"])
         state, detail = diarization_availability(self.settings.get("diar_model"))
         self._diarization_ready = state == "ready"
         if state != "ready":
@@ -214,6 +220,7 @@ class OptionsForm(QWidget):
                 output_layout.addWidget(_wrap(line))
             else:
                 output_layout.addWidget(self.output_buttons[value])
+        output_layout.addWidget(self.learn_voices)
         output_layout.addWidget(self.auto_title)
         output_layout.addWidget(self.summary_after)
         # One note, for the answer that is chosen. Three notes at once is a
@@ -320,6 +327,7 @@ class OptionsForm(QWidget):
         asked = enables["speakers"] and self._diarization_ready
         self.speakers.setEnabled(asked)
         self.speakers_label.setEnabled(asked)
+        self.learn_voices.setEnabled(asked)
         for widget in (self.subtitle_preset, self.subtitle_chars,
                        self.subtitle_words, self.save_srt, self.save_vtt):
             widget.setEnabled(enables["subtitles"])
@@ -402,6 +410,7 @@ class OptionsForm(QWidget):
             "auto_title": self.auto_title.isChecked(),
             "summary_after": self.summary_after.isChecked(),
             "speakers": self.speakers.value(),
+            "learn_voices": self.learn_voices.isChecked(),
             "subtitle_preset": self.subtitle_preset.currentData(),
             "subtitle_chars": self.subtitle_chars.value(),
             "subtitle_words": self.subtitle_words.value(),
@@ -421,6 +430,7 @@ class OptionsForm(QWidget):
         self.auto_title.setChecked(bool(choices.get("auto_title")))
         self.summary_after.setChecked(bool(choices.get("summary_after")))
         self.speakers.setValue(int(choices.get("speakers") or 0))
+        self.learn_voices.setChecked(bool(choices.get("learn_voices")))
         _select(self.subtitle_preset, choices.get("subtitle_preset"))
         self.subtitle_chars.setValue(int(choices.get("subtitle_chars") or 0))
         self.subtitle_words.setValue(int(choices.get("subtitle_words") or 0))
@@ -451,6 +461,7 @@ class OptionsForm(QWidget):
         store.setValue("output", self.chosen_output())
         store.setValue("summary_after", self.summary_after.isChecked())
         store.setValue("auto_title", self.auto_title.isChecked())
+        store.setValue("learn_voices", self.learn_voices.isChecked())
         store.setValue("subtitle_preset", self.subtitle_preset.currentData())
         store.setValue("subtitle_chars", self.subtitle_chars.value())
         store.setValue("subtitle_words", self.subtitle_words.value())
@@ -484,6 +495,8 @@ class OptionsForm(QWidget):
         self.subtitle_chars.setValue(int(store.value("subtitle_chars", 0, int) or 0))
         self.subtitle_words.setValue(int(store.value("subtitle_words", 0, int) or 0))
         self.auto_title.setChecked(bool(store.value("auto_title", False, bool)))
+        self.learn_voices.setChecked(bool(store.value(
+            "learn_voices", self.learn_voices.isChecked(), bool)))
         self.save_srt.setChecked(bool(store.value("save_srt", False, bool)))
         self.save_vtt.setChecked(bool(store.value("save_vtt", False, bool)))
         remembered = store.value("vocabulary", None)

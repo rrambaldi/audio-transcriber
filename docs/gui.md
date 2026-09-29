@@ -66,6 +66,18 @@ The answers are remembered, so the second recording of the morning starts
 from what the first one was told: six meetings in the queue should be six
 confirmations, not six forms.
 
+**A recording can be transcribed while it is being made.** With *Transcribe
+while recording* ticked, *Record* first asks the same questions - the job
+that reads the recording has to know from its first piece - and then starts
+recording and a job at once. The job reads the WAV as it grows (the recorder
+brings its header up to date after every block, so the file is always a
+whole WAV of what has been said), cuts every thirty seconds at the quietest
+pause of the last fifteen, and transcribes that piece with the model kept
+loaded between pieces. *Stop* tells the job there is no more; what is left
+is the last piece and what needs the whole recording. Only the `[record]`
+recorder offers it: the Qt one writes a compressed file that cannot be read
+until it is closed. See `audio_transcriber/live.py`.
+
 **The queue** — *In progress*, at the top of the folders — holds every job
 still to do, newest first. A row is a recording: its title, and under it the facts known so far
 (the model, the length, the word count) or, if it failed, the reason with the

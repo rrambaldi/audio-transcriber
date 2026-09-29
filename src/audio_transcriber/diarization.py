@@ -17,6 +17,8 @@ import os
 import re
 import sys
 
+import numpy as np
+
 from .audio import SAMPLE_RATE
 from .cleaning import clean_text
 from .hardware import module_available
@@ -611,6 +613,12 @@ def diarize(audio, token, num_speakers, model=DEFAULT_PIPELINE,
 
     ``progress(percent, stage)`` is called as the pipeline works through its
     steps, where pyannote is new enough to report them."""
+    return _turns(ready_pipeline(model, token), audio, num_speakers,
+                  sample_rate, progress)
+
+
+def ready_pipeline(model, token):
+    """The pyannote pipeline, loaded and on the CPU, or the reason it is not."""
     try:
         import torch
         from pyannote.audio import Pipeline  # noqa: F401
@@ -625,8 +633,14 @@ def diarize(audio, token, num_speakers, model=DEFAULT_PIPELINE,
     pipeline = load_pipeline(model, token)
     if pipeline is None:
         sys.exit(t("diarize.not_initialised"))
-
     pipeline.to(torch.device("cpu"))
+    return pipeline
+
+
+def _turns(pipeline, audio, num_speakers, sample_rate=SAMPLE_RATE, progress=None):
+    """The turns ``pipeline`` finds in ``audio``."""
+    import torch
+
     waveform = torch.from_numpy(audio).unsqueeze(0)  # (1, samples)
     options = {"num_speakers": num_speakers} if num_speakers else {}
 
@@ -715,6 +729,182 @@ def assign_speakers(segments, turns):
         last = speaker
         assigned.append({**segment, "speaker": speaker})
     return assigned
+
+
+# --- voices learned from the start ------------------------------------------
+#
+# pyannote works out who is speaking by comparing every stretch of a recording
+# with every other: on a long recording that is most of the wait, and a
+# comparison table that grows with the square of the length. Learned instead,
+# it hears only the start in full, keeps what each voice there sounds like,
+# and puts every later sentence with the voice it sounds most like: one
+# measurement a sentence, whatever the length.
+
+#: How much of the recording pyannote hears in full when the voices are
+#: learned: at a meeting, long enough for everybody to have said something.
+LEARN_MINUTES = 10
+
+#: Shorter than this, a stretch of audio does not say whose voice it is: it
+#: inherits the voice before it, as a sentence without times already does.
+MIN_VOICE_SECONDS = 1.0
+
+#: Longer than this, a stretch says nothing more about the voice, and costs a
+#: longer measurement: a Whisper sentence is at most this long anyway.
+MAX_VOICE_SECONDS = 30.0
+
+#: How alike (cosine) a sentence has to be to a voice to be that voice. Below
+#: it, and with the number of speakers left open, the sentence is a voice
+#: nobody heard at the start - somebody who arrived late.
+# ParceEtRecte: one fixed threshold for every microphone and room. Measured on
+# one real recording, where a sentence and its own voice scored 0.72 (5th
+# percentile) to 0.88 (95th); that recording had too little of its second
+# voice to measure the other side. Make it a setting if it misjudges.
+SAME_VOICE = 0.5
+
+#: Of the diarization's share of the bar, what hearing the start takes.
+LEARNING_SHARE = 50
+
+
+def learn_speakers(audio, segments, token, num_speakers, model=DEFAULT_PIPELINE,
+                   minutes=LEARN_MINUTES, sample_rate=SAMPLE_RATE, progress=None):
+    """``segments`` with a speaker each, pyannote having heard only the start.
+
+    The sentences of the first ``minutes`` get their speaker the way they
+    always did, from pyannote's turns; every later one gets the learned voice
+    it sounds most like, or a new one when it sounds like none of them and
+    the number of speakers was not given. A recording no longer than
+    ``minutes`` is simply heard whole, and so is one whose start has no voice
+    in it, or a pyannote that does not let its voices be measured: learning
+    from nothing would be a guess."""
+    report = progress or (lambda percent, stage=None: None)
+    pipeline = ready_pipeline(model, token)
+    heard = int(float(minutes) * 60 * sample_rate)
+    if len(audio) <= heard:
+        return _assigned(segments, _turns(pipeline, audio, num_speakers,
+                                          sample_rate, progress))
+    turns = _turns(pipeline, audio[:heard], num_speakers, sample_rate,
+                   lambda percent, stage=None: report(
+                       percent * LEARNING_SHARE / 100.0, stage))
+    embed = voice_of(pipeline, sample_rate)
+    voices = learn_voices(audio, turns, embed, sample_rate) if embed else {}
+    if not voices:
+        print(t("diarize.learn_whole" if embed else "diarize.learn_unsupported",
+                minutes=minutes))
+        return _assigned(segments, _turns(pipeline, audio, num_speakers,
+                                          sample_rate, progress))
+    print(t("diarize.learned", voices=len(voices), minutes=minutes))
+    split = next((index for index, segment in enumerate(segments)
+                  if (segment.get("start") or 0.0) * sample_rate >= heard),
+                 len(segments))
+    early = assign_speakers(segments[:split], turns)
+    late = match_voices(
+        segments[split:], audio, embed, voices, fixed=bool(num_speakers),
+        sample_rate=sample_rate, last=early[-1]["speaker"] if early else None,
+        progress=lambda percent: report(
+            LEARNING_SHARE + percent * (100 - LEARNING_SHARE) / 100.0,
+            "stage.diar_matching"))
+    return early + late
+
+
+def _assigned(segments, turns):
+    return assign_speakers(segments, turns) if segments and turns else []
+
+
+def voice_of(pipeline, sample_rate=SAMPLE_RATE):
+    """What a stretch of audio's voice sounds like, as a function, or ``None``.
+
+    The pipeline's own embedding model, the one it measures its turns with,
+    so the voices learned and the sentences matched are measured alike. It is
+    an attribute pyannote does not advertise (3.x and 4.x both have it), so a
+    version without it is answered with ``None`` and a whole hearing rather
+    than a crash."""
+    model = getattr(pipeline, "_embedding", None)
+    if not callable(model):
+        return None
+    import torch
+
+    shortest = max(int(getattr(model, "min_num_samples", 0) or 0),
+                   int(MIN_VOICE_SECONDS * sample_rate))
+
+    def embed(samples):
+        if len(samples) < shortest:
+            return None
+        waveform = torch.from_numpy(np.ascontiguousarray(samples)).reshape(1, 1, -1)
+        return np.asarray(model(waveform))[0]
+
+    return embed
+
+
+def learn_voices(audio, turns, embed, sample_rate=SAMPLE_RATE):
+    """``{speaker: sum of unit vectors}`` from the turns heard at the start.
+
+    A sum rather than an average, because every sentence matched later is
+    added to it and the direction is all that is compared."""
+    voices = {}
+    for start, end, label in turns:
+        vector = _unit(embed(_stretch(audio, start, end, sample_rate)))
+        if vector is not None:
+            voices[label] = voices.get(label, 0) + vector
+    return voices
+
+
+def match_voices(segments, audio, embed, voices, fixed=False,
+                 sample_rate=SAMPLE_RATE, last=None, same=SAME_VOICE,
+                 progress=None):
+    """Give each segment the learned voice it sounds most like.
+
+    ``voices`` grows as it goes: a matched sentence is added to its voice,
+    and one that matches none becomes a voice of its own unless ``fixed``
+    says how many there are. Too short to measure, or without times, a
+    sentence inherits the voice before it."""
+    assigned = []
+    for index, segment in enumerate(segments):
+        start, end = segment.get("start"), segment.get("end")
+        vector = None
+        if start is not None and end is not None:
+            vector = _unit(embed(_stretch(audio, start, end, sample_rate)))
+        speaker = last or next(iter(voices))
+        if vector is not None:
+            speaker, likeness = _closest(vector, voices)
+            if likeness < same and not fixed:
+                speaker = _new_voice(voices)
+                voices[speaker] = 0
+            voices[speaker] = voices[speaker] + vector
+        last = speaker
+        assigned.append({**segment, "speaker": speaker})
+        if progress is not None:
+            progress(100.0 * (index + 1) / len(segments))
+    return assigned
+
+
+def _stretch(audio, start, end, sample_rate):
+    end = min(end, start + MAX_VOICE_SECONDS)
+    return audio[max(0, int(start * sample_rate)):max(0, int(end * sample_rate))]
+
+
+def _unit(vector):
+    """``vector`` scaled to length one, or ``None`` if it cannot be."""
+    if vector is None:
+        return None
+    vector = np.asarray(vector, dtype=np.float64)
+    length = np.linalg.norm(vector)
+    if not np.isfinite(length) or length == 0:
+        return None
+    return vector / length
+
+
+def _closest(vector, voices):
+    """``(speaker, cosine)`` of the voice ``vector`` is most like."""
+    return max(((label, float(np.dot(vector, _unit(total))))
+                for label, total in voices.items()), key=lambda pair: pair[1])
+
+
+def _new_voice(voices):
+    """A label for a voice nobody heard at the start, pyannote's style."""
+    number = len(voices)
+    while f"SPEAKER_{number:02d}" in voices:
+        number += 1
+    return f"SPEAKER_{number:02d}"
 
 
 def format_dialogue(segments):

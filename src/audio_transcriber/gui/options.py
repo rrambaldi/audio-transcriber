@@ -16,6 +16,7 @@ from datetime import datetime
 from .. import recording, subtitles, vocabularies
 from ..backends import BACKENDS
 from ..config import output_of
+from ..diarization import LEARN_MINUTES
 from ..formatting import format_bytes, format_clock, format_duration, format_when
 from ..i18n import t
 from ..jobs import (
@@ -219,6 +220,7 @@ def defaults_from(settings):
         "summary_after": bool(settings.get("summary_after")),
         "auto_title": bool(settings.get("auto_title")),
         "speakers": int(settings.get("speakers") or 0),
+        "learn_voices": bool(settings.get("diar_learn_minutes")),
         "vocabulary": vocabularies.split_names(settings.get("vocabulary")),
         "subtitle_preset": settings.get("subtitle_preset") or subtitles.DEFAULT_PRESET,
         "subtitles": str(settings.get("subtitles") or ""),
@@ -239,6 +241,9 @@ def overrides_from(choices):
         # Not "diarize": the chosen answer says whether anybody asked who was
         # speaking, and resolve_output turns that into the flag.
         "speakers": choices.get("speakers") or None,
+        # 0 rather than None when it is not ticked: None would leave a
+        # config.toml that learns the voices learning them anyway.
+        "diar_learn_minutes": LEARN_MINUTES if choices.get("learn_voices") else 0,
         "summary_after": True if choices.get("summary_after") else None,
         "auto_title": True if choices.get("auto_title") else None,
     }

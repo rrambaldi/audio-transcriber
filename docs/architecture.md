@@ -15,7 +15,8 @@ input file      │                          \      /
     ├─ vocabularies.py    named keyword sets -> the initial prompt
     │
     ├─ transcription.py   pick a backend, warn about bad fits
-    │      └─ backends/   openvino.py | faster_whisper.py  -> segments
+    │      ├─ backends/   openvino.py | faster_whisper.py  -> segments
+    │      └─ live.py     a recording still being written, a piece at a time
     │
     ├─ diarization.py     optional: pyannote turns, mapped onto the segments
     │
@@ -40,12 +41,13 @@ summary.py               a library entry or a text file, summarised
 | `web/` | the optional local interface: a JSON API and one static page |
 | `gui/` | the optional desktop window; `gui/options.py` holds its decisions and imports no Qt |
 | `recording.py` | recording from this machine's devices: audio systems, loopback, mixing — no Qt |
+| `live.py` | transcribing a WAV while it is written: cut at pauses, one engine call a piece — no Qt |
 | `formatting.py` | durations, clock positions and file sizes, worded the same way everywhere |
 | `audio.py` | one job: any container in, a numpy array out |
 | `transcription.py` | orchestration — chooses an engine, checks it fits, returns a uniform result |
 | `backends/` | the engine-specific code, and the rules for choosing between engines |
 | `cleaning.py` | pure text functions; no I/O, no state, trivially testable |
-| `diarization.py` | pyannote, plus mapping speakers onto transcribed segments |
+| `diarization.py` | pyannote, mapping speakers onto transcribed segments, and learning the voices from the start |
 | `summary.py` | sentences, ranking, selection and the page a summary is written on |
 | `summarizers/` | the summary engines, and the rules for choosing between them |
 | `library.py` | the on-disk format of a recording entry |

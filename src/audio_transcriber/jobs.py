@@ -202,6 +202,11 @@ class Job:
         self.size_bytes, self.source_created_at = file_facts(source)
         #: How many restarts have found this job running. See MAX_RESTARTS.
         self.restarts = 0
+        #: A :class:`~audio_transcriber.live.Growing` while the recording is
+        #: still being made. Not written down: after a restart the recorder is
+        #: gone, the file is as long as it will ever be, and the job is an
+        #: ordinary transcription of it.
+        self.growing = None
 
     #: What a restart has to bring back: everything needed to run the job, and
     #: everything the list already showed about it. Deliberately not the
@@ -442,7 +447,7 @@ class JobQueue:
 
     def submit(self, source, title=None, filename=None, overrides=None,
                vocabularies=None, custom_vocabulary="", store=STORE_MOVE,
-               start=True, folder=""):
+               start=True, folder="", growing=None):
         """Queue one file and return its :class:`Job`.
 
         ``start=False`` puts it in the list without running it: the desktop
@@ -458,7 +463,10 @@ class JobQueue:
         recording out of their Documents folder is not this program's
         decision to make.
 
-        ``folder`` is where in the library the transcription is filed."""
+        ``folder`` is where in the library the transcription is filed.
+
+        ``growing`` says the recording is still being made: it is transcribed
+        as it is written, and finished once ``growing.finish()`` is called."""
         if store not in STORE_MODES:
             raise ValueError(f"unknown store mode: {store}")
         settings = dict(self.settings)
@@ -474,13 +482,16 @@ class JobQueue:
         job = Job(source, title=title, filename=filename, settings=settings,
                   prompt=prompt, vocabularies=names, store=store,
                   folder=normalise_folder(folder))
+        job.growing = growing
         # How long it is, from the header: a recording waiting its turn can
         # then say so, instead of being a name and a size until it runs.
         job.audio_duration = audio.probe_seconds(source)
         # The length comes off the header in milliseconds and is read here;
         # what the recording looks like takes a pass of ffmpeg, so it does not
-        # hold up the answer to an upload.
-        self._measure(job)
+        # hold up the answer to an upload. A recording still being made is
+        # drawn once it is filed: now it would be a drawing of its first second.
+        if growing is None:
+            self._measure(job)
         if not start:
             job.status = HELD
         with self._lock:
@@ -830,6 +841,8 @@ class JobQueue:
         # that goes with it.
         job.status = outcome
         self._persist()
+        if job.growing is not None:
+            self._measure(job)
         self._summarise_after(job)
 
     def _summarise_after(self, job):
@@ -852,8 +865,10 @@ class JobQueue:
 
         Only inside the upload directory: a job submitted with a path of its
         own owns that file, and a two-gigabyte upload nobody can use should not
-        sit on the disk until the next reboot."""
-        if not job.source:
+        sit on the disk until the next reboot. Never a recording made here
+        while it was transcribed: it may still be recording, and it is the
+        only copy of that meeting, to be tried again."""
+        if not job.source or job.growing is not None:
             return
         source = os.path.abspath(job.source)
         if not source.startswith(os.path.abspath(self.upload_dir()) + os.sep):
@@ -866,7 +881,7 @@ class JobQueue:
     def _transcribe(self, job):
         """The real work: what the CLI does, minus the printing."""
         result = pipeline.run(
-            job.source, job.settings, prompt=job.prompt,
+            job.source, job.settings, prompt=job.prompt, growing=job.growing,
             progress=lambda percent, stage=None: self._advance(job, percent, stage))
         if job.replace:
             entry = pipeline.refile(self.library.get(job.replace), result,

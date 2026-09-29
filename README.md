@@ -287,6 +287,15 @@ an output device**, so a call can be recorded from the speakers. And a second
 source mixed into the same file: a microphone plus that loopback are the two
 halves of a meeting held over Teams, your voice and everyone else's.
 
+**Transcribe while recording**, beside the recorder's buttons, asks what the
+recording is for before it starts and transcribes it thirty seconds at a
+time while it is being made, cutting each piece at a pause. Pressing *Stop*
+then leaves the last piece and what needs the whole recording - who said
+what, the drawing - instead of the whole transcription. It needs the
+`[record]` extra and a machine that transcribes faster than people talk: an
+Intel iGPU yes, `small` on a two-core server no (0.6x realtime, it falls
+further behind every minute).
+
 The window needs a graphical session, so on a headless server use
 `audio-transcriber web` instead. See [docs/gui.md](docs/gui.md).
 
@@ -383,6 +392,10 @@ The paths written inside a `config.yaml` are resolved by pyannote against the *w
 Either way the assets are checked *before* the long transcription starts, so a missing file or unaccepted licence does not cost you an hour.
 
 Diarization pulls in PyTorch (~2 GB) and wants a fair amount of RAM, so on a small server you may prefer to leave it off.
+
+### Learning the voices from the start
+
+pyannote works out who is speaking by comparing every stretch of a recording with every other, and that part grows with the square of the length: on a recording of hours it is most of the wait and most of the memory. With `learn_minutes = 10` under `[diarization]` (`--diar-learn 10`, or *Learn the voices from the first 10 minutes* in the window) it hears only the first ten minutes in full, keeps what each voice there sounds like, and gives every later sentence the voice it sounds most like, measured with pyannote's own voice model - one measurement a sentence. A sentence that sounds like none of them becomes a new voice, unless the number of speakers was given. Somebody who says little at the start is recognised less well, and a recording no longer than the start is simply heard whole. Measured on the two-core server: ten minutes of a real recording took 49 minutes heard whole and 11 with the voices learned from the first three, and 39 of the 40 later sentences got the same voice either way - and the longer the recording, the larger the difference.
 
 ## Roadmap
 

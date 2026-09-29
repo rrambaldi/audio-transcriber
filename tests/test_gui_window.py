@@ -661,6 +661,78 @@ def test_recording_two_sources_writes_one_file_and_hands_it_over(tmp_path, appli
     recorder.deleteLater()
 
 
+def test_a_recording_to_transcribe_as_it_goes_is_asked_about_first(tmp_path, application):
+    """What it is for has to be known before its first piece is read, and an
+    unanswered question records nothing."""
+    recorder, _ = make_device_recorder(tmp_path, application)
+    started = []
+    recorder.started.connect(lambda path, answers: started.append((path, answers)))
+    recorder.live.setChecked(True)
+
+    recorder.before_start = lambda: None
+    recorder.start()
+    assert recorder.recording is False and started == []
+
+    recorder.before_start = lambda: {"overrides": {"output": "text"}}
+    recorder.start()
+    assert recorder.recording is True
+    assert started[0][0].endswith(".wav")
+    assert started[0][1] == {"overrides": {"output": "text"}}
+    assert recorder.live.isEnabled() is False        # not changed mid-recording
+    recorder.stop()
+    recorder.deleteLater()
+
+
+def test_a_plain_recording_says_so_when_it_starts(tmp_path, application):
+    recorder, _ = make_device_recorder(tmp_path, application)
+    started = []
+    recorder.started.connect(lambda path, answers: started.append(answers))
+    recorder.before_start = lambda: pytest.fail("nothing to ask")
+    recorder.start()
+    recorder.stop()
+    assert started == [None]
+    recorder.deleteLater()
+
+
+def test_a_live_recording_is_one_job_that_the_stop_finishes(window, tmp_path):
+    """Queued as it starts, told when it stops - and not queued a second time."""
+    panel = window.transcribe
+    growing = []
+    panel.queue._runner = lambda job: growing.append(job.growing)
+    path = str(tmp_path / "meeting.wav")
+    open(path, "wb").close()
+
+    panel._started(path, {"overrides": {"output": "text"}, "vocabularies": [],
+                          "custom_vocabulary": ""})
+    assert wait_for(lambda: growing)
+    assert growing[0].finished is False
+
+    # What the recorder does on Stop: the file, then the end of it.
+    panel._recorded(path)
+    assert growing[0].finished is False
+    panel._stopped(path)
+    assert growing[0].finished is True
+    # A plain recording would now be in the list, waiting to be asked about.
+    assert [job for job in panel.queue.jobs() if job.status == "held"] == []
+    assert len(growing) == 1
+
+
+def test_the_recorder_says_it_stopped_even_when_it_captured_nothing(tmp_path,
+                                                                    application):
+    """A job reading the recording is waiting to be told, file or no file."""
+    recorder, _ = make_device_recorder(tmp_path, application)
+    stopped = []
+    recorder.stopped.connect(stopped.append)
+    recorder.start()
+    session = recorder._session
+    stop = session.stop
+    # The device went before a frame arrived: the session hands back no file.
+    session.stop = lambda timeout=5.0: stop(timeout) and None
+    recorder.stop()
+    assert stopped == [session.path]
+    recorder.deleteLater()
+
+
 def test_reloading_looks_for_devices_again(tmp_path, application):
     """PortAudio reads the devices once, at startup: a headset plugged in
     afterwards is invisible until something asks it to look again."""

@@ -183,7 +183,7 @@ def transcribe(audio, model_name, language, device, model_dir=None, prompt="",
     """Transcribe ``audio`` and return ``(segments, raw_text, info)``.
 
     ``segments`` is a list of ``{"text", "start", "end"}``; ``info`` records
-    which backend, device and model actually ran. ``progress``, if given, is
+    which backend, device, model and language actually ran. ``progress``, if given, is
     called with a percentage: the CLI prints a line, the web interface moves a
     bar, and a backend that cannot report progress simply never calls it."""
     name = resolve_backend(backend, device)
@@ -195,7 +195,7 @@ def transcribe(audio, model_name, language, device, model_dir=None, prompt="",
     warn_if_tight(name, model_name, compute_type)
 
     directory = model_dir or paths.models_dir(name)
-    segments, raw_text, used_device = load(name).transcribe(
+    segments, raw_text, used_device, spoken = load(name).transcribe(
         audio, model_name, language, device, directory, prompt,
         compute_type=compute_type, threads=threads, vad=vad, progress=progress,
         word_timestamps=word_timestamps,
@@ -205,4 +205,5 @@ def transcribe(audio, model_name, language, device, model_dir=None, prompt="",
         "device": used_device,
         "model": model_name,
         "model_dir": directory,
+        "language": spoken,
     }

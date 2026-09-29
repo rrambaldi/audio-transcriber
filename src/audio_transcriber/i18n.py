@@ -274,6 +274,9 @@ MESSAGES = {
             "  (this pyannote reports no progress: the bar stands still until it "
             "finishes)",
         "diarize.result": "   turns detected: {turns} | speakers: {speakers}",
+        "diarize.learned": "   voices learned from the first {minutes:g} minutes: {voices}",
+        "diarize.learn_whole": "  Nobody speaks in the first {minutes:g} minutes, so there are no voices to learn: hearing the whole recording instead.",
+        "diarize.learn_unsupported": "  This pyannote does not let its voices be measured, so they cannot be learned from the first {minutes:g} minutes: hearing the whole recording instead.",
         "diarize.failed_keeping_text":
             "  WARNING: working out who said what failed, so the transcript is\n"
             "  written as plain text. The audio was transcribed and nothing of that\n"
@@ -346,6 +349,8 @@ MESSAGES = {
         "stage.diar_embeddings": "who said what: measuring the voices",
         "stage.diar_counting": "who said what: counting the speakers",
         "stage.diar_clustering": "who said what: telling them apart",
+        "stage.diar_matching": "who said what: matching the voices",
+        "stage.live": "transcribing while recording",
         "stage.laying_out": "laying out the text",
         "stage.summary_selecting": "choosing what matters",
         "stage.summary_reading": "reading the transcript",
@@ -501,6 +506,8 @@ MESSAGES = {
         "gui.speakers_tip":
             "How many voices there are, when you know. It improves the result a "
             "lot; left at \"unknown\" they are counted.",
+        "gui.learn_voices": "Learn the voices from the first {minutes:g} minutes (faster)",
+        "gui.learn_voices_tip": "Who is speaking is worked out in full on the first {minutes:g} minutes only; every later sentence goes to the voice it sounds most like, or to a new one. On a long recording this is much faster and needs far less memory. Somebody who says little at the start is recognised less well.",
         "gui.group_subtitles": "Subtitles",
         "gui.label_sub_preset": "Preset",
         "gui.label_sub_chars": "Characters per line",
@@ -736,6 +743,10 @@ MESSAGES = {
         "gui.rec_pause": "Pause",
         "gui.rec_resume": "Resume",
         "gui.rec_queued": "The recording is in the queue.",
+        "gui.rec_live": "Transcribe while recording",
+        "gui.rec_live_tip": "Transcribes the recording thirty seconds at a time while it is being made, so that stopping leaves little to do instead of an hour. What to do with it is asked before it starts. It needs a machine that transcribes faster than people talk.",
+        "gui.rec_live_started": "Recording, and transcribing as it goes.",
+        "gui.rec_live_finishing": "Recording stopped: finishing the transcription.",
         "gui.rec_empty": "Nothing was recorded: the microphone produced no sound.",
         "gui.rec_failed": "Recording failed.",
         "gui.rec_no_device": "No microphone found. Connect one — the menu notices by itself.",
@@ -1310,6 +1321,9 @@ MESSAGES = {
             "  (questo pyannote non riporta avanzamento: la barra sta ferma finché "
             "non finisce)",
         "diarize.result": "   turni rilevati: {turns} | speaker: {speakers}",
+        "diarize.learned": "   voci imparate dai primi {minutes:g} minuti: {voices}",
+        "diarize.learn_whole": "  Nei primi {minutes:g} minuti non parla nessuno, quindi non ci sono voci da imparare: ascolto tutta la registrazione.",
+        "diarize.learn_unsupported": "  Questo pyannote non lascia misurare le voci, quindi non si possono imparare dai primi {minutes:g} minuti: ascolto tutta la registrazione.",
         "diarize.failed_keeping_text":
             "  ATTENZIONE: ricostruire chi ha detto cosa è fallito, quindi la\n"
             "  trascrizione viene scritta come testo semplice. L'audio è stato\n"
@@ -1382,6 +1396,8 @@ MESSAGES = {
         "stage.diar_embeddings": "chi dice cosa: misuro le voci",
         "stage.diar_counting": "chi dice cosa: conto gli interlocutori",
         "stage.diar_clustering": "chi dice cosa: le distinguo",
+        "stage.diar_matching": "chi dice cosa: riconosco le voci",
+        "stage.live": "trascrivo mentre registri",
         "stage.laying_out": "impaginazione del testo",
         "stage.summary_selecting": "scelta di cosa conta",
         "stage.summary_reading": "lettura della trascrizione",
@@ -1531,6 +1547,8 @@ MESSAGES = {
         "gui.speakers_tip":
             "Quante voci ci sono, quando lo sai. Migliora molto il risultato; "
             "lasciato su \"non so\" vengono contate.",
+        "gui.learn_voices": "Impara le voci dai primi {minutes:g} minuti (più veloce)",
+        "gui.learn_voices_tip": "Chi parla viene riconosciuto per intero solo nei primi {minutes:g} minuti; ogni frase dopo va alla voce a cui somiglia di più, o a una voce nuova. Su una registrazione lunga è molto più veloce e usa molta meno memoria. Chi all'inizio parla poco viene riconosciuto peggio.",
         "gui.group_subtitles": "Sottotitoli",
         "gui.label_sub_preset": "Preset",
         "gui.label_sub_chars": "Caratteri per riga",
@@ -1766,6 +1784,10 @@ MESSAGES = {
         "gui.rec_pause": "Pausa",
         "gui.rec_resume": "Riprendi",
         "gui.rec_queued": "La registrazione è in coda.",
+        "gui.rec_live": "Trascrivi mentre registri",
+        "gui.rec_live_tip": "Trascrive la registrazione trenta secondi alla volta mentre la fai, così quando la fermi resta poco da fare invece di un'ora. Cosa farne viene chiesto prima di cominciare. Serve una macchina che trascrive più in fretta di quanto si parli.",
+        "gui.rec_live_started": "Registro, e trascrivo mentre registro.",
+        "gui.rec_live_finishing": "Registrazione finita: completo la trascrizione.",
         "gui.rec_empty": "Non è stato registrato nulla: dal microfono non arrivava suono.",
         "gui.rec_failed": "Registrazione fallita.",
         "gui.rec_no_device": "Nessun microfono trovato. Collegane uno: l'elenco se ne accorge da solo.",
@@ -2189,6 +2211,7 @@ HELP = {
         "help.auto_title":
             "name the library entry after what was said in it, not after the file",
         "help.diar_model": "HF id (online, needs a token) or path to a local config.yaml (offline)",
+        "help.diar_learn": "learn the voices from the first MINUTES minutes only and match the rest to them: much faster on a long recording",
         "help.library": "file the result in the library instead of writing a .txt next to the input",
         "help.library_store": "how the library keeps the original: copy (default), move, or reference it in place",
         "help.title": "title for the library entry (default: the input file name)",
@@ -2348,6 +2371,7 @@ HELP = {
         "help.auto_title":
             "intitola la voce di libreria con quello che ci si dice dentro, non con il file",
         "help.diar_model": "id HF (online, con token) o percorso a un config.yaml locale (offline)",
+        "help.diar_learn": "impara le voci solo dai primi MINUTES minuti e riconosce il resto da quelle: molto più veloce su una registrazione lunga",
         "help.library": "archivia il risultato in libreria invece di scrivere un .txt accanto al file",
         "help.library_store": "come la libreria conserva l'originale: copy (default), move, oppure reference (lascialo dov'è)",
         "help.title": "titolo della voce di libreria (default: il nome del file)",

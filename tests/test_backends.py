@@ -535,13 +535,13 @@ def test_the_model_never_sees_the_silence_and_the_subtitles_never_know(tmp_path,
         {"text": "two", "timestamp": (1.2, 3.0)},
     ])
 
-    segments, text, device = ov.transcribe(
+    segments, text, device, language = ov.transcribe(
         np.zeros(16000 * 10, dtype=np.float32), "small", "it", "auto",
         str(tmp_path / "models"), "")
 
     # Three seconds went to the model, not ten.
     assert seen["samples"] == 16000 * 3
-    assert text == "one two" and device == "CPU"
+    assert text == "one two" and device == "CPU" and language == "it"
     # And the second segment is back where it was said, after the silence.
     assert segments[0]["start"] == 0.0 and segments[0]["end"] == 1.0
     assert segments[1]["start"] == 8.2 and segments[1]["end"] == 10.0
@@ -562,3 +562,21 @@ def test_the_long_form_loop_is_asked_for_before_fixed_windows(tmp_path, monkeypa
     # No windowing on the first attempt: the model does its own.
     assert "chunk_length_s" not in seen["built"]
     assert seen["samples"] == 16000 * 120
+
+
+def test_a_model_is_loaded_once_inside_a_kept_block_and_let_go_after():
+    """A recording transcribed thirty seconds at a time must not compile the
+    model for every piece - and must not keep it once the recording is done."""
+    opened = []
+
+    def open_model():
+        opened.append(object())
+        return opened[-1]
+
+    with backends.models_kept():
+        first = backends.reuse(("fake", "small"), open_model)
+        assert backends.reuse(("fake", "small"), open_model) is first
+        assert backends.reuse(("fake", "base"), open_model) is not first
+    assert len(opened) == 2
+    assert backends.reuse(("fake", "small"), open_model) is not first
+    assert len(opened) == 3

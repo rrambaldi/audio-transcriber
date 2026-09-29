@@ -33,6 +33,7 @@ from PySide6.QtWidgets import (
 from ..i18n import t
 from ..jobs import HELD
 from ..library import STORE_COPY, STORE_MOVE, LibraryError
+from ..live import Growing
 from . import multimedia, options, style, symbols, widgets
 from .job_dialog import JobDialog
 from .recorder import make_recorder
@@ -84,6 +85,14 @@ class TranscribePanel(QWidget):
         self.recorder = make_recorder(self.queue.upload_dir(), store=self.store)
         self.recorder.recorded.connect(self._recorded)
         self.recorder.failed.connect(self.message.emit)
+        #: The recordings being transcribed as they are made, by path, until
+        #: the recorder says they have stopped.
+        self._growing = {}
+        if hasattr(self.recorder, "started"):
+            # Only the device recorder can be read while it writes.
+            self.recorder.before_start = self._ask_live
+            self.recorder.started.connect(self._started)
+            self.recorder.stopped.connect(self._stopped)
 
         self._build_player()
         self._build_queue_table()
@@ -310,12 +319,42 @@ class TranscribePanel(QWidget):
         if self.add_files(paths):
             event.acceptProposedAction()
 
+    def _ask_live(self):
+        """What a recording to be transcribed as it goes is for, or ``None``.
+
+        Asked before the recording starts rather than after: the job that
+        reads it has to know from its first piece."""
+        return self._ask(t("gui.job_dialog_title", title=options.recording_title()))
+
+    def _started(self, path, answers):
+        """A recording has begun; transcribe it as it goes, if that was asked."""
+        if answers is None:
+            return
+        growing = Growing()
+        self.queue.submit(path, title=options.recording_title(),
+                          filename=os.path.basename(path), store=STORE_MOVE,
+                          folder=self.record_folder, growing=growing, **answers)
+        self._growing[path] = growing
+        self.message.emit(t("gui.rec_live_started"))
+        self.refresh()
+
+    def _stopped(self, path):
+        """Tell the job reading this recording that there is no more to come.
+
+        Said even when nothing was captured, or the job would wait for ever."""
+        growing = self._growing.pop(path, None)
+        if growing is not None:
+            growing.finish()
+            self.message.emit(t("gui.rec_live_finishing"))
+
     def _recorded(self, path):
         """A finished recording goes straight into the queue.
 
         Whoever pressed "stop" has just finished a meeting; making them then
         find the file and press "transcribe" would be a pointless extra
-        step."""
+        step. One transcribed as it went is in the queue already."""
+        if path in self._growing:
+            return
         self.submit_paths([path], store=STORE_MOVE,
                           title=options.recording_title(),
                           folder=self.record_folder)

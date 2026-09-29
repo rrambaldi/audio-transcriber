@@ -349,3 +349,35 @@ def test_an_empty_text_is_not_an_override(form):
     nothing."""
     assert form.choices()["reference"] == ""
     assert "reference" not in settings_of(form)
+
+
+# --- voices learned from the start -----------------------------------------
+
+def test_learning_the_voices_is_asked_only_with_who_said_what(diarizing_form):
+    form = diarizing_form
+    for value in ("text", "subtitles"):
+        form.output_buttons[value].setChecked(True)
+        assert form.learn_voices.isEnabled() is False, value
+    for value in options.DIARIZING:
+        form.output_buttons[value].setChecked(True)
+        assert form.learn_voices.isEnabled() is True, value
+
+
+def test_learning_the_voices_becomes_the_minutes_the_pipeline_reads(diarizing_form):
+    from audio_transcriber.diarization import LEARN_MINUTES
+
+    form = diarizing_form
+    form.output_buttons["speakers"].setChecked(True)
+    form.learn_voices.setChecked(True)
+    assert settings_of(form)["diar_learn_minutes"] == LEARN_MINUTES
+
+    # Not ticked is 0, not None: None would leave a config.toml that learns
+    # the voices learning them anyway.
+    form.learn_voices.setChecked(False)
+    assert settings_of(form)["diar_learn_minutes"] == 0
+
+
+def test_the_dialog_heading_is_said_once(application):
+    """The callers say "Transcribe ..." already; the dialog used to say it again."""
+    dialog = JobDialog('Transcribe "Comitato"', SETTINGS)
+    assert dialog.windowTitle() == 'Transcribe "Comitato"'

@@ -378,3 +378,50 @@ def test_transcribing_again_in_place_replaces_what_the_audio_made_and_keeps_the_
     assert data["transcription"]["model"] == "large-v3"
     assert "speaker_names" not in data and "reference" not in data
     assert same.subtitles() == ["srt"]
+
+
+# --- a recording still being made -------------------------------------------
+
+def test_a_growing_recording_goes_through_the_live_loop_and_is_decoded_after(
+        engine, monkeypatch):
+    """Transcribed a piece at a time while it is written, then decoded whole,
+    once, for what needs all of it: its length and its drawing."""
+    from audio_transcriber import live
+
+    decoded, handed = [], {}
+
+    def growing_loop(source, growing, transcribe_piece, language, progress=None):
+        handed.update(source=source, growing=growing, language=language)
+        # The piece goes through the very engine a whole file would.
+        return transcribe_piece(np.zeros(16000, dtype=np.float32), language)
+
+    monkeypatch.setattr(pipeline, "transcribe_growing", growing_loop)
+    monkeypatch.setattr(pipeline, "load_audio",
+                        lambda source: decoded.append(source)
+                        or np.zeros(16000 * 3, dtype=np.float32))
+    growing = live.Growing()
+
+    result = pipeline.run("meeting.wav", dict(SETTINGS), growing=growing)
+
+    assert handed == {"source": "meeting.wav", "growing": growing, "language": "it"}
+    assert decoded == ["meeting.wav"]          # once, and after the loop
+    assert result.info["live"] is True
+    assert result.segments and "budget" in result.text
+
+
+def test_voices_learned_from_the_start_replace_the_whole_hearing(engine, monkeypatch):
+    monkeypatch.setattr(pipeline, "diarization_assets", lambda settings: (None, None))
+    monkeypatch.setattr(pipeline, "diarize", lambda *a, **k: pytest.fail("heard it all"))
+    seen = {}
+
+    def learn(audio, segments, token, speakers, model, minutes, progress=None):
+        seen["minutes"] = minutes
+        return [{**segment, "speaker": "SPEAKER_00"} for segment in segments]
+
+    monkeypatch.setattr(pipeline, "learn_speakers", learn)
+
+    result = pipeline.run("meeting.wav", dict(SETTINGS, diarize=True,
+                                              diar_learn_minutes=10))
+
+    assert seen["minutes"] == 10
+    assert result.diarized and "[SPEAKER_00]" in result.text

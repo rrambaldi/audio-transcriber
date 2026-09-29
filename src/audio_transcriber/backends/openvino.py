@@ -36,6 +36,7 @@ from ..formatting import format_duration
 from ..hardware import openvino_devices
 from ..i18n import t
 from ..quiet import hush_duplicate_logits_processors
+from . import reuse
 
 #: Whisper's own guards against inventing text over silence, and against
 #: getting stuck repeating itself. Only the long-form loop applies them, which
@@ -268,7 +269,7 @@ def warn_about_vad(vad):
 
 def transcribe(audio, model_name, language, device, model_dir, prompt,
                progress=None, vad=True, word_timestamps=False, **_unused):
-    """Transcribe and return ``(segments, raw_text, device_used)``.
+    """Transcribe and return ``(segments, raw_text, device_used, language)``.
 
     ``word_timestamps`` asks for a time per word, which is what makes a
     subtitle cut fall where the speaker paused instead of being interpolated
@@ -302,27 +303,32 @@ def transcribe(audio, model_name, language, device, model_dir, prompt,
     os.makedirs(model_dir, exist_ok=True)
     converted = os.path.join(model_dir, re.sub(r"[^\w.-]", "_", hf_id) + "-ov")
 
-    report(2, "stage.loading_model")
-    if os.path.isdir(converted) and os.listdir(converted):
-        print(t("openvino.reusing_model", path=converted))
-        model = OVModelForSpeechSeq2Seq.from_pretrained(converted, device=device)
-        processor = AutoProcessor.from_pretrained(converted)
-    else:
-        report(4, "stage.converting_model")
-        print(t("openvino.converting", model=hf_id))
-        model = OVModelForSpeechSeq2Seq.from_pretrained(hf_id, export=True, device=device)
-        processor = AutoProcessor.from_pretrained(hf_id)
-        model.save_pretrained(converted)
-        processor.save_pretrained(converted)
-        print(t("openvino.model_saved", path=converted))
+    def open_model():
+        report(2, "stage.loading_model")
+        if os.path.isdir(converted) and os.listdir(converted):
+            print(t("openvino.reusing_model", path=converted))
+            model = OVModelForSpeechSeq2Seq.from_pretrained(converted, device=device)
+            processor = AutoProcessor.from_pretrained(converted)
+        else:
+            report(4, "stage.converting_model")
+            print(t("openvino.converting", model=hf_id))
+            model = OVModelForSpeechSeq2Seq.from_pretrained(hf_id, export=True,
+                                                            device=device)
+            processor = AutoProcessor.from_pretrained(hf_id)
+            model.save_pretrained(converted)
+            processor.save_pretrained(converted)
+            print(t("openvino.model_saved", path=converted))
 
-    report(20, "stage.compiling_model")
-    print(t("openvino.compiling", device=device))
-    try:
-        model.to(device)
-        model.compile()
-    except Exception as exc:
-        print(t("openvino.compile_warning", error=exc))
+        report(20, "stage.compiling_model")
+        print(t("openvino.compiling", device=device))
+        try:
+            model.to(device)
+            model.compile()
+        except Exception as exc:
+            print(t("openvino.compile_warning", error=exc))
+        return model, processor
+
+    model, processor = reuse(("openvino", converted, device), open_model)
 
     # The recording as it arrived, because every timestamp the model reports
     # has to come back to this clock however much is cut out below.
@@ -416,4 +422,6 @@ def transcribe(audio, model_name, language, device, model_dir, prompt,
         chunks = restore_times(chunks, speech)
     segments = (segments_from_words(words_of(chunks)) if ran == "long_form_words"
                 else segments_of(chunks, audio_seconds or None))
-    return segments, (result.get("text") or ""), device
+    # The pipeline does not say which language it heard, so only the one
+    # asked for is reported.
+    return segments, (result.get("text") or ""), device, language or None

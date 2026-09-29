@@ -23,11 +23,19 @@ def ffmpeg_exe():
         return "ffmpeg"
 
 
-def load_audio(path, sample_rate=SAMPLE_RATE):
+def load_audio(path, sample_rate=SAMPLE_RATE, start=None, seconds=None):
     """Decode any container ffmpeg reads (wav, mp3, m4a, mp4, mkv, ...) into a
-    mono float32 array at ``sample_rate``."""
+    mono float32 array at ``sample_rate``.
+
+    ``start`` and ``seconds`` decode only that stretch, in seconds: how a
+    recording still being written is read a piece at a time."""
     from .i18n import t
-    command = [ffmpeg_exe(), "-nostdin", "-loglevel", "error", "-i", path,
+    window = []
+    if start:
+        window += ["-ss", f"{start:.6f}"]
+    if seconds is not None:
+        window += ["-t", f"{seconds:.6f}"]
+    command = [ffmpeg_exe(), "-nostdin", "-loglevel", "error", *window, "-i", path,
                "-f", "f32le", "-acodec", "pcm_f32le", "-ac", "1",
                "-ar", str(sample_rate), "-"]
     try:

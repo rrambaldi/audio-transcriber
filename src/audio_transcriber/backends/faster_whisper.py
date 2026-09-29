@@ -9,6 +9,7 @@ import sys
 
 from ..hardware import cpu_count, has_cuda
 from ..i18n import t
+from . import reuse
 
 #: Model sizes faster-whisper resolves on its own by downloading ready-made
 #: CTranslate2 weights. Anything else is treated as a path or a repo id.
@@ -62,7 +63,9 @@ def resolve_compute_type(compute_type, device):
 def transcribe(audio, model_name, language, device, model_dir, prompt,
                compute_type=None, threads=None, vad=True, beam_size=5,
                progress=None, word_timestamps=False, **_unused):
-    """Transcribe and return ``(segments, raw_text, device_description)``.
+    """Transcribe and return ``(segments, raw_text, device, language)``.
+
+    ``language`` is the one asked for, or the one the engine heard.
 
     ``word_timestamps`` asks the engine to time every word, which is what
     makes a subtitle cut fall exactly where the speaker paused instead of
@@ -84,9 +87,6 @@ def transcribe(audio, model_name, language, device, model_dir, prompt,
     if name not in KNOWN_SIZES and not os.path.isdir(name) and "/" not in name:
         print(t("faster_whisper.unknown_size", model=name), file=sys.stderr)
 
-    print(t("faster_whisper.loading", model=name, device=device,
-            compute_type=compute_type, threads=threads))
-    print(t("faster_whisper.cache", path=model_dir))
     if progress:
         # Loading a model is a download the first time and a few seconds every
         # time after: worth a mark of its own, or the bar sits at nothing while
@@ -97,18 +97,24 @@ def transcribe(audio, model_name, language, device, model_dir, prompt,
         return WhisperModel(name, device=device, compute_type=precision,
                             download_root=model_dir, cpu_threads=threads)
 
-    try:
-        model = load(compute_type)
-    except ValueError as exc:
-        # Some CPUs and builds do not support int8.
-        fallback = "float32"
-        if compute_type == fallback:
-            sys.exit(t("faster_whisper.load_failed", error=exc))
-        print(t("faster_whisper.compute_type_unsupported",
-                compute_type=compute_type, error=exc, fallback=fallback),
-              file=sys.stderr)
-        compute_type = fallback
-        model = load(compute_type)
+    def open_model():
+        print(t("faster_whisper.loading", model=name, device=device,
+                compute_type=compute_type, threads=threads))
+        print(t("faster_whisper.cache", path=model_dir))
+        try:
+            return load(compute_type), compute_type
+        except ValueError as exc:
+            # Some CPUs and builds do not support int8.
+            fallback = "float32"
+            if compute_type == fallback:
+                sys.exit(t("faster_whisper.load_failed", error=exc))
+            print(t("faster_whisper.compute_type_unsupported",
+                    compute_type=compute_type, error=exc, fallback=fallback),
+                  file=sys.stderr)
+            return load(fallback), fallback
+
+    model, compute_type = reuse(("faster-whisper", name, device, compute_type,
+                                model_dir, threads), open_model)
 
     print(t("transcribe.running"))
     segment_iterator, info = model.transcribe(
@@ -123,8 +129,9 @@ def transcribe(audio, model_name, language, device, model_dir, prompt,
     )
 
     duration = getattr(info, "duration", None) or 0.0
-    if not language and getattr(info, "language", None):
-        print(t("faster_whisper.detected_language", language=info.language,
+    spoken = language or getattr(info, "language", None)
+    if not language and spoken:
+        print(t("faster_whisper.detected_language", language=spoken,
                 probability=getattr(info, "language_probability", 0.0)))
 
     segments, texts, last_percent = [], [], -1
@@ -159,4 +166,4 @@ def transcribe(audio, model_name, language, device, model_dir, prompt,
             print("\r" + t("transcribe.progress", percent=100), end="", file=sys.stderr)
         print(file=sys.stderr)  # close the progress line
 
-    return segments, " ".join(texts), f"{device}/{compute_type}"
+    return segments, " ".join(texts), f"{device}/{compute_type}", spoken

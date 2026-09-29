@@ -18,8 +18,15 @@ from . import paths, titles, waveform
 from .audio import duration_seconds, load_audio
 from .cleaning import clean_segments, paragraphs_from_blob, to_paragraphs
 from .config import read_prompt
-from .diarization import assign_speakers, check_diar_assets, diarize, format_dialogue
+from .diarization import (
+    assign_speakers,
+    check_diar_assets,
+    diarize,
+    format_dialogue,
+    learn_speakers,
+)
 from .i18n import t
+from .live import transcribe_growing
 from .reference import ReferenceError
 from .reference import correct as respell
 from .reference import prompt_from as reference_prompt
@@ -243,14 +250,19 @@ def report_to(progress):
     return lambda percent, stage=None: progress(int(round(percent)))
 
 
-def run(source, settings, prompt=None, progress=None):
+def run(source, settings, prompt=None, progress=None, growing=None):
     """Transcribe ``source`` and return a :class:`Result`.
 
     ``progress`` is called as the work advances, which is how an interface can
     show a bar for a job that takes an hour. It receives a percentage and,
     when the caller accepts a second argument, the message key of the stage
     reached — the percentage alone stands still for the whole of a long
-    transcription on an engine that cannot report its own progress."""
+    transcription on an engine that cannot report its own progress.
+
+    ``growing`` is a :class:`~audio_transcriber.live.Growing` when ``source``
+    is a recording still being made: it is then transcribed a piece at a time
+    as it is written (see :mod:`audio_transcriber.live`), and decoded whole
+    only once it has stopped, for what needs all of it at once."""
     if prompt is None:
         prompt = resolve_prompt(settings)
     # Read before a minute of work is spent: a file that cannot be opened
@@ -263,10 +275,11 @@ def run(source, settings, prompt=None, progress=None):
     report = report_to(progress)
     report(*STAGE_STARTED)
 
-    audio = load_audio(source)
-    audio_duration = duration_seconds(audio)
-    shape = waveform.loudness(audio)
-    report(*STAGE_DECODED)
+    if growing is None:
+        audio = load_audio(source)
+        audio_duration = duration_seconds(audio)
+        shape = waveform.loudness(audio)
+        report(*STAGE_DECODED)
 
     token = diar_model = None
     diarizing = bool(settings.get("diarize"))
@@ -276,20 +289,34 @@ def run(source, settings, prompt=None, progress=None):
 
     started = time.time()
     band = ENGINE_BAND_WITH_DIARIZATION if diarizing else ENGINE_BAND
-    segments, blob, info = transcribe(
-        audio, settings["model"], settings["language"] or None, settings["device"],
-        model_dir=settings.get("models_dir"), prompt=prompt,
-        backend=settings["backend"], compute_type=settings.get("compute_type"),
-        threads=settings.get("threads"), vad=settings.get("vad", True),
-        progress=scale(band, report, STAGE_READY[1]),
-        # Word timings make a subtitle cut fall where the speaker paused
-        # instead of being interpolated: worth the time when subtitles are
-        # wanted, not worth it otherwise.
-        # Word timings make a subtitle cut fall where the speaker paused
-        # instead of being interpolated: worth the time when subtitles are
-        # wanted, not worth it otherwise.
-        word_timestamps=bool(settings.get("subtitles")),
-    )
+
+    def engine(piece, language, model=None, progress=None):
+        return transcribe(
+            piece, model or settings["model"], language, settings["device"],
+            model_dir=settings.get("models_dir"), prompt=prompt,
+            backend=settings["backend"], compute_type=settings.get("compute_type"),
+            threads=settings.get("threads"), vad=settings.get("vad", True),
+            progress=progress,
+            # Word timings make a subtitle cut fall where the speaker paused
+            # instead of being interpolated: worth the time when subtitles are
+            # wanted, not worth it otherwise.
+            word_timestamps=bool(settings.get("subtitles")),
+        )
+
+    engine_progress = scale(band, report, STAGE_READY[1])
+    if growing is None:
+        segments, blob, info = engine(audio, settings["language"] or None,
+                                      progress=engine_progress)
+    else:
+        segments, blob, info = transcribe_growing(
+            source, growing, engine, settings["language"] or None,
+            progress=engine_progress)
+        info = {**info, "live": True}
+        # The whole recording, now that there is one: its length, its drawing
+        # and who said what in it are about all of it.
+        audio = load_audio(source)
+        audio_duration = duration_seconds(audio)
+        shape = waveform.loudness(audio)
     report(band[1], STAGE_LAYING_OUT)
     if not segments and not blob.strip():
         raise EmptyTranscription()   # its message is the translated one
@@ -305,9 +332,16 @@ def run(source, settings, prompt=None, progress=None):
     text, diarized = None, False
     if diarizing:
         report(DIARIZATION_BAND[0], STAGE_DIARIZING)
+        diarizing_progress = scale(DIARIZATION_BAND, report, STAGE_DIARIZING)
         try:
-            turns = diarize(audio, token, settings.get("speakers"), diar_model,
-                            progress=scale(DIARIZATION_BAND, report, STAGE_DIARIZING))
+            if settings.get("diar_learn_minutes"):
+                spoken = learn_speakers(audio, segments, token, settings.get("speakers"),
+                                        diar_model, settings["diar_learn_minutes"],
+                                        progress=diarizing_progress)
+            else:
+                turns = diarize(audio, token, settings.get("speakers"), diar_model,
+                                progress=diarizing_progress)
+                spoken = assign_speakers(segments, turns) if segments and turns else []
         except Cancelled:
             raise                     # asked for: the job ends, nothing filed
         except (Exception, SystemExit) as exc:
@@ -317,9 +351,9 @@ def run(source, settings, prompt=None, progress=None):
             # text is written plain and the reason is said out loud.
             print(t("diarize.failed_keeping_text", error=str(exc) or
                     exc.__class__.__name__), file=sys.stderr)
-            turns = []
-        if segments and turns:
-            segments = assign_speakers(segments, turns)
+            spoken = []
+        if spoken:
+            segments = spoken
             text = format_dialogue(segments) + "\n"
             diarized = True
     if text is None:
@@ -398,9 +432,16 @@ def _write_run(entry, result, settings):
             "backend": result.info["backend"],
             "device": result.info["device"],
             "model": result.info["model"],
-            "language": settings.get("language") or "auto",
+            "language": (settings.get("language") or result.info.get("language")
+                         or "auto"),
             "diarized": result.diarized,
             "speakers": settings.get("speakers"),
+            # Who said what heard only the start, and matched the rest to it.
+            "diar_learn_minutes": (settings.get("diar_learn_minutes") or None
+                                   if result.diarized else None),
+            # Transcribed while it was recorded, so the time below is the
+            # recording's length and not the engine's.
+            "live": bool(result.info.get("live")),
             "vocabulary": split_names(settings.get("vocabulary")) or None,
             "finished_at": datetime.now().astimezone().isoformat(timespec="seconds"),
             "elapsed_seconds": round(result.elapsed, 1),

@@ -8,6 +8,32 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- **The window can transcribe a recording while it is being made.** *Transcribe
+  while recording*, beside the recorder's buttons, asks what the recording is
+  for before it starts, and a job reads the WAV as it grows: every thirty
+  seconds it cuts at the quietest pause of the last fifteen and transcribes
+  that piece, so pressing *Stop* leaves the last piece and whatever needs the
+  whole recording - who said what, the drawing - instead of the whole
+  transcription. The first piece settles the model and, when the language is
+  detected, the language, for the rest; the model stays loaded between pieces
+  and is let go at the end. It needs the `[record]` extra (the Qt recorder
+  writes a file that cannot be read while it grows) and a machine that
+  transcribes faster than people talk. A live job that fails keeps its
+  recording, and a restart finds an ordinary job for the finished file.
+
+- **Who said what can learn the voices from the first ten minutes.** Ticked
+  in the dialog (`learn_minutes = 10` under `[diarization]`, or
+  `--diar-learn 10`), pyannote hears only the start in full; every later
+  sentence gets the voice it sounds most like, measured with pyannote's own
+  voice model, or a new voice when it sounds like none of them and the number
+  of speakers was left open. The part that grows with the square of the
+  length - comparing every stretch with every other - goes: on the two-core
+  server, ten minutes of a real recording took 49 minutes heard whole and 11
+  with the voices learned from the first three, and 39 of the 40 later
+  sentences got the same voice either way. Somebody who says little at the
+  start is recognised less well; a recording no longer than the start, or
+  one whose start is silent, is heard whole.
+
 - **A folder of the library can be a folder on another disk, made from the
   window.** *Link a folder on the disk…*, at the end of *Move to* and in the
   tree's right-click menu, asks for the folder and a name; what is filed there
@@ -506,6 +532,10 @@ All notable changes to this project are documented here. The format follows
   a drawing of nothing anybody is still looking at.
 
 ### Fixed
+
+- **The dialog that starts a transcription said "Transcribe" twice** -
+  *Transcribe "Transcribe "Meeting""* - because its callers had already said
+  it.
 
 - **Move to did nothing in a library without folders**: its menu listed
   the other folders, and there were none. It now always ends with *New

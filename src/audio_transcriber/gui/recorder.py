@@ -71,12 +71,22 @@ class DeviceRecorder(QWidget):
     #: Also carries a warning about a recording that was made and is silent:
     #: the file is real, and the user still needs to know.
     failed = Signal(str)
+    #: A recording has begun: its path, and what :attr:`before_start`
+    #: answered when it is to be transcribed as it goes (``None`` otherwise).
+    started = Signal(str, object)
+    #: A recording has stopped, whether or not anything was captured: the
+    #: path :attr:`started` gave. A job reading it is waiting to be told.
+    stopped = Signal(str)
 
     def __init__(self, target_dir, store=None, parent=None, backends=None):
         super().__init__(parent)
         self._target_dir = target_dir
         self._store = store
         self._backends = backends
+        #: Asked before a recording that is to be transcribed as it goes:
+        #: what to do with it, or ``None`` for "do not record". The panel sets
+        #: it, because what to do with a recording is the panel's question.
+        self.before_start = None
         self._session = None
         self._monitor = None
         self._test_started = 0.0
@@ -125,6 +135,12 @@ class DeviceRecorder(QWidget):
         self.folder_button.setToolTip(t("gui.rec_open_folder_tip"))
         self.folder_button.clicked.connect(self.open_folder)
         symbols.dress(self.folder_button, "folder_open")
+        # Transcribed while it is recorded, so that stopping leaves seconds of
+        # work instead of an hour. Only this recorder offers it: the file it
+        # writes is a WAV that can be read while it grows, and the Qt one's is
+        # not.
+        self.live = QCheckBox(t("gui.rec_live"))
+        self.live.setToolTip(t("gui.rec_live_tip"))
         self.verdict = _Line()
         self.button = QPushButton(t("gui.rec_start"))
         self.button.clicked.connect(self.toggle)
@@ -171,6 +187,7 @@ class DeviceRecorder(QWidget):
         buttons.addWidget(self.pause_button)
         buttons.addWidget(self.test_button)
         buttons.addWidget(self.folder_button)
+        buttons.addWidget(self.live)
         buttons.addStretch(1)
         buttons.addWidget(self.elapsed)
         layout.addLayout(buttons)
@@ -338,6 +355,11 @@ class DeviceRecorder(QWidget):
         if source is None:
             self.message.setText(t("gui.rec_no_device"))
             return
+        answers = None
+        if self.live.isChecked() and self.before_start is not None:
+            answers = self.before_start()
+            if answers is None:
+                return              # asked, and not answered: nothing recorded
         path = os.path.join(self._target_dir, options.recording_stem() + ".wav")
         session = recording.Recording(path, source, mix_with=self.chosen_mix(),
                                       backends=self._backends)
@@ -352,6 +374,7 @@ class DeviceRecorder(QWidget):
         self._save_state()
         self.message.setText("")
         self._show_recording(True)
+        self.started.emit(path, answers)
 
     def stop(self):
         """Finish the file and hand it over, if anything was captured."""
@@ -376,6 +399,7 @@ class DeviceRecorder(QWidget):
         elif not session.error:
             self.message.setText(t("gui.rec_empty"))
             self.failed.emit(t("gui.rec_empty"))
+        self.stopped.emit(session.path)
 
     def open_folder(self):
         """Show the last recording in the file manager, or the folder itself.
@@ -415,7 +439,7 @@ class DeviceRecorder(QWidget):
     def _freeze(self, frozen):
         """Hold the menus still while a device of theirs is open."""
         for widget in (self.host_apis, self.sources, self.mix_enabled,
-                       self.mix_sources, self.reload_button):
+                       self.mix_sources, self.reload_button, self.live):
             widget.setEnabled(not frozen)
         if not frozen:
             self._source_chosen()      # restores what may and may not be mixed
@@ -468,6 +492,7 @@ class DeviceRecorder(QWidget):
         self.mix_enabled.setChecked(
             bool(self._store.value("record_mix_enabled", False, bool))
             and self.mix_sources.count() > 0)
+        self.live.setChecked(bool(self._store.value("record_live", False, bool)))
 
     def _save_state(self):
         if self._store is None:
@@ -476,6 +501,7 @@ class DeviceRecorder(QWidget):
         self._store.setValue("record_source", self.sources.currentData())
         self._store.setValue("record_mix", self.mix_sources.currentData())
         self._store.setValue("record_mix_enabled", self.mix_enabled.isChecked())
+        self._store.setValue("record_live", self.live.isChecked())
 
 
 class _Line(QLabel):

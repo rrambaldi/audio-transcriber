@@ -14,6 +14,8 @@ packages are installed and what accelerators exist, so ``--hardware`` stays
 instant even when a full OpenVINO stack is present.
 """
 import sys
+import threading
+from contextlib import contextmanager
 
 from ..hardware import has_openvino_accelerator, module_available
 from ..i18n import t
@@ -111,3 +113,34 @@ def load(name):
     else:
         sys.exit(t("backend.unknown", name=name, valid=", ".join(BACKENDS)))
     return module
+
+
+#: The models a :func:`models_kept` block has loaded, per thread: the queue's
+#: worker is the only one that transcribes, and a block belongs to one job.
+_kept = threading.local()
+
+
+@contextmanager
+def models_kept():
+    """Keep every model loaded until the block ends.
+
+    A transcription loads its model once and lets it go, which is right for
+    one recording and wrong for a recording transcribed thirty seconds at a
+    time: compiling for an iGPU takes longer than a piece does. Inside this
+    block a backend asked for the same model again gets the one it already
+    has; at the end they are let go, and their memory with them."""
+    _kept.models = {}
+    try:
+        yield
+    finally:
+        _kept.models = None
+
+
+def reuse(key, open_model):
+    """``open_model()``, or what it returned for ``key`` earlier in the block."""
+    models = getattr(_kept, "models", None)
+    if models is None:
+        return open_model()
+    if key not in models:
+        models[key] = open_model()
+    return models[key]

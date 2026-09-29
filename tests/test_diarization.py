@@ -870,3 +870,140 @@ def test_two_labels_under_one_name_have_their_turns_run_together():
     renamed = diarization.rename_speakers(
         TURNS, {"SPEAKER_00": "Anna", "SPEAKER_01": "Anna"})
     assert diarization.format_dialogue(renamed) == "[Anna] uno due tre"
+
+
+# --- voices learned from the start ------------------------------------------
+#
+# The voice of a stretch of audio is faked from the audio itself: every sample
+# of somebody's speech holds that person's number, and "what the voice sounds
+# like" is a vector pointing that person's way. No pyannote, no torch.
+
+VOICES = {1: (1.0, 0.0, 0.0), 2: (0.0, 1.0, 0.0), 3: (0.0, 0.0, 1.0)}
+RATE = 100      # samples a second: enough to place a turn, small to build
+
+
+def spoken(*turns):
+    """Audio in which ``(start, end, person)`` turns were said."""
+    import numpy as np
+
+    audio = np.zeros(int(max(end for _s, end, _p in turns) * RATE), dtype=np.float32)
+    for start, end, person in turns:
+        audio[int(start * RATE):int(end * RATE)] = person
+    return audio
+
+
+def embed(samples):
+    import numpy as np
+
+    if len(samples) < RATE:              # under a second says nothing
+        return None
+    person = int(round(float(np.median(samples))))
+    return np.array(VOICES[person]) if person in VOICES else None
+
+
+def sentence(start, end):
+    return {"text": f"{start}-{end}", "start": start, "end": end}
+
+
+def test_the_voices_heard_at_the_start_are_learned_from_their_turns():
+    audio = spoken((0, 5, 1), (5, 9, 2))
+    voices = diarization.learn_voices(audio, [(0, 5, "SPEAKER_00"), (5, 9, "SPEAKER_01")],
+                                      embed, RATE)
+    assert set(voices) == {"SPEAKER_00", "SPEAKER_01"}
+
+
+def test_a_later_sentence_goes_to_the_voice_it_sounds_like():
+    audio = spoken((0, 5, 1), (5, 10, 2), (10, 14, 2), (14, 20, 1))
+    voices = diarization.learn_voices(audio, [(0, 5, "SPEAKER_00"), (5, 10, "SPEAKER_01")],
+                                      embed, RATE)
+    matched = diarization.match_voices([sentence(10, 14), sentence(14, 20)], audio,
+                                       embed, voices, sample_rate=RATE)
+    assert [s["speaker"] for s in matched] == ["SPEAKER_01", "SPEAKER_00"]
+
+
+def test_somebody_who_arrives_late_becomes_a_voice_of_their_own():
+    audio = spoken((0, 5, 1), (5, 10, 2), (10, 15, 3), (15, 20, 3))
+    voices = diarization.learn_voices(audio, [(0, 5, "SPEAKER_00"), (5, 10, "SPEAKER_01")],
+                                      embed, RATE)
+    matched = diarization.match_voices([sentence(10, 15), sentence(15, 20)], audio,
+                                       embed, voices, sample_rate=RATE)
+    # A new voice, and the second sentence recognises it.
+    assert [s["speaker"] for s in matched] == ["SPEAKER_02", "SPEAKER_02"]
+
+
+def test_with_the_number_of_speakers_given_nobody_new_appears():
+    audio = spoken((0, 5, 1), (5, 10, 2), (10, 15, 3))
+    voices = diarization.learn_voices(audio, [(0, 5, "SPEAKER_00"), (5, 10, "SPEAKER_01")],
+                                      embed, RATE)
+    matched = diarization.match_voices([sentence(10, 15)], audio, embed, voices,
+                                       fixed=True, sample_rate=RATE)
+    assert matched[0]["speaker"] in ("SPEAKER_00", "SPEAKER_01")
+
+
+def test_a_sentence_too_short_to_measure_keeps_the_voice_before_it():
+    audio = spoken((0, 5, 1), (5, 10, 2), (10, 15, 2), (15, 15.5, 1))
+    voices = diarization.learn_voices(audio, [(0, 5, "SPEAKER_00"), (5, 10, "SPEAKER_01")],
+                                      embed, RATE)
+    matched = diarization.match_voices(
+        [sentence(10, 15), sentence(15, 15.5), {"text": "no times"}], audio, embed,
+        voices, sample_rate=RATE)
+    assert [s["speaker"] for s in matched] == ["SPEAKER_01"] * 3
+
+
+@pytest.fixture
+def heard(monkeypatch):
+    """A pipeline that has heard what it is given, and a voice to measure it with.
+
+    Every stretch it is handed comes back as the turns of ``spoken`` inside it."""
+    calls = []
+    said = {}
+
+    def turns(pipeline, audio, num_speakers, sample_rate=RATE, progress=None):
+        calls.append(len(audio) / sample_rate)
+        end = len(audio) / sample_rate
+        return [(start, min(stop, end), f"SPEAKER_{person - 1:02d}")
+                for start, stop, person in said["turns"] if start < end]
+
+    monkeypatch.setattr(diarization, "ready_pipeline", lambda model, token: object())
+    monkeypatch.setattr(diarization, "_turns", turns)
+    monkeypatch.setattr(diarization, "voice_of", lambda pipeline, sample_rate: embed)
+    return calls, said
+
+
+def test_only_the_start_is_heard_in_full(heard):
+    calls, said = heard
+    said["turns"] = [(0, 30, 1), (30, 60, 2), (60, 90, 1), (90, 120, 2)]
+    audio = spoken(*said["turns"])
+    segments = [sentence(0, 30), sentence(30, 60), sentence(60, 90), sentence(90, 120)]
+
+    labelled = diarization.learn_speakers(audio, segments, None, None, minutes=1,
+                                          sample_rate=RATE)
+
+    assert calls == [60.0]                     # one minute heard, not two
+    assert [s["speaker"] for s in labelled] == [
+        "SPEAKER_00", "SPEAKER_01", "SPEAKER_00", "SPEAKER_01"]
+
+
+def test_a_recording_no_longer_than_the_start_is_heard_whole(heard):
+    calls, said = heard
+    said["turns"] = [(0, 20, 1), (20, 40, 2)]
+    audio = spoken(*said["turns"])
+
+    labelled = diarization.learn_speakers(audio, [sentence(0, 20), sentence(20, 40)],
+                                          None, None, minutes=1, sample_rate=RATE)
+
+    assert calls == [40.0]
+    assert [s["speaker"] for s in labelled] == ["SPEAKER_00", "SPEAKER_01"]
+
+
+def test_a_start_with_nobody_speaking_falls_back_to_hearing_it_all(heard, capsys):
+    calls, said = heard
+    said["turns"] = [(70, 90, 1), (90, 120, 2)]
+    audio = spoken((0, 60, 0), *said["turns"])
+
+    labelled = diarization.learn_speakers(audio, [sentence(70, 90), sentence(90, 120)],
+                                          None, None, minutes=1, sample_rate=RATE)
+
+    assert calls == [60.0, 120.0]
+    assert "whole recording" in capsys.readouterr().out
+    assert [s["speaker"] for s in labelled] == ["SPEAKER_00", "SPEAKER_01"]

@@ -30,10 +30,13 @@ class JobDialog(QDialog):
     def __init__(self, title, settings=None, defaults=None, vocabularies=None,
                  custom_text=None, store=None, parent=None, redo=False):
         super().__init__(parent)
-        self.setWindowTitle(t("gui.job_dialog_title", title=title))
+        # ``title`` is the heading as it is to be read: the callers already
+        # say "Transcribe ..." or "Transcribe 3 recordings", and wrapping it
+        # again made "Transcribe "Transcribe "Meeting""".
+        self.setWindowTitle(title)
         self.setModal(True)
 
-        heading = QLabel(t("gui.job_dialog_title", title=title))
+        heading = QLabel(title)
         heading.setWordWrap(True)
         note = QLabel(t("gui.job_dialog_note"))
         note.setWordWrap(True)

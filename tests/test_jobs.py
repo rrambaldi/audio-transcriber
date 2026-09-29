@@ -747,7 +747,7 @@ def working_queue(monkeypatch):
 
     said = {"text": "seconda versione"}
 
-    def run(source, settings, prompt="", progress=None):
+    def run(source, settings, prompt="", progress=None, growing=None):
         if said["text"] is None:
             raise RuntimeError("the model exploded")
         return pipeline.Result(
@@ -830,3 +830,62 @@ def test_a_summary_done_again_can_keep_the_old_one(queue, filed):
     assert old["engine"] == "extractive"
     assert entry.read_summary_version(old["file"]).strip()
     assert entry.has_summary()
+
+
+# --- a recording transcribed while it is made --------------------------------
+
+def test_a_growing_recording_reaches_the_runner_and_is_drawn_once_filed(tmp_path):
+    from audio_transcriber.live import Growing
+
+    ran, measured, recording = [], [], threading.Event()
+
+    def runner(job):
+        ran.append(job)
+        recording.wait(5)
+
+    queue = jobs_module.JobQueue(SETTINGS, runner=runner,
+                                 measurer=lambda path: measured.append(path) or [1])
+    source = pathlib.Path(queue.upload_dir()) / "meeting.wav"
+    source.write_bytes(b"RIFF")
+    growing = Growing()
+
+    job = queue.submit(str(source), growing=growing)
+    assert wait_for_condition(lambda: ran)
+    time.sleep(0.1)
+    # Not drawn while it records: it would be a drawing of its first second.
+    assert measured == []
+    recording.set()
+    wait_for(queue, job.id)
+    assert ran[0].growing is growing
+    assert wait_for_condition(lambda: measured == [str(source)])
+
+
+def test_a_failed_live_transcription_keeps_the_recording(tmp_path):
+    """It may still be recording, and it is the only copy of that meeting."""
+    from audio_transcriber.live import Growing
+
+    def runner(job):
+        raise RuntimeError("the model exploded")
+
+    queue = jobs_module.JobQueue(SETTINGS, runner=runner, measurer=lambda path: [1])
+    source = pathlib.Path(queue.upload_dir()) / "meeting.wav"
+    source.write_bytes(b"RIFF")
+
+    job = queue.submit(str(source), growing=Growing())
+    wait_for(queue, job.id)
+    assert job.status == "failed"
+    assert source.exists()
+
+
+def test_a_growing_recording_is_not_written_down_as_growing():
+    """After a restart the recorder is gone: the job is an ordinary one."""
+    assert "growing" not in jobs_module.Job.STATE_FIELDS
+
+
+def wait_for_condition(condition, timeout=5.0):
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        if condition():
+            return True
+        time.sleep(0.01)
+    return False

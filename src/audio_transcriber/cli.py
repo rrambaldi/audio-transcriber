@@ -176,6 +176,9 @@ enabled = false
 # speakers = 3
 # HF repo id (online, needs a token) or path to a local config.yaml (offline).
 # model = "pyannote/speaker-diarization-3.1"
+# Learn the voices from the first minutes only, and match the rest of the
+# recording to them: much faster on a long one, a little less exact.
+# learn_minutes = 10
 
 [paths]
 # Override where models, recordings and keyword sets are kept. On a server,
@@ -309,6 +312,8 @@ def build_parser(defaults):
     tr.add_argument("--hf-token", dest="hf_token", default=None, help=t("help.hf_token"))
     tr.add_argument("--diar-model", dest="diar_model", default=None,
                     help=t("help.diar_model"))
+    tr.add_argument("--diar-learn", dest="diar_learn_minutes", type=float,
+                    default=None, metavar="MINUTES", help=t("help.diar_learn"))
     tr.add_argument("--auto-title", dest="auto_title", action="store_true",
                     default=None, help=t("help.auto_title"))
     tr.add_argument("--library", action="store_true", help=t("help.library"))
@@ -1262,7 +1267,8 @@ def collect_cli_settings(args):
     ``--no-vad`` is the one flag that has to be inverted."""
     names = ("language", "backend", "device", "model", "compute_type", "threads",
              "prompt", "prompt_file", "vocabulary", "para_gap", "para_max_chars",
-             "keep_fillers", "diarize", "speakers", "diar_model", "auto_title",
+             "keep_fillers", "diarize", "speakers", "diar_model", "diar_learn_minutes",
+             "auto_title",
              "models_dir",
              "library_dir", "vocab_dir", "subtitle_preset", "subtitle_chars",
              "subtitle_lines", "subtitle_words", "output", "summarizer",

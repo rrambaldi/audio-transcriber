@@ -74,6 +74,7 @@ DEFAULTS = {
     "summary_llama_server": None,  # None: 'llama-server' on the PATH
     "speakers": None,
     "diar_model": None,
+    "diar_learn_minutes": None,   # None: pyannote hears the whole recording
     "models_dir": None,
     "library_dir": None,
     "vocab_dir": None,
@@ -126,6 +127,7 @@ SCHEMA = {
     ("general", "auto_title"): ("auto_title", bool),
     ("diarization", "speakers"): ("speakers", int),
     ("diarization", "model"): ("diar_model", str),
+    ("diarization", "learn_minutes"): ("diar_learn_minutes", float),
     ("paths", "models"): ("models_dir", str),
     ("paths", "library"): ("library_dir", str),
     ("paths", "vocabularies"): ("vocab_dir", str),
