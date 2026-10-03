@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.10.1] — 2026-10-03
+
 ### Fixed
 
 - **On an Intel GPU, 0.10.0 failed every recording longer than 30 seconds,
