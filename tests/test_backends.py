@@ -426,6 +426,27 @@ def test_the_long_form_guards_are_off_by_default_nowhere():
     assert len(ov.DECODING_GUARDS["temperature"]) > 1
 
 
+class OldWhisper:
+    """optimum-intel's Whisper as of 2.2.0: the first argument still has the
+    name transformers 4 gave it."""
+
+    def prepare_inputs_for_generation(self, decoder_input_ids, past_key_values=None,
+                                      **kwargs):
+        return {"decoder_input_ids": decoder_input_ids}
+
+
+def test_the_silence_detector_reaches_an_old_whisper():
+    """transformers 5's no-speech detector names the tokens ``input_ids``.
+    Refused, it took the long-form loop down with it, and with that the
+    guards against inventing text over a silence."""
+    model = ov.accept_input_ids(OldWhisper())
+    assert model.prepare_inputs_for_generation(input_ids=[1], inputs=[0]) == {
+        "decoder_input_ids": [1]}
+    # The loop's own calls, positional, are passed on as they were.
+    assert model.prepare_inputs_for_generation([2], past_key_values=None) == {
+        "decoder_input_ids": [2]}
+
+
 # --- installed, and yet not there -----------------------------------------
 
 def test_a_package_that_is_there_but_will_not_load_says_so(monkeypatch):
@@ -470,7 +491,7 @@ def fake_intel_stack(monkeypatch, chunks):
 
     seen = {}
 
-    class Model:
+    class Model(OldWhisper):
         @classmethod
         def from_pretrained(cls, *args, **kwargs):
             return cls()
@@ -562,6 +583,9 @@ def test_the_long_form_loop_is_asked_for_before_fixed_windows(tmp_path, monkeypa
     # No windowing on the first attempt: the model does its own.
     assert "chunk_length_s" not in seen["built"]
     assert seen["samples"] == 16000 * 120
+    # And the model it gets lets the loop's silence detector in.
+    assert seen["built"]["model"].prepare_inputs_for_generation(input_ids=[1]) == {
+        "decoder_input_ids": [1]}
 
 
 def test_a_model_is_loaded_once_inside_a_kept_block_and_let_go_after():

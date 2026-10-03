@@ -533,6 +533,17 @@ All notable changes to this project are documented here. The format follows
 
 ### Fixed
 
+- **OpenVINO fell back to fixed 30-second windows on the newest libraries**,
+  saying "missing 1 required positional argument: 'decoder_input_ids'", and
+  the `pip install -U` it suggested could not help: optimum-intel 2.2.0 with
+  transformers 5.5 is the pair that disagrees. transformers' silence detector
+  hands Whisper the tokens under a name optimum-intel's copy of the method
+  does not know; the backend now passes them on under the old one. The
+  long-form loop runs again, and with it Whisper's skipping of windows that
+  are only silence, the keyword prompt and the guards against inventing text
+  - on the test recording the 25 seconds of silence are no longer one
+  segment.
+
 - **The dialog that starts a transcription said "Transcribe" twice** -
   *Transcribe "Transcribe "Meeting""* - because its callers had already said
   it.

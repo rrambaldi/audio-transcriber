@@ -23,6 +23,7 @@ recent enough versions, so a failure falls back to fixed windows and says so
 rather than stopping.
 """
 import bisect
+import functools
 import inspect
 import os
 import re
@@ -99,6 +100,32 @@ def takes_ignore_warning():
     except Exception:
         return False
     return "ignore_warning" in parameters
+
+
+def accept_input_ids(model):
+    """Let transformers 5 hand the decoder's tokens over by their new name.
+
+    The no-speech detector of the long-form loop calls
+    ``prepare_inputs_for_generation(input_ids=...)``, by keyword. optimum-intel
+    (2.2.0 still) keeps the transformers 4 copy of that method, whose first
+    argument is ``decoder_input_ids``, so the call is refused and the whole
+    loop with it — upgrading both does not help, the newest pair is the one
+    that disagrees. The tokens are passed on under the old name; a model that
+    already takes ``input_ids`` is left as it is."""
+    prepare = model.prepare_inputs_for_generation
+    if "input_ids" in inspect.signature(prepare).parameters:
+        return model
+
+    # wraps: transformers reads this method's signature to check the
+    # arguments of generate(), and it has to find the same one as before.
+    @functools.wraps(prepare)
+    def prepare_inputs_for_generation(*args, input_ids=None, **kwargs):
+        if input_ids is not None:
+            args = (input_ids,) + args
+        return prepare(*args, **kwargs)
+
+    model.prepare_inputs_for_generation = prepare_inputs_for_generation
+    return model
 
 #: Short model names mapped to Hugging Face ids.
 MODEL_MAP = {
@@ -326,7 +353,7 @@ def transcribe(audio, model_name, language, device, model_dir, prompt,
             model.compile()
         except Exception as exc:
             print(t("openvino.compile_warning", error=exc))
-        return model, processor
+        return accept_input_ids(model), processor
 
     model, processor = reuse(("openvino", converted, device), open_model)
 
