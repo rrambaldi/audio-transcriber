@@ -111,6 +111,13 @@ MESSAGES = {
             "     pip install -U \"optimum-intel[openvino]\" transformers\n"
             "   Until then --backend faster-whisper has the long-form loop and the\n"
             "   silence filter, on the processor.)",
+        "openvino.windowed_on_gpu":
+            "  (on {device} fixed 30 s windows, not Whisper's own long-form loop: on\n"
+            "   an Intel GPU the loop ran out of resources and left the device unusable\n"
+            "   until a restart. Where two windows overlap the words can come out twice;\n"
+            "   the duplicates are cut from the transcript afterwards, and the keyword\n"
+            "   prompt is dropped. --device CPU or --backend faster-whisper have the\n"
+            "   long-form loop, on the processor.)",
         "openvino.transcription_failed":
             "Backend 'openvino': the transcription did not run.\n  {error}",
 
@@ -1159,6 +1166,13 @@ MESSAGES = {
             "     pip install -U \"optimum-intel[openvino]\" transformers\n"
             "   Nel frattempo --backend faster-whisper ha il ciclo long-form e il filtro\n"
             "   del silenzio, sul processore.)",
+        "openvino.windowed_on_gpu":
+            "  (su {device} finestre fisse da 30 s, non il ciclo long-form di Whisper: su\n"
+            "   una GPU Intel il ciclo ha esaurito le risorse e ha lasciato il device\n"
+            "   inutilizzabile fino al riavvio. Dove due finestre si sovrappongono le parole\n"
+            "   possono uscire due volte; i doppioni vengono tagliati dalla trascrizione dopo,\n"
+            "   e il prompt di parole chiave viene lasciato cadere. --device CPU o\n"
+            "   --backend faster-whisper hanno il ciclo long-form, sul processore.)",
         "openvino.transcription_failed":
             "Backend 'openvino': la trascrizione non è partita.\n  {error}",
 

@@ -405,17 +405,31 @@ def transcribe(audio, model_name, language, device, model_dir, prompt,
                     return_timestamps=plan["timestamps"],
                     generate_kwargs=generate_kwargs)
 
+    # Of what the model is about to see, which is what decides whether there
+    # is more than one window to loop over.
+    long_form = (len(audio) / float(SAMPLE_RATE) if len(audio) else 0.0) > WINDOW_S
+
     # Best first, and each fallback says what it gave up. The prompt is
     # dropped along with the long-form loop: prompt tokens are precisely what
     # makes the pipeline mis-stitch two overlapping windows, and a transcript
     # with a passage in it twice is worse than one that did not get the
     # keywords.
+    #
+    # No loop on an Intel GPU. There it ran out of resources
+    # (CL_OUT_OF_RESOURCES), and a GPU that has failed fails every compile
+    # after it until the program restarts: no fallback, and every recording
+    # left in the queue lost. Fixed windows are what that GPU finishes. A
+    # single window is not the loop - no silence detector, no second pass -
+    # and stays as it was, prompt and all.
     plans = []
-    if word_timestamps:
-        plans.append({"name": "long_form_words", "windowed": False,
-                      "timestamps": "word", "prompt": True})
-    plans.append({"name": "long_form", "windowed": False,
-                  "timestamps": True, "prompt": True})
+    if long_form and "GPU" in device.upper():
+        print(t("openvino.windowed_on_gpu", device=device), file=sys.stderr)
+    else:
+        if word_timestamps:
+            plans.append({"name": "long_form_words", "windowed": False,
+                          "timestamps": "word", "prompt": True})
+        plans.append({"name": "long_form", "windowed": False,
+                      "timestamps": True, "prompt": True})
     plans.append({"name": "windowed", "windowed": True,
                   "timestamps": True, "prompt": False})
 
@@ -424,9 +438,6 @@ def transcribe(audio, model_name, language, device, model_dir, prompt,
     # Said twice on every run, about processors optimum-intel passed to
     # generate() itself. See audio_transcriber.quiet.
     hush_duplicate_logits_processors()
-    # Of what the model is about to see, which is what decides whether there
-    # is more than one window to loop over.
-    long_form = (len(audio) / float(SAMPLE_RATE) if len(audio) else 0.0) > WINDOW_S
     result, ran, failure = None, None, None
     for plan in plans:
         if failure is not None:

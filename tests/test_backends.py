@@ -588,6 +588,46 @@ def test_the_long_form_loop_is_asked_for_before_fixed_windows(tmp_path, monkeypa
         "decoder_input_ids": [1]}
 
 
+@pytest.mark.parametrize("words", [False, True])
+def test_an_intel_gpu_goes_straight_to_fixed_windows(tmp_path, monkeypatch, capsys,
+                                                     words):
+    """On an Intel GPU the long-form loop ran out of resources, and the GPU
+    was unusable for every transcription after it until a restart. Fixed
+    windows are what that GPU finishes - and they are tried first, because
+    there is no second attempt on a device that has failed. Subtitles do not
+    bring the loop back: word timings are asked of it too."""
+    import numpy as np
+
+    monkeypatch.setattr(ov, "openvino_devices", lambda: ["CPU", "GPU.0"])
+    fake_vad(monkeypatch, lambda audio: None)
+    seen = fake_intel_stack(monkeypatch, [{"text": "one", "timestamp": (0.0, 1.0)}])
+
+    ov.transcribe(np.zeros(16000 * 120, dtype=np.float32), "small", "it", "auto",
+                  str(tmp_path / "models"), "", word_timestamps=words)
+
+    assert seen["built"]["chunk_length_s"] == ov.FALLBACK_WINDOW_S
+    assert "GPU.0" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize("device, seconds", [("GPU.0", 20), ("NPU", 120)])
+def test_what_never_failed_keeps_the_long_form_path(tmp_path, monkeypatch, capsys,
+                                                    device, seconds):
+    """One window on a GPU is not the loop - no silence detector, no second
+    pass - and keeps its prompt; a piece transcribed while recording is one.
+    An NPU has not been seen to fail."""
+    import numpy as np
+
+    monkeypatch.setattr(ov, "openvino_devices", lambda: ["CPU", device])
+    fake_vad(monkeypatch, lambda audio: None)
+    seen = fake_intel_stack(monkeypatch, [{"text": "one", "timestamp": (0.0, 1.0)}])
+
+    ov.transcribe(np.zeros(16000 * seconds, dtype=np.float32), "small", "it", "auto",
+                  str(tmp_path / "models"), "")
+
+    assert "chunk_length_s" not in seen["built"]
+    assert device not in capsys.readouterr().err
+
+
 def test_a_model_is_loaded_once_inside_a_kept_block_and_let_go_after():
     """A recording transcribed thirty seconds at a time must not compile the
     model for every piece - and must not keep it once the recording is done."""

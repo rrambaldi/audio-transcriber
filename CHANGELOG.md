@@ -6,6 +6,18 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- **On an Intel GPU, 0.10.0 failed every recording longer than 30 seconds,
+  and every transcription queued after it.** Whisper's long-form loop, which
+  0.10.0 let run again, ran out of resources on an Intel GPU with large-v3
+  (`CL_OUT_OF_RESOURCES`) within seconds, and a GPU that has failed refuses
+  every compile after it (`CL_INVALID_EVENT`) until the window is restarted.
+  On a GPU such a recording now goes straight to the fixed 30-second windows
+  it finished in 0.9.0, and says so. A recording that fits in one window,
+  and every piece transcribed while recording, is not the loop and keeps its
+  prompt; the processor and the NPU keep the loop.
+
 ## [0.10.0] — 2026-10-03
 
 ### Added
