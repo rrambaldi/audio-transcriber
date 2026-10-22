@@ -1045,6 +1045,10 @@ MESSAGES = {
             "  or put the 'llama-server' binary on the PATH, or name it in\n"
             "  config.toml:  [summary]  llama_server = \"/path/to/llama-server\"",
         "summary.no_gguf": "No GGUF is published for {model}.",
+        "summary.thinks_needs_server":
+            "{model} always reasons before it answers, and only 'llama-server' "
+            "can hold that\n  to a budget: put it on the PATH, or name it in "
+            "config.toml:\n  [summary]  llama_server = \"/path/to/llama-server\"",
         "summary.downloading":
             "Downloading {model} ({quant}) - once, and only this once...",
         "summary.model_ready": "Model ready at: {path}",
@@ -2094,6 +2098,10 @@ MESSAGES = {
             "  oppure metti l'eseguibile 'llama-server' nel PATH, oppure\n"
             "  scrivilo in config.toml:  [summary]  llama_server = \"...\"",
         "summary.no_gguf": "Per {model} non è pubblicato nessun GGUF.",
+        "summary.thinks_needs_server":
+            "{model} ragiona sempre prima di rispondere, e solo 'llama-server' "
+            "sa tenerlo\n  entro un limite: mettilo nel PATH, oppure scrivilo in "
+            "config.toml:\n  [summary]  llama_server = \"...\"",
         "summary.downloading":
             "Scarico {model} ({quant}): una volta sola, adesso...",
         "summary.model_ready": "Modello pronto in: {path}",

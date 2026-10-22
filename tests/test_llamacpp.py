@@ -7,6 +7,7 @@ afterwards: where the file goes, what happens when a download stops halfway,
 that the server is never bound anywhere but the loopback, and that the process
 is stopped even when the summary fails.
 """
+import json
 import os
 import tempfile
 from pathlib import Path
@@ -115,7 +116,8 @@ class FakeDownload:
         self.headers = {"Content-Length": str(self.claimed)}
         self._at = 0
 
-    def read(self, size):
+    def read(self, size=None):
+        size = len(self.body) - self._at if size is None else size
         block = self.body[self._at:self._at + size]
         self._at += len(block)
         return block
@@ -228,6 +230,41 @@ class _StoppedProcess:
 
     def wait(self, timeout=None):
         return 0
+
+
+def test_a_model_that_always_reasons_is_held_to_its_budget(monkeypatch, tmp_path):
+    """LFM2.5-24B-A2B opens a <think> on every answer, and its template has
+    no switch for it: the switch is a reasoning budget, which llama-server
+    enforces by closing the reasoning - at once when the budget is none - and
+    keeps out of the answer. A model that has a switch is still asked with
+    it, and given no budget it never asked for."""
+    sent = []
+
+    def record(request, timeout=None):
+        sent.append(json.loads(request.data.decode("utf-8")))
+        return FakeDownload(json.dumps(
+            {"choices": [{"message": {"content": "Un riassunto."}}]}).encode())
+
+    monkeypatch.setattr(engine.subprocess, "Popen",
+                        lambda command, **kw: _StoppedProcess())
+    monkeypatch.setattr(engine.Server, "_wait", lambda self: None)
+    monkeypatch.setattr(engine.urllib.request, "urlopen", record)
+    lfm = plan.resolve_plan(plan.LLAMACPP, {"summary_model": "LFM2.5-24B-A2B"},
+                            ram=20.0, total=31.5, cores=8)
+    spark = plan.resolve_plan(plan.LLAMACPP, {"summary_model": "Spark-X2.5-4B"},
+                              ram=20.0, total=31.5, cores=8)
+    always = engine.Server("/usr/bin/llama-server", str(tmp_path / "m.gguf"), lfm)
+    switched = engine.Server("/usr/bin/llama-server", str(tmp_path / "m.gguf"), spark)
+
+    assert always.ask("sys", "user", 100) == "Un riassunto."
+    always.ask("sys", "user", 900, think=800)
+    switched.ask("sys", "user", 100)
+
+    assert sent[0]["reasoning_budget_tokens"] == 0
+    assert sent[1]["reasoning_budget_tokens"] == 800
+    assert "chat_template_kwargs" not in sent[1]
+    assert "reasoning_budget_tokens" not in sent[2]
+    assert sent[2]["chat_template_kwargs"] == {"enable_thinking": False}
 
 
 def test_a_server_that_dies_before_answering_says_so(monkeypatch, tmp_path):
@@ -407,6 +444,32 @@ def test_a_binary_that_sees_an_accelerator_beats_a_binding_that_cannot(
     chosen = plan.resolve_plan(plan.LLAMACPP, ram=32.0, total=64.0, cores=4)
     engine.open_pipeline(str(tmp_path / "m.gguf"), chosen, {})
     assert started["as"][3][0] == "Vulkan0"
+
+
+def test_a_model_that_always_reasons_goes_to_the_server_or_nowhere(monkeypatch,
+                                                                   tmp_path):
+    """Only the server holds its reasoning to a budget. On the processor too,
+    then, and with nothing but the binding it is refused rather than left to
+    write its reasoning onto the page."""
+    started = []
+    monkeypatch.setattr(engine, "devices", lambda binary: [])
+    monkeypatch.setattr(engine, "module_available", lambda name: True)
+    monkeypatch.setattr(engine, "Server",
+                        lambda *arguments: started.append(arguments))
+    monkeypatch.setattr(engine, "Binding", lambda *arguments: pytest.fail(
+        "the binding cannot hold its reasoning back"))
+    lfm = plan.resolve_plan(plan.LLAMACPP, {"summary_model": "LFM2.5-24B-A2B"},
+                            ram=20.0, total=31.5, cores=8)
+
+    monkeypatch.setattr(engine, "server_path",
+                        lambda settings=None: "/usr/bin/llama-server")
+    engine.open_pipeline(str(tmp_path / "m.gguf"), lfm, {})
+    assert started and started[0][3] is None
+
+    monkeypatch.setattr(engine, "server_path", lambda settings=None: None)
+    with pytest.raises(SummaryError) as raised:
+        engine.open_pipeline(str(tmp_path / "m.gguf"), lfm, {})
+    assert "LFM2.5-24B-A2B" in str(raised.value)
 
 
 def test_a_server_that_will_not_start_repeats_what_it_wrote(monkeypatch,

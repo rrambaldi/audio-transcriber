@@ -6,6 +6,21 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- **LFM2.5-24B-A2B can write the summaries, on trial.** Liquid AI's mixture
+  of experts - 24B parameters, 2.45B per token - is in the catalogue at
+  Q4_K_M (13.5 GB): it runs only when named, `--model LFM2.5-24B-A2B`, on
+  llama.cpp, and `auto` never chooses it until a measurement says where it
+  belongs. It always reasons first and its template has no switch, so
+  llama-server is given a reasoning budget: none by default, which closes the
+  reasoning at once, or `think_tokens` under `[summary]` to let it reason up
+  to that many tokens before each answer, on top of the answer. Only
+  llama-server holds a model to that budget, so this model runs on it or not
+  at all; elsewhere `think_tokens` only adds the room.
+  `diagnose.cmd` measures it against Spark-X2.5-4B, with and without the
+  reasoning, after fetching it once before anything is timed.
+
 ## [0.10.1] — 2026-10-03
 
 ### Fixed

@@ -421,6 +421,7 @@ class Server:
         self.port = _free_port()
         self.process = None
         self.log = None
+        self.always_thinks = chosen.model.always_thinks
         command = [binary, "--model", path, "--host", "127.0.0.1",
                    "--port", str(self.port), "--ctx-size",
                    str(chosen.context_tokens), "--threads", str(chosen.threads),
@@ -476,13 +477,21 @@ class Server:
                              seconds=int(STARTUP_TIMEOUT)) + said)
 
     def ask(self, system, user, max_new_tokens=None, think=False):
-        """One prompt, one answer, over the loopback and nowhere else."""
+        """One prompt, one answer, over the loopback and nowhere else.
+
+        ``think`` is how many tokens the model may reason first. The server
+        holds it to that, and keeps the reasoning out of the answer; for a
+        model whose template has no switch, a budget of none is the switch."""
         body = {"messages": [{"role": "system", "content": system},
                              {"role": "user", "content": user}],
                 "max_tokens": int(max_new_tokens or 512),
                 "temperature": 0.0, "stream": False}
-        if not think:
+        if think:
+            body["reasoning_budget_tokens"] = int(think)
+        else:
             body["chat_template_kwargs"] = {"enable_thinking": False}
+            if self.always_thinks:
+                body["reasoning_budget_tokens"] = 0
         request = urllib.request.Request(
             f"http://127.0.0.1:{self.port}/v1/chat/completions",
             data=json.dumps(body).encode("utf-8"),
@@ -550,11 +559,17 @@ def open_pipeline(path, chosen, settings=None):
     binding that cannot, and the binding ``pip`` installs is built for the
     processor. Then the binding, which needs no process, no port and no
     health check. Then the binary on the processor, which is the machine this
-    engine was written for."""
+    engine was written for.
+
+    A model that always reasons goes to the binary wherever it runs: only the
+    server holds that reasoning to a budget and keeps it out of the answer,
+    and through the binding it would be written onto the page."""
     binary = server_path(settings)
     device, layers = device_for(binary, settings) if binary else (None, None)
-    if binary and device:
+    if binary and (device or chosen.model.always_thinks):
         return Server(binary, path, chosen, device, layers)
+    if chosen.model.always_thinks:
+        raise SummaryError(t("summary.thinks_needs_server", model=chosen.model.name))
     if module_available("llama_cpp"):
         return Binding(path, chosen, _binding_layers(settings))
     if binary:

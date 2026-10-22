@@ -384,6 +384,24 @@ than Granite and wrote less, so that file is not offered. Its architecture
 needs llama.cpp b10828 or later; an older build refuses the file when it
 loads it, and the run says so and goes on with Granite 4.0 H-Tiny.
 
+**LFM2.5-24B-A2B** is in the catalogue on trial: it runs only when named
+(`--model LFM2.5-24B-A2B`), at Q4_K_M, and `auto` never chooses it. It is a
+mixture of experts, 24 billion parameters of which 2.45 billion work on each
+token, so it reads at the pace of a small model and needs the memory of a
+large one: about 14 GB, which on a 32 GB machine means closing things first.
+It always reasons before it answers - its template opens the reasoning on
+every answer and has no switch to keep it shut - so llama-server is given a
+reasoning budget instead. None, by default, closes the reasoning at once;
+`think_tokens` under `[summary]` lets it reason up to that many tokens
+before each answer, on top of the answer. The budget is a llama-server
+feature (b10828 has it), so this model always runs on llama-server, on the
+processor if there is no accelerator, and with only the Python binding it is
+refused: the binding cannot hold its reasoning back, and it would be written
+onto the page. With another model, or on the other engine, `think_tokens`
+only adds the room; nothing holds the reasoning to it. The model is known by
+its name: a path to its GGUF is a model nothing is known about, and its
+reasoning is then not closed.
+
 The smallest class is LFM2.5-1.2B and not MiniCPM5-1B, and the reason is worth
 recording: asked in Italian to summarise a news article in three sentences,
 MiniCPM5-1B at Q4_K_M returns the article. Not a poor summary — no summary: it

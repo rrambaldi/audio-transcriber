@@ -61,6 +61,7 @@ DEFAULTS = {
     "summary_device": None,       # None/"auto": the Intel iGPU, then the CPU
     "summary_chunk_tokens": None,  # None: the module's default
     "summary_map_tokens": None,    # None: what the plan allows a pass to say
+    "summary_think_tokens": None,  # None: no reasoning before an answer
     "summary_shape": None,         # None: "sections"; "headings" is the old one
     "summary_template": None,      # None: no template, the page made by itself
     "summary_template_text": None,  # a template typed in rather than named
@@ -111,6 +112,7 @@ SCHEMA = {
     ("summary", "device"): ("summary_device", str),
     ("summary", "chunk_tokens"): ("summary_chunk_tokens", int),
     ("summary", "map_tokens"): ("summary_map_tokens", int),
+    ("summary", "think_tokens"): ("summary_think_tokens", int),
     ("summary", "quant"): ("summary_quant", str),
     ("summary", "shape"): ("summary_shape", str),
     ("summary", "template"): ("summary_template", str),

@@ -566,7 +566,55 @@ def test_the_model_is_told_not_to_think_while_reading_a_chunk(stubbed):
     many = [Sentence(f"Frase numero {n} del verbale.", n * 10.0) for n in range(60)]
     engine.summarize(material(many), {"summary_chunk_tokens": 120})
     mapping = map_calls(stubbed)
-    assert mapping and all(call["think"] is False for call in mapping)
+    assert mapping and all(call["think"] == 0 for call in mapping)
+
+
+def test_a_model_allowed_to_reason_is_given_the_room_on_top(stubbed, roomy):
+    """The reasoning is not paid for out of the answer: a pass that may think
+    for 800 tokens may still say as much as one that may not."""
+    many = [Sentence(f"Frase numero {n} del verbale.", n * 10.0) for n in range(60)]
+    engine.summarize(material(many), {"summary_chunk_tokens": 120,
+                                      "summary_think_tokens": 800})
+    mapping = map_calls(stubbed)
+    assert mapping and mapping[0]["tokens"] == roomy.map_answer_tokens + 800
+    assert all(call["think"] == 800 for call in stubbed.asked)
+
+
+def test_a_chunk_leaves_the_reasoning_its_room(stubbed, roomy, capsys):
+    """The window holds the transcript, the answer and the reasoning before
+    it: a chunk is cut to what is left, and says so."""
+    from audio_transcriber.i18n import t
+
+    overhead = (prompting.map_overhead("it", None) + reading.CONTEXT_MARGIN
+                + roomy.map_answer_tokens)
+    think = roomy.context_tokens - overhead - 600
+    engine.summarize(material([Sentence("Parliamo del budget.", 0.0)]),
+                     {"summary_think_tokens": think})
+    assert t("summary.no_room_for_answer", chunk=roomy.chunk_tokens,
+             answer=roomy.map_answer_tokens, context=roomy.context_tokens,
+             room=600) in capsys.readouterr().err
+
+
+def test_a_fold_leaves_the_reasoning_its_room(stubbed, roomy):
+    """Partials are folded as many at a time as the window holds beside the
+    answer - and beside the reasoning, when the model may reason first."""
+    many = [Sentence(f"Frase numero {n} del verbale.", n * 10.0) for n in range(400)]
+    think = 8000
+    engine.summarize(material(many), folding(summary_chunk_tokens=120,
+                                             summary_think_tokens=think))
+    read = map_calls(stubbed)
+
+    def passes(answer_tokens):
+        fanin = prompting.fanin_for(len(read), roomy.context_tokens,
+                                    roomy.map_answer_tokens, answer_tokens,
+                                    prompting.EVIDENCE_TOKENS)
+        levels = prompting.reduce_tree(range(len(read)), fanin=fanin,
+                                       max_fanin=fanin)
+        return len(read) + sum(len(level) for level in levels)
+
+    with_room = passes(roomy.reduce_answer_tokens + think)
+    assert with_room != passes(roomy.reduce_answer_tokens)
+    assert len(stubbed.asked) == with_room
 
 
 def test_every_fold_is_given_the_transcript_to_check_itself_against(stubbed):
@@ -1252,6 +1300,17 @@ def test_clearing_the_cache_reaches_the_answers_it_files(tmp_path):
 
     assert partials.clear(cache) == 3
     assert not any(partials.get(name, cache) for name in names)
+
+
+def test_a_pass_read_after_reasoning_is_not_the_pass_read_without(roomy):
+    """Same question, different answer, so a different key - and none of the
+    passes cached before a model could reason are thrown away by it."""
+    from audio_transcriber.summarizers import partials
+
+    plain = partials.settings_key({}, roomy)
+    assert plain == f"context={roomy.context_tokens}"
+    thought = partials.settings_key({}, roomy._replace(think_tokens=800))
+    assert thought != plain
 
 
 def test_the_minute_of_a_note_is_found_wherever_the_model_put_it():

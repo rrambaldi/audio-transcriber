@@ -584,6 +584,7 @@ MESSAGES = {
     "summary.reducing": "  Schreibe die Zusammenfassung aus {total} Teilen...",
     "summary.llamacpp_missing": "llama.cpp ist nicht installiert. Ausführen: pip install llama-cpp-python\n  oder die Programmdatei 'llama-server' in den PATH legen, oder sie in\n  config.toml benennen:  [summary]  llama_server = \"/path/to/llama-server\"",
     "summary.no_gguf": "Für {model} ist kein GGUF veröffentlicht.",
+    "summary.thinks_needs_server": "{model} denkt immer nach, bevor es antwortet, und nur 'llama-server' kann\n  das begrenzen: die Programmdatei in den PATH legen, oder sie in\n  config.toml benennen:  [summary]  llama_server = \"/path/to/llama-server\"",
     "summary.downloading": "Lade {model} ({quant}) herunter - einmalig, nur dieses eine Mal...",
     "summary.model_ready": "Modell bereit unter: {path}",
     "summary.download_truncated": "Der Download von {model} wurde vorzeitig beendet: {got} von {expected} Byte.",

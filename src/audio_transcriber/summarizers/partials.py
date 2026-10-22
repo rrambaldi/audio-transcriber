@@ -66,6 +66,10 @@ def settings_key(settings=None, chosen=None):
         "context": (settings.get("summary_context_tokens")
                     or getattr(chosen, "context_tokens", None)),
     }
+    # A model that reasoned first answers differently from one that did not.
+    # Named only when it did, so the passes cached before this existed stay.
+    if getattr(chosen, "think_tokens", 0):
+        fields["think"] = chosen.think_tokens
     return ",".join(f"{name}={'' if value is None else value}"
                     for name, value in sorted(fields.items()))
 

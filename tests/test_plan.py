@@ -410,6 +410,29 @@ def test_spark_is_the_first_choice_on_llama_cpp_and_only_at_q8():
     assert named.quant == "Q8_0"
 
 
+def test_lfm_24b_runs_only_when_named_and_only_at_q4():
+    """On trial, so no tier: ``auto`` never takes it, whatever the machine.
+    Its fourteen gigabytes of weights leave no room for a finer file on a
+    32 GB machine, and a busy one is told how much to free before the run."""
+    for tier in plan.TIERS:
+        for engine in (plan.LLAMACPP, plan.OPENVINO):
+            assert all(model.name != "LFM2.5-24B-A2B"
+                       for model in plan.candidates(tier, engine))
+    # Not even with the models ahead of it refused by an old llama.cpp.
+    refused = plan.resolve_plan(plan.LLAMACPP, ram=96.0, total=128.0, cores=8,
+                                skip=("Spark-X2.5-4B", "Granite 4.0 H-Tiny"))
+    assert refused is None or refused.model.name != "LFM2.5-24B-A2B"
+    asked = {"summary_model": "LFM2.5-24B-A2B", "summary_tier": "l"}
+    named = plan.resolve_plan(plan.LLAMACPP, dict(asked, summary_quant="Q8_0"),
+                              ram=20.0, total=31.5, cores=8)
+    assert named.model.gguf_repo == "LiquidAI/LFM2.5-24B-A2B-GGUF"
+    assert named.quant == "Q4_K_M" and named.model.always_thinks
+    assert 13.5 < named.est_ram_gb < 15.0
+    assert not plan.runnable(named.model, plan.OPENVINO)
+    busy = plan.freeing_would_help(plan.LLAMACPP, asked, 9.9, 31.5, 8)
+    assert busy is not None and 15.0 < busy[1] < 17.0
+
+
 def test_freeing_memory_is_offered_only_when_it_would_change_the_run():
     """A busy laptop is told what closing things would buy it, before the run
     and not after: the better model for a run left to auto, and room to

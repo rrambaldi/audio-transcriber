@@ -41,18 +41,22 @@ from . import prompting
 #: One model, as the arithmetic needs to see it. ``attn_layers`` is the count
 #: of layers that actually hold a KV cache — in a hybrid model that is a
 #: handful of the total — and ``weights`` maps a quantisation to the size of
-#: the file, in GiB, as published.
+#: the file, in GiB, as published. ``always_thinks`` marks a model whose chat
+#: template opens its reasoning by itself and has no switch to keep it shut.
 Model = namedtuple("Model", "name hf_id gguf_repo gguf_file context "
                             "attn_layers kv_heads head_dim weights tier "
-                            "floor note")
-Model.__new__.__defaults__ = (None,)
+                            "floor note always_thinks")
+Model.__new__.__defaults__ = (None, False)
 
 #: The execution plan: everything the engines need that depends on this
 #: machine rather than on this recording.
+#: ``think_tokens`` is how long the model may reason before each answer, on
+#: top of the answer itself; 0 is not at all.
 Plan = namedtuple("Plan", "model quant context_tokens kv_k kv_v chunk_tokens "
                           "chunk_overlap max_passes prereduce threads "
                           "est_ram_gb tier map_answer_tokens "
-                          "reduce_answer_tokens")
+                          "reduce_answer_tokens think_tokens")
+Plan.__new__.__defaults__ = (0,)
 
 #: Bytes per element of a quantised KV cache. ``q8_0`` and ``q4_0`` carry a
 #: scale per block of 32, which is where the fractions come from.
@@ -187,6 +191,23 @@ CATALOGUE = (
           weights={"Q4_K_M": 2.6},
           tier="l", floor=6.0,
           note="weights estimated; no GGUF published"),
+    # On trial, so no tier: ``auto`` never chooses it and it runs only when
+    # named, until a measurement says where it belongs. A mixture of experts,
+    # 24B in all and 2.45B per token, so it reads at the pace of a small
+    # model and needs the memory of a large one: only Q4_K_M is listed, as
+    # the finer files leave no room on a 32 GB machine. Ten of its 40 layers
+    # are attention, the others convolution. It always reasons first: its
+    # template opens a <think> on every answer and has no switch to keep it
+    # shut. Read from config.json, chat_template.jinja and the published
+    # files on 2026-10-22.
+    Model(name="LFM2.5-24B-A2B",
+          hf_id="LiquidAI/LFM2.5-24B-A2B",
+          gguf_repo="LiquidAI/LFM2.5-24B-A2B-GGUF",
+          gguf_file="LFM2.5-24B-A2B-{quant}.gguf",
+          context=131072, attn_layers=10, kv_heads=8, head_dim=64,
+          weights={"Q4_K_M": 13.53},
+          tier=None, floor=15.0,
+          note="on trial: chosen only by name", always_thinks=True),
 )
 
 #: Still accepted by name, no longer chosen by ``auto``. Somebody who
@@ -335,6 +356,7 @@ OPENVINO_INCOMPATIBLE = {
     "ibm-granite/granite-4.0-h-micro",
     "ibm-granite/granite-4.0-h-tiny",
     "LiquidAI/LFM2.5-1.2B-Instruct",
+    "LiquidAI/LFM2.5-24B-A2B",
     "Qwen/Qwen3.5-4B",
     "XHToken/Spark-X2.5-4B",
 }

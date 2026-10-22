@@ -263,6 +263,10 @@ def main(argv=None):
                         help="how much a single reading pass may say; the "
                              "plan's figure is what a pass stops on when it "
                              "is cut off, so this is the lever to try")
+    parser.add_argument("--think-tokens", type=int, default=None, metavar="N",
+                        help="how long the model may reason before each "
+                             "answer, on top of the answer; 0 or unset, not "
+                             "at all")
     parser.add_argument("--chunk-tokens", type=int, default=None, metavar="N",
                         help="how much transcript goes into one pass")
     parser.add_argument("--model", default=None, metavar="NAME",
@@ -315,6 +319,7 @@ def main(argv=None):
         "summary_length": args.length,
         "summary_context_tokens": args.context_tokens,
         "summary_map_tokens": args.map_tokens,
+        "summary_think_tokens": args.think_tokens,
         "summary_chunk_tokens": args.chunk_tokens,
         "summary_model": args.model,
         "summary_tier": args.tier,
@@ -390,6 +395,7 @@ def main(argv=None):
                   "length": args.length,
                   "context_tokens": args.context_tokens,
                   "map_tokens": args.map_tokens,
+                  "think_tokens": args.think_tokens,
                   "chunk_tokens": args.chunk_tokens,
                   "quant": args.quant,
                   "shape": args.shape, "sections_mode": args.sections_mode,

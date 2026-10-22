@@ -15,7 +15,8 @@ work in the same order:
 Keeping that here rather than in an engine is what made the second engine
 cheap and what will make the third one cheaper. An engine supplies a
 ``Pipeline``: something with ``ask(system, user, max_new_tokens=None,
-think=False)`` and a ``close()``, and nothing else is asked of it.
+think=0)`` and a ``close()``, and nothing else is asked of it. ``think`` is how
+many of those tokens the model may spend reasoning first.
 
 Like the modules it leans on, this one imports no runtime — the engines do
 that, behind the factory they pass in.
@@ -125,8 +126,13 @@ def ask(pipeline, system, prompt, budget, chosen, echo_prompt=None):
     whole allowance narrating and is cut off before the answer starts. What
     comes back is indistinguishable from a model too small for the job, and it
     is not the same thing: it is fixed by asking again with the room the
-    narration needs, once, and never at the cost of the context."""
-    raw = pipeline.ask(system, prompt, max_new_tokens=budget, think=False)
+    narration needs, once, and never at the cost of the context.
+
+    A model allowed to reason is given that allowance on top of the answer's,
+    so the reasoning is never paid for out of the answer."""
+    think = chosen.think_tokens
+    budget += think
+    raw = pipeline.ask(system, prompt, max_new_tokens=budget, think=think)
     answer = prompting.usable_answer(raw, echo_prompt)
     if answer or not prompting.thought_without_answering(raw):
         return answer
@@ -137,7 +143,7 @@ def ask(pipeline, system, prompt, budget, chosen, echo_prompt=None):
         return answer
     print(t("summary.still_thinking", tokens=room), file=sys.stderr)
     return prompting.usable_answer(
-        pipeline.ask(system, prompt, max_new_tokens=room, think=False),
+        pipeline.ask(system, prompt, max_new_tokens=room, think=think),
         echo_prompt)
 
 
@@ -237,7 +243,7 @@ def _fold_to_root(pipeline, system, answers, language, chosen, report, band,
     evidence_tokens = plan.evidence_for(chosen.context_tokens)
     fanin = prompting.fanin_for(
         len(answers), chosen.context_tokens, chosen.map_answer_tokens,
-        chosen.reduce_answer_tokens, evidence_tokens)
+        chosen.reduce_answer_tokens + chosen.think_tokens, evidence_tokens)
     levels = prompting.reduce_tree(answers, fanin=fanin, max_fanin=fanin)
     for depth, level in enumerate(levels[:-1]):
         report(low + (high - low) * depth // max(1, len(levels)), STAGE_WRITING)
@@ -430,6 +436,9 @@ def summarize_with(open_pipeline, chosen, material, settings=None,
         raise SummaryError(str(wrong)) from wrong
     catalogue = template.catalogue if template else None
     shape = str(settings.get("summary_shape") or SECTIONS).strip().lower()
+    think = max(0, int(settings.get("summary_think_tokens") or 0))
+    if think != chosen.think_tokens:
+        chosen = chosen._replace(think_tokens=think)
     fingerprint = partials.settings_key(settings, chosen)
     budget = int(settings.get("summary_chunk_tokens") or chosen.chunk_tokens)
     # How much a reading pass may say. It comes from the plan, and it is worth
@@ -445,7 +454,7 @@ def summarize_with(open_pipeline, chosen, material, settings=None,
     # reading prompt grew when it gained an example, and a chunk sized against
     # the old guess overflows the window by the difference — silently, because
     # what falls off the end is the end of the transcript.
-    room = (int(chosen.context_tokens) - answer_tokens
+    room = (int(chosen.context_tokens) - answer_tokens - think
             - prompting.map_overhead(language, catalogue) - CONTEXT_MARGIN)
     if room > 0 and budget > room:
         print(t("summary.no_room_for_answer", chunk=budget, answer=answer_tokens,

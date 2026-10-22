@@ -117,9 +117,11 @@ if not exist "%AT_LLAMA_OPENVINO%" set "AT_LLAMA_OPENVINO="
 
 rem --- a build new enough for this round --------------------------------------
 rem Spark-X2.5 is the architecture "spark2_5", which llama.cpp reads from build
-rem 10828 on; an older build refuses the file when it loads it. Every run of
-rem the round then uses the newer build, the control included - two runs on two
-rem builds would be two things changed.
+rem 10828 on; an older build refuses the file when it loads it. The same build
+rem reads LFM2.5's reasoning apart from its answer and takes a budget for it
+rem per request, which is how that reasoning is closed (read in its source).
+rem Every run of the round then uses the newer build, the control included -
+rem two runs on two builds would be two things changed.
 rem
 rem curl and tar are named in System32 because conda puts its own on PATH, and
 rem conda's tar does not open a zip.
@@ -194,24 +196,30 @@ endlocal & exit /b 0
 rem --- the routines -----------------------------------------------------------
 
 rem --- the runs this round ---------------------------------------------------
-rem What the last two rounds settled, on the same recording:
+rem What the rounds so far settled, on the same recording:
 rem
 rem   Granite 4.0 H-Tiny Q4   240 s   coverage 95%   18 of 21 facts, one invented
 rem   Spark-X2.5-4B Q4        415 s   coverage 91%   17 of 21, verbose, garbled
 rem   Spark, 800 per pass     556 s   coverage 91%   17 of 21, only longer
 rem   Spark-X2.5-4B Q8   618-1990 s   coverage 95%   20 of 21, nothing invented
 rem
-rem Spark at Q4 is out. Spark at Q8 wrote the best page of all, and is now
-rem what the plan chooses on llama.cpp: slower, and worth it.
+rem Spark at Q8 is what the plan chooses on llama.cpp: slower, and worth it.
+rem The read-back, "--review", stays off: in Z5 it found two right lines in
+rem 125 s of 617.
 rem
-rem The read-back, "--review", was measured twice. Z4: Spark flagged 39 lines
-rem of its own page, most of them wrongly; Granite none. Z5, with the reviewer
-rem doubted before it is printed: Spark 2 lines, both right, in 125 s of 617;
-rem Granite none again, in 34 s of 243 - it answered "nothing wrong" in twelve
-rem sections of thirteen. The runs below are that round, kept to repeat it.
+rem One question this round: does LFM2.5-24B-A2B write a better page than
+rem Spark? 24B in all and 2.45B per token, so it reads at the pace of a small
+rem model, and 13.5 GB at Q4_K_M, so it wants about 16 GB free. It always
+rem reasons before it answers; whether that is worth its time is the second
+rem question.
 rem
-rem  Z5-spark-review     Spark-X2.5-4B at Q8_0, read back by itself
-rem  Z5-granite-review   Granite 4.0 H-Tiny at Q4_K_M, read back by itself
+rem  L1-spark-q8    the control: Spark-X2.5-4B at Q8_0, as the plan has it
+rem  L1-lfm         LFM2.5-24B-A2B at Q4_K_M, its reasoning closed at once
+rem  L1-lfm-think   the same, allowed 1024 tokens of reasoning before each
+rem                 answer. Against L1-lfm, not against the control.
+rem
+rem LFM is fetched before the first run, 14.5 GB on disk and once only, so
+rem that no run's time holds a download.
 rem
 rem Answer S to the question at the start to send them again without
 rem measuring; R measures them again.
@@ -228,8 +236,22 @@ rem Each run clears the cached passes first, so each one reads the recording.
 rem
 rem To ask a new question, edit these lines. Everything else stays as it is.
 :round
-call :measure "Z5-spark-review" "%AT_LLAMA_VULKAN%" "--tier l --model Spark-X2.5-4B --quant Q8_0 --review"
-call :measure "Z5-granite-review" "%AT_LLAMA_VULKAN%" "--tier l --model ibm-granite/granite-4.0-h-tiny --review"
+call :fetch "LFM2.5-24B-A2B" "Q4_K_M"
+call :measure "L1-spark-q8" "%AT_LLAMA_VULKAN%" "--tier l --model Spark-X2.5-4B --quant Q8_0"
+call :measure "L1-lfm" "%AT_LLAMA_VULKAN%" "--tier l --model LFM2.5-24B-A2B"
+call :measure "L1-lfm-think" "%AT_LLAMA_VULKAN%" "--tier l --model LFM2.5-24B-A2B --think-tokens 1024"
+goto :eof
+
+:fetch
+rem One model of the round, downloaded before anything is timed. Only when
+rem measuring, and only with a build to measure on: checking and sending the
+rem files need no model, and a run that is skipped needs none either.
+if not "%AT_MODE%"=="run" goto :eof
+if "%AT_LLAMA_VULKAN%"=="" goto :eof
+echo.
+echo === fetching %~1 at %~2 now, so that no run's time holds the download
+python -c "from audio_transcriber.summarizers import llamacpp, plan; llamacpp.fetch(plan.named('%~1'), '%~2')"
+if errorlevel 1 echo   WARNING: not fetched. The run that needs it will try again, and its time will hold the download.
 goto :eof
 
 :devices
