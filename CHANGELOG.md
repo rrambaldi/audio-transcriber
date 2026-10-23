@@ -18,8 +18,20 @@ All notable changes to this project are documented here. The format follows
   to that many tokens before each answer, on top of the answer. Only
   llama-server holds a model to that budget, so this model runs on it or not
   at all; elsewhere `think_tokens` only adds the room.
-  `diagnose.cmd` measures it against Spark-X2.5-4B, with and without the
-  reasoning, after fetching it once before anything is timed.
+  `diagnose.cmd` measures it with and without the reasoning, after fetching
+  it once before anything is timed.
+
+### Fixed
+
+- **A model given room to reason is no longer asked again with the whole
+  window.** With `think_tokens` set, or with a model that always reasons, an
+  answer still reasoning at the end of its allowance is a model going round
+  in circles, and asking again with everything the context had left let
+  LFM2.5-24B-A2B run a request past its half-hour. The run says so instead,
+  and the second try is kept for a model told not to reason at all, which is
+  what it was for.
+- **A measurement keeps Windows awake** while `tools/diagnose_summary.py`
+  runs, so that a round left overnight times the summary and not the night.
 
 ## [0.10.1] — 2026-10-03
 

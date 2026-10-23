@@ -241,6 +241,24 @@ def clear_cache(settings):
     return partials.clear(settings.get("cache_dir"))
 
 
+def stay_awake():
+    """Keep Windows from sleeping until this process ends.
+
+    A round is an hour or more and is left to run, often overnight. A machine
+    that sleeps halfway times the night: L1-lfm-think took 5.7 hours and then
+    timed out. Only the system is held awake, not the screen, and only for as
+    long as this process lives; elsewhere this does nothing."""
+    if sys.platform != "win32":
+        return
+    import ctypes
+
+    es_continuous, es_system_required = 0x80000000, 0x00000001
+    if not ctypes.windll.kernel32.SetThreadExecutionState(
+            es_continuous | es_system_required):
+        print("! Windows would not be kept awake: if it sleeps, the sleep is "
+              "timed with the run.", file=sys.stderr)
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(
         description=__doc__.split("\n\n")[0],
@@ -412,6 +430,7 @@ def main(argv=None):
     print(f"transcript: {len(material.sentences)} lines, "
           f"{material.duration and round(material.duration)}s\n", file=sys.stderr)
 
+    stay_awake()
     heard = Tee(sys.stderr)
     started = time.time()
     failure = None

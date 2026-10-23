@@ -1029,6 +1029,9 @@ MESSAGES = {
         "summary.still_thinking":
             "  The model was still thinking when its answer ran out; "
             "asking again with {tokens} tokens.",
+        "summary.thought_past_allowance":
+            "  The model was still reasoning when its {tokens} tokens ran out; "
+            "it had the room it was given and is not asked again.",
         "summary.folding": "  Folding {groups} groups (level {level})...",
         "summary.prereducing":
             "  {passes} passes is more than this machine should spend; "
@@ -2082,6 +2085,9 @@ MESSAGES = {
         "summary.still_thinking":
             "  Il modello stava ancora ragionando quando la risposta è "
             "finita: richiedo con {tokens} token.",
+        "summary.thought_past_allowance":
+            "  Il modello stava ancora ragionando quando i suoi {tokens} token "
+            "sono finiti: ha avuto lo spazio previsto e non lo richiedo.",
         "summary.folding": "  Fondo {groups} gruppi (livello {level})...",
         "summary.prereducing":
             "  {passes} passaggi sono troppi per questa macchina: scelgo "

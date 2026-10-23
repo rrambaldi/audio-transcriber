@@ -202,24 +202,33 @@ rem   Granite 4.0 H-Tiny Q4   240 s   coverage 95%   18 of 21 facts, one invente
 rem   Spark-X2.5-4B Q4        415 s   coverage 91%   17 of 21, verbose, garbled
 rem   Spark, 800 per pass     556 s   coverage 91%   17 of 21, only longer
 rem   Spark-X2.5-4B Q8   618-1990 s   coverage 95%   20 of 21, nothing invented
+rem   LFM2.5-24B-A2B Q4       234 s   coverage 95%   20 of 25, reasoning shut
+rem
+rem (The facts are counted against a list of 25 made again from gold.summary
+rem on 23 October; the list of 21 behind the figures above was not kept. On
+rem the new list Spark Q8 has 21 and Granite H-Tiny 18.)
 rem
 rem Spark at Q8 is what the plan chooses on llama.cpp: slower, and worth it.
 rem The read-back, "--review", stays off: in Z5 it found two right lines in
 rem 125 s of 617.
 rem
-rem One question this round: does LFM2.5-24B-A2B write a better page than
-rem Spark? 24B in all and 2.45B per token, so it reads at the pace of a small
-rem model, and 13.5 GB at Q4_K_M, so it wants about 16 GB free. It always
-rem reasons before it answers; whether that is worth its time is the second
-rem question.
+rem L1 put LFM2.5-24B-A2B, its reasoning shut, level with Spark in half the
+rem time: better Italian, but it copied the worked example of the prompt into
+rem its passes and made a section out of a line Whisper invented. With 1024
+rem tokens of reasoning it took 5.7 hours and timed out: it opened its
+rem reasoning again inside an answer, was asked again with the whole window,
+rem and the machine may have slept as well. Neither can happen now - LFM is
+rem never asked again with more, with its reasoning shut or open, and a run
+rem keeps Windows awake - so this round asks L1's second question again.
 rem
-rem  L1-spark-q8    the control: Spark-X2.5-4B at Q8_0, as the plan has it
-rem  L1-lfm         LFM2.5-24B-A2B at Q4_K_M, its reasoning closed at once
-rem  L1-lfm-think   the same, allowed 1024 tokens of reasoning before each
-rem                 answer. Against L1-lfm, not against the control.
+rem  L2-lfm         LFM2.5-24B-A2B at Q4_K_M, its reasoning shut: the control,
+rem                 and the same page as L1-lfm if nothing else moved
+rem  L2-lfm-think   the same, allowed 1024 tokens of reasoning before each
+rem                 answer
 rem
-rem LFM is fetched before the first run, 14.5 GB on disk and once only, so
-rem that no run's time holds a download.
+rem It wants about 16 GB free. Leave the laptop on its charger with the lid
+rem open: the run holds Windows awake, but closing the lid can still put it
+rem to sleep.
 rem
 rem Answer S to the question at the start to send them again without
 rem measuring; R measures them again.
@@ -237,9 +246,8 @@ rem
 rem To ask a new question, edit these lines. Everything else stays as it is.
 :round
 call :fetch "LFM2.5-24B-A2B" "Q4_K_M"
-call :measure "L1-spark-q8" "%AT_LLAMA_VULKAN%" "--tier l --model Spark-X2.5-4B --quant Q8_0"
-call :measure "L1-lfm" "%AT_LLAMA_VULKAN%" "--tier l --model LFM2.5-24B-A2B"
-call :measure "L1-lfm-think" "%AT_LLAMA_VULKAN%" "--tier l --model LFM2.5-24B-A2B --think-tokens 1024"
+call :measure "L2-lfm" "%AT_LLAMA_VULKAN%" "--tier l --model LFM2.5-24B-A2B"
+call :measure "L2-lfm-think" "%AT_LLAMA_VULKAN%" "--tier l --model LFM2.5-24B-A2B --think-tokens 1024"
 goto :eof
 
 :fetch

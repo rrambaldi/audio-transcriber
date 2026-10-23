@@ -919,6 +919,48 @@ def test_a_model_still_thinking_when_it_ran_out_is_asked_again(stubbed, roomy):
     assert calls[1] > calls[0], "asked again with more room than it had"
 
 
+def test_a_model_given_room_to_reason_is_not_given_more(stubbed, roomy):
+    """It had the allowance it was given. Still reasoning at the end of it is
+    a model going round in circles, and the whole window again is half an
+    hour of it per question."""
+    calls = []
+
+    def thinking(self, system, user, max_new_tokens=None, think=False):
+        calls.append(max_new_tokens)
+        return "<think>\nDunque, l'utente vuole che io"
+
+    monkeypatch = pytest.MonkeyPatch()
+    monkeypatch.setattr(FakePipeline, "ask", thinking)
+    try:
+        with pytest.raises(SummaryError):
+            engine.summarize(material(SENTENCES),
+                             folding(summary_think_tokens=800))
+    finally:
+        monkeypatch.undo()
+    assert calls and set(calls) <= {roomy.map_answer_tokens + 800,
+                                    roomy.reduce_answer_tokens + 800}
+
+
+def test_a_model_that_always_reasons_is_not_asked_again_either(capsys):
+    """Its reasoning is held to a budget of none, so one still reasoning at
+    the end has opened it again inside the answer - and the run says so,
+    or the empty answer would read as an echo."""
+    from audio_transcriber.i18n import t
+
+    lfm = plan.resolve_plan(plan.LLAMACPP, {"summary_model": "LFM2.5-24B-A2B"},
+                            ram=20.0, total=31.5, cores=8)
+    calls = []
+
+    class Pipeline:
+        def ask(self, system, user, max_new_tokens=None, think=False):
+            calls.append(max_new_tokens)
+            return "<think>\nDunque, l'utente vuole che io"
+
+    assert reading.ask(Pipeline(), "sys", "user", 400, lfm) == ""
+    assert calls == [400]
+    assert t("summary.thought_past_allowance", tokens=400) in capsys.readouterr().err
+
+
 def test_a_model_that_is_simply_too_small_is_not_asked_twice(stubbed):
     """Nothing was truncated, so more room would change nothing."""
     calls = []

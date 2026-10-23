@@ -577,6 +577,7 @@ MESSAGES = {
     "summary.high_copy_rate": "  {percent}% de cette page est mot pour mot tiré de la transcription : elle a été sélectionnée, pas écrite.",
     "summary.dump_failed": "  Impossible d'écrire les notes dans {path} : {error}",
     "summary.still_thinking": "  Le modèle réfléchissait encore quand sa réponse s'est arrêtée ; nouvelle demande avec {tokens} tokens.",
+    "summary.thought_past_allowance": "  Le modèle raisonnait encore quand ses {tokens} tokens se sont épuisés ; il a eu la place prévue et n'est pas sollicité à nouveau.",
     "summary.folding": "  Fusion de {groups} groupes (niveau {level})...",
     "summary.prereducing": "  {passes} passes, c'est plus que ce que cette machine devrait consacrer ; sélection de ce qui compte et lecture de {allowed}.",
     "summary.no_room": "Aucun modèle ne tient dans la mémoire de cette machine : {needed} Go nécessaires, {free} Go libres. La transcription est citée à la place.",

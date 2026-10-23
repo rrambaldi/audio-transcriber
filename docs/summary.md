@@ -321,7 +321,9 @@ A reasoning model's `<think>` block never reaches the page — including one
 with no end, which is not a preamble to an answer but the whole of what there
 was room for. If the model was still thinking when its allowance ran out, it
 is asked again with room, once: that is a different failure from a model too
-small for the job, and from the outside they look identical.
+small for the job, and from the outside they look identical. A model given
+room to reason with `think_tokens`, or one that always reasons, is not: it
+had the room it was given, and the run says so instead.
 
 A model too small answers by repeating the question. The transcript is fenced
 with a marker, so an answer that gives it back is recognised — even when the

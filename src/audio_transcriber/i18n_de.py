@@ -577,6 +577,7 @@ MESSAGES = {
     "summary.high_copy_rate": "  {percent}% dieser Seite stammen Wort für Wort aus der Transkription: Sie wurde ausgewählt, nicht geschrieben.",
     "summary.dump_failed": "  Die Notizen konnten nicht nach {path} geschrieben werden: {error}",
     "summary.still_thinking": "  Das Modell hat noch nachgedacht, als die Antwort zu Ende war; erneute Anfrage mit {tokens} Token.",
+    "summary.thought_past_allowance": "  Das Modell hat noch nachgedacht, als seine {tokens} Token aufgebraucht waren; es hatte den vorgesehenen Platz und wird nicht erneut gefragt.",
     "summary.folding": "  Führe {groups} Gruppen zusammen (Ebene {level})...",
     "summary.prereducing": "  {passes} Durchgänge sind mehr, als diese Maschine aufwenden sollte; wähle aus, was zählt, und lese {allowed}.",
     "summary.no_room": "Kein Modell passt in den Speicher dieser Maschine: {needed} GB benötigt, {free} GB frei. Die Transkription wird stattdessen zitiert.",

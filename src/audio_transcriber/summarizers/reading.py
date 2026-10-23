@@ -129,12 +129,21 @@ def ask(pipeline, system, prompt, budget, chosen, echo_prompt=None):
     narration needs, once, and never at the cost of the context.
 
     A model allowed to reason is given that allowance on top of the answer's,
-    so the reasoning is never paid for out of the answer."""
+    so the reasoning is never paid for out of the answer - and neither it nor
+    a model that always reasons, whose reasoning is held to a budget of none,
+    is asked again with more. Each had the room it was given, and one still
+    reasoning at the end of it is going round in circles: LFM2.5-24B-A2B,
+    given 1024 tokens, opened its reasoning again inside the answer, and the
+    whole window after that ended in a request that timed out. That is said,
+    once per answer, because otherwise the empty answer reads as an echo."""
     think = chosen.think_tokens
     budget += think
     raw = pipeline.ask(system, prompt, max_new_tokens=budget, think=think)
     answer = prompting.usable_answer(raw, echo_prompt)
     if answer or not prompting.thought_without_answering(raw):
+        return answer
+    if think or chosen.model.always_thinks:
+        print(t("summary.thought_past_allowance", tokens=budget), file=sys.stderr)
         return answer
 
     room = max(budget, chosen.context_tokens
@@ -143,7 +152,7 @@ def ask(pipeline, system, prompt, budget, chosen, echo_prompt=None):
         return answer
     print(t("summary.still_thinking", tokens=room), file=sys.stderr)
     return prompting.usable_answer(
-        pipeline.ask(system, prompt, max_new_tokens=room, think=think),
+        pipeline.ask(system, prompt, max_new_tokens=room, think=False),
         echo_prompt)
 
 
