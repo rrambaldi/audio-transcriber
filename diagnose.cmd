@@ -213,23 +213,27 @@ rem Spark at Q8 is what the plan chooses on llama.cpp: slower, and worth it.
 rem The read-back, "--review", stays off: in Z5 it found two right lines in
 rem 125 s of 617.
 rem
-rem L1 put LFM2.5-24B-A2B, its reasoning shut, level with Spark in half the
-rem time: better Italian, but it copied the worked example of the prompt into
-rem its passes and made a section out of a line Whisper invented. With 1024
-rem tokens of reasoning it took 5.7 hours and timed out: it opened its
-rem reasoning again inside an answer, was asked again with the whole window,
-rem and the machine may have slept as well. Neither can happen now - LFM is
-rem never asked again with more, with its reasoning shut or open, and a run
-rem keeps Windows awake - so this round asks L1's second question again.
+rem L1 and L2 put LFM2.5-24B-A2B, its reasoning shut, level with Spark in
+rem half the time; allowed to reason it was slower and covered less. All of
+rem that is one meeting, and the worked example in the prompt is taken from
+rem that same meeting. This round asks the question again on five:
 rem
-rem  L2-lfm         LFM2.5-24B-A2B at Q4_K_M, its reasoning shut: the control,
-rem                 and the same page as L1-lfm if nothing else moved
-rem  L2-lfm-think   the same, allowed 1024 tokens of reasoning before each
-rem                 answer
+rem   gold     the same meeting, 22 minutes, subtitles
+rem   0723     risk analysis, an hour, subtitles
+rem   1022     two people, another subject altogether
+rem   1021-4   a release meeting, many speakers, Whisper's credit in a loop
+rem   0929     the longest, two hours, 30 of Whisper's credits in it
 rem
-rem It wants about 16 GB free. Leave the laptop on its charger with the lid
-rem open: the run holds Windows awake, but closing the lid can still put it
-rem to sleep.
+rem Each once with Spark at Q8 and once with LFM, its reasoning shut. The
+rem transcripts are the ones in .local\new-summary, which send-transcripts.cmd
+rem sent to the server; the facts each page is scored against stay there.
+rem The October two are text with an .srt name: no minutes, so no coverage.
+rem B1-spark-gold against L1-spark-q8 also says what cutting Whisper's credit
+rem did, since that is the only other thing that changed.
+rem
+rem It is a night: about three and a half hours. LFM wants about 16 GB free.
+rem Leave the laptop on its charger with the lid open: the run holds Windows
+rem awake, but closing the lid can still put it to sleep.
 rem
 rem Answer S to the question at the start to send them again without
 rem measuring; R measures them again.
@@ -247,8 +251,18 @@ rem
 rem To ask a new question, edit these lines. Everything else stays as it is.
 :round
 call :fetch "LFM2.5-24B-A2B" "Q4_K_M"
-call :measure "L2-lfm" "%AT_LLAMA_VULKAN%" "--tier l --model LFM2.5-24B-A2B"
-call :measure "L2-lfm-think" "%AT_LLAMA_VULKAN%" "--tier l --model LFM2.5-24B-A2B --think-tokens 1024"
+call :bench "gold" ".local\new-summary\gold.srt"
+call :bench "0723" ".local\new-summary\gold.2026-07-23.srt"
+call :bench "1022" ".local\new-summary\gold.2026-10-22.srt"
+call :bench "1021-4" ".local\new-summary\gold.2026-10-21.4.srt"
+call :bench "0929" ".local\new-summary\gold.2026-09-29.txt"
+goto :eof
+
+:bench
+rem One meeting of the round: its transcript, then each model on it.
+set "AT_SRT=%~2"
+call :measure "B1-spark-%~1" "%AT_LLAMA_VULKAN%" "--tier l --model Spark-X2.5-4B --quant Q8_0"
+call :measure "B1-lfm-%~1" "%AT_LLAMA_VULKAN%" "--tier l --model LFM2.5-24B-A2B"
 goto :eof
 
 :fetch
