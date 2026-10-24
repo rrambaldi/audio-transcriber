@@ -35,6 +35,7 @@ from datetime import datetime
 
 import numpy as np
 
+from .cleaning import cut_seams
 from .formatting import format_clock
 from .i18n import t
 
@@ -651,13 +652,40 @@ def _note_bullet(note, timestamps=False):
     return f"- {clock}{note.text}{who}"
 
 
+def _without_credits(segments):
+    """Segments without Whisper's subtitle credit, nor what it said again
+    after it.
+
+    Every door below does this to what it reads, though the transcription
+    does it now: a transcript made before still carries the credit, and a
+    model reading it turns it into a note, or a section. Nothing else the
+    cleaner does is done again: a short "No." the transcript kept is speech,
+    and so is the speaker a paragraph starts with."""
+    cleaned, before = [], []
+    for segment in segments or []:
+        words = (segment.get("text") or "").split()
+        kept = [words[at] for at in cut_seams(words, before)]
+        if kept != words:
+            segment = {**segment, "text": " ".join(kept)}
+        if kept:
+            cleaned.append(segment)
+        before.extend(kept)
+    return cleaned
+
+
+def _text_without_credits(text):
+    """The same, for a transcript with no segments: a paragraph at a time."""
+    paragraphs = [{"text": part} for part in re.split(r"\n\s*\n", str(text or ""))]
+    return "\n\n".join(segment["text"] for segment in _without_credits(paragraphs))
+
+
 def material_from_entry(entry):
     """Everything an engine needs, read out of a library entry."""
     metadata = entry.metadata
     segments = entry.read_segments()
-    sentences = sentences_of(segments)
+    sentences = sentences_of(_without_credits(segments))
     if not sentences:
-        sentences = sentences_from_text(entry.read_transcript())
+        sentences = sentences_from_text(_text_without_credits(entry.read_transcript()))
     transcription = metadata.get("transcription") or {}
     audio = metadata.get("audio") or {}
     return Material(
@@ -670,7 +698,7 @@ def material_from_entry(entry):
 
 def material_from_text(text, title="", language="", duration=None):
     """The same, for a transcript that is only a file on disk."""
-    return Material(title=title, sentences=sentences_from_text(text),
+    return Material(title=title, sentences=sentences_from_text(_text_without_credits(text)),
                     language=language, duration=duration)
 
 
@@ -685,7 +713,7 @@ def material_from_subtitles(text, title="", language=""):
     from .subtitles import from_srt
 
     segments = from_srt(text)
-    return Material(title=title, sentences=sentences_of(segments),
+    return Material(title=title, sentences=sentences_of(_without_credits(segments)),
                     language=language,
                     duration=segments[-1]["end"] if segments else None)
 

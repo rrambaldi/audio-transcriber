@@ -35,6 +35,17 @@ All notable changes to this project are documented here. The format follows
   what it was for.
 - **A measurement keeps Windows awake** while `tools/diagnose_summary.py`
   runs, so that a round left overnight times the summary and not the night.
+- **Whisper's subtitle credit is cut wherever it lands, with the passage it
+  says again after it.** "Autore dei sottotitoli e revisione a cura di QTSS"
+  was not in the catalogue, the credits that were got cut only at the edge
+  of a segment, and Whisper misspells the middle ("a curiche di", "delle
+  caratterista di"). It is now found from "Autore" or "sottotitoli" to
+  "QTSS" wherever it is, and the seconds transcribed a second time after it
+  go with it, word timings included. A summary reads a transcript made
+  earlier through that cut and nothing else, so a model no longer turns the
+  credit into a note, or a section. Of 36 credits in fourteen real meetings
+  33 no longer reach it; what is left is two that never name the group, and
+  the first words of one split across two paragraphs.
 - **A queued recording is always drawn.** The drawing was asked for before
   the recording was in the queue, and the thread that draws looks it up
   there: when it was quick, it found nothing and the row stayed without its

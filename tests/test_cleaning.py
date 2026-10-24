@@ -1,4 +1,6 @@
 """Text-cleaning tests. No models, no accelerators, no network."""
+import pytest
+
 from audio_transcriber.cleaning import (
     HALLUCINATION_PHRASES,
     clean_segments,
@@ -211,6 +213,104 @@ def test_the_doubling_goes_even_when_fillers_are_kept():
     ]
     kept = clean_segments(segments, drop_fillers=False)
     assert kept[1]["text"] == "si risolve tutto"
+
+
+# --------------------------------------------------------------------------
+# the subtitle credit Whisper writes where it started a window again
+# --------------------------------------------------------------------------
+
+#: One speaker's turn from a real meeting: the credit, and after it the
+#: sentence before it said all over again.
+SEAM = ("il cliente che arriva ha un'idea fantastica in testa tu gliel'implementi, "
+        "vai in produzione e poi ti accorgi che quell'idea fantastica "
+        "Autore dei sottotitoli e revisione a cura di QTSS "
+        "ha un'idea fantastica in testa, tu gliel'implementi, vai a produzione e "
+        "poi ti accorgi che quell'idea fantastica si scontra contro un mondo")
+
+
+def test_a_credit_inside_a_segment_goes_with_what_is_said_again_after_it():
+    kept = clean_segments([{"text": SEAM, "start": 0.0, "end": 30.0}])
+    assert kept[0]["text"] == (
+        "il cliente che arriva ha un'idea fantastica in testa tu gliel'implementi, "
+        "vai in produzione e poi ti accorgi che quell'idea fantastica "
+        "si scontra contro un mondo")
+
+
+def test_the_credit_and_the_cue_said_again_after_it_go():
+    """Cues 274-276 of the recording every summary is measured on."""
+    segments = [
+        {"text": "roba e tu fai quello che ti viene imposto di fare ma è "
+                 "organizzato bene e c'è il tuo", "start": 1180.6, "end": 1187.6},
+        {"text": "Autore dei sottotitoli e revisione a cura di QTSS la tua roba",
+         "start": 1189.9, "end": 1194.1},
+        {"text": "e tu fai quello che ti viene imposto di fare ma è organizzato bene",
+         "start": 1194.2, "end": 1198.6},
+    ]
+    assert [s["text"] for s in clean_segments(segments)] == [
+        segments[0]["text"], "la tua roba"]
+
+
+def test_a_short_invented_phrase_inside_a_sentence_is_speech():
+    """Only the long ones are looked for inside a segment."""
+    segments = [{"text": "volevo dire grazie a tutti quelli che hanno lavorato al "
+                         "rilascio", "start": 0.0, "end": 5.0}]
+    assert clean_segments(segments)[0]["text"] == segments[0]["text"]
+
+
+def test_a_credit_is_found_however_whisper_spelt_its_middle():
+    for credit in ("Autore dei sottotitoli e revisione a curiche di QTSS",
+                   "Autore dei sott veritieri sì o no sottotitoli e delle "
+                   "caratteristiche di QTSS"):
+        misspelt = SEAM.replace("Autore dei sottotitoli e revisione a cura di QTSS",
+                                credit)
+        kept = clean_segments([{"text": misspelt, "start": 0.0, "end": 30.0}])
+        assert kept[0]["text"] == (
+            "il cliente che arriva ha un'idea fantastica in testa tu gliel'implementi, "
+            "vai in produzione e poi ti accorgi che quell'idea fantastica "
+            "si scontra contro un mondo")
+
+
+def test_speech_after_a_credit_that_does_not_repeat_what_came_before_stays():
+    """"grazie a tutti" after the credit is someone thanking people."""
+    segments = [{"text": "voglio dire una cosa Autore dei sottotitoli e revisione a "
+                         "cura di QTSS grazie a tutti quelli che sono venuti oggi",
+                 "start": 0.0, "end": 10.0}]
+    assert clean_segments(segments)[0]["text"] == (
+        "voglio dire una cosa grazie a tutti quelli che sono venuti oggi")
+
+
+def test_a_segment_that_lost_a_credit_off_its_front_starts_later():
+    """Without word timings the start moves by the credit's share of the
+    characters, as it does for any other invented phrase cut off the front."""
+    credit = "Sottotitoli e revisione a cura di QTSS"
+    text = credit + " adesso parliamo del budget per il prossimo anno"
+    kept = clean_segments([{"text": text, "start": 10.0, "end": 20.0}])
+    assert kept[0]["text"] == "adesso parliamo del budget per il prossimo anno"
+    share = len(credit.replace(" ", "")) / len(text.replace(" ", ""))
+    assert kept[0]["start"] == pytest.approx(10.0 + 10.0 * share)
+
+
+def test_word_timings_stay_on_their_words_after_a_credit_inside_a_segment():
+    """The credit's own "e", "a", "di" must not lend their timings to the
+    same words after it."""
+    text = ("abbiamo deciso di rifare tutto il modulo di fatturazione entro marzo "
+            "Autore dei sottotitoli e revisione a cura di QTSS "
+            "rifare tutto il modulo di fatturazione entro marzo "
+            "e di avvisare il cliente")
+    timed = [{"word": word, "start": float(at), "end": at + 1.0}
+             for at, word in enumerate(text.split())]
+    kept = clean_segments([{"text": text, "start": 0.0, "end": float(len(timed)),
+                            "words": timed}])
+    assert kept[0]["text"] == ("abbiamo deciso di rifare tutto il modulo di "
+                               "fatturazione entro marzo e di avvisare il cliente")
+    assert [word["start"] for word in kept[0]["words"]][-5:] == [28.0, 29.0, 30.0,
+                                                                  31.0, 32.0]
+
+
+def test_keep_fillers_keeps_a_credit_inside_a_segment_too():
+    kept = clean_segments([{"text": SEAM, "start": 0.0, "end": 30.0}],
+                          drop_fillers=False)
+    assert kept[0]["text"] == SEAM
 
 
 def test_word_timings_are_trimmed_with_the_text():

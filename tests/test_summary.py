@@ -490,6 +490,39 @@ def test_an_entry_without_segments_falls_back_to_the_plain_transcript(entry):
     assert material.sentences and material.sentences[0].start is None
 
 
+def test_a_transcript_is_read_without_the_credit_whisper_wrote_into_it():
+    """A transcript made before the cleaner knew it still has it: the reading
+    drops it, and the passage said again after it."""
+    text = ("[SPEAKER_00] vai in produzione e poi ti accorgi che quell'idea "
+            "fantastica Autore dei sottotitoli e revisione a cura di QTSS vai a "
+            "produzione e poi ti accorgi che quell'idea fantastica si scontra "
+            "contro un mondo.\n\n[SPEAKER_01] Certo.")
+    sentences = summary.material_from_text(text, "x", "it").sentences
+    assert [s.text for s in sentences] == [
+        "[SPEAKER_00] vai in produzione e poi ti accorgi che quell'idea "
+        "fantastica si scontra contro un mondo.", "[SPEAKER_01] Certo."]
+
+
+def test_nothing_but_the_credit_is_taken_out_of_what_is_summarised():
+    """A short answer is speech, and so is the speaker a paragraph starts
+    with, even when what follows repeats the paragraph before it."""
+    text = ("No.\n\nSono d'accordo con il nostro piano per il prossimo anno.\n\n"
+            "[SPEAKER_00] Dobbiamo consegnare il modulo di fatturazione entro la "
+            "fine di marzo.\n\n[SPEAKER_01] Dobbiamo consegnare il modulo di "
+            "fatturazione entro la fine di marzo? Non è possibile.")
+    sentences = summary.material_from_text(text, "x", "it").sentences
+    assert [s.text for s in sentences] == [
+        s.text for s in summary.sentences_from_text(text)]
+
+
+def test_subtitles_are_read_without_the_credit_whisper_wrote_into_a_cue():
+    material = summary.material_from_subtitles(
+        "1\n00:00:00,000 --> 00:00:04,000\nche quell'idea fantastica Autore dei "
+        "sottotitoli e revisione a cura di QTSS si scontra\n", "x", "it")
+    assert [s.text for s in material.sentences] == [
+        "che quell'idea fantastica si scontra"]
+
+
 def test_a_summary_is_stored_beside_the_transcript(entry):
     assert not entry.has_summary()
     entry.write_summary("# Riassunto\n\nTesto.")

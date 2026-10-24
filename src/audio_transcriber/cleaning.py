@@ -20,7 +20,7 @@ HALLUCINATION_PHRASES = {
         "grazie", "grazie a tutti", "grazie mille", "grazie a te", "grazie a voi",
         "grazie per l'attenzione", "grazie per la visione", "grazie di cuore",
         "sottotitoli e revisione a cura di qtss",
-        "sottotitoli e revisione a cura di qtss grazie a tutti",
+        "autore dei sottotitoli e revisione a cura di qtss",
         "autore dei sottotitoli e delle caratteristiche di qtss",
         "sottotitoli creati dalla comunita amara.org",
         "ciao", "buongiorno a tutti", "buona giornata",
@@ -80,9 +80,17 @@ OVERLAP_PREFIX_MAX_WORDS = 12
 #: doubling then repeats something two segments back rather than one.
 OVERLAP_LOOKBACK_SEGMENTS = 2
 
-#: The longest invented phrase looked for at a segment's edge; the catalogue's
-#: longest entry is seven words.
-HALLUCINATION_MAX_WORDS = 8
+#: The longest invented phrase looked for: the catalogue's longest entry.
+HALLUCINATION_MAX_WORDS = max(len(phrase.split()) for phrase in ALL_HALLUCINATION_PHRASES)
+
+#: Whisper's subtitle credit, however it spells the middle - "a cura di",
+#: "a curiche di", "delle caratteristiche di", "dei sott veritieri sì o no
+#: sottotitoli e delle caratteristiche di": it starts at one of these words,
+#: at most this many words before the name of the group, which nobody says.
+#: Looked for inside a segment too, where the catalogue is not.
+CREDIT_START = frozenset({"autore", "sottotitoli"})
+CREDIT_END = "qtss"
+CREDIT_MAX_WORDS = 14
 
 #: Sentence ends, for grouping words back into segments.
 SENTENCE_END = re.compile(r"[.!?…]+[\"'”»)\]]*$")
@@ -219,6 +227,43 @@ def strip_hallucinations(words, catalogue):
     return (words[:len(words) - tail] if tail else words), head
 
 
+def cut_seams(words, before=()):
+    """The positions of ``words`` left without Whisper's subtitle credit,
+    wherever it is, nor what the engine said again right after it.
+
+    Whisper writes the credit where it started a window again, and then
+    transcribes again the seconds before it: "quell'idea fantastica [credit]
+    ha un'idea fantastica in testa, tu gliel'implementi, vai a produzione e
+    poi ti accorgi che quell'idea fantastica si scontra". So the credit goes,
+    and with it the head of what follows that the words before it -
+    ``before`` and then the segment's own - already said: the same doubling
+    :func:`overlap_size` finds between two segments, and under the same
+    guard. Positions rather than words, so that whatever goes with the
+    words - their timings, how far into the segment the first one left
+    starts - can be taken from the same places.
+
+    ParceEtRecte: one segment at a time, so a credit split across two - the
+    end of one cue and the start of the next - is not found; none of the
+    real transcripts looked at had one, and finding it means reading the
+    segments as one stream."""
+    keys = _keys(words)
+    left = list(range(len(keys)))
+    index = 0
+    while index < len(left):
+        start = None
+        if keys[left[index]] == CREDIT_END:
+            start = next((at for at in range(max(0, index - CREDIT_MAX_WORDS), index)
+                          if keys[left[at]] in CREDIT_START), None)
+        if start is None:
+            index += 1
+            continue
+        doubled = overlap_size(list(before) + [words[at] for at in left[:start]],
+                               [words[at] for at in left[index + 1:]])
+        del left[start:index + 1 + doubled]
+        index = start
+    return left
+
+
 # --------------------------------------------------------------------------
 # segments
 # --------------------------------------------------------------------------
@@ -287,13 +332,15 @@ def clean_segments(segments, drop_fillers=True, phrases=None):
 
     Three different things, in the order they have to happen: a segment that is
     nothing but an invented phrase goes; an invented phrase glued to the edge
-    of a real segment is cut off it; and a run of words that repeats the run
-    before it — whether the repeat is inside one segment or across two — is
-    cut, because nobody said it twice.
+    of a real segment is cut off it, and the subtitle credit wherever it is;
+    and a run of words that repeats the run before it — whether the repeat is
+    inside one segment or across two, or right after the credit — is cut,
+    because nobody said it twice.
 
     ``drop_fillers`` governs the invented phrases only. The doubling is not
     editorial and is always cut: a verbatim transcript is a faithful record of
-    the speech, not of the engine's stitching."""
+    the speech, not of the engine's stitching. The one exception is the
+    doubling after a credit that is kept: it is only found by the credit."""
     catalogue = ALL_HALLUCINATION_PHRASES if phrases is None else phrases
     if not drop_fillers:
         catalogue = frozenset()
@@ -305,18 +352,28 @@ def clean_segments(segments, drop_fillers=True, phrases=None):
         key = normalise(text)
         if key in catalogue:
             continue
-        words, timed = _words_of(segment)
-        trimmed, head = strip_hallucinations(list(words), catalogue)
+        original, timed = _words_of(segment)
         recent = []
         for earlier in kept[-OVERLAP_LOOKBACK_SEGMENTS:]:
             recent.extend(_words_of(earlier)[0])
+        # First, so that what is left of the words and of their timings
+        # still lines up for everything after it.
+        left = (cut_seams(original, recent) if drop_fillers
+                else range(len(original)))
+        words = [original[at] for at in left]
+        if timed:
+            timed = [timed[at] for at in left]
+        trimmed, head = strip_hallucinations(list(words), catalogue)
         doubled = overlap_size(recent[-REPEAT_MAX_WORDS:], trimmed) if recent else 0
         head += doubled
         trimmed = collapse_repeats(trimmed[doubled:])
         if not trimmed:
             continue
-        if trimmed != words:
-            segment = _rebuilt(segment, trimmed, timed, words, head)
+        if trimmed != original:
+            # How far into the original the first word left is: what moves
+            # the start of a segment that has no timings of its own.
+            first = left[head] if head < len(left) else len(original)
+            segment = _rebuilt(segment, trimmed, timed, original, first)
             text = segment["text"]
             key = normalise(text)
         else:
