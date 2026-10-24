@@ -35,6 +35,10 @@ All notable changes to this project are documented here. The format follows
   what it was for.
 - **A measurement keeps Windows awake** while `tools/diagnose_summary.py`
   runs, so that a round left overnight times the summary and not the night.
+- **A queued recording is always drawn.** The drawing was asked for before
+  the recording was in the queue, and the thread that draws looks it up
+  there: when it was quick, it found nothing and the row stayed without its
+  picture.
 
 ## [0.10.1] — 2026-10-03
 

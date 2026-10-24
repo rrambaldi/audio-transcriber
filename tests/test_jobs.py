@@ -707,6 +707,25 @@ def test_a_queued_recording_is_measured_without_waiting_for_its_turn(queue, tmp_
     assert queue.get(job.id).as_dict()["loudness"] == [1, 500, 1000]
 
 
+def test_a_recording_is_drawn_even_when_the_drawing_thread_is_quick(queue, tmp_path):
+    """The thread looks the job up in the queue, so the job must be there
+    before the thread is asked: one that got there first drew nothing."""
+    started = queue._ensure_measurer
+
+    def quick():
+        started()
+        time.sleep(0.2)     # the thread looks before submit goes on
+
+    queue._ensure_measurer = quick
+    source = tmp_path / "meeting.wav"
+    source.write_bytes(b"not really audio")
+    job = queue.submit(str(source), start=False)
+    deadline = time.time() + 5.0
+    while job.loudness is None and time.time() < deadline:
+        time.sleep(0.01)
+    assert job.loudness == [1, 500, 1000]
+
+
 def test_a_recording_that_cannot_be_measured_leaves_the_row_alone(tmp_path):
     def runner(job):
         job.words = 0

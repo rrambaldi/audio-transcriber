@@ -486,12 +486,6 @@ class JobQueue:
         # How long it is, from the header: a recording waiting its turn can
         # then say so, instead of being a name and a size until it runs.
         job.audio_duration = audio.probe_seconds(source)
-        # The length comes off the header in milliseconds and is read here;
-        # what the recording looks like takes a pass of ffmpeg, so it does not
-        # hold up the answer to an upload. A recording still being made is
-        # drawn once it is filed: now it would be a drawing of its first second.
-        if growing is None:
-            self._measure(job)
         if not start:
             job.status = HELD
         with self._lock:
@@ -499,6 +493,15 @@ class JobQueue:
             self._order.append(job.id)
             self._forget_old()
             self._save()
+        # The length comes off the header in milliseconds and is read above;
+        # what the recording looks like takes a pass of ffmpeg, so it does not
+        # hold up the answer to an upload. Asked for only now the job is in
+        # the queue: the drawing thread looks it up there, and one that looked
+        # first found nothing and never drew it. A recording still being made
+        # is drawn once it is filed: now it would be a drawing of its first
+        # second.
+        if growing is None:
+            self._measure(job)
         if start:
             self._pending.put(job.id)
             self._ensure_worker()
