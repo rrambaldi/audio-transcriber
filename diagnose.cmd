@@ -203,6 +203,7 @@ rem   Spark-X2.5-4B Q4        415 s   coverage 91%   17 of 21, verbose, garbled
 rem   Spark, 800 per pass     556 s   coverage 91%   17 of 21, only longer
 rem   Spark-X2.5-4B Q8   618-1990 s   coverage 95%   20 of 21, nothing invented
 rem   LFM2.5-24B-A2B Q4       234 s   coverage 95%   20 of 25, reasoning shut
+rem   LFM, 1024 reasoning     961 s   coverage 64%   reasoning spilled into it
 rem
 rem (The facts are counted against a list of 25 made again from gold.summary
 rem on 23 October; the list of 21 behind the figures above was not kept. On

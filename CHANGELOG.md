@@ -19,7 +19,10 @@ All notable changes to this project are documented here. The format follows
   llama-server holds a model to that budget, so this model runs on it or not
   at all; elsewhere `think_tokens` only adds the room.
   `diagnose.cmd` measures it with and without the reasoning, after fetching
-  it once before anything is timed.
+  it once before anything is timed. On the reference recording, its
+  reasoning shut, it wrote a page level with Spark's in half the time;
+  allowed to reason it was four times slower and covered 64% of the minutes,
+  so Spark stays the default.
 
 ### Fixed
 

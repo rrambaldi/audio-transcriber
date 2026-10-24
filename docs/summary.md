@@ -404,6 +404,15 @@ only adds the room; nothing holds the reasoning to it. The model is known by
 its name: a path to its GGUF is a model nothing is known about, and its
 reasoning is then not closed.
 
+Measured on the same 22-minute recording, on the Arc 140V: with its reasoning
+shut it wrote a page level with Spark's in half the time (219-234 s against
+449, 95% of the minutes both, 20 of 25 reference facts against 21), in better
+Italian, but it copied the worked example of the prompt into its passes and
+made a section out of a line Whisper had invented. Allowed 1024 tokens of
+reasoning it took 961 s and covered 64% of the minutes, its reasoning
+spilling into the answers in English. Spark stays the default; LFM stays in
+the menu while it is tried on more recordings, with its reasoning shut.
+
 The smallest class is LFM2.5-1.2B and not MiniCPM5-1B, and the reason is worth
 recording: asked in Italian to summarise a news article in three sentences,
 MiniCPM5-1B at Q4_K_M returns the article. Not a poor summary — no summary: it

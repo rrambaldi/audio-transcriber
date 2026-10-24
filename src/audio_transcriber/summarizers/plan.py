@@ -199,7 +199,11 @@ CATALOGUE = (
     # are attention, the others convolution. It always reasons first: its
     # template opens a <think> on every answer and has no switch to keep it
     # shut. Read from config.json, chat_template.jinja and the published
-    # files on 2026-10-22.
+    # files on 2026-10-22. Measured on gold.srt on 2026-10-23 and -24: its
+    # reasoning shut, level with Spark at Q8_0 in half the time (219-234 s
+    # against 449, coverage 95% both, 20 facts of 25 against 21); allowed
+    # 1024 tokens of reasoning, 961 s and 64%, its reasoning spilling into
+    # the answers. Kept by name while more recordings are measured.
     Model(name="LFM2.5-24B-A2B",
           hf_id="LiquidAI/LFM2.5-24B-A2B",
           gguf_repo="LiquidAI/LFM2.5-24B-A2B-GGUF",
