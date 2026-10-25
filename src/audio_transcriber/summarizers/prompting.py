@@ -29,7 +29,9 @@ from ..summary import (
     HEADINGS,
     Point,
     Sections,
+    _terms,
     estimate_tokens,
+    fold,
     language_of,
 )
 from ..summary import (
@@ -73,7 +75,7 @@ EVIDENCE_TOKENS = 400
 #: Bumped whenever a prompt here changes. It is part of the cache key of a
 #: partial answer, and a cache that survives a prompt change is a bug that
 #: accumulates rather than a saving.
-PROMPT_VERSION = 2
+PROMPT_VERSION = 3
 
 #: What the transcript is wrapped in inside a prompt. The same two markers in
 #: every language, because they are delimiters rather than prose and because
@@ -217,29 +219,26 @@ PROMPTS = {
         "map_example":
             "Esempio. Da questo estratto:\n\n"
             "{fence_start}\n"
-            "[0:27] eh allora io vorrei cioe' monitorare tutti gli utenti a "
-            "cui e' stata inviata la mail no e poi vedere se sono entrati\n"
-            "[0:35] e poi veder nel momento in cui partito la campagna gli "
-            "vengono assegnati i ticket agli utenti se loro entrano\n"
-            "[14:02] ma si' allora scusa un attimo che ho il cane che abbaia\n"
-            "[14:11] dicevo ho provato a fare una checklist fornitore vera "
-            "con la vecchia interfaccia ci ho messo ventidue minuti con "
-            "quella nuova quattro minuti e dodici secondi\n"
+            "[0:27] eh allora quello che chiedono i genitori e' cioe' il "
+            "pane integrale almeno due giorni a settimana no non solo il "
+            "venerdi\n"
+            "[0:35] e poi se un bambino e' allergico la cuoca deve saperlo la "
+            "mattina stessa quando arriva in cucina\n"
+            "[14:02] ma si' allora scusate un attimo che suona il citofono\n"
+            "[14:11] dicevo ho rifatto il conto dei pasti buttati a ottobre "
+            "erano centoquaranta a novembre siamo scesi a sessantadue\n"
             "{fence_end}\n\n"
             "si scrive:\n\n"
             "## {first}\n"
-            "- Serve poter monitorare gli utenti a cui e' stata inviata la "
-            "mail di invito e verificare se hanno fatto il primo accesso. "
-            "[0:27]\n"
-            "- Dopo l'avvio di una campagna occorre sapere se gli utenti a "
-            "cui sono stati assegnati i ticket hanno fatto il login per "
-            "vederli. [0:35]\n"
+            "- I genitori chiedono il pane integrale almeno due giorni alla "
+            "settimana, non solo il venerdi'. [0:27]\n"
+            "- La cuoca deve sapere ogni mattina, appena arriva in cucina, "
+            "quali bambini sono allergici. [0:35]\n"
             "## {second}\n"
-            "- Creare una checklist fornitore reale ha richiesto 22 minuti "
-            "con la vecchia interfaccia e 4 minuti e 12 secondi con la "
-            "nuova. [14:11]\n\n"
-            "Il cane che abbaia non e' un appunto, e le due frasi sulla "
-            "checklist sono un appunto solo.\n",
+            "- I pasti buttati sono scesi da 140 a ottobre a 62 a novembre. "
+            "[14:11]\n\n"
+            "Il citofono non e' un appunto, e le due frasi sui pasti buttati "
+            "sono un appunto solo.\n",
         "evidence":
             "Questi sono passaggi della trascrizione originale, per "
             "controllo.\n\n{fence_start}\n{evidence}\n{fence_end}\n\n"
@@ -377,28 +376,26 @@ PROMPTS = {
         "map_example":
             "An example. From this extract:\n\n"
             "{fence_start}\n"
-            "[0:27] right so what I want is to keep an eye on all the users "
-            "the mail went out to you know and then see whether they came in\n"
-            "[0:35] and then see once the campaign has started they get the "
-            "tickets assigned do they actually log in\n"
-            "[14:02] hang on sorry a second the dog is barking\n"
-            "[14:11] anyway I tried building a real supplier checklist it "
-            "took me twenty-two minutes on the old interface four minutes and "
-            "twelve seconds on the new one\n"
+            "[0:27] right so what the parents are asking is wholemeal bread "
+            "at least two days a week you know not just on fridays\n"
+            "[0:35] and then if a child is allergic the cook has to know that "
+            "same morning as soon as the kitchen opens\n"
+            "[14:02] hang on sorry a second someone's at the door\n"
+            "[14:11] anyway I redid the count of the meals thrown away in "
+            "october it was a hundred and forty in november we got down to "
+            "sixty-two\n"
             "{fence_end}\n\n"
             "one writes:\n\n"
             "## {first}\n"
-            "- There has to be a way to see which users the invitation mail "
-            "went to and whether they have signed in for the first time. "
-            "[0:27]\n"
-            "- Once a campaign has started, it has to be possible to tell "
-            "whether the users its tickets were assigned to have logged in to "
-            "see them. [0:35]\n"
+            "- Parents ask for wholemeal bread at least two days a week, not "
+            "only on Fridays. [0:27]\n"
+            "- The cook must know every morning, as soon as the kitchen opens, "
+            "which children are allergic. [0:35]\n"
             "## {second}\n"
-            "- Building a real supplier checklist took 22 minutes on the old "
-            "interface and 4 minutes 12 seconds on the new one. [14:11]\n\n"
-            "The barking dog is not a note, and the two sentences about the "
-            "checklist are one note.\n",
+            "- Meals thrown away fell from 140 in October to 62 in November. "
+            "[14:11]\n\n"
+            "The door is not a note, and the two sentences about the meals "
+            "thrown away are one note.\n",
         "evidence":
             "These are passages of the original transcript, to check "
             "against.\n\n{fence_start}\n{evidence}\n{fence_end}\n\n"
@@ -749,6 +746,50 @@ def scaffold(language, catalogue=None):
                     lines.add(line)
         _SCAFFOLDS[(code, kinds)] = frozenset(lines)
     return _SCAFFOLDS[(code, kinds)]
+
+
+#: How much of a note's content words may be those of one line of the worked
+#: example before it is taken for a copy of it. Content words only: counted
+#: with "i", "sono", "da" and "a", "I costi sono scesi da 140 a 62 a
+#: novembre" is a copy. On the 3,103 notes of fifteen pages read from five
+#: meetings (October 2026) no real note reaches half against this example.
+EXAMPLE_LIKENESS = 0.85
+
+#: Shorter notes are not judged: "La", a pass cut off after one word, is
+#: entirely words of the example.
+EXAMPLE_MIN_WORDS = 4
+
+
+def _content_words(text, language):
+    # The typographic apostrophe too: "dell’arrivo" is otherwise two words,
+    # one of them "dell", and a copy that a model typeset is no longer one.
+    return [fold(word) for word
+            in _terms(str(text or "").replace("’", "'"), language_of(language))]
+
+
+def copies_the_example(text, language):
+    """Whether a note is one of the reading prompt's worked example, written back.
+
+    A model with little to say about a chunk fills its answer with the
+    example. Measured over five meetings, the example's notes reached every
+    page, as facts of meetings that never mentioned them - and not verbatim:
+    reworded, cut in two, under the chunk's own minute. So what is measured is
+    how much of the note is the words of one line of the example, its notes or
+    the extract they were written from. The example is about a subject none
+    of the recordings is about, which is what makes that safe: a real note is
+    not made of its words.
+
+    ParceEtRecte: words, not meanings. A copy with a word changed or a
+    singular for a plural ("quale bambino e' allergico") passes; stems, or a
+    similarity model, if a measured round shows copies getting through."""
+    said = _content_words(text, language)
+    if len(said) < EXAMPLE_MIN_WORDS:
+        return False
+    for line in prompts_for(language)["map_example"].splitlines():
+        example = set(_content_words(line, language))
+        if sum(word in example for word in said) >= EXAMPLE_LIKENESS * len(said):
+            return True
+    return False
 
 
 def transcript_for(sentences):
@@ -1266,7 +1307,12 @@ def map_prompt(sentences, language, part, total, catalogue=None):
     is not tidiness: an example headed with a word the rules above forbid is
     the one thing in this prompt a small model copies more reliably than the
     rules, and a template with its own sections would have hit it on the
-    first run."""
+    first run.
+
+    What the example is about is invented, and on purpose: a model copies its
+    content as well as its shape (see :func:`copies_the_example`). It used to
+    be taken from a real meeting, which handed that meeting's facts to every
+    model being measured on it."""
     prompts = prompts_for(language)
     kinds = catalogue_for(language, catalogue).kinds
     speakers = any(getattr(line, "speaker", None) for line in sentences)

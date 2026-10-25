@@ -46,6 +46,21 @@ All notable changes to this project are documented here. The format follows
   credit into a note, or a section. Of 36 credits in fourteen real meetings
   33 no longer reach it; what is left is two that never name the group, and
   the first words of one split across two paragraphs.
+- **A summary no longer reports the prompt's own example as something said
+  in the meeting.** The reading prompt shows a model how to take notes with
+  a worked example, taken from a real meeting, and a model with little to
+  say about a chunk wrote the example's notes back instead - reworded, under
+  the chunk's own minute: on five meetings they reached all ten pages, once
+  as a whole section of a meeting about something else. The example is now
+  about an invented school canteen, and a note whose content words are
+  almost all those of one line of the example is dropped before it reaches
+  the page, as is such a line in an answer with no notes in it. The run
+  counts them (`notes_copied`, and `copied=` on the pass's line). On the
+  2,690 notes of those ten pages that is the 158 copies of the old example,
+  and against the new one none of the 3,103 notes of the fifteen pages
+  measured so far.
+- **The cache of reading passes is tidied whenever a pass was filed in it**,
+  and not only when the last chunk read happened to have notes.
 - **A queued recording is always drawn.** The drawing was asked for before
   the recording was in the queue, and the thread that draws looks it up
   there: when it was quick, it found nothing and the row stayed without its

@@ -83,6 +83,9 @@ class ChunkRecord:
     #: had a pass that wrote notes and placed none of them, which is a pass
     #: that contributes nothing to what the recording was covered by.
     placed: int = 0
+    #: Notes thrown away as the prompt's worked example written back, and not
+    #: counted in ``notes``.
+    copied: int = 0
     #: Headings the model invented. Their notes are kept, as facts; the names
     #: are kept too, because a model inventing the same heading every run is
     #: a heading the catalogue is missing.
@@ -116,13 +119,15 @@ class ChunkRecord:
 
     def line(self):
         head = f"chunk {self.index:02d}/{self.total:02d}"
+        # A pass that wrote nothing but the example reads "note=0/0" too.
+        copied = f"  copied={self.copied}" if self.copied else ""
         if self.status == REUSED:
-            return f"{head}  cache-hit{'':22}{REUSED}"
+            return f"{head}  cache-hit{'':22}{REUSED}{copied}"
         covered = self.covered
         share = "" if covered is None else f"  covered={covered * 100:.0f}%"
         return (f"{head}  in={self.in_tokens} tok  "
                 f"out={self.out_tokens}/{self.budget} tok  "
-                f"note={self.placed}/{self.notes}{share}  {self.status}")
+                f"note={self.placed}/{self.notes}{copied}{share}  {self.status}")
 
 
 @dataclass
@@ -226,6 +231,7 @@ class Trace:
                                     if record.status == BUDGET_EXHAUSTED),
             "notes": sum(record.notes for record in self.chunks),
             "notes_placed": sum(record.placed for record in self.chunks),
+            "notes_copied": sum(record.copied for record in self.chunks),
             "unplaced_chunks": sum(1 for record in self.chunks
                                    if record.notes and not record.placed),
             "unknown_headings": sorted({name for record in self.chunks

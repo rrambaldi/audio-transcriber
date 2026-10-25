@@ -169,7 +169,7 @@ def _map(pipeline, system, parts, language, chosen, report, band,
     over the same recording — a different length, or a job resumed after being
     interrupted — costs nothing at all."""
     low, high = band
-    found, written = [], False
+    found, stored = [], False
     for index, part in enumerate(parts, start=1):
         report(low + (high - low) * (index - 1) // len(parts), STAGE_READING)
         prompt = prompting.map_prompt(part, language, index, len(parts),
@@ -199,21 +199,35 @@ def _map(pipeline, system, parts, language, chosen, report, band,
                 # where the summary should have been. Recorded as such, so
                 # that copy_rate measures the model and not this.
                 status = tracing.ECHOED
-            written = partials.put(name, answer, cache_dir) or written
+            stored = partials.put(name, answer, cache_dir) or stored
         else:
             print(t("summary.pass_cached", part=index, total=len(parts)),
                   file=sys.stderr)
             status = tracing.REUSED
         span = (part[0].start if part else None,
                 (part[-1].end or part[-1].start) if part else None)
-        written, unknown = note_reading.read(answer, language, index, span,
-                                             catalogue=catalogue)
+        notes_read, unknown = note_reading.read(answer, language, index, span,
+                                                catalogue=catalogue)
+        # The prompt's worked example written back is not part of this chunk,
+        # however well it reads: not as a note, and not as a line of an answer
+        # nothing could be read out of - unless that answer is the chunk's own
+        # sentences standing in for an echo, which were said.
+        # ParceEtRecte: whole lines, not sentences, so a paragraph on one line
+        # goes up with a copy inside it. Only the "headings" shape reads that.
+        written = [note for note in notes_read
+                   if not prompting.copies_the_example(note.text, language)]
+        lines = answer.splitlines()
+        prose = [line for line in lines
+                 if status == tracing.ECHOED
+                 or not prompting.copies_the_example(line, language)]
+        copied = (len(notes_read) - len(written) if notes_read
+                  else len(lines) - len(prose))
         if trace is not None:
             trace.chunk(index=index, total=len(parts),
                         budget=chosen.map_answer_tokens,
                         in_tokens=estimate_tokens(prompt, language),
                         out_tokens=estimate_tokens(answer, language),
-                        notes=len(written),
+                        notes=len(written), copied=copied,
                         placed=note_reading.placed(written),
                         unknown_headings=unknown,
                         status=status, span=span,
@@ -225,9 +239,9 @@ def _map(pipeline, system, parts, language, chosen, report, band,
         # a time and nothing wants a chunk's worth of text in one blob. An
         # answer nothing could be read out of goes up as it came, because a
         # pass that produced prose still produced something.
-        found.append((note_reading.as_bullets(written, language) if written
-                      else answer, list(part)))
-    if written:
+        found.append((note_reading.as_bullets(written, language) if notes_read
+                      else "\n".join(prose), list(part)))
+    if stored:
         # This program has no daemon, so the only moment anything can be
         # tidied away is a moment when something was added. A cache that only
         # grows fills the disk of the small machine it was meant to help.

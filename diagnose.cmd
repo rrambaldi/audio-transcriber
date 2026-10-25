@@ -213,25 +213,25 @@ rem Spark at Q8 is what the plan chooses on llama.cpp: slower, and worth it.
 rem The read-back, "--review", stays off: in Z5 it found two right lines in
 rem 125 s of 617.
 rem
-rem L1 and L2 put LFM2.5-24B-A2B, its reasoning shut, level with Spark in
-rem half the time; allowed to reason it was slower and covered less. All of
-rem that is one meeting, and the worked example in the prompt is taken from
-rem that same meeting. This round asks the question again on five:
+rem B1 measured Spark at Q8 and LFM2.5-24B-A2B, its reasoning shut, on five
+rem meetings: Spark 95 facts of 133, LFM 91, LFM faster on four. Both wrote
+rem the worked example of the reading prompt back as notes - LFM in most of
+rem its passes - and the example's notes reached all ten pages.
+rem The example is now an invented one, and a note made of its words is
+rem dropped. This round is B1 again with that one change:
 rem
-rem   gold     the same meeting, 22 minutes, subtitles
+rem   gold     22 minutes, subtitles; the old example came from it
 rem   0723     risk analysis, an hour, subtitles
 rem   1022     two people, another subject altogether
-rem   1021-4   a release meeting, many speakers, Whisper's credit in a loop
-rem   0929     the longest, two hours, 30 of Whisper's credits in it
+rem   1021-4   a release meeting, many speakers
+rem   0929     the longest, two hours
 rem
 rem Each once with Spark at Q8 and once with LFM, its reasoning shut. The
 rem transcripts are the ones in .local\new-summary, which send-transcripts.cmd
 rem sent to the server; the facts each page is scored against stay there.
 rem The October two are text with an .srt name: no minutes, so no coverage.
-rem B1-spark-gold against L1-spark-q8 also says what cutting Whisper's credit
-rem did, since that is the only other thing that changed.
 rem
-rem It is a night: about three and a half hours. LFM wants about 16 GB free.
+rem It is a night: B1 took about five hours. LFM wants about 16 GB free.
 rem Leave the laptop on its charger with the lid open: the run holds Windows
 rem awake, but closing the lid can still put it to sleep.
 rem
@@ -261,8 +261,8 @@ goto :eof
 :bench
 rem One meeting of the round: its transcript, then each model on it.
 set "AT_SRT=%~2"
-call :measure "B1-spark-%~1" "%AT_LLAMA_VULKAN%" "--tier l --model Spark-X2.5-4B --quant Q8_0"
-call :measure "B1-lfm-%~1" "%AT_LLAMA_VULKAN%" "--tier l --model LFM2.5-24B-A2B"
+call :measure "B2-spark-%~1" "%AT_LLAMA_VULKAN%" "--tier l --model Spark-X2.5-4B --quant Q8_0"
+call :measure "B2-lfm-%~1" "%AT_LLAMA_VULKAN%" "--tier l --model LFM2.5-24B-A2B"
 goto :eof
 
 :fetch
