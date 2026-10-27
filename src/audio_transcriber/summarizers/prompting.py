@@ -751,20 +751,30 @@ def scaffold(language, catalogue=None):
 #: How much of a note's content words may be those of one line of the worked
 #: example before it is taken for a copy of it. Content words only: counted
 #: with "i", "sono", "da" and "a", "I costi sono scesi da 140 a 62 a
-#: novembre" is a copy. On the 3,103 notes of fifteen pages read from five
-#: meetings (October 2026) no real note reaches half against this example.
+#: novembre" is a copy. On the 5,881 notes of twenty-five pages read from
+#: five meetings (October 2026) no real note reaches 0.6 against this example.
 EXAMPLE_LIKENESS = 0.85
 
 #: Shorter notes are not judged: "La", a pass cut off after one word, is
 #: entirely words of the example.
 EXAMPLE_MIN_WORDS = 4
 
+#: Words are compared by their first letters, so that "scese" is "scesi" and
+#: "rifare" is "rifatto": a measured round's copies came back with another
+#: ending as often as verbatim.
+EXAMPLE_STEM = 4
+
+#: An aside the model adds to a copy - "(nota: questo viene dall'estratto
+#: precedente)" - is its words, not the example's.
+_ASIDE = re.compile(r"\([^)]*\)")
+
 
 def _content_words(text, language):
     # The typographic apostrophe too: "dell’arrivo" is otherwise two words,
     # one of them "dell", and a copy that a model typeset is no longer one.
-    return [fold(word) for word
-            in _terms(str(text or "").replace("’", "'"), language_of(language))]
+    text = _ASIDE.sub(" ", str(text or "")).replace("’", "'")
+    return [fold(word)[:EXAMPLE_STEM]
+            for word in _terms(text, language_of(language))]
 
 
 def copies_the_example(text, language):
@@ -779,9 +789,10 @@ def copies_the_example(text, language):
     of the recordings is about, which is what makes that safe: a real note is
     not made of its words.
 
-    ParceEtRecte: words, not meanings. A copy with a word changed or a
-    singular for a plural ("quale bambino e' allergico") passes; stems, or a
-    similarity model, if a measured round shows copies getting through."""
+    ParceEtRecte: words, not meanings. A copy that mixes a note with the
+    extract line it came from, or one about the example's noise ("Il citofono
+    si è rotto"), passes; a similarity model if a measured round shows those
+    reaching the page."""
     said = _content_words(text, language)
     if len(said) < EXAMPLE_MIN_WORDS:
         return False

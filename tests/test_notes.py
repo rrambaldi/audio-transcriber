@@ -311,6 +311,18 @@ def test_a_copy_is_told_by_its_content_words_in_either_language():
         "centoquaranta.", "it")
     assert prompting.copies_the_example(
         "Meals thrown away fell from 140 to 62.", "en")
+    # The copies that got through a measured round: an aside of the model's
+    # own, another ending, another form of the same verb.
+    assert prompting.copies_the_example(
+        "I pasti buttati sono scesi da 140 a ottobre a 62 a novembre (nota: "
+        "questo viene dall'estratto precedente, non da questa parte).", "it")
+    assert prompting.copies_the_example(
+        "Le paste buttate sono scese da 140 a ottobre a 62 a novembre.", "it")
+    assert prompting.copies_the_example(
+        "Il numero di pasti buttati è sceso da 140 a ottobre a 62 a novembre.",
+        "it")
+    assert prompting.copies_the_example(
+        "Rifare il conto dei pasti buttati.", "it")
     assert not prompting.copies_the_example(
         "La cuoca ha chiesto un forno nuovo per la mensa di via Roma.", "it")
     # Real notes, nearly all words of the example once "i", "sono", "da",

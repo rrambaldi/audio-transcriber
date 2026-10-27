@@ -54,11 +54,14 @@ All notable changes to this project are documented here. The format follows
   as a whole section of a meeting about something else. The example is now
   about an invented school canteen, and a note whose content words are
   almost all those of one line of the example is dropped before it reaches
-  the page, as is such a line in an answer with no notes in it. The run
-  counts them (`notes_copied`, and `copied=` on the pass's line). On the
-  2,690 notes of those ten pages that is the 158 copies of the old example,
-  and against the new one none of the 3,103 notes of the fifteen pages
-  measured so far.
+  the page, as is such a line in an answer with no notes in it. Words are
+  compared by their first four letters and without the model's asides in
+  brackets, because the copies came back as "scese" for "scesi" or with a
+  "(nota: ...)" added. The run counts them (`notes_copied`, and `copied=` on
+  the pass's line). On the 2,690 notes of those ten pages that is the 158
+  copies of the old example; on the ten pages read again with the new one,
+  63 of its 69 copies, and none of the 5,881 real notes of the twenty-five
+  pages measured so far.
 - **The cache of reading passes is tidied whenever a pass was filed in it**,
   and not only when the last chunk read happened to have notes.
 - **A queued recording is always drawn.** The drawing was asked for before
