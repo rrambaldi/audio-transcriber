@@ -3,6 +3,8 @@
 Text in, dataclasses out — no model, no ffmpeg, no Qt. What is checked is the
 contract the grouping will be given: a kind, a sentence, and a minute.
 """
+import re
+
 import pytest
 
 from audio_transcriber.summarizers import notes, prompting
@@ -182,6 +184,53 @@ def test_the_reading_prompt_carries_a_worked_example():
     assert "## Requisiti" in prompt
     assert "[0:27]" in prompt
     assert "[14:11]" in prompt
+
+
+def test_a_transcript_with_no_minutes_is_not_asked_for_them():
+    """Prose has no minute to copy. Asked for one anyway, and shown an
+    example with them, a reading pass made them up: "[851]" on a meeting
+    with no minutes in it is the example's own 14:11, in seconds."""
+    from audio_transcriber.summary import Sentence
+
+    prose = [Sentence("Parliamo del budget.", None)]
+    timed = [Sentence("Parliamo del budget.", 0.0)]
+    for language, minute in (("it", "minuto"), ("en", "minute")):
+        untimed = prompting.map_prompt(prose, language, 1, 1)
+        assert minute not in untimed
+        assert not re.search(r"\[\d+:\d{2}\]", untimed)
+        assert minute not in prompting.system_prompt(language, prose)
+        assert minute in prompting.map_prompt(timed, language, 1, 1)
+        assert "[14:11]" in prompting.map_prompt(timed, language, 1, 1)
+        assert "[12:34]" in prompting.system_prompt(language, timed)
+    # The example is still there, only without its minutes.
+    assert ("- I pasti buttati sono scesi da 140 a ottobre a 62 a novembre.\n"
+            in prompting.map_prompt(prose, "it", 1, 1))
+
+
+def test_a_summary_of_prose_never_asks_for_a_minute(tmp_path):
+    from audio_transcriber import summary as summarising
+    from audio_transcriber.summarizers import plan, reading
+
+    asked = []
+
+    class Pipeline:
+        def ask(self, system, prompt, max_new_tokens=0, think=False):
+            asked.append(system + prompt)
+            if "APPUNTI" in prompt:
+                return ("## Decisioni\n- Il server nuovo si compra entro marzo.\n"
+                        "- Il budget resta di quarantamila euro.\n")
+            return "Il budget e' stato discusso."
+
+        def close(self):
+            pass
+
+    material = summarising.material_from_text(
+        " ".join(f"Frase numero {n} del verbale." for n in range(300)),
+        "prova", "it")
+    chosen = plan.resolve_plan(plan.LLAMACPP, ram=32.0, total=64.0, cores=4)
+    reading.summarize_with(lambda: Pipeline(), chosen, material,
+                           {"cache_dir": str(tmp_path)})
+    assert asked and not [said for said in asked if "minuto" in said]
 
 
 def test_the_prompt_asks_for_a_speaker_only_when_there_is_one():

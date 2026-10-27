@@ -528,7 +528,7 @@ def summarize_with(open_pipeline, chosen, material, settings=None,
     report(4, "stage.loading_model")
     pipeline = open_pipeline()
     try:
-        system = prompting.prompts_for(language)["system"]
+        system = prompting.system_prompt(language, material.sentences)
         if shape == SECTIONS:
             low, high = READING_BAND
             seam = int(low + (high - low) * FOLDING_FROM)

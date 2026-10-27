@@ -145,9 +145,11 @@ PROMPTS = {
             "niente che non sia stato detto;\n"
             "- se una sezione non ha contenuto, lasciala vuota invece di "
             "inventarla;\n"
-            "- cita il minuto fra parentesi quadre, come [12:34], copiandolo "
-            "dalla trascrizione;\n"
+            "{minute_rule}"
             "- niente preamboli e niente commenti: solo il documento chiesto.",
+        "system_minute_rule":
+            "- cita il minuto fra parentesi quadre, come [12:34], copiandolo "
+            "dalla trascrizione;\n",
         "map":
             "Questa e' la parte {part} di {total} della trascrizione "
             "automatica di una registrazione parlata: parlato com'e' stato "
@@ -166,12 +168,13 @@ PROMPTS = {
             "audio.\n"
             "5. Usa esattamente le intestazioni qui sotto, in quest'ordine. "
             "Salta un'intestazione se non hai nulla da metterci, e non "
-            "aggiungerne altre.\n"
-            "6. OGNI riga finisce con il minuto fra parentesi quadre, copiato "
-            "dalla riga della trascrizione da cui viene.{speaker_rule}\n\n"
+            "aggiungerne altre.{minute_rule}\n\n"
             "{sections_block}\n\n{examples}\n"
             "Ora la parte {part} di {total}:\n\n"
             "{fence_start}\n{transcript}\n{fence_end}",
+        "map_minute_rule":
+            "\n6. OGNI riga finisce con il minuto fra parentesi quadre, "
+            "copiato dalla riga della trascrizione da cui viene.",
         "map_speaker_rule":
             " Dopo il minuto, fra parentesi tonde, l'etichetta di chi parla.",
         "label":
@@ -305,9 +308,11 @@ PROMPTS = {
             "- use only what is in the transcript; add nothing that was not "
             "said;\n"
             "- leave a section out rather than inventing content for it;\n"
-            "- cite the minute in square brackets, like [12:34], copied from "
-            "the transcript;\n"
+            "{minute_rule}"
             "- no preamble and no commentary: only the document asked for.",
+        "system_minute_rule":
+            "- cite the minute in square brackets, like [12:34], copied from "
+            "the transcript;\n",
         "map":
             "This is part {part} of {total} of the automatic transcript of a "
             "spoken recording: speech as it was said, with unfinished "
@@ -324,12 +329,14 @@ PROMPTS = {
             "4. Skip pleasantries, greetings, personal digressions and audio "
             "trouble.\n"
             "5. Use exactly the headings below, in this order. Skip a heading "
-            "with nothing to put under it, and add none of your own.\n"
-            "6. EVERY line ends with the minute in square brackets, copied "
-            "from the transcript line it came from.{speaker_rule}\n\n"
+            "with nothing to put under it, and add none of your own."
+            "{minute_rule}\n\n"
             "{sections_block}\n\n{examples}\n"
             "Now part {part} of {total}:\n\n"
             "{fence_start}\n{transcript}\n{fence_end}",
+        "map_minute_rule":
+            "\n6. EVERY line ends with the minute in square brackets, copied "
+            "from the transcript line it came from.",
         "map_speaker_rule":
             " After the minute, in round brackets, the label of whoever is "
             "speaking.",
@@ -1323,19 +1330,49 @@ def map_prompt(sentences, language, part, total, catalogue=None):
     What the example is about is invented, and on purpose: a model copies its
     content as well as its shape (see :func:`copies_the_example`). It used to
     be taken from a real meeting, which handed that meeting's facts to every
-    model being measured on it."""
+    model being measured on it.
+
+    A transcript with no minutes is not asked for them, and its example has
+    none: asked anyway, a model made them up."""
     prompts = prompts_for(language)
     kinds = catalogue_for(language, catalogue).kinds
     speakers = any(getattr(line, "speaker", None) for line in sentences)
+    example = prompts["map_example"].format(
+        fence_start=FENCE_START, fence_end=FENCE_END,
+        first=kinds[0].heading if kinds else "",
+        second=kinds[1].heading if len(kinds) > 1 else "")
+    if _untimed(sentences):
+        # The speaker goes with the minute, "after the minute": no loader
+        # gives a speaker to a sentence with no minute.
+        minute_rule, example = "", _EXAMPLE_MINUTE.sub("", example)
+    else:
+        minute_rule = (prompts["map_minute_rule"]
+                       + (prompts["map_speaker_rule"] if speakers else ""))
     return prompts["map"].format(
         part=part, total=total, transcript=transcript_for(sentences),
         sections_block=note_headings(language, catalogue),
-        examples=prompts["map_example"].format(
-            fence_start=FENCE_START, fence_end=FENCE_END,
-            first=kinds[0].heading if kinds else "",
-            second=kinds[1].heading if len(kinds) > 1 else ""),
-        speaker_rule=prompts["map_speaker_rule"] if speakers else "",
+        examples=example, minute_rule=minute_rule,
         fence_start=FENCE_START, fence_end=FENCE_END)
+
+
+#: A minute of the worked example, with the space that sets it off.
+_EXAMPLE_MINUTE = re.compile(r"\[\d{1,2}:\d{2}\] | \[\d{1,2}:\d{2}\]")
+
+
+def _untimed(sentences):
+    """Whether a transcript has no minute anywhere: prose, not subtitles.
+
+    No sentences is not one: :func:`map_overhead` measures the prompt with
+    none, and has to measure the longer of the two."""
+    return bool(sentences) and all(
+        getattr(sentence, "start", None) is None for sentence in sentences)
+
+
+def system_prompt(language, sentences):
+    """The system prompt, which asks for the minute only where there is one."""
+    prompts = prompts_for(language)
+    return prompts["system"].format(
+        minute_rule="" if _untimed(sentences) else prompts["system_minute_rule"])
 
 
 def _numbered(partials):

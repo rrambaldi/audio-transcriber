@@ -46,6 +46,14 @@ All notable changes to this project are documented here. The format follows
   credit into a note, or a section. Of 36 credits in fourteen real meetings
   33 no longer reach it; what is left is two that never name the group, and
   the first words of one split across two paragraphs.
+- **A transcript with no minutes is no longer asked for them.** Plain text,
+  or a diarised transcript saved as prose, was read with the same prompt as
+  subtitles: every note was to end with the minute it came from, after an
+  example whose notes all did. One model made the minutes up - "[851]" on a
+  meeting with none is the example's own 14:11, in seconds. With no minute in
+  the transcript, the rule and the example's minutes go, from the reading
+  prompt and from the system prompt; a transcript with minutes is asked
+  exactly what it was asked before.
 - **A summary no longer reports the prompt's own example as something said
   in the meeting.** The reading prompt shows a model how to take notes with
   a worked example, taken from a real meeting, and a model with little to

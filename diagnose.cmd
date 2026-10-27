@@ -213,27 +213,40 @@ rem Spark at Q8 is what the plan chooses on llama.cpp: slower, and worth it.
 rem The read-back, "--review", stays off: in Z5 it found two right lines in
 rem 125 s of 617.
 rem
-rem B1 measured Spark at Q8 and LFM2.5-24B-A2B, its reasoning shut, on five
-rem meetings: Spark 95 facts of 133, LFM 91, LFM faster on four. Both wrote
-rem the worked example of the reading prompt back as notes - LFM in most of
-rem its passes - and the example's notes reached all ten pages.
-rem The example is now an invented one, and a note made of its words is
-rem dropped. This round is B1 again with that one change:
+rem B1 and B2 measured Spark at Q8 and LFM2.5-24B-A2B, its reasoning shut,
+rem on five meetings. In B2, after the worked example of the reading prompt
+rem was replaced, Spark had 94 facts of 133 on the page and LFM 95: level.
+rem Most of what is missing never reaches the notes - about 35 facts - and
+rem six reading passes in ten stop on their allowance of 500 tokens. What
+rem goes missing is mostly names, acronyms, numbers and dates.
 rem
-rem   gold     22 minutes, subtitles; the old example came from it
+rem This round is Spark alone, at Q8, twice on each meeting:
+rem
+rem   C1   a reading pass may say 1000 tokens instead of 500 - and so may
+rem        a section of the page, which the same setting holds
+rem   C2   the same, and the reading prompt asks for names, acronyms,
+rem        numbers and dates exactly as they were said
+rem
+rem So C2 against C1 is the rule alone. What C1 changes in the reading is
+rem read on the notes, which the page's own allowance does not touch.
+rem Both carry a fix B2 did not have: a transcript with no minutes is no
+rem longer asked for them, and in B2 both models made them up there.
+rem
+rem   gold     22 minutes, subtitles
 rem   0723     risk analysis, an hour, subtitles
 rem   1022     two people, another subject altogether
 rem   1021-4   a release meeting, many speakers
 rem   0929     the longest, two hours
 rem
-rem Each once with Spark at Q8 and once with LFM, its reasoning shut. The
-rem transcripts are the ones in .local\new-summary, which send-transcripts.cmd
-rem sent to the server; the facts each page is scored against stay there.
-rem The October two are text with an .srt name: no minutes, so no coverage.
+rem The transcripts are the ones in .local\new-summary, which
+rem send-transcripts.cmd sent to the server; the facts each page is scored
+rem against stay there. 1022, 1021-4 and 0929 are text - the first two with
+rem an .srt name - so they have no minutes and no coverage.
 rem
-rem It is a night: B1 took about five hours. LFM wants about 16 GB free.
-rem Leave the laptop on its charger with the lid open: the run holds Windows
-rem awake, but closing the lid can still put it to sleep.
+rem It is a night: Spark took about two and a half hours over the five in
+rem B2, and a longer allowance makes each run longer - six or seven hours
+rem for both rounds. Leave the laptop on its charger with the lid open: the
+rem run holds Windows awake, but closing the lid can still put it to sleep.
 rem
 rem Answer S to the question at the start to send them again without
 rem measuring; R measures them again.
@@ -250,7 +263,7 @@ rem Each run clears the cached passes first, so each one reads the recording.
 rem
 rem To ask a new question, edit these lines. Everything else stays as it is.
 :round
-call :fetch "LFM2.5-24B-A2B" "Q4_K_M"
+call :fetch "Spark-X2.5-4B" "Q8_0"
 call :bench "gold" ".local\new-summary\gold.srt"
 call :bench "0723" ".local\new-summary\gold.2026-07-23.srt"
 call :bench "1022" ".local\new-summary\gold.2026-10-22.srt"
@@ -259,10 +272,10 @@ call :bench "0929" ".local\new-summary\gold.2026-09-29.txt"
 goto :eof
 
 :bench
-rem One meeting of the round: its transcript, then each model on it.
+rem One meeting of the round: its transcript, then each variant on it.
 set "AT_SRT=%~2"
-call :measure "B2-spark-%~1" "%AT_LLAMA_VULKAN%" "--tier l --model Spark-X2.5-4B --quant Q8_0"
-call :measure "B2-lfm-%~1" "%AT_LLAMA_VULKAN%" "--tier l --model LFM2.5-24B-A2B"
+call :measure "C1-spark-%~1" "%AT_LLAMA_VULKAN%" "--tier l --model Spark-X2.5-4B --quant Q8_0 --map-tokens 1000"
+call :measure "C2-spark-%~1" "%AT_LLAMA_VULKAN%" "--tier l --model Spark-X2.5-4B --quant Q8_0 --map-tokens 1000 --exact-names"
 goto :eof
 
 :fetch
