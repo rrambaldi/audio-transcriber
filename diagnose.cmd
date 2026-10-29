@@ -228,7 +228,18 @@ rem 45 per cent and the five meetings took 6.2 hours instead of 2.3. C2
 rem added a rule asking for names, acronyms, numbers and dates as said:
 rem 102, some names gained and others lost, so the rule is gone.
 rem
-rem This round is C1 again:
+rem The pages are the trouble: the reference summaries hold all 133 facts
+rem in 5,300 words, and C1's pages took 37,500. A medium page has no limit
+rem on its sections - 120 on the two-hour meeting - where a short one has 5
+rem and a long one 18. So this round reads as C1 did, and writes from the
+rem same reading twice:
+rem
+rem   D1   a short page, at most 5 sections
+rem   D2   a long page, at most 18 sections, from D1's reading: the passes
+rem        are kept, so D2 costs the writing alone
+rem
+rem Count the words of each page and its time, not only its facts: a longer
+rem page finds more of them by saying more.
 rem
 rem   gold     22 minutes, subtitles
 rem   0723     risk analysis, an hour, subtitles
@@ -241,7 +252,7 @@ rem send-transcripts.cmd sent to the server; the facts each page is scored
 rem against stay there. 1022, 1021-4 and 0929 are text - the first two with
 rem an .srt name - so they have no minutes and no coverage.
 rem
-rem It is a night: C1 took 6.2 hours over the five. Leave the laptop on its
+rem It is a night, no longer than C1's 6.2 hours. Leave the laptop on its
 rem charger with the lid open: the run holds Windows awake, but closing the
 rem lid can still put it to sleep.
 rem
@@ -256,7 +267,8 @@ rem the run stops, says how much, and asks: close things and press Enter to
 rem check again, or type G to go on as it is. A machine that swaps measures
 rem the swapping.
 rem
-rem Each run clears the cached passes first, so each one reads the recording.
+rem Each run clears the cached passes first, so each one reads the recording
+rem - except D2, which is there to reuse D1's.
 rem
 rem To ask a new question, edit these lines. Everything else stays as it is.
 :round
@@ -271,7 +283,8 @@ goto :eof
 :bench
 rem One meeting of the round: its transcript, then each variant on it.
 set "AT_SRT=%~2"
-call :measure "C1-spark-%~1" "%AT_LLAMA_VULKAN%" "--tier l --model Spark-X2.5-4B --quant Q8_0 --map-tokens 1000"
+call :measure "D1-spark-%~1" "%AT_LLAMA_VULKAN%" "--tier l --model Spark-X2.5-4B --quant Q8_0 --map-tokens 1000 --length short"
+call :measure "D2-spark-%~1" "%AT_LLAMA_VULKAN%" "--tier l --model Spark-X2.5-4B --quant Q8_0 --map-tokens 1000 --length long --keep-cache"
 goto :eof
 
 :fetch
