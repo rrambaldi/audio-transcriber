@@ -57,26 +57,6 @@ from audio_transcriber.summarizers import (  # noqa: E402
 )
 from audio_transcriber.summarizers import trace as tracing  # noqa: E402
 
-#: Round C2: a rule on trial in the reading prompt, for this run only. It goes
-#: into prompting.py if the round measures it better, and is deleted if not.
-EXACT_NAMES = {
-    "it": ("Non copiare le parole del parlato.",
-           "Non copiare le parole del parlato, ma scrivi nomi, sigle, numeri "
-           "e date esattamente come sono stati detti."),
-    "en": ("Do not copy the words of the speech.",
-           "Do not copy the words of the speech, but write names, acronyms, "
-           "numbers and dates exactly as they were said."),
-}
-
-
-def ask_for_exact_names():
-    """Put the C2 rule into the reading prompt of this process."""
-    for code, (said, instead) in EXACT_NAMES.items():
-        template = prompting.PROMPTS[code]["map"]
-        if said not in template:
-            sys.exit(f"--exact-names: the reading prompt no longer says {said!r}")
-        prompting.PROMPTS[code]["map"] = template.replace(said, instead)
-
 
 class Tee(io.StringIO):
     """Keep every line, and let the person watching see it go past."""
@@ -341,12 +321,7 @@ def main(argv=None):
                         help="do not clear the partial answers first")
     parser.add_argument("--review", action="store_true",
                         help="have the model read every section back")
-    parser.add_argument("--exact-names", action="store_true",
-                        help="round C2: ask the reading pass to keep names, "
-                             "acronyms, numbers and dates as they were said")
     args = parser.parse_args(argv)
-    if args.exact_names:
-        ask_for_exact_names()
 
     source = Path(args.transcript).expanduser().resolve()
     if not source.is_file():
@@ -442,8 +417,7 @@ def main(argv=None):
                   "chunk_tokens": args.chunk_tokens,
                   "quant": args.quant,
                   "shape": args.shape, "sections_mode": args.sections_mode,
-                  "review": args.review,
-                  "exact_names": args.exact_names},
+                  "review": args.review},
         "prompt_version": prompting.PROMPT_VERSION,
         "plan_asked_again": the_plan,
         "cache_cleared": None if args.keep_cache else clear_cache(settings),

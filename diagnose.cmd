@@ -220,17 +220,15 @@ rem Most of what is missing never reaches the notes - about 35 facts - and
 rem six reading passes in ten stop on their allowance of 500 tokens. What
 rem goes missing is mostly names, acronyms, numbers and dates.
 rem
-rem This round is Spark alone, at Q8, twice on each meeting:
+rem C1 and C2 measured Spark alone on them, a reading pass allowed 1000
+rem tokens instead of 500 - and a section of the page too, the same
+rem setting. C1: 103 facts on the page, against B2's 94, and passes cut off
+rem at their allowance fell from 62 in 108 to 16; but the pages grew by
+rem 45 per cent and the five meetings took 6.2 hours instead of 2.3. C2
+rem added a rule asking for names, acronyms, numbers and dates as said:
+rem 102, some names gained and others lost, so the rule is gone.
 rem
-rem   C1   a reading pass may say 1000 tokens instead of 500 - and so may
-rem        a section of the page, which the same setting holds
-rem   C2   the same, and the reading prompt asks for names, acronyms,
-rem        numbers and dates exactly as they were said
-rem
-rem So C2 against C1 is the rule alone. What C1 changes in the reading is
-rem read on the notes, which the page's own allowance does not touch.
-rem Both carry a fix B2 did not have: a transcript with no minutes is no
-rem longer asked for them, and in B2 both models made them up there.
+rem This round is C1 again:
 rem
 rem   gold     22 minutes, subtitles
 rem   0723     risk analysis, an hour, subtitles
@@ -243,10 +241,9 @@ rem send-transcripts.cmd sent to the server; the facts each page is scored
 rem against stay there. 1022, 1021-4 and 0929 are text - the first two with
 rem an .srt name - so they have no minutes and no coverage.
 rem
-rem It is a night: Spark took about two and a half hours over the five in
-rem B2, and a longer allowance makes each run longer - six or seven hours
-rem for both rounds. Leave the laptop on its charger with the lid open: the
-rem run holds Windows awake, but closing the lid can still put it to sleep.
+rem It is a night: C1 took 6.2 hours over the five. Leave the laptop on its
+rem charger with the lid open: the run holds Windows awake, but closing the
+rem lid can still put it to sleep.
 rem
 rem Answer S to the question at the start to send them again without
 rem measuring; R measures them again.
@@ -275,7 +272,6 @@ goto :eof
 rem One meeting of the round: its transcript, then each variant on it.
 set "AT_SRT=%~2"
 call :measure "C1-spark-%~1" "%AT_LLAMA_VULKAN%" "--tier l --model Spark-X2.5-4B --quant Q8_0 --map-tokens 1000"
-call :measure "C2-spark-%~1" "%AT_LLAMA_VULKAN%" "--tier l --model Spark-X2.5-4B --quant Q8_0 --map-tokens 1000 --exact-names"
 goto :eof
 
 :fetch
