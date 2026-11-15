@@ -102,6 +102,7 @@ const I18N = {
     auto_title_note: "Instead of the file name. Taken from the transcript when it is done \u2014 nothing is sent anywhere and no model is loaded.",
     summary_after: "Write a summary as well, when it is done",
     summary_after_note: "A second job, queued behind this one: the transcript first, the summary after it, on this machine.",
+    summary_off: "Summaries are switched off: no summary model is installed on this machine. To have them, run the installer again and choose transcription and summary.",
     output_subtitles_speakers: "Subtitles, with who said what",
     output_subtitles_speakers_note: "The same cues, with a change of voice marked in them. Needs diarization, which runs on the CPU and takes a while.",
     sub_legend: "How the subtitles are cut",
@@ -365,6 +366,7 @@ const I18N = {
     auto_title_note: "Invece che con il nome del file. Presa dalla trascrizione quando ha finito: niente esce da questa macchina e nessun modello viene caricato.",
     summary_after: "Scrivi anche il riassunto, quando ha finito",
     summary_after_note: "Un secondo lavoro, in coda dietro a questo: prima la trascrizione, poi il riassunto, su questa macchina.",
+    summary_off: "Riassunti spenti: su questa macchina non c'è un modello per il riassunto. Per averli, rilancia l'installazione e scegli trascrizione e riassunto.",
     output_subtitles_speakers: "Sottotitoli, con chi dice cosa",
     output_subtitles_speakers_note: "Le stesse battute, con il cambio di voce segnato dentro. Richiede la diarizzazione, che gira su CPU e ci mette un po'.",
     sub_legend: "Come vengono tagliati i sottotitoli",
@@ -627,6 +629,7 @@ const I18N = {
     auto_title_note: "Au lieu du nom du fichier. Tir\u00e9e de la transcription une fois termin\u00e9e \u2014 rien ne quitte cette machine et aucun mod\u00e8le n'est charg\u00e9.",
     summary_after: "\u00c9crire aussi un r\u00e9sum\u00e9, une fois termin\u00e9",
     summary_after_note: "Un second travail, en attente derri\u00e8re celui-ci : d'abord la transcription, ensuite le r\u00e9sum\u00e9, sur cette machine.",
+    summary_off: "Résumés désactivés : aucun modèle de résumé n'est installé sur cette machine. Pour les avoir, relancez l'installation et choisissez transcription et résumé.",
     output_subtitles_speakers: "Sous-titres, avec qui dit quoi",
     output_subtitles_speakers_note: "Les m\u00eames r\u00e9pliques, avec un changement de voix marqu\u00e9 dedans. N\u00e9cessite la diarisation, qui tourne sur le CPU et prend un moment.",
     sub_legend: "Comment les sous-titres sont coup\u00e9s",
@@ -888,6 +891,7 @@ const I18N = {
     auto_title_note: "Statt des Dateinamens. Wird der Transkription entnommen, sobald sie fertig ist \u2014 nichts wird irgendwohin gesendet, und kein Modell wird geladen.",
     summary_after: "Nach Abschluss auch eine Zusammenfassung schreiben",
     summary_after_note: "Ein zweiter Auftrag, hinter diesem eingereiht: erst die Transkription, dann die Zusammenfassung, auf dieser Maschine.",
+    summary_off: "Zusammenfassungen ausgeschaltet: Auf dieser Maschine ist kein Zusammenfassungsmodell installiert. Um sie zu bekommen, die Installation erneut ausführen und Transkription und Zusammenfassung wählen.",
     output_subtitles_speakers: "Untertitel, mit wer was gesagt hat",
     output_subtitles_speakers_note: "Dieselben Einblendungen, mit markiertem Stimmwechsel. Erfordert Diarisierung, die auf der CPU l\u00e4uft und eine Weile dauert.",
     sub_legend: "Wie die Untertitel geschnitten werden",
@@ -2011,6 +2015,10 @@ let pageBusy = false;
    of the queue saw it: a job "queued behind what is running" needs something
    to be running. */
 let somethingRunning = false;
+/* Whether this machine has a summary model at all, as /api/summary/engines
+   said. Without one nothing here asks for a summary; a summary already in
+   the library is still read, downloaded and deleted as before. */
+let summariesReady = true;
 
 function queuedText() {
   return t(somethingRunning ? "summary_queued" : "summary_queued_next");
@@ -2029,6 +2037,13 @@ function applyBusy() {
     $(id).disabled = pageBusy;
     $(id).title = why;
   }
+  settleSummaryRun();
+}
+
+/* The one rule for "Summarise": not while something runs, and never on a
+   machine with no summary model. */
+function settleSummaryRun() {
+  $("summary-run").disabled = pageBusy || !summariesReady;
 }
 
 function setBusy(busy, kind) {
@@ -2477,11 +2492,16 @@ async function loadSummaryEngines() {
      furniture -- so the row is hidden rather than shown half-empty. */
   let engines = [];
   let auto = null;
+  /* Not knowing is not "off": the server still refuses, with the reason. */
+  let ready = true;
   try {
-    ({ engines, auto } = await fetch(api("summary/engines")).then((r) => r.json()));
+    const answer = await fetch(api("summary/engines")).then((r) => r.json());
+    ({ engines, auto } = answer);
+    ready = answer.ready !== false;
   } catch {
     engines = [];
   }
+  showSummariesReady(ready);
   const select = $("summary-engine");
   select.textContent = "";
   for (const name of engines) {
@@ -2494,6 +2514,24 @@ async function loadSummaryEngines() {
   select.value = auto || (engines[0] || "");
   $("summary-engine").closest(".field").hidden = engines.length < 2;
   await loadSummaryTemplates();
+}
+
+function showSummariesReady(ready) {
+  /* Off rather than gone: the controls stay where they are, greyed, with the
+     note beside them that says why and how to get a model. */
+  summariesReady = ready;
+  for (const control of $("summary-options").querySelectorAll("select, textarea")) {
+    control.disabled = !ready;
+  }
+  for (const field of [...$("summary-options").querySelectorAll(".field"),
+                       $("summary-after-field")]) {
+    field.classList.toggle("unavailable", !ready);
+  }
+  $("summary-after").disabled = !ready;
+  if (!ready) $("summary-after").checked = false;
+  $("summary-off").hidden = ready;
+  $("summary-after-off").hidden = ready;
+  settleSummaryRun();
 }
 
 /* The value the "my own sections" entry of the menu carries. Not a template
@@ -2724,7 +2762,7 @@ function closeViewer() {
   clearInterval(summaryWatch);
   summaryWatch = null;
   showSummaryProgress(null);
-  $("summary-run").disabled = pageBusy;
+  settleSummaryRun();
   openEntryId = null;
   $("reader-body").hidden = true;
   $("reader-empty").hidden = false;
@@ -2827,7 +2865,7 @@ function watchSummaryJob(jobId) {
       clearInterval(summaryWatch);
       summaryWatch = null;
       showSummaryProgress(null);
-      $("summary-run").disabled = pageBusy;
+      settleSummaryRun();
       if (job.status === "done") reloadOpenEntry();
       else $("summary-status").textContent = t("summary_failed",
                                                 { error: job.error || job.status });
@@ -2851,7 +2889,7 @@ $("summary-run").addEventListener("click", async () => {
     const problem = await response.json().catch(() => ({}));
     $("summary-status").textContent = t("summary_failed",
                                         { error: problem.detail || response.status });
-    $("summary-run").disabled = pageBusy;
+    settleSummaryRun();
     return;
   }
   const job = await response.json();

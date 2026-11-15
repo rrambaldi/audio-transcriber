@@ -644,6 +644,20 @@ def freeing_would_help(engine, settings, available, total, cores=None):
     return now.model, needed
 
 
+def ram_for(tier, engine):
+    """The installed RAM, in whole GB, from which a machine reaches ``tier``.
+
+    Asked by an installer that has to tell somebody what a better model would
+    take, in the one figure printed on the machine's box: installed memory,
+    with all of it free. None when no machine up to 256 GB gets there."""
+    names = [each.name for each in TIERS]      # best first
+    for total in range(1, 257):
+        chosen = _resolve(engine, {}, float(total), float(total), None)
+        if chosen is not None and names.index(chosen.tier) <= names.index(tier):
+            return total
+    return None
+
+
 def cheapest(engine):
     """The least this engine could possibly need, in GiB, or None.
 

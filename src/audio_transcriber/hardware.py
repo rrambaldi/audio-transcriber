@@ -105,6 +105,31 @@ def physical_cores():
         return None
 
 
+#: What ``IsProcessorFeaturePresent`` calls AVX2.
+PF_AVX2_INSTRUCTIONS_AVAILABLE = 40
+
+
+def has_avx2():
+    """Whether the processor has AVX2, or None where this cannot tell.
+
+    llama.cpp leans on it for every matrix product on the processor: without
+    it a summary model still runs, many times slower, and an installer should
+    say so before downloading gigabytes for it. Not x86 at all (an ARM Mac,
+    a Raspberry Pi) is None rather than False - the question does not apply."""
+    try:
+        if sys.platform == "win32":
+            return bool(ctypes.windll.kernel32.IsProcessorFeaturePresent(
+                PF_AVX2_INSTRUCTIONS_AVAILABLE))
+        if sys.platform.startswith("linux"):
+            with open("/proc/cpuinfo", encoding="ascii", errors="replace") as handle:
+                for line in handle:
+                    if line.startswith("flags"):
+                        return "avx2" in line.split()
+    except OSError:
+        return None
+    return None
+
+
 def _meminfo(field):
     """One ``/proc/meminfo`` field in GiB, or None."""
     with open("/proc/meminfo", encoding="ascii") as handle:

@@ -237,6 +237,25 @@ def test_who_said_what_is_refused_when_the_machine_cannot_diarize(form):
         assert form.output_unavailable.text()
 
 
+@pytest.mark.parametrize("ready", [True, False])
+def test_a_summary_afterwards_is_offered_only_with_a_model(application, monkeypatch,
+                                                           ready):
+    """Without a model the box stays, unticked and grey, with the reason
+    under it - whatever config.toml or the last answers asked for."""
+    from audio_transcriber import summarizers
+
+    if not ready:
+        monkeypatch.setattr(summarizers, "ready_engines", lambda settings=None: [])
+    form = OptionsForm(dict(SETTINGS, summary_after=True))
+    assert form.summary_after.isEnabled() is ready
+    assert form.summary_after.isChecked() is ready
+    assert form.summary_off.isHidden() is ready
+    assert form.summary_off.text() == i18n.t("summary.off")
+
+    form.set_choices({"summary_after": True})
+    assert options.overrides_from(form.choices())["summary_after"] is ready
+
+
 # --- the numbers reaching the queue ----------------------------------------
 
 def test_the_subtitle_numbers_survive_the_trip(form):

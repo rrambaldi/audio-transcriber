@@ -508,3 +508,104 @@ def test_hardware_says_when_no_model_would_fit(capsys, monkeypatch):
     assert "no model fits" in output
     assert "quote the transcript" in output
     plan.forget()
+
+
+# --- setup: what the installer asks --------------------------------------
+
+
+@pytest.fixture
+def a_machine(monkeypatch):
+    """Set the installed RAM, the cores and AVX2 of the machine being asked."""
+    from audio_transcriber import hardware
+
+    monkeypatch.setenv("AUDIO_TRANSCRIBER_LANG", "en")
+
+    def machine(ram, cores=8, avx2=True):
+        monkeypatch.setattr(hardware, "total_ram_gb", lambda: ram)
+        monkeypatch.setattr(hardware, "physical_cores", lambda: cores)
+        monkeypatch.setattr(hardware, "has_avx2", lambda: avx2)
+    return machine
+
+
+def test_setup_check_passes_a_machine_suited_to_summaries(a_machine, capsys):
+    a_machine(32.0)
+    assert cli.main(["setup", "check"]) == cli.CHECK_OK
+    said = capsys.readouterr().out
+    assert "suitable" in said and "Spark-X2.5-4B" in said
+
+
+def test_setup_check_warns_that_little_memory_means_a_small_model(a_machine, capsys):
+    from audio_transcriber.summarizers import plan
+
+    a_machine(4.0)
+    assert cli.main(["setup", "check"]) == cli.CHECK_WARN
+    said = capsys.readouterr().out
+    assert "small one" in said
+    assert f"{plan.ram_for('l', plan.LLAMACPP)} GB" in said
+
+
+def test_setup_check_refuses_a_machine_no_model_fits_in(a_machine, capsys):
+    a_machine(1.0)
+    assert cli.main(["setup", "check"]) == cli.CHECK_NO
+    assert "not suitable" in capsys.readouterr().out
+
+
+def test_setup_check_warns_about_a_slow_processor(a_machine, capsys):
+    a_machine(32.0, cores=2, avx2=False)
+    assert cli.main(["setup", "check"]) == cli.CHECK_WARN
+    said = capsys.readouterr().out
+    assert "2 cores" in said and "no AVX2" in said
+    assert "suitable" not in said
+
+
+def test_setup_summary_needs_the_engine_first(a_machine, monkeypatch):
+    from audio_transcriber import summarizers
+
+    a_machine(32.0)
+    monkeypatch.setattr(summarizers, "is_installed", lambda name, settings=None: False)
+    with pytest.raises(SystemExit) as raised:
+        cli.main(["setup", "summary"])
+    assert "llamacpp" in str(raised.value)
+
+
+def test_setup_summary_fetches_the_model_for_the_whole_machine(a_machine, monkeypatch):
+    """Chosen from the installed memory, not from what is open right now."""
+    from audio_transcriber import summarizers
+    from audio_transcriber.summarizers import llamacpp, plan
+
+    a_machine(32.0)
+    monkeypatch.setattr(plan, "available_ram_gb", lambda: 1.0)
+    monkeypatch.setattr(summarizers, "is_installed", lambda name, settings=None: True)
+    fetched = []
+    monkeypatch.setattr(llamacpp, "fetch",
+                        lambda model, quant, models_dir=None: fetched.append((model.name, quant)))
+    assert cli.main(["setup", "summary"]) == 0
+    assert fetched == [("Spark-X2.5-4B", "Q8_0")]
+
+
+def test_setup_choose_answers_with_what_was_chosen(a_machine, monkeypatch, capsys):
+    a_machine(32.0)
+    answers = iter(["", "3", "2"])
+    monkeypatch.setattr("builtins.input", lambda prompt="": next(answers))
+    assert cli.main(["setup", "choose"]) == cli.CHOSE_SUMMARY
+    said = capsys.readouterr().out
+    assert "1  transcription only" in said and "2  transcription and summaries" in said
+
+
+def test_setup_choose_does_not_offer_summaries_where_no_model_fits(
+        a_machine, monkeypatch, capsys):
+    """Nothing to choose: llama.cpp for a model that cannot be downloaded."""
+    a_machine(1.0)
+    monkeypatch.setattr("builtins.input",
+                        lambda prompt="": pytest.fail("it asked anyway"))
+    assert cli.main(["setup", "choose"]) == cli.CHOSE_TRANSCRIPTION
+    assert "only transcription is installed" in capsys.readouterr().out
+
+
+def test_setup_choose_without_a_keyboard_installs_the_light_one(a_machine, monkeypatch):
+    a_machine(32.0)
+
+    def no_keyboard(prompt=""):
+        raise EOFError
+    monkeypatch.setattr("builtins.input", no_keyboard)
+    assert cli.main(["setup", "choose"]) == cli.CHOSE_TRANSCRIPTION

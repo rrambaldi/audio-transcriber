@@ -244,7 +244,10 @@ def overrides_from(choices):
         # 0 rather than None when it is not ticked: None would leave a
         # config.toml that learns the voices learning them anyway.
         "diar_learn_minutes": LEARN_MINUTES if choices.get("learn_voices") else 0,
-        "summary_after": True if choices.get("summary_after") else None,
+        # False rather than None, for the same reason: an unticked box - or
+        # one greyed out because no summary model is installed - must not
+        # leave config.toml's [summary] with_transcription asking anyway.
+        "summary_after": bool(choices.get("summary_after")),
         "auto_title": True if choices.get("auto_title") else None,
     }
 

@@ -110,10 +110,36 @@ audio-transcriber summarize 2026-09-04 --engine extractive
 | `llamacpp` | `llama-cpp-python`, or just the `llama-server` binary, and a GGUF | the same page, on a machine with no accelerator at all |
 | `extractive` | nothing beyond numpy | the sentences that carry the transcript, as they were said |
 
-`auto` takes them in that order, and the order is the argument: where there is
-an Intel device OpenVINO uses the iGPU and wins; where there is not, a GGUF on
-the CPU still writes real prose; the extractive engine is last because it is
-the one that never fails.
+`auto` takes the two model engines in that order, and the order is the
+argument: where there is an Intel device OpenVINO uses the iGPU and wins; where
+there is not, a GGUF on the CPU still writes real prose. It only takes an
+engine whose model is **already on the disk** — a GGUF in the model store, a
+converted OpenVINO directory, or a file named by `summary_model`. With none,
+summaries are switched off: the window and the page disable every control that
+would write one and say why, and `auto` on the command line refuses with the
+same explanation. That is the "transcription only" install, and it is why the
+model is downloaded when installing rather than halfway through the first
+summary. One case still downloads then: when the memory free at that moment is
+too little for the model installed, the plan picks a smaller one and fetches
+it. To have them:
+
+```bash
+audio-transcriber setup check     # is this machine suited to summaries?
+audio-transcriber setup summary   # download the model it should use
+```
+
+`setup check` reads the installed memory, the cores and AVX2, and says
+whether summaries suit the machine, with which model, and what would make them
+better; its exit status is 0, 1 (with warnings) or 2 (not suited). `setup
+summary` downloads the GGUF the plan picks for the machine with all of its
+memory free — llama.cpp has to be there first. On Windows `setup.cmd` runs
+both, and puts `llama-server` where the program finds it on its own:
+`llama.cpp\` inside the environment it runs from.
+
+`extractive` still runs from the command line when named (`--engine
+extractive`). It needs no model, so it never makes a machine ready: without a
+model the window, the page and a `summary_after` in config.toml stay off even
+where config.toml names it.
 
 `extractive` is honest about its limits, and the page says so under the title:
 these are somebody's own words, selected. It cannot tell a decision from a

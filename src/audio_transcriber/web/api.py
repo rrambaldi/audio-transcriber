@@ -28,6 +28,7 @@ from .. import (
     logs,
     pipeline,
     subtitles,
+    summarizers,
     vocabularies,
     waveform,
 )
@@ -116,6 +117,12 @@ def register_routes(app):
     def template_dir(request):
         return request.app.state.settings.get("summary_templates_dir")
 
+    def refuse_unless_summaries(request):
+        """409 when this machine has no summary model: the page has switched
+        its summary controls off by then, so this is for whoever asks anyway."""
+        if not summarizers.ready(request.app.state.settings):
+            raise HTTPException(status_code=409, detail=i18n.t("summary.off"))
+
     # --- the page ---------------------------------------------------------
 
     @app.get("/", include_in_schema=False)
@@ -183,7 +190,8 @@ def register_routes(app):
                 "backend": settings.get("backend") or "auto",
                 "output": output_of(settings),
                 "diarize": bool(settings.get("diarize")),
-                "summary_after": bool(settings.get("summary_after")),
+                "summary_after": (bool(settings.get("summary_after"))
+                                  and summarizers.ready(settings)),
                 "auto_title": bool(settings.get("auto_title")),
                 "vocabulary": vocabularies.split_names(settings.get("vocabulary")),
             },
@@ -249,12 +257,15 @@ def register_routes(app):
 
     @app.get("/api/summary/engines")
     def summary_engines(request: Request):
-        """Which engines this machine could actually use, and which is auto."""
-        from ..summarizers import available
+        """Which engines this machine could actually use, and which is auto.
 
-        installed = available(request.app.state.settings)
-        return {"engines": installed,
-                "auto": installed[0] if installed else None,
+        None at all without a summary model on the disk: ``ready`` is then
+        false, and the page turns its summary controls off and says why."""
+        settings = request.app.state.settings
+        ready = summarizers.ready_engines(settings)
+        return {"ready": bool(ready),
+                "engines": summarizers.available(settings) if ready else [],
+                "auto": ready[0] if ready else None,
                 "lengths": list(SUMMARY_LENGTHS),
                 "styles": list(SUMMARY_STYLES)}
 
@@ -328,6 +339,8 @@ def register_routes(app):
             raise HTTPException(status_code=400, detail=f"unknown backend '{backend}'")
         if output and output not in OUTPUTS:
             raise HTTPException(status_code=400, detail=f"unknown output '{output}'")
+        if summary_after:
+            refuse_unless_summaries(request)
 
         try:
             # Both are refused before the upload rather than after it: an hour
@@ -507,6 +520,7 @@ def register_routes(app):
         watches it exactly as it watches an upload — there is no second kind
         of progress to explain."""
         entry = entry_or_404(request, entry_id)
+        refuse_unless_summaries(request)
         if engine and engine not in SUMMARY_ENGINES:
             raise HTTPException(status_code=400,
                                 detail=f"unknown summary engine '{engine}'")

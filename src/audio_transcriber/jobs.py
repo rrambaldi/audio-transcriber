@@ -855,8 +855,15 @@ class JobQueue:
         either way, and as its own row it can be watched, cancelled and
         retried like anything else — and a summary that fails does not turn a
         finished transcription into a failed job."""
+        from . import summarizers
+
         if (job.status != DONE or job.kind != TRANSCRIPTION
                 or not job.entry_id or not job.settings.get("summary_after")):
+            return
+        # Without a model summaries are switched off, and the window and the
+        # page say so; a "summary_after" left in config.toml must not queue a
+        # job that can only fail, after every transcription, in red.
+        if not summarizers.ready(job.settings):
             return
         try:
             self.summarize(job.entry_id)

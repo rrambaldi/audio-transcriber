@@ -70,6 +70,11 @@ SERVER = "llama-server"
 #: overrides so that a server administrator can set it the same way.
 ENV_SERVER = "AUDIO_TRANSCRIBER_LLAMA_SERVER"
 
+#: Where the Windows installer puts it: a folder inside the environment the
+#: program runs from, so it needs no PATH, no configuration, and goes away
+#: with the environment. Its DLLs stay beside it and away from Python's.
+BUNDLED_DIR = "llama.cpp"
+
 #: Where the GGUF files come from. A model download is the one moment this
 #: engine uses the network, and it says so before it starts.
 HUB = "https://huggingface.co/{repo}/resolve/main/{file}"
@@ -218,13 +223,20 @@ def device_label(device, chosen=None, gpu_layers=None):
     return f"CPU x{threads}" if threads else "CPU"
 
 
+def bundled_server():
+    """Where an installer would have put ``llama-server`` for this environment."""
+    name = SERVER + (".exe" if os.name == "nt" else "")
+    return os.path.join(sys.prefix, BUNDLED_DIR, name)
+
+
 def server_path(settings=None):
     """The ``llama-server`` binary, or None.
 
-    Three places, in the order somebody would expect: what the configuration
-    says, the environment override, and the ``PATH``."""
+    Four places, in the order somebody would expect: what the configuration
+    says, the environment override, the one the installer put beside this
+    environment, and the ``PATH``."""
     for candidate in ((settings or {}).get("summary_llama_server"),
-                      os.environ.get(ENV_SERVER)):
+                      os.environ.get(ENV_SERVER), bundled_server()):
         if candidate and os.path.isfile(candidate) and os.access(candidate, os.X_OK):
             return candidate
     return shutil.which(SERVER)
@@ -276,7 +288,7 @@ def fetch(model, quant, models_dir=None):
     try:
         with urllib.request.urlopen(url, timeout=60) as response:
             expected = int(response.headers.get("Content-Length") or 0)
-            written = 0
+            written, shown = 0, 0
             with open(partial, "wb") as handle:
                 while True:
                     block = response.read(1024 * 1024)
@@ -284,6 +296,14 @@ def fetch(model, quant, models_dir=None):
                         break
                     handle.write(block)
                     written += len(block)
+                    # Every tenth: four gigabytes with no sign of life look
+                    # like a hang, and somebody closes the window on it.
+                    step = written * 10 // expected if expected else 0
+                    if step > shown:
+                        shown = step
+                        print(t("summary.download_progress", percent=step * 10,
+                                done=written / 1e9, total=expected / 1e9),
+                              file=sys.stderr)
         if expected and written != expected:
             raise SummaryError(t("summary.download_truncated", model=model.name,
                                  got=written, expected=expected))

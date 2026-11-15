@@ -449,3 +449,15 @@ def test_freeing_memory_is_offered_only_when_it_would_change_the_run():
     # A machine that could not hold it however much was closed is not told
     # to close things.
     assert plan.freeing_would_help(plan.LLAMACPP, spark, 1.0, 3.0, 8) is None
+
+
+def test_ram_for_names_the_first_machine_that_reaches_a_tier():
+    """The figure an installer prints: installed memory, all of it free."""
+    best, smallest = plan.TIERS[0].name, plan.TIERS[-1].name
+    needed = plan.ram_for(best, plan.LLAMACPP)
+    assert needed is not None
+    assert plan.ram_for(smallest, plan.LLAMACPP) <= needed
+    at, below = (plan.resolve_plan(plan.LLAMACPP, {}, ram=gb, total=gb)
+                 for gb in (float(needed), float(needed - 1)))
+    assert at.tier == best
+    assert below is None or below.tier != best

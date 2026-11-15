@@ -192,6 +192,13 @@ def test_each_answer_says_for_itself_whether_anybody_asked_who_was_speaking():
         assert options.output_enables(output)["speakers"] is diarized
 
 
+def test_an_unticked_summary_afterwards_overrides_the_configuration():
+    """Unticked - or greyed out with no summary model - is an answer: None
+    would leave [summary] with_transcription queueing one anyway."""
+    assert options.overrides_from({})["summary_after"] is False
+    assert options.overrides_from({"summary_after": True})["summary_after"] is True
+
+
 def test_detecting_the_language_is_a_real_choice_not_an_absent_one():
     assert options.overrides_from({"language": ""})["language"] == ""
 

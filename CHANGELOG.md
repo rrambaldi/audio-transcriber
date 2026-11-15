@@ -8,6 +8,35 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- **`setup.cmd`: Windows, installed from nothing, with one double-click.** For
+  somebody with no Python, no conda and no git. It fetches
+  [uv](https://docs.astral.sh/uv/), which brings its own Python 3.12, installs
+  the program from GitHub with the OpenVINO engine and the window, and adds
+  *Audio Transcriber* to the Start menu and to *Settings › Apps*, which runs
+  it again with `/uninstall`. Everything lives in
+  `%LOCALAPPDATA%\Programs\audio-transcriber`: no administrator rights,
+  nothing on the PATH, nothing shared with a Python or a conda already on the
+  PC - so the Qt that conda puts ahead of pip's cannot get in the way. Before
+  the long download it looks at the PC and asks one question, transcription
+  only or summaries too; with summaries it puts `llama-server` (Vulkan build
+  b10828) beside the environment and downloads the model this PC's memory can
+  hold. uv (0.13.8) and llama.cpp are pinned and checked against their SHA256
+  before anything is run. Run again, it updates. The file is stored with CRLF
+  in the repository itself, because it is downloaded on its own rather than
+  checked out.
+- **`audio-transcriber setup check | choose | summary`**, what the installer
+  runs. `check` reads the installed memory, the cores and AVX2 and says
+  whether summaries suit the machine, with which model, and what a better one
+  would take (exit status 0, 1 with warnings, 2 not suited); `choose` prints
+  that and asks the question, in the program's own four languages - or, where
+  no model fits at all, says so and installs transcription only; `summary`
+  downloads the GGUF the plan picks for the machine with all of its memory
+  free.
+- **llama.cpp is found inside the environment**: `llama.cpp/llama-server`
+  under the program's own Python prefix counts as installed, with no PATH and
+  no configuration. A model download also says how far it has got, every
+  tenth.
+
 - **LFM2.5-24B-A2B can write the summaries, on trial.** Liquid AI's mixture
   of experts - 24B parameters, 2.45B per token - is in the catalogue at
   Q4_K_M (13.5 GB): it runs only when named, `--model LFM2.5-24B-A2B`, on
@@ -24,8 +53,27 @@ All notable changes to this project are documented here. The format follows
   allowed to reason it was four times slower and covered 64% of the minutes,
   so Spark stays the default.
 
+### Changed
+
+- **Without a summary model, summaries are switched off.** `auto` now only
+  picks an engine whose model is already on the disk - a GGUF in the model
+  store, a converted OpenVINO directory, or a file named by `summary_model` -
+  and refuses otherwise, saying how to get one; it no longer falls back to the
+  extractive engine, which still runs when named on the command line. The
+  window and the page disable every control that would write a summary and say
+  why; summaries already in the library stay readable, downloadable and
+  deletable. `GET /api/summary/engines` reports `ready`; asking for a summary,
+  or uploading with `summary_after`, on such a machine is refused with 409,
+  and a `summary_after` left in config.toml no longer queues a summary that
+  can only fail. Where OpenVINO is installed with nothing converted and a GGUF
+  is there, `auto` now takes the GGUF instead of starting a conversion.
+- **An unticked "write a summary as well" in the window now wins over
+  `[summary] with_transcription`.** It used to send nothing, which left the
+  configuration's `true` to queue a summary after every transcription anyway.
+
 ### Fixed
 
+- **"sì" in Italian was written "si"** in the hardware report.
 - **A model given room to reason is no longer asked again with the whole
   window.** With `think_tokens` set, or with a model that always reasons, an
   answer still reasoning at the end of its allowance is a model going round

@@ -4,6 +4,11 @@
 *.cmd text eol=crlf
 *.bat text eol=crlf
 
+# setup.cmd is downloaded on its own, straight from GitHub, by people who have
+# no checkout: what they get is the blob as stored, so the blob itself has to
+# be CRLF rather than become CRLF on checkout.
+setup.cmd -text
+
 # The icon renders, the .ico container and the typefaces: never let a checkout
 # rewrite line endings inside a binary file.
 *.png binary

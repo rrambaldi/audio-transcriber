@@ -49,7 +49,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from .. import waveform
+from .. import summarizers, waveform
 from ..diarization import speakers_in
 from ..formatting import format_clock
 from ..hardware import available_ram_gb, total_ram_gb
@@ -59,7 +59,7 @@ from ..library import MAX_NOTES, Entry, LibraryError
 from ..summarizers import plan
 from ..summarizers import templates as summary_templates
 from ..summary import SummaryError
-from . import multimedia, options, symbols, theme, widgets
+from . import multimedia, options, style, symbols, theme, widgets
 from .speakers_dialog import SpeakersDialog, first_lines
 
 #: Typing in the search box is not a query per keystroke: searching reads every
@@ -133,6 +133,10 @@ class LibraryPanel(QWidget):
         self._notes_dirty = False
         self._audio_path = None
         self._summary_job = None
+        #: Asked once, not on every entry shown: it looks for model files on
+        #: the disk. Without a model the pane still reads the summaries there
+        #: are, and writes none.
+        self.summary_ready = summarizers.ready(self.settings)
         #: Recordings filed before this program could draw them have never
         #: been measured, and measuring one is a pass of ffmpeg over the whole
         #: file. So it happens on a thread, one at a time, and the drawings
@@ -279,6 +283,9 @@ class LibraryPanel(QWidget):
         self.summarise = QPushButton(t("gui.summary_run"))
         self.summarise.clicked.connect(self.summarise_entry)
         symbols.dress(self.summarise, "summary", "go")
+        self.summary_off = style.note(QLabel(t("summary.off")))
+        self.summary_off.setWordWrap(True)
+        self.summary_off.setVisible(not self.summary_ready)
         summary_page = QWidget()
         summary_layout = QVBoxLayout(summary_page)
         version_row = QHBoxLayout()
@@ -322,6 +329,7 @@ class LibraryPanel(QWidget):
         template_row.addWidget(QLabel(t("gui.summary_template")))
         template_row.addWidget(self.summary_template)
         template_row.addStretch(1)
+        summary_layout.addWidget(self.summary_off)
         button_row = QHBoxLayout()
         button_row.addStretch(1)
         button_row.addWidget(self.summarise)
@@ -762,7 +770,8 @@ class LibraryPanel(QWidget):
                                      and self.queue is not None)
         self.retranscribe.setToolTip("" if self.retranscribe.isEnabled()
                                      else t("gui.retranscribe_no_audio"))
-        self.summarise.setEnabled(enabled and self.queue is not None
+        self.summarise.setEnabled(enabled and self.summary_ready
+                                  and self.queue is not None
                                   and self._summary_job is None)
 
     def _anchor_clicked(self, url):

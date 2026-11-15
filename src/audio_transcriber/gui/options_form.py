@@ -29,6 +29,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from .. import summarizers
 from ..diarization import LEARN_MINUTES, NO_MODEL
 from ..diarization import availability as diarization_availability
 from ..i18n import t
@@ -69,9 +70,18 @@ class OptionsForm(QWidget):
         self.auto_title = QCheckBox(t("gui.auto_title"))
         self.auto_title.setToolTip(t("gui.auto_title_tip"))
         self.auto_title.setChecked(bool(defaults.get("auto_title")))
+        # With no model on this machine the box stays, unticked and grey, and
+        # the reason is written under it: config.toml asking for a summary
+        # does not make one possible.
+        self.summary_ready = summarizers.ready(self.settings)
         self.summary_after = QCheckBox(t("gui.summary_after"))
         self.summary_after.setToolTip(t("gui.summary_after_tip"))
-        self.summary_after.setChecked(bool(defaults.get("summary_after")))
+        self.summary_after.setChecked(self.summary_ready
+                                      and bool(defaults.get("summary_after")))
+        self.summary_after.setEnabled(self.summary_ready)
+        self.summary_off = style.note(QLabel(t("summary.off")))
+        self.summary_off.setWordWrap(True)
+        self.summary_off.setVisible(not self.summary_ready)
 
         self.output_note = QLabel("")
         self.output_note.setWordWrap(True)
@@ -223,6 +233,7 @@ class OptionsForm(QWidget):
         output_layout.addWidget(self.learn_voices)
         output_layout.addWidget(self.auto_title)
         output_layout.addWidget(self.summary_after)
+        output_layout.addWidget(self.summary_off)
         # One note, for the answer that is chosen. Three notes at once is a
         # paragraph to read before the first click.
         output_layout.addWidget(self.output_note)
@@ -428,7 +439,8 @@ class OptionsForm(QWidget):
         if button is not None and button.isEnabled():
             button.setChecked(True)
         self.auto_title.setChecked(bool(choices.get("auto_title")))
-        self.summary_after.setChecked(bool(choices.get("summary_after")))
+        self.summary_after.setChecked(self.summary_ready
+                                      and bool(choices.get("summary_after")))
         self.speakers.setValue(int(choices.get("speakers") or 0))
         self.learn_voices.setChecked(bool(choices.get("learn_voices")))
         _select(self.subtitle_preset, choices.get("subtitle_preset"))

@@ -176,3 +176,20 @@ def test_a_machine_that_answers_nothing_still_produces_a_line(monkeypatch):
     line = hardware.summary()
     assert "unknown" in line
     assert "CPU" in line
+
+
+def test_avx2_is_read_from_the_processor_flags(monkeypatch, tmp_path):
+    cpuinfo = tmp_path / "cpuinfo"
+    monkeypatch.setattr(hardware.sys, "platform", "linux")
+    real_open = open
+    monkeypatch.setattr(hardware, "open", lambda path, *a, **k: real_open(cpuinfo, *a, **k),
+                        raising=False)
+    cpuinfo.write_text("processor\t: 0\nflags\t\t: fpu sse4_2 avx avx2 fma\n", encoding="ascii")
+    assert hardware.has_avx2() is True
+    cpuinfo.write_text("processor\t: 0\nflags\t\t: fpu sse4_2 avx\n", encoding="ascii")
+    assert hardware.has_avx2() is False
+
+
+def test_avx2_is_unknown_where_the_question_does_not_apply(monkeypatch):
+    monkeypatch.setattr(hardware.sys, "platform", "darwin")
+    assert hardware.has_avx2() is None

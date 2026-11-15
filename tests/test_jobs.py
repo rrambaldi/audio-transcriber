@@ -908,3 +908,22 @@ def wait_for_condition(condition, timeout=5.0):
             return True
         time.sleep(0.01)
     return False
+
+
+@pytest.mark.parametrize("ready", [True, False])
+def test_a_summary_afterwards_is_queued_only_where_there_is_a_model(
+        queue, filed, monkeypatch, ready):
+    """A "summary_after" left in the configuration of a machine with no model
+    must not leave a failed summary behind every transcription."""
+    from types import SimpleNamespace
+
+    from audio_transcriber import summarizers
+
+    if not ready:
+        monkeypatch.setattr(summarizers, "ready_engines", lambda settings=None: [])
+    finished = SimpleNamespace(status=jobs_module.DONE, kind=jobs_module.TRANSCRIPTION,
+                               entry_id=filed.id, title="Riunione ISO",
+                               settings={"summary_after": True})
+    queue._summarise_after(finished)
+    kinds = [job.kind for job in queue.jobs()]
+    assert kinds == ([jobs_module.SUMMARY] if ready else [])

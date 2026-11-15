@@ -826,6 +826,7 @@ def filed(queue):
 
 def test_the_page_is_told_which_engines_this_machine_has(client):
     data = client.get("/api/summary/engines").json()
+    assert data["ready"] is True
     assert "extractive" in data["engines"]
     assert data["auto"] in data["engines"]
     assert "medium" in data["lengths"]
@@ -929,6 +930,54 @@ def test_the_split_style_can_be_asked_for(client, queue, filed):
 def test_summarising_an_entry_that_is_not_there_is_a_404(client):
     assert client.post("/api/library/2026-01-01_0000_nothing/summary",
                        json={}).status_code == 404
+
+
+# --- a machine installed for transcription only ---------------------------
+
+@pytest.fixture
+def no_summary_model(monkeypatch):
+    """No model on this disk: what "transcription only" leaves behind."""
+    from audio_transcriber import summarizers
+
+    monkeypatch.setattr(summarizers, "ready_engines", lambda settings=None: [])
+
+
+def test_without_a_model_the_page_is_told_summaries_are_off(client, no_summary_model):
+    data = client.get("/api/summary/engines").json()
+    assert data["ready"] is False
+    assert data["engines"] == [] and data["auto"] is None
+
+
+def test_without_a_model_a_summary_is_refused_with_the_reason(client, filed,
+                                                             no_summary_model):
+    from audio_transcriber import i18n
+
+    response = client.post(f"/api/library/{filed.id}/summary", json={})
+    assert response.status_code == 409
+    assert response.json()["detail"] == i18n.t("summary.off")
+    # What is already there stays readable: only writing a new one is off.
+    filed.write_summary("# Riassunto\n")
+    assert client.get(f"/api/library/{filed.id}/summary.md").status_code == 200
+    assert client.delete(f"/api/library/{filed.id}/summary").status_code == 200
+
+
+def test_without_a_model_an_upload_asking_for_a_summary_is_refused(
+        client, queue, no_summary_model):
+    response = client.post("/api/jobs", files={"file": ("riunione.wav", b"x")},
+                           data={"summary_after": "true"})
+    assert response.status_code == 409
+    assert queue.jobs() == []
+    assert os.listdir(queue.upload_dir()) == []
+
+
+def test_without_a_model_no_summary_is_ticked_by_default(queue, monkeypatch):
+    client = TestClient(create_app(dict(SETTINGS, summary_after=True), queue))
+    assert client.get("/api/status").json()["defaults"]["summary_after"] is True
+
+    from audio_transcriber import summarizers
+
+    monkeypatch.setattr(summarizers, "ready_engines", lambda settings=None: [])
+    assert client.get("/api/status").json()["defaults"]["summary_after"] is False
 
 
 # --- what the server would otherwise have printed -------------------------

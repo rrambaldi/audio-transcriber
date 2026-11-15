@@ -63,6 +63,22 @@ def test_the_binary_counts_as_installed_even_off_the_path(monkeypatch, tmp_path)
     assert engine.is_available()
 
 
+def test_the_binary_the_installer_put_in_the_environment_is_found(monkeypatch, tmp_path):
+    """No PATH and no configuration: the Windows installer puts it beside
+    the environment the program runs from, and that has to be enough."""
+    monkeypatch.setattr(engine, "module_available", lambda name: False)
+    monkeypatch.setattr(engine.shutil, "which", lambda name: None)
+    monkeypatch.setattr(engine.sys, "prefix", str(tmp_path))
+    assert not engine.is_available()
+    binary = Path(engine.bundled_server())
+    assert binary.parent == tmp_path / engine.BUNDLED_DIR
+    binary.parent.mkdir()
+    binary.write_text("#!/bin/sh\n", encoding="utf-8")
+    binary.chmod(0o755)
+    assert engine.server_path() == str(binary)
+    assert engine.is_available()
+
+
 def test_a_configured_path_that_is_not_there_is_not_believed(monkeypatch, tmp_path):
     monkeypatch.setattr(engine, "module_available", lambda name: False)
     monkeypatch.setattr(engine.shutil, "which", lambda name: None)
@@ -151,6 +167,16 @@ def test_a_download_that_completes_is_kept_under_its_own_name(monkeypatch, tmp_p
     where = engine.fetch(model, "Q4_K_M", str(tmp_path))
     assert os.path.getsize(where) == 4000
     assert not os.path.exists(where + ".part")
+
+
+def test_a_long_download_says_how_far_it_has_got(monkeypatch, tmp_path, capsys):
+    """Four gigabytes with no sign of life look like a hang."""
+    model = plan.named("openbmb/MiniCPM5-1B")
+    monkeypatch.setattr(engine.urllib.request, "urlopen",
+                        lambda *a, **k: FakeDownload(b"G" * (3 * 1024 * 1024)))
+    engine.fetch(model, "Q4_K_M", str(tmp_path))
+    said = capsys.readouterr().err
+    assert "30%" in said and "100%" in said
 
 
 def test_the_download_goes_to_the_publisher_and_nowhere_else(monkeypatch, tmp_path):

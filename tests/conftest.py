@@ -33,7 +33,14 @@ def no_log_left_running():
 
 @pytest.fixture(autouse=True)
 def no_model_by_default(monkeypatch):
-    """"auto" is the extractive engine, whatever is installed here."""
+    """"auto" is the extractive engine, whatever is installed here.
+
+    Outside the tests "auto" only ever names an engine with a model on the
+    disk; in here the extractive engine stands in for one, so that a summary
+    can be written without a model. The tests of that rule put the real
+    :func:`summarizers.ready_engines` back."""
     monkeypatch.setattr(
         summarizers, "is_installed",
         lambda name, settings=None: name == summarizers.EXTRACTIVE)
+    monkeypatch.setattr(summarizers, "ready_engines",
+                        lambda settings=None: [summarizers.EXTRACTIVE])

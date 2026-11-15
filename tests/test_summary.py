@@ -8,16 +8,23 @@ import os
 
 import pytest
 
-from audio_transcriber import cli, paths, summary
+from audio_transcriber import cli, paths, summarizers, summary
 from audio_transcriber.library import Library
 from audio_transcriber.summarizers import (
     CHOICES,
     EXTRACTIVE,
     LLAMACPP,
+    OPENVINO,
     available,
+    has_model,
     load,
+    ready,
     resolve_summarizer,
 )
+
+#: The rule itself, taken before conftest stands the extractive engine in for
+#: a model: the tests of "is there a model here" need the real question.
+real_ready_engines = summarizers.ready_engines
 
 
 @pytest.fixture(autouse=True)
@@ -233,27 +240,84 @@ def test_the_page_says_which_engine_made_it_and_how_long_the_recording_was():
 
 # --- choosing an engine ---------------------------------------------------
 
-def test_auto_falls_back_to_the_engine_that_needs_nothing(monkeypatch):
-    """No model installed is the normal case on a server, and in CI."""
-    monkeypatch.setattr("audio_transcriber.summarizers.is_installed",
+@pytest.fixture
+def the_real_rule(monkeypatch):
+    """Whether a model is here, asked for real rather than stood in for."""
+    monkeypatch.setattr(summarizers, "ready_engines", real_ready_engines)
+
+
+def test_without_a_model_auto_refuses_and_says_how_to_get_one(monkeypatch, the_real_rule):
+    """Somebody who installed transcription only gets no summary, not a page
+    of quoted sentences - and is told how to have one."""
+    monkeypatch.setattr(summarizers, "is_installed",
                         lambda name, settings=None: name == EXTRACTIVE)
-    assert resolve_summarizer("auto") == EXTRACTIVE
-    assert resolve_summarizer(None) == EXTRACTIVE
+    assert not ready()
+    with pytest.raises(summary.SummaryError) as raised:
+        resolve_summarizer("auto")
+    assert "setup summary" in str(raised.value)
+    with pytest.raises(summary.SummaryError):
+        resolve_summarizer(None)
     assert available() == [EXTRACTIVE]
     assert "auto" in CHOICES and EXTRACTIVE in CHOICES
 
 
-def test_auto_prefers_the_engine_that_actually_writes(monkeypatch):
-    monkeypatch.setattr("audio_transcriber.summarizers.is_installed",
-                        lambda name, settings=None: True)
-    assert resolve_summarizer("auto") == "openvino"
+def test_an_engine_named_by_hand_needs_no_model(monkeypatch, the_real_rule):
+    monkeypatch.setattr(summarizers, "is_installed",
+                        lambda name, settings=None: name == EXTRACTIVE)
+    assert resolve_summarizer(EXTRACTIVE) == EXTRACTIVE
 
 
-def test_without_an_intel_device_auto_still_prefers_a_model(monkeypatch):
+def test_auto_prefers_the_engine_that_actually_writes(monkeypatch, the_real_rule):
+    monkeypatch.setattr(summarizers, "is_installed", lambda name, settings=None: True)
+    monkeypatch.setattr(summarizers, "has_model", lambda name, settings=None: True)
+    assert resolve_summarizer("auto") == OPENVINO
+
+
+def test_without_an_intel_device_auto_still_prefers_a_model(monkeypatch, the_real_rule):
     """A GGUF on the CPU writes; the extractive engine quotes."""
-    monkeypatch.setattr("audio_transcriber.summarizers.is_installed",
-                        lambda name, settings=None: name != "openvino")
+    monkeypatch.setattr(summarizers, "is_installed",
+                        lambda name, settings=None: name != OPENVINO)
+    monkeypatch.setattr(summarizers, "has_model", lambda name, settings=None: True)
     assert resolve_summarizer("auto") == LLAMACPP
+
+
+def test_auto_passes_over_an_engine_with_nothing_to_load(monkeypatch, the_real_rule):
+    """OpenVINO installed with no converted model would start the first
+    summary by converting one; the GGUF already here is the better answer."""
+    monkeypatch.setattr(summarizers, "is_installed", lambda name, settings=None: True)
+    monkeypatch.setattr(summarizers, "has_model",
+                        lambda name, settings=None: name == LLAMACPP)
+    assert resolve_summarizer("auto") == LLAMACPP
+    assert ready()
+
+
+def test_a_gguf_in_the_model_store_is_a_model(tmp_path):
+    settings = {"models_dir": str(tmp_path)}
+    store = tmp_path / "summary"
+    store.mkdir()
+    assert not has_model(LLAMACPP, settings)
+    (store / "Spark-X2.5-4B-Q8_0.gguf.part").write_bytes(b"GG")
+    assert not has_model(LLAMACPP, settings), "half a download is not a model"
+    (store / "Spark-X2.5-4B-Q8_0.gguf").write_bytes(b"GGUF")
+    assert has_model(LLAMACPP, settings)
+    assert not has_model(OPENVINO, settings)
+
+
+def test_a_converted_directory_is_a_model_for_openvino(tmp_path):
+    settings = {"models_dir": str(tmp_path)}
+    converted = tmp_path / "summary" / "Qwen_Qwen3-4B-ov-int4"
+    converted.mkdir(parents=True)
+    assert not has_model(OPENVINO, settings)
+    (converted / "openvino_tokenizer.xml").write_text("<xml/>", encoding="utf-8")
+    assert has_model(OPENVINO, settings)
+
+
+def test_a_model_named_by_path_counts_wherever_it_is(tmp_path):
+    gguf = tmp_path / "elsewhere.gguf"
+    gguf.write_bytes(b"GGUF")
+    empty = {"models_dir": str(tmp_path / "store")}
+    assert has_model(LLAMACPP, dict(empty, summary_model=str(gguf)))
+    assert not has_model(LLAMACPP, dict(empty, summary_model="Spark-X2.5-4B"))
 
 
 def test_an_engine_can_be_asked_for_by_a_tolerated_spelling():

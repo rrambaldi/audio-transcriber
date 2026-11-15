@@ -67,6 +67,32 @@ audio-transcriber meeting.mp4        # -> meeting.txt
 
 ## Install
 
+### Windows, from nothing
+
+Download **[setup.cmd](https://github.com/rrambaldi/audio-transcriber/raw/main/setup.cmd)**
+(right-click, *Save link as…*) and double-click it. No Python, conda or git
+needed, and no administrator rights. It looks at the PC — memory, cores,
+AVX2 — says whether it is suited to summaries, and asks one question:
+
+```
+1  transcription only
+2  transcription and summaries
+```
+
+Then it fetches the rest on its own: [uv](https://docs.astral.sh/uv/) and
+its own Python 3.12, this program with the OpenVINO engine and the window,
+and, with summaries, `llama-server` and the model this PC's memory can hold.
+Everything goes into `%LOCALAPPDATA%\Programs\audio-transcriber`; the program
+appears in the Start menu as *Audio Transcriber*, and is removed from
+*Settings › Apps*. Run `setup.cmd` again to update it, or to add summaries
+later. Without a summary model the program has summaries switched off, and
+says how to turn them on.
+
+Windows may warn that the file comes from the internet: *More info › Run
+anyway*.
+
+### Everywhere else, and for working on the code
+
 Pick the engine that matches your machine. The core package is deliberately
 light, so a server never pulls in OpenVINO and a laptop never pulls in
 CTranslate2 unless you want both.

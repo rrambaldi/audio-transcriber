@@ -2,8 +2,9 @@
 
 ``audio-transcriber FILE`` still does the obvious thing; everything else lives
 behind a subcommand (``summarize``, ``library``, ``vocab``, ``web``, ``gui``,
-``hardware``, ``paths``, ``config``). When the first argument is not a known command it is
-taken to be a file, so the original one-argument form keeps working.
+``hardware``, ``setup``, ``paths``, ``config``). When the first argument is
+not a known command it is taken to be a file, so the original one-argument
+form keeps working.
 """
 import argparse
 import os
@@ -27,7 +28,21 @@ from .vocabularies import MAX_PROMPT_CHARS, VocabularyError
 
 COMMANDS = ("transcribe", "summarize", "library", "vocab", "template",
             "diarize", "web",
-            "gui", "hardware", "paths", "config")
+            "gui", "hardware", "setup", "paths", "config")
+
+#: What ``setup check`` answers as its exit status, so an installer can act on
+#: it without reading the words: suited to summaries, suited with warnings, not
+#: suited.
+CHECK_OK, CHECK_WARN, CHECK_NO = 0, 1, 2
+
+#: Fewer physical cores than this and a summary on the processor is a long
+#: wait. Four is where the measured runs on the Intel laptop started; below it
+#: nothing was measured that anybody would wait for.
+MIN_SUMMARY_CORES = 4
+
+#: What ``setup choose`` answers as its exit status: what the person chose to
+#: install. Away from 0, 1 and 2 so that neither can be mistaken for a crash.
+CHOSE_TRANSCRIPTION, CHOSE_SUMMARY = 10, 11
 
 CONFIG_TEMPLATE = '''\
 # audio-transcriber configuration.
@@ -480,6 +495,14 @@ def build_parser(defaults):
                                description=t("help.cmd_hardware"))
     add_language_option(hw)
     hw.add_argument("--device", default=None, help=t("help.device"))
+
+    st = subparsers.add_parser("setup", help=t("help.cmd_setup"),
+                               description=t("help.cmd_setup"))
+    add_language_option(st)
+    st_sub = st.add_subparsers(dest="subcommand", metavar="SUBCOMMAND")
+    st_sub.add_parser("check", help=t("help.setup_check"))
+    st_sub.add_parser("choose", help=t("help.setup_choose"))
+    st_sub.add_parser("summary", help=t("help.setup_summary"))
 
     pt = subparsers.add_parser("paths", help=t("help.cmd_paths"),
                                description=t("help.cmd_paths"))
@@ -1147,6 +1170,124 @@ def _summary_plan_line(engine, settings=None):
              ram="?" if chosen.est_ram_gb is None else f"{chosen.est_ram_gb:.1f}")
 
 
+def command_setup(args, settings):
+    """What the installer runs: is this machine suited to summaries, and the
+    model for it."""
+    subcommand = getattr(args, "subcommand", None)
+    if subcommand == "summary":
+        return command_setup_summary(settings)
+    if subcommand == "choose":
+        return command_setup_choose(settings)
+    return command_setup_check(settings)
+
+
+def _best_summary_plan(settings):
+    """``(installed RAM, plan)``: the summary model this machine would use
+    with all of its memory free.
+
+    An installer asks what the machine *is*, not what happens to be open on
+    it while it is being installed; the plan made at summary time still looks
+    at what is free then, and says so when closing something would help."""
+    from .hardware import total_ram_gb
+    from .summarizers import plan as planning
+
+    total = total_ram_gb()
+    return total, planning.resolve_plan(planning.LLAMACPP, settings,
+                                        ram=total, total=total)
+
+
+def command_setup_check(settings):
+    """Say whether this machine is suited to summaries, and why not.
+
+    Returns :data:`CHECK_OK`, :data:`CHECK_WARN` or :data:`CHECK_NO`. Only
+    llama.cpp is asked about: it is the engine the installer installs."""
+    from .hardware import cpu_count, has_avx2, physical_cores
+    from .summarizers import plan as planning
+
+    total, chosen = _best_summary_plan(settings)
+    cores = physical_cores() or cpu_count()
+    avx2 = has_avx2()
+    print(t("setup.machine",
+            ram=t("hardware.unknown") if total is None else f"{total:.1f} GB",
+            cores=cores,
+            avx2=t("hardware.unknown") if avx2 is None
+                 else t("hardware.yes") if avx2 else t("hardware.no")))
+    if chosen is None:
+        print(t("setup.check_no_ram",
+                needed=planning.ram_for(planning.TIERS[-1].name, planning.LLAMACPP)))
+        return CHECK_NO
+
+    verdict = CHECK_OK
+    best = planning.TIERS[0].name
+    if chosen.tier != best:
+        print(t("setup.check_small", model=chosen.model.name,
+                needed=planning.ram_for(best, planning.LLAMACPP)))
+        verdict = CHECK_WARN
+    if cores < MIN_SUMMARY_CORES:
+        print(t("setup.check_cores", cores=cores))
+        verdict = CHECK_WARN
+    if avx2 is False:
+        print(t("setup.check_avx2"))
+        verdict = CHECK_WARN
+    if verdict == CHECK_OK:
+        print(t("setup.check_ok", model=chosen.model.name,
+                size=chosen.model.weights.get(chosen.quant, 0.0)))
+    return verdict
+
+
+def command_setup_choose(settings):
+    """Check this machine, then ask what to install.
+
+    Asked here rather than by the installer so that the question is in the
+    language the check was just printed in - this program has four, and a
+    batch file has one. Returns :data:`CHOSE_TRANSCRIPTION` or
+    :data:`CHOSE_SUMMARY`. Summaries stay a choice where the check only
+    warns, because the person may know better; where no model fits at all
+    there is nothing to choose, and downloading llama.cpp for a model
+    "setup summary" would then refuse helps nobody."""
+    verdict = command_setup_check(settings)
+    print()
+    if verdict == CHECK_NO:
+        print(t("setup.summary_impossible"))
+        return CHOSE_TRANSCRIPTION
+    print(t("setup.question"))
+    print(t("setup.option_transcription"))
+    print(t("setup.option_summary"))
+    choices = {"1": CHOSE_TRANSCRIPTION, "2": CHOSE_SUMMARY}
+    while True:
+        try:
+            answer = input(t("setup.prompt")).strip()
+        except EOFError:
+            # Nobody at the keyboard: the install that downloads least.
+            return CHOSE_TRANSCRIPTION
+        if answer in choices:
+            return choices[answer]
+
+
+def command_setup_summary(settings):
+    """Download the summary model this machine should use.
+
+    The download the first summary would otherwise start on its own, moved to
+    where somebody is watching a progress line and expecting to wait."""
+    from .summarizers import LLAMACPP, how_to_install, is_installed, llamacpp
+    from .summarizers import plan as planning
+    from .summary import SummaryError
+
+    if not is_installed(LLAMACPP, settings):
+        sys.exit(t("summary.engine_missing", name=LLAMACPP)
+                 + how_to_install(LLAMACPP))
+    _total, chosen = _best_summary_plan(settings)
+    if chosen is None:
+        sys.exit(t("setup.check_no_ram",
+                   needed=planning.ram_for(planning.TIERS[-1].name,
+                                           planning.LLAMACPP)))
+    try:
+        llamacpp.fetch(chosen.model, chosen.quant, settings.get("models_dir"))
+    except SummaryError as exc:
+        sys.exit(str(exc))
+    return 0
+
+
 def command_paths(settings=None):
     """Report where files are kept, configuration included."""
     print(t("cli.paths_header"))
@@ -1238,6 +1379,8 @@ def main(argv=None):
     # would be describing a different machine.
     if command == "hardware":
         return command_hardware(args, settings)
+    if command == "setup":
+        return command_setup(args, settings)
     if command == "paths":
         return command_paths(settings)
     if command == "vocab":

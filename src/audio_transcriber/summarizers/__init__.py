@@ -28,17 +28,24 @@ never knows which one ran.
     against. And it is what writes the page when the plan says no model fits
     here at all.
 
-``auto`` therefore means "the best this machine has", which is the honest
-answer on two machines that can do very different things: a workstation with
-an iGPU writes prose, and a two-core server quotes sentences. Nothing here
-ever reaches the network, and that is deliberate — the transcript does not
-leave the machine it was made on.
+``auto`` therefore means "the best this machine has *a model for*", which
+is the honest answer on two machines that can do very different things: a
+workstation with an iGPU writes prose, and a two-core server with a small GGUF
+writes a shorter page. A machine with no model on its disk has no summary at
+all — :func:`ready` says so, and every interface asks it before offering one.
+Somebody who chose "transcription only" when installing did not ask for a
+page of quoted sentences, nor for gigabytes downloaded in the middle of the
+first summary. Nothing here ever reaches the network, and that is deliberate
+— the transcript does not leave the machine it was made on.
 
 Like :mod:`audio_transcriber.backends`, resolution imports no runtime: it asks
 what is installed and answers, so listing the options stays instant. The one
 engine module it does import is the one that can be a binary rather than a
 package, and that module imports no runtime either.
 """
+import glob
+import os
+
 from ..hardware import module_available
 from ..i18n import t
 from ..summary import SummaryError
@@ -57,6 +64,11 @@ ENGINES = (OPENVINO, LLAMACPP, EXTRACTIVE)
 #: What an interface offers. "auto" first, because it is the honest default on
 #: two machines that can do very different things.
 CHOICES = ("auto",) + ENGINES
+
+#: The engines that write with a model, in the order ``auto`` prefers them.
+#: Only these make a machine :func:`ready`: the extractive engine needs no
+#: model, and on its own it is not a summary anybody installed.
+MODEL_ENGINES = (OPENVINO, LLAMACPP)
 
 #: Spellings tolerated for each engine name.
 _ALIASES = {
@@ -100,19 +112,57 @@ def available(settings=None):
     return [name for name in ENGINES if is_installed(name, settings)]
 
 
+def has_model(name, settings=None):
+    """Whether a model for engine ``name`` is already on this disk.
+
+    A GGUF for llama.cpp, a converted directory for OpenVINO — in the model
+    store, or wherever ``summary_model`` points. Either engine would fetch or
+    convert one on its first run; that is gigabytes and minutes nobody should
+    meet halfway through a summary, so it happens when installing instead
+    ("audio-transcriber setup summary") and this is how the rest can tell."""
+    from .llamacpp import models_root
+
+    settings = settings or {}
+    asked = str(settings.get("summary_model") or "").strip()
+    root = models_root(settings.get("models_dir"))
+    if name == LLAMACPP:
+        return ((asked.lower().endswith(".gguf") and os.path.isfile(asked))
+                or bool(glob.glob(os.path.join(root, "*.gguf"))))
+    if name == OPENVINO:
+        return ((bool(asked) and os.path.isfile(os.path.join(asked, "openvino_model.xml")))
+                or bool(glob.glob(os.path.join(root, "*", "openvino_tokenizer.xml"))))
+    return False
+
+
+def ready_engines(settings=None):
+    """The model engines that are installed and have a model here, best first."""
+    return [name for name in MODEL_ENGINES
+            if is_installed(name, settings) and has_model(name, settings)]
+
+
+def ready(settings=None):
+    """Whether this machine can write a summary at all.
+
+    The one question the window, the page and the command line ask before
+    they offer a summary: without a model they offer none, and say how to
+    install one."""
+    return bool(ready_engines(settings))
+
+
 def resolve_summarizer(engine=None, settings=None):
     """Pick the engine to use.
 
-    With ``auto``: the best one this machine has, which on a server with no
-    accelerator is llama.cpp where it is installed and the extractive one
-    where it is not.
+    With ``auto``: the best engine that has a model on this machine, and a
+    refusal that says how to install one when none has. An engine named by
+    hand is taken at its word — the extractive one included, which needs no
+    model at all.
     """
     requested = str(engine or "auto").strip().lower()
     if requested == "auto":
-        installed = available(settings)
-        if not installed:
-            raise SummaryError(t("summary.none_installed"))
-        return installed[0]
+        engines = ready_engines(settings)
+        if not engines:
+            raise SummaryError(t("summary.no_model"))
+        return engines[0]
 
     name = _ALIASES.get(requested)
     if name is None:

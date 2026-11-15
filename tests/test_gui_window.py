@@ -1801,6 +1801,29 @@ def test_the_pane_does_not_change_under_somebody_who_moved_on(window, queue):
     assert window.library.summary.toPlainText() == ""
 
 
+@pytest.mark.parametrize("ready", [True, False])
+def test_with_no_summary_model_the_pane_reads_summaries_but_writes_none(
+        application, queue, monkeypatch, ready):
+    """Summarise is greyed out with the reason beside it; the summary an
+    entry already has is still read, copied, and deleted with the entry."""
+    from audio_transcriber import summarizers
+    from audio_transcriber.gui.library_panel import LibraryPanel
+
+    if not ready:
+        monkeypatch.setattr(summarizers, "ready_engines", lambda settings=None: [])
+    entry = filed_entry(queue)
+    entry.write_summary("La pagina che c'era.")
+    panel = LibraryPanel(queue.library, SETTINGS, queue=queue)
+    assert panel.show_entry(entry.id)
+
+    assert panel.summarise.isEnabled() is ready
+    assert panel.summary_off.isHidden() is ready
+    assert panel.summary_off.text() == i18n.t("summary.off")
+    assert "La pagina" in panel.summary.toPlainText()
+    assert panel.copy_summary.isEnabled() and panel.delete.isEnabled()
+    panel.deleteLater()
+
+
 # --- where the two branches meet: summaries in the same queue --------------
 
 def summary_job(window, queue, status="failed"):
