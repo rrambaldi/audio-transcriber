@@ -20,10 +20,10 @@ All notable changes to this project are documented here. The format follows
   the long download it looks at the PC and asks one question, transcription
   only or summaries too; with summaries it puts `llama-server` (Vulkan build
   b10828) beside the environment and downloads the model this PC's memory can
-  hold. uv (0.13.8) and llama.cpp are pinned and checked against their SHA256
-  before anything is run. Run again, it updates. The file is stored with CRLF
-  in the repository itself, because it is downloaded on its own rather than
-  checked out.
+  hold. When it is done it opens the window. uv (0.13.8) and llama.cpp are
+  pinned and checked against their SHA256 before anything is run. Run again,
+  it updates. The file is stored with CRLF in the repository itself, because
+  it is downloaded on its own rather than checked out.
 - **`audio-transcriber setup check | choose | summary`**, what the installer
   runs. `check` reads the installed memory, the cores and AVX2 and says
   whether summaries suit the machine, with which model, and what a better one

@@ -84,8 +84,9 @@ AVX2 — says whether it is suited to summaries, and asks one question:
 Then it fetches the rest on its own: [uv](https://docs.astral.sh/uv/) and
 its own Python 3.12, this program with the OpenVINO engine and the window,
 and, with summaries, `llama-server` and the model this PC's memory can hold.
-Everything goes into `%LOCALAPPDATA%\Programs\audio-transcriber`; the program
-appears in the Start menu as *Audio Transcriber*, and is removed from
+Everything goes into `%LOCALAPPDATA%\Programs\audio-transcriber`. When it is
+done the window opens on its own; after that the program is in the Start menu
+as *Audio Transcriber*, and is removed from
 *Settings › Apps*. Run `setup.cmd` again to update it, or to add summaries
 later. Without a summary model the program has summaries switched off, and
 says how to turn them on.

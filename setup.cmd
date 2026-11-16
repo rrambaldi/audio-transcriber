@@ -9,7 +9,8 @@ rem
 rem  For somebody with no Python, no conda and no git: this one file is all
 rem  they download, and a double-click is all they do. It looks at the PC,
 rem  says whether it is suited to summaries, asks one question - transcription
-rem  only, or summaries too - and then fetches the rest from the internet:
+rem  only, or summaries too - then fetches the rest from the internet and
+rem  opens the window:
 rem
 rem    uv                  one program, which brings its own Python 3.12
 rem    audio-transcriber   from GitHub, with the OpenVINO engine and the window
@@ -46,6 +47,7 @@ set "TAR=%SystemRoot%\System32\tar.exe"
 rem Double-clicked, from Settings, Apps, or from a prompt? The first two close
 rem the console with the script, so they get a pause at the end.
 set "AT_CLICKED="
+set "AT_WARNED="
 echo %cmdcmdline% | findstr /i /c:"/c" >nul 2>nul && set "AT_CLICKED=1"
 
 if /i "%~1"=="/uninstall" goto :uninstall
@@ -193,6 +195,11 @@ echo  a few minutes before the first line appears.
 echo  Update, or add summaries later: run this file again.
 echo  Remove: Settings ^> Apps ^> Audio Transcriber.
 echo ---------------------------------------------------------------------------
+
+rem The window opens on its own: an installer that ends on a console asking
+rem for a key leaves somebody looking for what was installed. The same
+rem pythonw and working folder as the Start menu entry.
+start "" /d "%USERPROFILE%" "%AT_HOME%\venv\Scripts\pythonw.exe" -m audio_transcriber.cli gui
 goto :end
 
 rem --- one downloaded file against the hash it was pinned with -------------------
@@ -283,17 +290,21 @@ echo.
 echo WARNING: transcription is installed, the summary model is not - the
 echo          lines above say why. Run this again and choose summaries to
 echo          finish; until then the program has summaries switched off.
+set "AT_WARNED=1"
 goto :register
 
 :shortcut_failed
 echo WARNING: the Start menu entry could not be made. The program is there:
 echo              "%AT_HOME%\venv\Scripts\pythonw.exe" -m audio_transcriber.cli gui
+set "AT_WARNED=1"
 goto :done
 
 :failed
 if defined AT_CLICKED pause
 endlocal & exit /b 1
 
+rem After a clean install the open window is the answer and the console may
+rem close; after a warning it stays until the warning has been read.
 :end
-if defined AT_CLICKED pause
+if defined AT_WARNED if defined AT_CLICKED pause
 endlocal & exit /b 0
