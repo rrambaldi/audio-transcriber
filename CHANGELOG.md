@@ -7,6 +7,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [2026.11.2] — 2026-11-16
+
 ### Fixed
 
 - **No "entry point not found" box on a PC with an old graphics driver.**
