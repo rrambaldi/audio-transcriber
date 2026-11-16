@@ -82,8 +82,11 @@ AVX2 — says whether it is suited to summaries, and asks one question:
 ```
 
 Then it fetches the rest on its own: [uv](https://docs.astral.sh/uv/) and
-its own Python 3.12, this program with the OpenVINO engine and the window,
-and, with summaries, `llama-server` and the model this PC's memory can hold.
+its own Python 3.12, this program with the window and the engine for the PC —
+faster-whisper on CUDA where there is an NVIDIA card it can use, OpenVINO
+everywhere else — and, with summaries, `llama-server` and the model this PC's
+memory can hold. A driver too old for the card is named, with what to
+update.
 Everything goes into `%LOCALAPPDATA%\Programs\audio-transcriber`. When it is
 done the window opens on its own; after that the program is in the Start menu
 as *Audio Transcriber*, and is removed from *Settings › Apps*. Run
@@ -106,6 +109,7 @@ git clone https://github.com/rrambaldi/audio-transcriber
 cd audio-transcriber
 
 pip install -e ".[cpu]"        # server, or any machine without a GPU
+pip install -e ".[cuda]"       # an NVIDIA card: the same engine, on CUDA
 pip install -e ".[openvino]"   # PC with an Intel iGPU or NPU
 pip install -e ".[all]"        # everything: both engines, diarization, web,
                                # the window and its recorder
@@ -158,6 +162,19 @@ CPU: 8 cores | free RAM: 21.4 GiB | OpenVINO: CPU, GPU.0 | CUDA: no
 backend that '--backend auto' would pick: openvino
 model that '--model auto' would pick: large-v3
 ```
+
+On a PC with an NVIDIA card the report names it, with what the driver said:
+
+```bash
+$ audio-transcriber hardware
+CPU: 8 cores | RAM: 13.2 GiB free of 31.8 GiB | OpenVINO: not installed | CUDA: yes
+NVIDIA: NVIDIA GeForce RTX 3060, 12.0 GB of memory, driver for CUDA 12.8: usable for transcription.
+backend that '--backend auto' would pick: faster-whisper
+model that '--model auto' would pick: large-v3
+```
+
+A driver too old for the card, or a card too old for CUDA 12, is said there
+too, with what to update — see [docs/backends.md](docs/backends.md).
 
 ## Usage
 

@@ -609,3 +609,71 @@ def test_setup_choose_without_a_keyboard_installs_the_light_one(a_machine, monke
         raise EOFError
     monkeypatch.setattr("builtins.input", no_keyboard)
     assert cli.main(["setup", "choose"]) == cli.CHOSE_TRANSCRIPTION
+
+
+# --- the NVIDIA card, for the installer and the report --------------------
+
+
+@pytest.mark.parametrize(("state", "extras"), [
+    ("usable", "cuda,gui,record"),
+    ("old_driver", "openvino,gui,record"),
+    ("old_gpu", "openvino,gui,record"),
+    ("absent", "openvino,gui,record"),
+])
+def test_setup_extras_installs_cuda_only_for_a_card_it_can_use(state, extras):
+    from audio_transcriber import hardware
+
+    assert cli.setup_extras(hardware.CudaProbe(state)) == extras
+
+
+def test_setup_extras_prints_one_line_for_the_installer(capsys, monkeypatch):
+    from audio_transcriber import hardware
+
+    assert cli.main(["setup", "extras"]) == 0
+    assert capsys.readouterr().out == cli.EXTRAS_DEFAULT + "\n"
+    monkeypatch.setattr(hardware, "cuda_probe",
+                        lambda: hardware.CudaProbe(hardware.CUDA_USABLE))
+    assert cli.main(["setup", "extras"]) == 0
+    assert capsys.readouterr().out == cli.EXTRAS_NVIDIA + "\n"
+
+
+@pytest.fixture
+def a_card(monkeypatch):
+    from audio_transcriber import hardware
+
+    monkeypatch.setenv("AUDIO_TRANSCRIBER_LANG", "en")
+    monkeypatch.setattr(hardware, "opencl_too_old", lambda: True)
+
+    def card(state, **found):
+        monkeypatch.setattr(hardware, "cuda_probe",
+                            lambda: hardware.CudaProbe(state, **found))
+    return card
+
+
+def test_a_usable_card_is_reported_and_an_old_opencl_is_beside_the_point(a_card, capsys):
+    a_card("usable", name="RTX 3060", vram_gb=12.0, capability=(8, 6), driver=12080)
+    cli.print_graphics()
+    said = capsys.readouterr().out
+    assert "RTX 3060, 12.0 GB" in said and "CUDA 12.8" in said
+    assert "OpenCL" not in said
+
+
+def test_an_old_driver_says_what_to_update(a_card, capsys):
+    a_card("old_driver", name="RTX 5070", capability=(12, 0), driver=12040)
+    cli.print_graphics()
+    said = capsys.readouterr().out
+    assert "CUDA 12.4" in said and "CUDA 12.8" in said and "setup.cmd" in said
+    assert "OpenCL" in said
+
+
+def test_an_old_card_says_where_the_build_starts(a_card, capsys):
+    a_card("old_gpu", name="GTX 780", capability=(3, 5), driver=12020)
+    cli.print_graphics()
+    said = capsys.readouterr().out
+    assert "3.5" in said and "5.3" in said
+
+
+def test_no_card_says_nothing_about_nvidia(a_card, capsys):
+    a_card("absent")
+    cli.print_graphics()
+    assert "NVIDIA" not in capsys.readouterr().out

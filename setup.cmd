@@ -13,7 +13,9 @@ rem  only, or summaries too - then fetches the rest from the internet and
 rem  opens the window:
 rem
 rem    uv                  one program, which brings its own Python 3.12
-rem    audio-transcriber   from GitHub, with the OpenVINO engine and the window
+rem    audio-transcriber   from GitHub, with the window and the engine for
+rem                        this PC: CUDA on an NVIDIA card it can use,
+rem                        OpenVINO everywhere else
 rem    llama.cpp + model   with summaries only: llama-server, and the model
 rem                        this PC's memory can hold (about 4 GB on most)
 rem
@@ -59,7 +61,6 @@ if /i "%~1"=="/uninstall" goto :uninstall
 if "%AT_REF%"=="" set "AT_REF=main"
 set "AT_ARCHIVE=https://github.com/rrambaldi/audio-transcriber/archive/%AT_REF%.zip"
 set "AT_PACKAGE=audio-transcriber-ov"
-set "AT_EXTRAS=openvino,gui,record"
 rem What is downloaded and run is pinned, and checked against the hash taken
 rem when it was pinned: a new release of either cannot reach an installation
 rem before somebody has looked at it. Moving one on means both lines.
@@ -136,7 +137,13 @@ goto :choice_failed
 :choice_made
 
 rem --- the engine and the window: the long download ---------------------------
-echo [4/6] OpenVINO, Qt and the rest - a few gigabytes, give it time
+rem Which engine is the program's answer, from what the NVIDIA driver told it:
+rem one line, the extras - "cuda,..." for a card it can use, "openvino,..."
+rem for every other PC. An NVIDIA card gets no OpenVINO it would never use.
+set "AT_EXTRAS="
+for /f "delims=" %%e in ('call "%PY%" -m audio_transcriber.cli setup extras') do set "AT_EXTRAS=%%e"
+if "%AT_EXTRAS%"=="" goto :extras_failed
+echo [4/6] the engine and the window [%AT_EXTRAS%] - a few gigabytes, give it time
 "%UV%" pip install --python "%PY%" "%AT_PACKAGE%[%AT_EXTRAS%] @ %AT_ARCHIVE%"
 if errorlevel 1 goto :install_failed
 
@@ -284,6 +291,11 @@ echo.
 echo ERROR: the install did not complete. If Audio Transcriber is open, close
 echo        it - Windows will not replace a program that is running - and run
 echo        this again. Otherwise the lines above say why.
+goto :failed
+
+:extras_failed
+echo ERROR: the program could not say which engine suits this PC. The lines
+echo        above say why.
 goto :failed
 
 :choice_failed

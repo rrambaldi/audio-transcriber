@@ -13,7 +13,7 @@ import sys
 
 import pytest
 
-from audio_transcriber import logs, summarizers
+from audio_transcriber import hardware, logs, summarizers
 
 
 @pytest.fixture(autouse=True)
@@ -44,3 +44,18 @@ def no_model_by_default(monkeypatch):
         lambda name, settings=None: name == summarizers.EXTRACTIVE)
     monkeypatch.setattr(summarizers, "ready_engines",
                         lambda settings=None: [summarizers.EXTRACTIVE])
+
+
+@pytest.fixture(autouse=True)
+def no_nvidia_card(monkeypatch):
+    """No NVIDIA driver, whatever this machine has.
+
+    A developer's card would otherwise turn "auto" into CUDA and the model
+    into whatever its memory holds; the tests that mean a card hand one in."""
+    remembered = (hardware.cuda_probe, hardware.has_cuda)   # a test may replace them
+    for function in remembered:
+        function.cache_clear()
+    monkeypatch.setattr(hardware, "_cuda_driver", lambda: None)
+    yield
+    for function in remembered:
+        function.cache_clear()

@@ -44,7 +44,8 @@ one the project publishes but was not verified here.
 | `PySide6`, `PySide6-Addons`, `shiboken6` | the desktop window (`[gui]`) | **LGPL-3.0-only OR GPL-2.0-only OR GPL-3.0-only** (Qt also sells a commercial licence) | checked |
 | `imageio-ffmpeg` | decoding audio and video | BSD-2-Clause — but it ships an **ffmpeg** build, and ffmpeg is **LGPL-2.1-or-later** (some builds GPL) | declared |
 | `numpy` | audio as arrays | BSD-3-Clause (with 0BSD, MIT, Zlib parts) | checked |
-| `faster-whisper` | transcription on CPU (`[cpu]`), through CTranslate2 | MIT | declared |
+| `faster-whisper` | transcription on CPU (`[cpu]`) and on an NVIDIA card (`[cuda]`), through CTranslate2 | MIT | declared |
+| `nvidia-cublas-cu12` | the cuBLAS CTranslate2 loads on an NVIDIA card (`[cuda]`, Windows and Linux) | **NVIDIA proprietary** (`LicenseRef-NVIDIA-Proprietary`): not open source - NVIDIA's own runtime, which it publishes on PyPI to be installed like this, under the CUDA Toolkit licence | declared |
 | `optimum-intel`, `transformers` | converting and running Whisper on Intel devices (`[openvino]`) | Apache-2.0 | declared |
 | `openvino`, `openvino-genai` | the Intel runtime, and the summary engine (`[summarize-ov]`) | Apache-2.0 | declared |
 | `pyannote.audio` | "who said what" (`[diarize]`) | MIT — its **models** are gated and have their own terms | declared |

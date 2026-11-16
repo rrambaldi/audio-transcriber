@@ -8,9 +8,11 @@ here imports a heavy dependency either, unless the answer requires it, so
 ``--hardware`` stays instant.
 """
 import ctypes
+import functools
 import os
 import sys
 import time
+from collections import namedtuple
 
 from .i18n import t
 
@@ -90,15 +92,208 @@ def has_openvino_accelerator(devices=None):
     return any(name.upper().startswith(("GPU", "NPU")) for name in found)
 
 
-def has_cuda():
-    """Whether torch can see a usable NVIDIA GPU."""
-    if not module_available("torch"):
-        return False
+# --- NVIDIA, through CUDA ---------------------------------------------------
+#
+# faster-whisper runs on CTranslate2, whose wheels carry their own CUDA runtime
+# and load cuBLAS by name when the first model is put on the GPU. So whether a
+# PC can transcribe on its NVIDIA card is three questions: whether the driver
+# and the card suit the CTranslate2 build, whether a cuBLAS can be found, and
+# whether faster-whisper is installed. None needs torch, which this program
+# does not install for transcription; asking torch is how a PC with only an
+# NVIDIA card used to be told it had none.
+
+#: What :func:`cuda_probe` can answer.
+CUDA_ABSENT = "absent"          # no NVIDIA driver, or no card behind it
+CUDA_OLD_DRIVER = "old_driver"  # a card, and a driver too old for the build
+CUDA_OLD_GPU = "old_gpu"        # a card the build has no code for
+CUDA_USABLE = "usable"
+
+#: ``cuDriverGetVersion`` counts CUDA as 1000 * major + 10 * minor.
+CUDA_12_0, CUDA_12_8 = 12000, 12080
+
+#: What the CTranslate2 4.9 wheels are built for, read from their build
+#: scripts: CUDA 12.8, machine code for compute capability 5.3 to 8.6 - which
+#: every 8.x runs, 8.9 included - and PTX for 8.6. A card from 9.0 on runs that
+#: PTX, compiled by the driver when the model loads, and only a driver that
+#: knows CUDA 12.8 can compile it; anything older than 5.3 has no code at all.
+MIN_CAPABILITY = (5, 3)
+LAST_NATIVE_MAJOR = 8
+
+#: ``CUdevice_attribute`` values for the compute capability.
+_CC_MAJOR, _CC_MINOR = 75, 76
+
+CudaProbe = namedtuple("CudaProbe", "state name vram_gb capability driver")
+CudaProbe.__new__.__defaults__ = (None, None, None, None)
+
+
+def _cuda_driver():
+    """The NVIDIA driver library, or None where there is none."""
+    name = ("nvcuda.dll" if sys.platform == "win32"
+            else "libcuda.so.1" if sys.platform.startswith("linux") else None)
+    if name is None:
+        return None
     try:
-        import torch
-        return bool(torch.cuda.is_available())
-    except Exception:
+        return ctypes.CDLL(name)
+    except OSError:
+        return None
+
+
+@functools.lru_cache(maxsize=1)
+def cuda_probe():
+    """The NVIDIA card a transcription would run on, as a :class:`CudaProbe`.
+
+    Asked of the driver itself through ctypes - no CTranslate2, no torch - so
+    the installer can ask it before either is installed. Never raises: no
+    driver, or a driver that will not answer, is :data:`CUDA_ABSENT`. Asked
+    once per process: a driver updated while the window is open is seen the
+    next time it opens."""
+    driver = _cuda_driver()
+    return CudaProbe(CUDA_ABSENT) if driver is None else probe_driver(driver)
+
+
+def probe_driver(driver):
+    """:func:`cuda_probe`'s questions, put to a driver already loaded.
+
+    Only the first card is examined: it is the one faster-whisper uses unless
+    told otherwise.
+    ParceEtRecte: device 0 only; look at every card if a PC ever pairs an old
+    one first with a new one second."""
+    def ok(function, *args):
+        return getattr(driver, function)(*args) == 0      # CUDA_SUCCESS
+
+    version, count, device = ctypes.c_int(0), ctypes.c_int(0), ctypes.c_int(0)
+    major, minor, total = ctypes.c_int(0), ctypes.c_int(0), ctypes.c_size_t(0)
+    name = ctypes.create_string_buffer(256)
+    try:
+        if not ok("cuDriverGetVersion", ctypes.byref(version)):
+            return CudaProbe(CUDA_ABSENT)
+        if not (ok("cuInit", 0) and ok("cuDeviceGetCount", ctypes.byref(count))
+                and count.value > 0 and ok("cuDeviceGet", ctypes.byref(device), 0)):
+            return CudaProbe(CUDA_ABSENT, driver=version.value)
+        # The name and the memory may go unanswered - an unnamed card, a model
+        # chosen as if its memory were ample. The compute capability may not:
+        # without it there is no telling whether the build has code for it.
+        ok("cuDeviceGetName", name, len(name), device)
+        ok("cuDeviceTotalMem_v2", ctypes.byref(total), device)
+        if not (ok("cuDeviceGetAttribute", ctypes.byref(major), _CC_MAJOR, device)
+                and ok("cuDeviceGetAttribute", ctypes.byref(minor), _CC_MINOR, device)):
+            return CudaProbe(CUDA_ABSENT, driver=version.value)
+    except AttributeError:
+        # A function this old a driver does not export: older than anything
+        # CUDA 12 runs on.
+        return CudaProbe(CUDA_OLD_DRIVER, driver=version.value or None)
+
+    capability = (major.value, minor.value)
+    state = (CUDA_OLD_GPU if capability < MIN_CAPABILITY
+             else CUDA_OLD_DRIVER if version.value < needed_cuda(capability)
+             else CUDA_USABLE)
+    return CudaProbe(state, name=name.value.decode("utf-8", "replace").strip() or None,
+                     vram_gb=total.value / 1024.0 ** 3 if total.value else None,
+                     capability=capability, driver=version.value)
+
+
+def cuda_version_text(version):
+    """``12080`` as ``12.8``."""
+    return f"{version // 1000}.{version % 1000 // 10}" if version else "?"
+
+
+def needed_cuda(capability):
+    """The CUDA a driver must know for a card of this compute capability,
+    counted as ``cuDriverGetVersion`` counts it."""
+    return CUDA_12_0 if (capability or (0, 0))[0] <= LAST_NATIVE_MAJOR else CUDA_12_8
+
+
+def _cublas_names():
+    """cuBLAS as the CTranslate2 wheels load it, by name. On Linux the Lt half
+    is named too, first: the other one needs it loaded to be loaded by name."""
+    if sys.platform == "win32":
+        return ("cublas64_12.dll",)
+    return ("libcublasLt.so.12", "libcublas.so.12")
+
+
+def _cublas_packages():
+    """Where pip puts it, per package: nvidia-cublas-cu12 first, which the
+    ``[cuda]`` extra installs; then a CUDA build of torch, which carries a copy."""
+    return (("nvidia.cublas", "bin" if sys.platform == "win32" else "lib"),
+            ("torch", "lib"))
+
+
+#: Kept for the life of the process: a collected ``add_dll_directory`` handle
+#: takes its folder off the search path again, and a collected CDLL may unload.
+_CUDA_KEPT = []
+_CUDA_PREPARED = set()
+
+
+def _package_dirs(name):
+    """The folders a package is installed in, without importing it."""
+    try:
+        from importlib.util import find_spec
+        spec = find_spec(name)
+    except (ImportError, ValueError):
+        return []
+    return list(spec.submodule_search_locations or []) if spec else []
+
+
+def cublas_dir():
+    """The folder holding a cuBLAS that pip installed, or None."""
+    wanted = _cublas_names()[-1]
+    for package, sub in _cublas_packages():
+        for root in _package_dirs(package):
+            folder = os.path.join(root, sub)
+            if os.path.isfile(os.path.join(folder, wanted)):
+                return folder
+    return None
+
+
+def _cublas_on_system():
+    """Whether a cuBLAS outside pip's reach - the CUDA Toolkit - is findable by
+    the name CTranslate2 asks for: on Windows a file on the PATH; on Linux
+    whatever ``dlopen`` finds, which is the answer itself, and only version 12."""
+    wanted = _cublas_names()[-1]
+    if sys.platform == "win32":
+        return any(os.path.isfile(os.path.join(folder, wanted))
+                   for folder in os.environ.get("PATH", "").split(os.pathsep) if folder)
+    try:
+        ctypes.CDLL(wanted)
+    except OSError:
         return False
+    return True
+
+
+def prepare_cuda_libraries():
+    """Make the cuBLAS pip installed findable by the name CTranslate2 asks for.
+
+    CTranslate2 calls ``LoadLibrary("cublas64_12.dll")`` when a model first
+    goes on the GPU. A plain name like that is searched for on the PATH, not
+    in a folder given to ``os.add_dll_directory`` - which only the loads that
+    ask for it see - so the folder goes on both. On Linux the libraries are
+    loaded now, globally, and ``dlopen`` then finds them by name already in
+    the process. Returns the folder, or None when pip installed none; a second
+    call changes nothing."""
+    folder = cublas_dir()
+    if folder is None or folder in _CUDA_PREPARED:
+        return folder
+    if sys.platform == "win32":
+        os.environ["PATH"] = folder + os.pathsep + os.environ.get("PATH", "")
+        _CUDA_KEPT.append(os.add_dll_directory(folder))
+    else:
+        for name in _cublas_names():
+            _CUDA_KEPT.append(ctypes.CDLL(os.path.join(folder, name),
+                                          mode=ctypes.RTLD_GLOBAL))
+    _CUDA_PREPARED.add(folder)
+    return folder
+
+
+# DefunctumEst: torch.cuda.is_available() as the test for CUDA, replaced by
+# cuda_probe() and a cuBLAS search: torch is not installed to transcribe.
+@functools.lru_cache(maxsize=1)
+def has_cuda():
+    """Whether faster-whisper can transcribe on an NVIDIA card here.
+
+    A driver and a card the CTranslate2 build can use, faster-whisper itself,
+    and a cuBLAS for it to load. Asked once per process, like the probe."""
+    return (cuda_probe().state == CUDA_USABLE and module_available("faster_whisper")
+            and (cublas_dir() is not None or _cublas_on_system()))
 
 
 def cpu_count():

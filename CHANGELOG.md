@@ -7,6 +7,38 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- **Transcription on an NVIDIA card, installed by `setup.cmd` with nothing to
+  do by hand.** A PC with only an NVIDIA card used to transcribe on the
+  processor: whether CUDA was there was asked of torch, which nothing installs
+  to transcribe. The driver is now asked directly, through ctypes on
+  `nvcuda.dll` or `libcuda.so.1` - name, memory, compute capability, the CUDA
+  version it knows - against what the CTranslate2 4.9 wheels are built for:
+  CUDA 12.8, machine code for compute capability 5.3 to 8.6, PTX beyond. A
+  new `[cuda]` extra brings faster-whisper and `nvidia-cublas-cu12`, the
+  cuBLAS those wheels load by name and do not ship, and the program puts it
+  where that load finds it before importing faster-whisper.
+- **`audio-transcriber setup extras`**, one line for `setup.cmd`:
+  `cuda,gui,record` for an NVIDIA card it can use, `openvino,gui,record` for
+  every other PC. `hardware`, `setup check` and `setup choose` print the
+  card, its memory, the driver's CUDA version and the verdict - with "update
+  the NVIDIA driver and run setup.cmd again" where the driver is too old.
+
+### Changed
+
+- **`auto` puts an NVIDIA card before an Intel iGPU or NPU**: a card with
+  memory of its own beats graphics sharing the processor's. A device asked
+  for by name still decides as before.
+- **On a card, the model is chosen by the card's memory**, from `float16`
+  estimates scaled from faster-whisper's measured 4.5 GB for large-v2:
+  `large-v3-turbo` on a 4 GB card, `large-v3` from about 5 GB.
+- **A card without efficient `float16` falls back to `int8`** where it has it
+  - every Pascal does - rather than to `float32`, which doubles the memory.
+- **The note about an OpenCL.dll too old for OpenVINO names no brand**: on a
+  PC with only an NVIDIA card, that OpenCL.dll is NVIDIA's. It is left out
+  where an NVIDIA card does the transcribing.
+
 ## [2026.11.2] — 2026-11-16
 
 ### Fixed

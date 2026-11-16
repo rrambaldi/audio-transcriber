@@ -50,6 +50,12 @@ Changelog = "https://github.com/rrambaldi/audio-transcriber/blob/main/CHANGELOG.
 [project.optional-dependencies]
 # Servers and machines without a GPU: CTranslate2, int8 quantisation.
 cpu = ["faster-whisper>=1.0"]
+# An NVIDIA card: the same engine, on CUDA. CTranslate2's wheels carry their
+# own CUDA 12.8 runtime and no cuDNN need, but load cuBLAS by name and do not
+# ship it: this is that cuBLAS, at least the version they were built with.
+# Its own cuBLASLt is beside it, and it needs nothing else.
+cuda = ["faster-whisper>=1.0",
+        "nvidia-cublas-cu12>=12.8,<13; sys_platform == 'win32' or sys_platform == 'linux'"]
 # PCs with an Intel iGPU or NPU.
 openvino = ["optimum-intel[openvino]", "transformers"]
 # "Who said what" (runs on the CPU).

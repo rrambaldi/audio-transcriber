@@ -5,6 +5,8 @@ laptop, in a container with two cores of somebody else's thirty-two, and in CI.
 A wrong number is worse than no number, because the summary plan is built on
 these and a machine that overstates its memory swaps.
 """
+import ctypes
+
 import pytest
 
 from audio_transcriber import hardware, i18n
@@ -262,3 +264,203 @@ def test_loader_dialogs_are_silenced_without_dropping_the_flags_already_set(monk
 def test_loader_dialogs_are_left_alone_elsewhere(monkeypatch):
     monkeypatch.setattr(hardware.sys, "platform", "linux")
     hardware.silence_loader_dialogs()  # nothing to call, nothing raised
+
+
+# --- NVIDIA, through CUDA ----------------------------------------------------
+
+
+class FakeDriver:
+    """The handful of driver calls the probe makes, answered from a script."""
+
+    def __init__(self, version=12080, init=0, count=1, name=b"NVIDIA GeForce RTX 3060",
+                 total=12 * 1024 ** 3, capability=(8, 6)):
+        self.version, self.init, self.count = version, init, count
+        self.name, self.total, self.capability = name, total, capability
+
+    @staticmethod
+    def _give(pointer, value):
+        pointer._obj.value = value
+        return 0
+
+    def cuDriverGetVersion(self, out):
+        return self._give(out, self.version)
+
+    def cuInit(self, flags):
+        return self.init
+
+    def cuDeviceGetCount(self, out):
+        return self._give(out, self.count)
+
+    def cuDeviceGet(self, out, ordinal):
+        return self._give(out, ordinal)
+
+    def cuDeviceGetName(self, buffer, size, device):
+        assert isinstance(size, int) and isinstance(device, ctypes.c_int)
+        assert size == len(buffer)
+        buffer.value = self.name
+        return 0
+
+    def cuDeviceTotalMem_v2(self, out, device):
+        assert isinstance(out._obj, ctypes.c_size_t) and isinstance(device, ctypes.c_int)
+        return self._give(out, self.total)
+
+    def cuDeviceGetAttribute(self, out, attribute, device):
+        assert isinstance(out._obj, ctypes.c_int) and isinstance(device, ctypes.c_int)
+        if self.capability is None:
+            return 1                                 # CUDA_ERROR_INVALID_VALUE
+        return self._give(out, self.capability[{75: 0, 76: 1}[attribute]])
+
+
+def test_no_nvidia_driver_is_no_card():
+    assert hardware.cuda_probe().state == hardware.CUDA_ABSENT
+
+
+def test_a_usable_card_is_described():
+    probe = hardware.probe_driver(FakeDriver())
+    assert probe.state == hardware.CUDA_USABLE
+    assert probe.name == "NVIDIA GeForce RTX 3060"
+    assert probe.vram_gb == pytest.approx(12.0)
+    assert probe.capability == (8, 6)
+    assert hardware.cuda_version_text(probe.driver) == "12.8"
+
+
+def test_a_driver_that_will_not_initialise_is_no_card():
+    """No card behind the driver answers cuInit with an error."""
+    probe = hardware.probe_driver(FakeDriver(init=100))     # CUDA_ERROR_NO_DEVICE
+    assert probe.state == hardware.CUDA_ABSENT
+    assert hardware.probe_driver(FakeDriver(count=0)).state == hardware.CUDA_ABSENT
+
+
+def test_a_driver_for_cuda_11_is_too_old():
+    probe = hardware.probe_driver(FakeDriver(version=11080))
+    assert probe.state == hardware.CUDA_OLD_DRIVER
+    assert hardware.needed_cuda(probe.capability) == hardware.CUDA_12_0
+
+
+def test_a_kepler_card_is_too_old_whatever_the_driver():
+    assert hardware.probe_driver(FakeDriver(capability=(3, 5))).state == hardware.CUDA_OLD_GPU
+    assert hardware.probe_driver(FakeDriver(capability=(5, 2))).state == hardware.CUDA_OLD_GPU
+    assert hardware.probe_driver(FakeDriver(capability=(5, 3))).state == hardware.CUDA_USABLE
+
+
+def test_a_card_after_the_build_needs_a_driver_that_compiles_its_ptx():
+    """8.9 runs the 8.6 machine code; 9.0 and later compile PTX from 12.8."""
+    assert hardware.probe_driver(FakeDriver(version=12000, capability=(8, 9))).state \
+        == hardware.CUDA_USABLE
+    assert hardware.probe_driver(FakeDriver(version=12040, capability=(12, 0))).state \
+        == hardware.CUDA_OLD_DRIVER
+    assert hardware.probe_driver(FakeDriver(version=12080, capability=(12, 0))).state \
+        == hardware.CUDA_USABLE
+
+
+def test_a_card_whose_capability_goes_unanswered_is_not_called_too_old():
+    """Without it there is no telling; "too old" would blame the card."""
+    probe = hardware.probe_driver(FakeDriver(capability=None))
+    assert probe.state == hardware.CUDA_ABSENT
+
+
+def test_a_driver_missing_a_function_is_too_old():
+    class Ancient:
+        def cuDriverGetVersion(self, out):
+            out._obj.value = 3020
+            return 0
+
+        def cuInit(self, flags):
+            return 0
+
+        def cuDeviceGetCount(self, out):
+            out._obj.value = 1
+            return 0
+
+        def cuDeviceGet(self, out, ordinal):
+            return 0
+
+    assert hardware.probe_driver(Ancient()).state == hardware.CUDA_OLD_DRIVER
+
+
+@pytest.fixture
+def cuda_site(monkeypatch, tmp_path):
+    """A site-packages with nothing in it yet, and a clean slate of preparations."""
+    monkeypatch.setattr(hardware, "_CUDA_PREPARED", set())
+    monkeypatch.setattr(hardware, "_CUDA_KEPT", [])
+    installed = {}
+    monkeypatch.setattr(hardware, "_package_dirs", lambda name: installed.get(name, []))
+
+    def install(package, sub, *files):
+        folder = tmp_path.joinpath(*package.split("."))
+        (folder / sub).mkdir(parents=True)
+        for name in files:
+            (folder / sub / name).write_bytes(b"")
+        installed[package] = [str(folder)]
+        return str(folder / sub)
+    return install
+
+
+def test_cublas_from_pip_is_put_on_both_windows_search_paths_once(monkeypatch, cuda_site):
+    """LoadLibrary by name reads the PATH; add_dll_directory serves the rest."""
+    monkeypatch.setattr(hardware.sys, "platform", "win32")
+    added = []
+    monkeypatch.setattr(hardware.os, "add_dll_directory", added.append, raising=False)
+    monkeypatch.setenv("PATH", "system")
+    folder = cuda_site("nvidia.cublas", "bin", "cublas64_12.dll", "cublasLt64_12.dll")
+
+    assert hardware.prepare_cuda_libraries() == folder
+    assert hardware.prepare_cuda_libraries() == folder
+    assert added == [folder]
+    assert hardware.os.environ["PATH"].split(hardware.os.pathsep) == [folder, "system"]
+
+
+def test_cublas_from_pip_is_loaded_globally_on_linux(monkeypatch, cuda_site):
+    """dlopen by name then finds what is already in the process - Lt first."""
+    monkeypatch.setattr(hardware.sys, "platform", "linux")
+    loaded = []
+    monkeypatch.setattr(hardware.ctypes, "CDLL",
+                        lambda path, mode=0: loaded.append((hardware.os.path.basename(path), mode)))
+    cuda_site("nvidia.cublas", "lib", "libcublasLt.so.12", "libcublas.so.12")
+
+    hardware.prepare_cuda_libraries()
+    hardware.prepare_cuda_libraries()
+    assert loaded == [("libcublasLt.so.12", hardware.ctypes.RTLD_GLOBAL),
+                      ("libcublas.so.12", hardware.ctypes.RTLD_GLOBAL)]
+
+
+def test_torchs_cublas_is_the_last_resort(monkeypatch, cuda_site):
+    monkeypatch.setattr(hardware.sys, "platform", "linux")
+    assert hardware.cublas_dir() is None
+    assert hardware.prepare_cuda_libraries() is None
+    folder = cuda_site("torch", "lib", "libcublasLt.so.12", "libcublas.so.12")
+    assert hardware.cublas_dir() == folder
+
+
+def test_a_system_cublas_counts_only_at_the_version_ctranslate2_asks_for(
+        monkeypatch, tmp_path):
+    monkeypatch.setattr(hardware.sys, "platform", "win32")
+    monkeypatch.setenv("PATH", str(tmp_path))
+    assert not hardware._cublas_on_system()
+    (tmp_path / "cublas64_12.dll").write_bytes(b"")
+    assert hardware._cublas_on_system()
+
+    monkeypatch.setattr(hardware.sys, "platform", "linux")
+    asked = []
+
+    def dlopen(name, *args, **kwargs):
+        asked.append(name)
+        raise OSError(name)
+    monkeypatch.setattr(hardware.ctypes, "CDLL", dlopen)
+    assert not hardware._cublas_on_system()
+    assert asked == ["libcublas.so.12"]          # a libcublas.so.11 is no use
+
+
+@pytest.mark.parametrize(("state", "faster", "cublas", "expected"), [
+    (hardware.CUDA_USABLE, True, True, True),
+    (hardware.CUDA_USABLE, True, False, False),     # nothing for CTranslate2 to load
+    (hardware.CUDA_USABLE, False, True, False),     # no engine to put on the card
+    (hardware.CUDA_OLD_DRIVER, True, True, False),
+])
+def test_cuda_needs_the_card_the_engine_and_cublas(monkeypatch, state, faster, cublas,
+                                                   expected):
+    monkeypatch.setattr(hardware, "cuda_probe", lambda: hardware.CudaProbe(state))
+    monkeypatch.setattr(hardware, "module_available", lambda name: faster)
+    monkeypatch.setattr(hardware, "cublas_dir", lambda: "/x" if cublas else None)
+    monkeypatch.setattr(hardware, "_cublas_on_system", lambda: False)
+    assert hardware.has_cuda() is expected

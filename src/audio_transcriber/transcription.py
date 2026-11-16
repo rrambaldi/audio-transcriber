@@ -12,6 +12,7 @@ from .backends import BACKENDS, FASTER_WHISPER, OPENVINO, load, resolve_backend
 from .hardware import (
     available_ram_gb,
     cpu_count,
+    cuda_probe,
     has_cuda,
     has_openvino_accelerator,
 )
@@ -80,6 +81,23 @@ TARGET_SPEED = 0.5
 #: RAM to leave for everything that is not the model.
 RAM_HEADROOM_GB = 0.8
 
+#: Peak memory on an NVIDIA card in GiB at float16, beam 5, the CUDA context
+#: included. Estimates: faster-whisper's README measures large-v2 at 4.5 GB
+#: (2.9 GB at int8_float16), and the others are scaled from their weights
+#: with the same overhead. Only used to choose a model that fits the card.
+MODEL_VRAM_GB = {
+    "tiny": 0.6,
+    "base": 0.7,
+    "small": 1.2,
+    "medium": 2.6,
+    "large-v3-turbo": 2.6,
+    "large-v3": 4.5,
+}
+
+#: Card memory to leave for everything else: on Windows the desktop itself
+#: draws on it.
+VRAM_HEADROOM_GB = 0.5
+
 #: "Go and measure it yourself", as opposed to ``None``, which means the
 #: measurement was attempted and failed. The two must not be the same value:
 #: a caller — a test, or a machine whose memory cannot be read — has to be able
@@ -98,12 +116,13 @@ def model_key(model_name):
 
 
 def recommend_model(backend=None, device=None, cores=None, ram=DETECT,
-                    cuda=None, accelerator=None):
+                    cuda=None, accelerator=None, vram=DETECT):
     """The best model this machine can run without the wait becoming absurd.
 
     Three situations, and they are genuinely different:
 
-    * a CUDA GPU makes the size almost irrelevant, so take the best one;
+    * a CUDA GPU makes the speed almost irrelevant, so take the best model
+      its own memory holds - the best of all when that is not known;
     * an Intel iGPU or NPU through OpenVINO is limited by memory rather than by
       patience — it is slower than CUDA but it is not a CPU;
     * on a CPU the choice is arithmetic: pick the best model that still runs at
@@ -115,7 +134,7 @@ def recommend_model(backend=None, device=None, cores=None, ram=DETECT,
     if ram is DETECT:
         ram = available_ram_gb()
     if cuda is None:
-        cuda = has_cuda() if backend != OPENVINO else False
+        cuda = on_cuda(backend, device)
     if accelerator is None:
         accelerator = has_openvino_accelerator() if backend == OPENVINO else False
 
@@ -127,7 +146,11 @@ def recommend_model(backend=None, device=None, cores=None, ram=DETECT,
         return ram - RAM_HEADROOM_GB >= needed[0]
 
     if cuda:
-        return next((m for m in MODELS_BY_QUALITY if fits(m)), "tiny")
+        if vram is DETECT:
+            vram = cuda_probe().vram_gb
+        return next((m for m in MODELS_BY_QUALITY
+                     if vram is None or vram - VRAM_HEADROOM_GB >= MODEL_VRAM_GB[m]),
+                    "tiny")
 
     if accelerator:
         # OpenVINO on an iGPU/NPU: no int8, so judge against the full-precision
@@ -145,6 +168,13 @@ def recommend_model(backend=None, device=None, cores=None, ram=DETECT,
     return "tiny"
 
 
+def on_cuda(backend, device):
+    """Whether a run on this backend and device would be on the NVIDIA card:
+    faster-whisper, a card it can use, and a device not pinned to the CPU."""
+    return (backend != OPENVINO and (device or "auto").strip().upper() != "CPU"
+            and has_cuda())
+
+
 def resolve_model(model_name, backend=None, device=None):
     """``(model, chosen_for_you)``: 'auto' becomes a real name here."""
     name = (model_name or AUTO).strip()
@@ -153,7 +183,7 @@ def resolve_model(model_name, backend=None, device=None):
     return name, False
 
 
-def warn_if_tight(backend, model_name, compute_type):
+def warn_if_tight(backend, model_name, compute_type, device=None):
     """Warn, without blocking, when the model does not fit the machine.
 
     Both checks are advisory on purpose: the estimates are approximate, and a
@@ -172,7 +202,8 @@ def warn_if_tight(backend, model_name, compute_type):
                     free=free, hint=hint), file=sys.stderr)
 
     cores = cpu_count()
-    on_cpu = backend == OPENVINO or (backend == FASTER_WHISPER and not has_cuda())
+    on_cpu = backend == OPENVINO or (backend == FASTER_WHISPER
+                                     and not on_cuda(backend, device))
     if on_cpu and cores <= FEW_CORES and key in HEAVY_MODELS:
         print(t("backend.few_cores", cores=cores, model=model_name), file=sys.stderr)
 
@@ -192,7 +223,7 @@ def transcribe(audio, model_name, language, device, model_dir=None, prompt="",
         ram = available_ram_gb()
         print(t("model.auto", model=model_name, cores=cpu_count(),
                 ram=f"{ram:.1f}" if ram is not None else "?"))
-    warn_if_tight(name, model_name, compute_type)
+    warn_if_tight(name, model_name, compute_type, device)
 
     directory = model_dir or paths.models_dir(name)
     segments, raw_text, used_device, spoken = load(name).transcribe(

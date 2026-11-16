@@ -7,7 +7,7 @@ Two engines expose the same ``transcribe()`` signature:
     present; the historical backend of this project.
 ``faster-whisper``
     Whisper on CTranslate2, int8-quantised on CPU. The right choice on a
-    GPU-less server, and usable on CUDA too.
+    GPU-less server, and the engine for an NVIDIA card, through CUDA.
 
 ``resolve_backend`` never imports either engine: it only asks whether the
 packages are installed and what accelerators exist, so ``--hardware`` stays
@@ -17,7 +17,7 @@ import sys
 import threading
 from contextlib import contextmanager
 
-from ..hardware import has_openvino_accelerator, module_available
+from ..hardware import has_cuda, has_openvino_accelerator, module_available
 from ..i18n import t
 
 OPENVINO = "openvino"
@@ -56,8 +56,12 @@ def resolve_backend(backend, device):
     """Pick the backend to use.
 
     With ``auto``: an explicitly requested Intel or CUDA device decides, then
+    faster-whisper on an NVIDIA card - when the device is left to ``auto`` too,
+    so a run asked to stay on the processor chooses as it always did - then
     OpenVINO if it can see an Intel accelerator, then whatever is installed —
-    preferring faster-whisper, which is the better CPU engine.
+    preferring faster-whisper, which is the better CPU engine. The NVIDIA card
+    comes before the Intel one because a card of its own, with its own memory,
+    beats graphics that share the processor's.
 
     An engine asked for by name has to be here. It used to be taken at its
     word and only found missing deep inside the run, after the audio had been
@@ -80,6 +84,8 @@ def resolve_backend(backend, device):
     if wanted_device.startswith("CUDA") and is_installed(FASTER_WHISPER):
         return FASTER_WHISPER
 
+    if wanted_device == "AUTO" and has_cuda():   # faster-whisper, a card, a cuBLAS
+        return FASTER_WHISPER
     if is_installed(OPENVINO) and has_openvino_accelerator():
         return OPENVINO
     if is_installed(FASTER_WHISPER):

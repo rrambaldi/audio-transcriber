@@ -44,6 +44,13 @@ MIN_SUMMARY_CORES = 4
 #: install. Away from 0, 1 and 2 so that neither can be mistaken for a crash.
 CHOSE_TRANSCRIPTION, CHOSE_SUMMARY = 10, 11
 
+#: What ``setup extras`` answers: the extras setup.cmd installs to transcribe.
+#: An NVIDIA card the CTranslate2 build can use gets faster-whisper on CUDA,
+#: and none of the OpenVINO it would never be given to; every other PC gets
+#: OpenVINO, which runs on Intel graphics and on any processor.
+EXTRAS_NVIDIA = "cuda,gui,record"
+EXTRAS_DEFAULT = "openvino,gui,record"
+
 CONFIG_TEMPLATE = '''\
 # audio-transcriber configuration.
 # Every value here is a default: a command-line option always wins.
@@ -502,6 +509,7 @@ def build_parser(defaults):
     st_sub = st.add_subparsers(dest="subcommand", metavar="SUBCOMMAND")
     st_sub.add_parser("check", help=t("help.setup_check"))
     st_sub.add_parser("choose", help=t("help.setup_choose"))
+    st_sub.add_parser("extras", help=t("help.setup_extras"))
     st_sub.add_parser("summary", help=t("help.setup_summary"))
 
     pt = subparsers.add_parser("paths", help=t("help.cmd_paths"),
@@ -1112,13 +1120,12 @@ def command_hardware(args, settings=None):
     tell, but it always prints the whole report first."""
     from .backends import resolve_backend
     from .diarization import NO_MODEL, NOT_INSTALLED, availability
-    from .hardware import opencl_too_old, summary
+    from .hardware import summary
     from .summary import SummaryError
     from .transcription import recommend_model
 
     print(summary())
-    if opencl_too_old():
-        print(t("hardware.opencl_old"))
+    print_graphics()
     device = args.device or "auto"
     try:
         backend = resolve_backend("auto", device)
@@ -1180,7 +1187,55 @@ def command_setup(args, settings):
         return command_setup_summary(settings)
     if subcommand == "choose":
         return command_setup_choose(settings)
+    if subcommand == "extras":
+        from .hardware import cuda_probe
+
+        print(setup_extras(cuda_probe()))
+        return 0
     return command_setup_check(settings)
+
+
+def setup_extras(probe):
+    """The extras to install for transcription, given the NVIDIA probe."""
+    from .hardware import CUDA_USABLE
+
+    return EXTRAS_NVIDIA if probe.state == CUDA_USABLE else EXTRAS_DEFAULT
+
+
+def print_graphics():
+    """The lines about the graphics a transcription could run on.
+
+    The NVIDIA card, whatever the driver said of it; and an OpenCL.dll too old
+    for OpenVINO, which matters only where OpenVINO is what will be used -
+    on a PC whose NVIDIA card does the work it is beside the point."""
+    from .hardware import (
+        CUDA_OLD_DRIVER,
+        CUDA_OLD_GPU,
+        CUDA_USABLE,
+        MIN_CAPABILITY,
+        cuda_probe,
+        cuda_version_text,
+        needed_cuda,
+        opencl_too_old,
+    )
+
+    probe = cuda_probe()
+    name = probe.name or "?"
+    if probe.state == CUDA_USABLE:
+        print(t("hardware.nvidia_usable", name=name,
+                vram=t("hardware.unknown") if probe.vram_gb is None
+                     else f"{probe.vram_gb:.1f} GB",
+                cuda=cuda_version_text(probe.driver)))
+    elif probe.state == CUDA_OLD_DRIVER:
+        print(t("hardware.nvidia_old_driver", name=name,
+                cuda=cuda_version_text(probe.driver),
+                needed=cuda_version_text(needed_cuda(probe.capability))))
+    elif probe.state == CUDA_OLD_GPU:
+        print(t("hardware.nvidia_old_gpu", name=name,
+                capability="{}.{}".format(*probe.capability),
+                minimum="{}.{}".format(*MIN_CAPABILITY)))
+    if probe.state != CUDA_USABLE and opencl_too_old():
+        print(t("hardware.opencl_old"))
 
 
 def _best_summary_plan(settings):
@@ -1203,7 +1258,7 @@ def command_setup_check(settings):
 
     Returns :data:`CHECK_OK`, :data:`CHECK_WARN` or :data:`CHECK_NO`. Only
     llama.cpp is asked about: it is the engine the installer installs."""
-    from .hardware import cpu_count, has_avx2, opencl_too_old, physical_cores
+    from .hardware import cpu_count, has_avx2, physical_cores
     from .summarizers import plan as planning
 
     total, chosen = _best_summary_plan(settings)
@@ -1215,9 +1270,8 @@ def command_setup_check(settings):
             avx2=t("hardware.unknown") if avx2 is None
                  else t("hardware.yes") if avx2 else t("hardware.no")))
     # About transcription, not summaries, so it leaves the verdict alone:
-    # llama.cpp reaches the iGPU through Vulkan, not OpenCL.
-    if opencl_too_old():
-        print(t("hardware.opencl_old"))
+    # llama.cpp reaches the graphics through Vulkan, not CUDA or OpenCL.
+    print_graphics()
     if chosen is None:
         print(t("setup.check_no_ram",
                 needed=planning.ram_for(planning.TIERS[-1].name, planning.LLAMACPP)))

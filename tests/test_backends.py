@@ -8,10 +8,12 @@ from audio_transcriber.backends import faster_whisper as fw
 from audio_transcriber.backends import openvino as ov
 
 
-def fake_environment(monkeypatch, *, faster=False, openvino=False, accelerator=False):
+def fake_environment(monkeypatch, *, faster=False, openvino=False, accelerator=False,
+                     cuda=False):
     available = {"faster_whisper": faster, "optimum": openvino, "openvino": openvino}
     monkeypatch.setattr(backends, "module_available", lambda name: available.get(name, False))
     monkeypatch.setattr(backends, "has_openvino_accelerator", lambda: accelerator)
+    monkeypatch.setattr(backends, "has_cuda", lambda: cuda and faster)
 
 
 # --- backend selection ----------------------------------------------------
@@ -24,6 +26,40 @@ def test_auto_prefers_faster_whisper_without_an_accelerator(monkeypatch):
 def test_auto_prefers_openvino_with_an_intel_accelerator(monkeypatch):
     fake_environment(monkeypatch, faster=True, openvino=True, accelerator=True)
     assert backends.resolve_backend("auto", "auto") == backends.OPENVINO
+
+
+def test_auto_puts_an_nvidia_card_before_an_intel_one(monkeypatch):
+    """A card with memory of its own beats graphics sharing the processor's."""
+    fake_environment(monkeypatch, faster=True, openvino=True, accelerator=True, cuda=True)
+    assert backends.resolve_backend("auto", "auto") == backends.FASTER_WHISPER
+
+
+def test_an_intel_device_asked_for_still_wins_over_an_nvidia_card(monkeypatch):
+    fake_environment(monkeypatch, faster=True, openvino=True, accelerator=True, cuda=True)
+    assert backends.resolve_backend("auto", "NPU") == backends.OPENVINO
+    assert backends.resolve_backend("auto", "GPU.0") == backends.OPENVINO
+
+
+def test_a_run_kept_on_the_processor_chooses_as_it_always_did(monkeypatch):
+    fake_environment(monkeypatch, faster=True, openvino=True, accelerator=True, cuda=True)
+    assert backends.resolve_backend("auto", "CPU") == backends.OPENVINO
+
+
+@pytest.mark.parametrize(("state", "expected"), [
+    ("usable", backends.FASTER_WHISPER),
+    ("old_driver", backends.OPENVINO),
+    ("absent", backends.OPENVINO),
+])
+def test_the_card_decides_through_the_real_cuda_check(monkeypatch, state, expected):
+    """has_cuda itself, not a stand-in: an old driver sends the run to OpenVINO."""
+    from audio_transcriber import hardware
+
+    monkeypatch.setattr(backends, "module_available", lambda name: True)
+    monkeypatch.setattr(backends, "has_openvino_accelerator", lambda: True)
+    monkeypatch.setattr(hardware, "module_available", lambda name: True)
+    monkeypatch.setattr(hardware, "cuda_probe", lambda: hardware.CudaProbe(state))
+    monkeypatch.setattr(hardware, "cublas_dir", lambda: "/site/nvidia/cublas/bin")
+    assert backends.resolve_backend("auto", "auto") == expected
 
 
 def test_auto_uses_whichever_engine_is_installed(monkeypatch):
@@ -333,7 +369,94 @@ def test_the_default_model_follows_the_cpu(machine, expected):
 
 
 def test_a_cuda_gpu_takes_the_best_model():
-    assert transcription.recommend_model(cores=4, ram=16, cuda=True) == "large-v3"
+    """With the card's memory unknown, the best: it is not a CPU."""
+    assert transcription.recommend_model(cores=4, ram=16, cuda=True, vram=None) == "large-v3"
+
+
+@pytest.mark.parametrize(("vram", "expected"), [
+    (24.0, "large-v3"),
+    (6.0, "large-v3"),
+    (4.0, "large-v3-turbo"),     # a GTX 1650: large-v3 at float16 does not fit
+    (2.0, "small"),
+    (0.5, "tiny"),
+])
+def test_on_a_card_the_model_is_chosen_by_its_memory(vram, expected):
+    assert transcription.recommend_model(cores=4, ram=16, cuda=True, vram=vram) == expected
+
+
+def test_a_run_kept_on_the_processor_is_not_chosen_a_model_by_the_card(monkeypatch):
+    monkeypatch.setattr(transcription, "has_cuda", lambda: True)
+    monkeypatch.setattr(transcription, "cuda_probe",
+                        lambda: pytest.fail("the card's memory was asked for a CPU run"))
+    assert transcription.recommend_model(backends.FASTER_WHISPER, "CPU", cores=2,
+                                         ram=4) == transcription.recommend_model(
+        backends.FASTER_WHISPER, "CPU", cores=2, ram=4, cuda=False)
+
+
+def test_the_cards_memory_comes_from_the_driver(monkeypatch):
+    from audio_transcriber import hardware
+
+    monkeypatch.setattr(transcription, "cuda_probe",
+                        lambda: hardware.CudaProbe(hardware.CUDA_USABLE, vram_gb=4.0))
+    assert transcription.recommend_model(cores=4, ram=16, cuda=True) == "large-v3-turbo"
+
+
+@pytest.mark.parametrize(("supported", "expected"), [
+    ({"float32", "int8", "int8_float32"}, "int8"),   # Pascal: no float16
+    ({"float32"}, "float32"),                         # before 6.1: no int8 either
+])
+def test_a_card_without_float16_falls_back_to_int8_where_it_has_it(
+        monkeypatch, supported, expected):
+    """float32 doubles what the model was chosen by: large-v3 would not fit."""
+    import sys
+    import types
+
+    fake = types.SimpleNamespace(get_supported_compute_types=lambda device: supported)
+    monkeypatch.setitem(sys.modules, "ctranslate2", fake)
+    assert fw.fallback_compute_type("cuda") == expected
+    assert fw.fallback_compute_type("cpu") == "float32"
+
+
+def test_a_card_cuda_will_not_start_on_falls_back_without_a_new_error(monkeypatch):
+    """The retry reports why CUDA would not start; this must not hide it."""
+    import sys
+    import types
+
+    def broken(device):
+        raise RuntimeError("CUDA failed with error unknown error")
+    monkeypatch.setitem(sys.modules, "ctranslate2",
+                        types.SimpleNamespace(get_supported_compute_types=broken))
+    assert fw.fallback_compute_type("cuda") == "float32"
+
+
+@pytest.mark.parametrize(("on_card", "prepared"), [(True, True), (False, False)])
+def test_cublas_is_made_findable_before_faster_whisper_and_only_for_the_card(
+        monkeypatch, tmp_path, on_card, prepared):
+    import sys
+    import types
+
+    happened = []
+
+    class Stop(Exception):
+        pass
+
+    def whisper_model(*args, **kwargs):
+        raise Stop
+
+    def import_from(name):
+        if name != "WhisperModel":
+            raise AttributeError(name)
+        happened.append("import")
+        return whisper_model
+
+    engine = types.ModuleType("faster_whisper")
+    engine.__getattr__ = import_from
+    monkeypatch.setitem(sys.modules, "faster_whisper", engine)
+    monkeypatch.setattr(fw, "has_cuda", lambda: on_card)
+    monkeypatch.setattr(fw, "prepare_cuda_libraries", lambda: happened.append("prepare"))
+    with pytest.raises(Stop):
+        fw.transcribe("a.wav", "tiny", "it", "auto", str(tmp_path), None)
+    assert happened == (["prepare", "import"] if prepared else ["import"])
 
 
 def test_an_intel_accelerator_is_limited_by_memory_not_by_patience():

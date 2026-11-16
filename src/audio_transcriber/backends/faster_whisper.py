@@ -7,7 +7,7 @@ a server with no GPU. CUDA is supported as well.
 import os
 import sys
 
-from ..hardware import cpu_count, has_cuda
+from ..hardware import cpu_count, has_cuda, prepare_cuda_libraries
 from ..i18n import t
 from . import reuse
 
@@ -60,6 +60,27 @@ def resolve_compute_type(compute_type, device):
     return "float16" if device == "cuda" else "int8"
 
 
+def fallback_compute_type(device):
+    """The precision to retry with when the first one is refused.
+
+    float32 on a processor. On a card, int8 where it has it - every Pascal
+    does, from compute capability 6.1 - because float32 doubles the memory of
+    the float16 the model was chosen by, and large-v3 at float32 does not fit
+    the 4 GB such a card often has."""
+    if device == "cuda":
+        import ctranslate2
+
+        try:
+            supported = ctranslate2.get_supported_compute_types("cuda")
+        except RuntimeError:
+            # CUDA itself would not start: no precision is the problem, and
+            # the retry reports what is.
+            supported = ()
+        if "int8" in supported:
+            return "int8"
+    return "float32"
+
+
 def transcribe(audio, model_name, language, device, model_dir, prompt,
                compute_type=None, threads=None, vad=True, beam_size=5,
                progress=None, word_timestamps=False, **_unused):
@@ -71,6 +92,13 @@ def transcribe(audio, model_name, language, device, model_dir, prompt,
     makes a subtitle cut fall exactly where the speaker paused instead of
     being interpolated across a segment. It costs a little time, so it is
     asked for only when something needs it."""
+    device = resolve_device(device)
+    # Before the import, and only for the card: CTranslate2 loads cuBLAS by
+    # name when the first model goes on it, and the copy pip installed is in
+    # no folder that load searches. A run on the processor leaves the PATH,
+    # which ffmpeg and llama-server inherit, as it found it.
+    if device == "cuda":
+        prepare_cuda_libraries()
     try:
         from faster_whisper import WhisperModel
     except ImportError as exc:
@@ -79,7 +107,6 @@ def transcribe(audio, model_name, language, device, model_dir, prompt,
         sys.exit(import_failure("faster_whisper.missing", exc))
 
     name = resolve_model(model_name)
-    device = resolve_device(device)
     compute_type = resolve_compute_type(compute_type, device)
     threads = int(threads) if threads else cpu_count()
     os.makedirs(model_dir, exist_ok=True)
@@ -104,8 +131,9 @@ def transcribe(audio, model_name, language, device, model_dir, prompt,
         try:
             return load(compute_type), compute_type
         except ValueError as exc:
-            # Some CPUs and builds do not support int8.
-            fallback = "float32"
+            # Some CPUs and builds do not support int8, and a card before
+            # compute capability 7.0 has no efficient float16.
+            fallback = fallback_compute_type(device)
             if compute_type == fallback:
                 sys.exit(t("faster_whisper.load_failed", error=exc))
             print(t("faster_whisper.compute_type_unsupported",
