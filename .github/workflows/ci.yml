@@ -54,7 +54,18 @@ jobs:
       # the matrix above: the window's own decisions are tested without it, and
       # this job covers the widgets themselves.
       - run: pip install -e ".[dev,gui,record]" pytest-github-actions-annotate-failures
-      - run: pytest tests/test_gui.py tests/test_gui_window.py tests/test_recording.py -v
+      # A crash in Qt or PortAudio kills pytest before any annotation is
+      # written, so its last lines - faulthandler's traceback among them -
+      # are turned into one: the log itself is only readable by an admin.
+      - name: Run the window's tests
+        shell: bash
+        run: |
+          set -o pipefail
+          pytest tests/test_gui.py tests/test_gui_window.py tests/test_recording.py -v 2>&1 | tee pytest.log || {
+            status=$?
+            tail -n 60 pytest.log | python -c "import sys; t = sys.stdin.read().replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A'); print('::error title=pytest stopped::' + t)"
+            exit $status
+          }
       # The engine has to enumerate on a real machine too, not only against
       # fakes: this is the closest a runner gets to "does it see any devices".
       - run: python -c "import audio_transcriber.recording as r; print('sources:', r.sources())"
