@@ -1112,11 +1112,13 @@ def command_hardware(args, settings=None):
     tell, but it always prints the whole report first."""
     from .backends import resolve_backend
     from .diarization import NO_MODEL, NOT_INSTALLED, availability
-    from .hardware import summary
+    from .hardware import opencl_too_old, summary
     from .summary import SummaryError
     from .transcription import recommend_model
 
     print(summary())
+    if opencl_too_old():
+        print(t("hardware.opencl_old"))
     device = args.device or "auto"
     try:
         backend = resolve_backend("auto", device)
@@ -1201,7 +1203,7 @@ def command_setup_check(settings):
 
     Returns :data:`CHECK_OK`, :data:`CHECK_WARN` or :data:`CHECK_NO`. Only
     llama.cpp is asked about: it is the engine the installer installs."""
-    from .hardware import cpu_count, has_avx2, physical_cores
+    from .hardware import cpu_count, has_avx2, opencl_too_old, physical_cores
     from .summarizers import plan as planning
 
     total, chosen = _best_summary_plan(settings)
@@ -1212,6 +1214,10 @@ def command_setup_check(settings):
             cores=cores,
             avx2=t("hardware.unknown") if avx2 is None
                  else t("hardware.yes") if avx2 else t("hardware.no")))
+    # About transcription, not summaries, so it leaves the verdict alone:
+    # llama.cpp reaches the iGPU through Vulkan, not OpenCL.
+    if opencl_too_old():
+        print(t("hardware.opencl_old"))
     if chosen is None:
         print(t("setup.check_no_ram",
                 needed=planning.ram_for(planning.TIERS[-1].name, planning.LLAMACPP)))
@@ -1335,6 +1341,11 @@ def main(argv=None):
         sys.stdout.reconfigure(line_buffering=True)
     except Exception:
         pass
+
+    # Before anything can load OpenVINO: a GPU plugin Windows cannot link
+    # must fail quietly, not stop the window behind a message box.
+    from .hardware import silence_loader_dialogs
+    silence_loader_dialogs()
 
     argv = list(sys.argv[1:] if argv is None else argv)
     set_language(preparse_language(argv))

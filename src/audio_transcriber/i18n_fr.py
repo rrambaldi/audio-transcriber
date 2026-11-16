@@ -560,6 +560,7 @@ MESSAGES = {
     "setup.check_no_ram": "Résumés : pas adaptée. Aucun modèle de résumé ne tient dans cette mémoire : il faut au moins {needed} Go de RAM.",
     "setup.check_cores": "Résumés : lents. Avec {cores} cœurs un résumé est une longue attente, car le modèle tourne sur le processeur.",
     "setup.check_avx2": "Résumés : lents. Ce processeur n'a pas AVX2, dont llama.cpp a besoin pour faire tourner un modèle à une vitesse utilisable.",
+    "hardware.opencl_old": "Le pilote graphique est trop ancien pour OpenVINO : son OpenCL.dll est antérieur à la version 3.0, la transcription tourne donc sur le processeur, plus lentement. Mettre à jour le pilote graphique Intel permet d'utiliser l'iGPU.",
     "setup.question": "Qu'installer ?",
     "setup.option_transcription": "  1  transcription seule",
     "setup.option_summary": "  2  transcription et résumés",

@@ -39,6 +39,51 @@ def openvino_devices():
         return []
 
 
+#: ``SetErrorMode`` flags: no message box from the loader for a DLL or an
+#: entry point it cannot resolve, nor for a file it cannot open.
+SEM_FAILCRITICALERRORS = 0x0001
+SEM_NOOPENFILEERRORBOX = 0x8000
+
+
+def silence_loader_dialogs():
+    """Stop Windows from halting the program on a message box over a DLL.
+
+    OpenVINO's GPU plugin imports ``clCreateBufferWithProperties``, an
+    OpenCL 3.0 function, from the system's OpenCL.dll. Where the graphics
+    driver is older, that OpenCL.dll lacks it, and Windows answers the
+    plugin's load with "entry point not found" in a box that waits for a
+    click - under pythonw, with nothing else on screen, and once for every
+    ``openvino.Core`` made. OpenVINO already handles the failure itself: it
+    leaves the GPU out of its devices and the program runs on the processor.
+    Without the box that is all that happens. The mode is per process and
+    inherited by the processes this one starts."""
+    if sys.platform != "win32":
+        return
+    try:
+        kernel32 = ctypes.windll.kernel32
+        kernel32.SetErrorMode(kernel32.GetErrorMode()
+                              | SEM_FAILCRITICALERRORS | SEM_NOOPENFILEERRORBOX)
+    except Exception:
+        pass
+
+
+def opencl_too_old():
+    """Whether the OpenCL.dll this PC has is too old for OpenVINO's GPU plugin.
+
+    True means the iGPU will go unused until the graphics driver is updated;
+    False, that OpenCL 3.0 is there; None, that the question does not apply
+    or cannot be answered - not Windows, or no OpenCL.dll at all, which is a
+    PC with no graphics driver to update. Needs no OpenVINO, so the installer
+    can say it before downloading it."""
+    if sys.platform != "win32":
+        return None
+    try:
+        library = ctypes.WinDLL("OpenCL.dll")
+    except OSError:
+        return None
+    return not hasattr(library, "clCreateBufferWithProperties")
+
+
 def has_openvino_accelerator(devices=None):
     """Whether OpenVINO sees anything beyond the CPU (iGPU, dGPU, NPU)."""
     found = openvino_devices() if devices is None else devices

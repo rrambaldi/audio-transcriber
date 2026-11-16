@@ -7,6 +7,17 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- **No "entry point not found" box on a PC with an old graphics driver.**
+  OpenVINO's GPU plugin imports `clCreateBufferWithProperties`, an OpenCL 3.0
+  function, from the system's `OpenCL.dll`; an older driver's lacks it, and
+  Windows stopped the window behind a message box every time OpenVINO looked
+  for its devices. The program now sets `SEM_FAILCRITICALERRORS` before
+  anything can load OpenVINO, so the plugin fails quietly and transcription
+  runs on the processor. `setup choose` and `hardware` say why, and that
+  updating the Intel graphics driver brings the iGPU back.
+
 ## [2026.11.1] — 2026-11-16
 
 ### Added

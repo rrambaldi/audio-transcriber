@@ -193,3 +193,72 @@ def test_avx2_is_read_from_the_processor_flags(monkeypatch, tmp_path):
 def test_avx2_is_unknown_where_the_question_does_not_apply(monkeypatch):
     monkeypatch.setattr(hardware.sys, "platform", "darwin")
     assert hardware.has_avx2() is None
+
+
+# --- an OpenCL too old for OpenVINO's GPU plugin -----------------------------
+
+class _OpenCL:
+    """An OpenCL.dll as ctypes sees it: its exports are its attributes."""
+
+    def __init__(self, *exports):
+        for name in exports:
+            setattr(self, name, object())
+
+
+def test_an_opencl_without_version_3_is_too_old(monkeypatch):
+    """The GPU plugin imports clCreateBufferWithProperties; without it Windows
+    cannot load the plugin and the iGPU goes unused."""
+    monkeypatch.setattr(hardware.sys, "platform", "win32")
+    monkeypatch.setattr(hardware.ctypes, "WinDLL",
+                        lambda name: _OpenCL("clCreateCommandQueueWithProperties"),
+                        raising=False)
+    assert hardware.opencl_too_old() is True
+
+
+def test_an_opencl_3_is_not_too_old(monkeypatch):
+    monkeypatch.setattr(hardware.sys, "platform", "win32")
+    monkeypatch.setattr(hardware.ctypes, "WinDLL",
+                        lambda name: _OpenCL("clCreateBufferWithProperties"),
+                        raising=False)
+    assert hardware.opencl_too_old() is False
+
+
+def test_no_opencl_at_all_is_not_a_driver_to_update(monkeypatch):
+    def missing(name):
+        raise OSError("OpenCL.dll not found")
+
+    monkeypatch.setattr(hardware.sys, "platform", "win32")
+    monkeypatch.setattr(hardware.ctypes, "WinDLL", missing, raising=False)
+    assert hardware.opencl_too_old() is None
+
+
+def test_opencl_is_only_asked_about_on_windows(monkeypatch):
+    monkeypatch.setattr(hardware.sys, "platform", "linux")
+    assert hardware.opencl_too_old() is None
+
+
+def test_loader_dialogs_are_silenced_without_dropping_the_flags_already_set(monkeypatch):
+    """The box that waits for a click is what stopped the window: the mode
+    gains the two flags and keeps whatever it had."""
+    set_to = []
+
+    class Kernel32:
+        def GetErrorMode(self):
+            return 0x0002  # SEM_NOGPFAULTERRORBOX, set by somebody else
+
+        def SetErrorMode(self, mode):
+            set_to.append(mode)
+
+    class WinDLLs:
+        kernel32 = Kernel32()
+
+    monkeypatch.setattr(hardware.sys, "platform", "win32")
+    monkeypatch.setattr(hardware.ctypes, "windll", WinDLLs(), raising=False)
+    hardware.silence_loader_dialogs()
+    assert set_to == [0x0002 | hardware.SEM_FAILCRITICALERRORS
+                      | hardware.SEM_NOOPENFILEERRORBOX]
+
+
+def test_loader_dialogs_are_left_alone_elsewhere(monkeypatch):
+    monkeypatch.setattr(hardware.sys, "platform", "linux")
+    hardware.silence_loader_dialogs()  # nothing to call, nothing raised

@@ -560,6 +560,7 @@ MESSAGES = {
     "setup.check_no_ram": "Zusammenfassungen: nicht geeignet. In diesen Speicher passt kein Zusammenfassungsmodell: mindestens {needed} GB RAM sind nötig.",
     "setup.check_cores": "Zusammenfassungen: langsam. Mit {cores} Kernen ist eine Zusammenfassung eine lange Wartezeit, denn das Modell läuft auf dem Prozessor.",
     "setup.check_avx2": "Zusammenfassungen: langsam. Dieser Prozessor hat kein AVX2, das llama.cpp braucht, um ein Modell in brauchbarer Geschwindigkeit laufen zu lassen.",
+    "hardware.opencl_old": "Der Grafiktreiber ist zu alt für OpenVINO: Seine OpenCL.dll ist älter als Version 3.0, daher läuft die Transkription auf dem Prozessor, langsamer. Ein aktueller Intel-Grafiktreiber macht die iGPU nutzbar.",
     "setup.question": "Was soll installiert werden?",
     "setup.option_transcription": "  1  nur Transkription",
     "setup.option_summary": "  2  Transkription und Zusammenfassungen",
