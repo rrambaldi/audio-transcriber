@@ -7,6 +7,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [2026.11.3] — 2026-11-16
+
 ### Added
 
 - **Transcription on an NVIDIA card, installed by `setup.cmd` with nothing to
