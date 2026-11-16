@@ -7,6 +7,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [2026.11.4] — 2026-11-17
+
 ### Fixed
 
 - **`setup.cmd` mends an environment that lost `pythonw.exe`.** An antivirus
