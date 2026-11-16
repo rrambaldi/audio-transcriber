@@ -11,7 +11,6 @@ import re
 import pytest
 
 from audio_transcriber import paths
-from audio_transcriber.summarizers import openvino_genai as engine
 from audio_transcriber.summarizers import (
     grouping,
     plan,
@@ -19,6 +18,7 @@ from audio_transcriber.summarizers import (
     reading,
     writing,
 )
+from audio_transcriber.summarizers import openvino_genai as engine
 from audio_transcriber.summary import NotEnoughMemory, Sentence, SummaryError
 
 
@@ -864,6 +864,10 @@ def test_a_machine_with_no_room_loads_nothing_at_all(monkeypatch, tmp_path):
     monkeypatch.setattr(plan, "available_ram_gb", lambda: 0.8)
     monkeypatch.setattr(plan, "total_ram_gb", lambda: 2.0)
     monkeypatch.setattr(plan, "physical_cores", lambda: 2)
+    # The engine measures the machine for the refusal itself: left to the real
+    # one, a Mac - which will not say what it has free - reports "?".
+    monkeypatch.setattr(engine, "available_ram_gb", lambda: 0.8)
+    monkeypatch.setattr(engine, "total_ram_gb", lambda: 2.0)
     loaded = []
     monkeypatch.setattr(engine, "prepare",
                         lambda hf_id, models_dir=None: loaded.append(hf_id))
@@ -1502,8 +1506,8 @@ def test_the_asked_length_reaches_the_page_it_was_asked_about(tmp_path):
     the setting."""
     short = run_at("short", tmp_path / "a")
     long = run_at("long", tmp_path / "b")
-    written = lambda model: [call["prompt"] for call in model.asked
-                             if "Struttura:" in call["prompt"]]
+    def written(model):
+        return [call["prompt"] for call in model.asked if "Struttura:" in call["prompt"]]
     assert written(short) and written(long)
     assert all("niente elenchi" in prompt for prompt in written(short))
     assert all("un punto per ogni appunto" in prompt for prompt in written(long))
@@ -1513,8 +1517,8 @@ def test_a_longer_page_is_allowed_to_say_more_before_it_is_cut_off():
     """The wording and the allowance move together: asking for a bullet per
     note and then stopping the model where a paragraph would have ended is
     how a page finishes mid-sentence."""
-    room = lambda model: max(call["tokens"] for call in model.asked
-                             if "Struttura:" in call["prompt"])
+    def room(model):
+        return max(call["tokens"] for call in model.asked if "Struttura:" in call["prompt"])
     assert room(run_at("short")) < room(run_at("long"))
 
 

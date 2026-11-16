@@ -11,13 +11,15 @@ e un file .env in questa cartella (è già in .gitignore):
 In CLIPS_DIR ogni .txt è una trascrizione; la durata viene letta dal .wav con lo
 stesso nome, nella stessa cartella. Le sottocartelle vengono lette tutte.
 """
-import os
 import argparse
+import os
 import random
 import wave
 from datetime import datetime
-from anthropic import Anthropic
 from pathlib import Path
+
+from anthropic import Anthropic
+
 try:
     from dotenv import load_dotenv
     load_dotenv()
@@ -166,7 +168,7 @@ def load_template(template_name="interview-it.txt"):
     if not template_path.exists():
         raise FileNotFoundError(f"Template non trovato: {template_path}")
 
-    with open(template_path, "r", encoding="utf-8") as f:
+    with open(template_path, encoding="utf-8") as f:
         return f.read()
 
 def generate_summary(transcription_text, template_text, model_name):
@@ -207,9 +209,11 @@ def choose_model():
     print("3) Claude Haiku 4.5 (Veloce/Economico)")
     print("="*50)
     scelta = input("Inserisci 1, 2 o 3 [default: 1]: ").strip()
-    if scelta == "2": return "claude-sonnet-5"
-    elif scelta == "3": return "claude-haiku-4-5"
-    else: return "claude-opus-5"
+    if scelta == "2":
+        return "claude-sonnet-5"
+    if scelta == "3":
+        return "claude-haiku-4-5"
+    return "claude-opus-5"
 
 def main():
     parser = argparse.ArgumentParser(description="Genera riassunti da dataset CLIPS tramite Claude.")

@@ -151,7 +151,7 @@ def devices(binary):
         return _DEVICES[key]
     try:
         done = subprocess.run([binary, "--list-devices"], timeout=LIST_TIMEOUT,
-                              stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                              capture_output=True)
         written = (done.stdout or b"") + b"\n" + (done.stderr or b"")
         found = read_devices(written.decode("utf-8", "replace"))
     except (OSError, ValueError, subprocess.SubprocessError):
@@ -505,7 +505,7 @@ class Server:
             # it wrote on its way out is the only thing that says why, and a
             # temporary file cannot fill up and block the process the way a
             # pipe nobody is reading does.
-            self.log = tempfile.TemporaryFile()
+            self.log = tempfile.TemporaryFile()   # noqa: SIM115 - lives as long as the server
             self.process = subprocess.Popen(
                 command, stdout=subprocess.DEVNULL, stderr=self.log)
         except OSError as exc:

@@ -323,7 +323,8 @@ def test_the_passes_can_be_reported_on_a_document_with_decisions():
     """The same crash as above, one function earlier and in the other copy of
     it: the run that measures what the passes did counts minutes too, and it
     was reading them off the notes at the foot of the page."""
-    from audio_transcriber.summarizers import reading, trace as tracing
+    from audio_transcriber.summarizers import reading
+    from audio_transcriber.summarizers import trace as tracing
 
     material = summarising.Material(title="riunione", sentences=(),
                                     language="it", duration=1320.0)

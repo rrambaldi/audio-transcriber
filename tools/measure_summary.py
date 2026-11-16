@@ -42,7 +42,6 @@ import time
 import traceback
 import unicodedata
 import urllib.request
-from contextlib import redirect_stderr
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
@@ -229,17 +228,17 @@ def end_to_end(engine, transcript):
     started = time.time()
     try:
         import sys
-        sys.stderr.write(f"[TRACE] end_to_end() START\n")
+        sys.stderr.write("[TRACE] end_to_end() START\n")
         sys.stderr.flush()
 
 ##        with redirect_stderr(noise):
-        sys.stderr.write(f"[TRACE] end_to_end() calling summary.summarize\n")
+        sys.stderr.write("[TRACE] end_to_end() calling summary.summarize\n")
         sys.stderr.flush()
         result = summary.summarize(material, {"summarizer": engine})
-        sys.stderr.write(f"[TRACE] end_to_end() summary.summarize returned\n")
+        sys.stderr.write("[TRACE] end_to_end() summary.summarize returned\n")
         sys.stderr.flush()
-        
-        sys.stderr.write(f"[TRACE] end_to_end() RETURNED\n")
+
+        sys.stderr.write("[TRACE] end_to_end() RETURNED\n")
         sys.stderr.flush()
         return {"ok": True, "engine": result.engine, "tier": result.tier,
                 "seconds": round(time.time() - started, 1), "note": result.note,

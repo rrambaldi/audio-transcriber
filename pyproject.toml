@@ -135,3 +135,6 @@ ignore = [
 "src/audio_transcriber/i18n.py" = ["E501"]
 "src/audio_transcriber/i18n_*.py" = ["E501"]
 "tests/*" = ["E501"]
+# Its long lines are the prompt it sends: wrapping them would change what the
+# model is asked, and with it the reference summaries already made.
+"clips_summarizer/*.py" = ["E501"]

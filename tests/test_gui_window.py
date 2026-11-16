@@ -534,17 +534,24 @@ def test_the_microphone_menu_has_room_to_be_read(window):
     window.resize(1180, 760)
     window.show()                    # offscreen: nothing appears anywhere
     QApplication.processEvents()
-    assert window.transcribe.recorder.devices.width() >= 200
+    # Whichever recorder the window has: Qt's calls its menu "devices", the
+    # one the [record] extra brings calls it "sources".
+    recorder = window.transcribe.recorder
+    menu = recorder.devices if hasattr(recorder, "devices") else recorder.sources
+    assert menu.width() >= 200
 
 
 def test_the_microphone_list_is_not_a_snapshot(window):
     """Plugging in a headset after the window opened used to mean reopening
     it. Qt reports the change, and refresh_devices is the slot it calls."""
     from audio_transcriber.gui import multimedia
+    from audio_transcriber.gui.qt_recorder import QtRecorder
 
     recorder = window.transcribe.recorder
     if not multimedia.AVAILABLE:
         pytest.skip("QtMultimedia is not installed")
+    if not isinstance(recorder, QtRecorder):
+        pytest.skip("the window records through the [record] extra, which rescans by itself")
     assert recorder._watcher is not None
     recorder.refresh_devices()       # safe to call at any moment
     assert recorder.devices.count() == len(multimedia.input_devices())

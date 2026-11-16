@@ -469,12 +469,15 @@ def test_the_two_sources_of_a_mix_are_both_opened_at_the_primarys_rate(tmp_path)
     session = recording.Recording(str(tmp_path / "mix.wav"), mic, mix_with=speakers,
                                   backends=(portaudio, wasapi), block_seconds=10 / 44100)
     session.start()
-    wait_until(lambda: session.frames >= 10)
+    wait_until(lambda: session.frames >= 400)
     session.stop()
 
     assert portaudio.opened == [(mic, 1, 44100)]
     assert wasapi.opened == [(speakers, 2, 44100)]
-    assert read_wav(tmp_path / "mix.wav")["samples"][0] == int(0.5 * 32767)
+    # A second source that comes in a block late is padded with silence until
+    # it does - by design - so the sum is looked for, not expected at sample 0,
+    # where on a slower machine only the microphone has arrived.
+    assert read_wav(tmp_path / "mix.wav")["samples"].max() == int(0.5 * 32767)
 
 
 def test_the_second_source_is_recorded_whole_and_not_sampled(tmp_path):
