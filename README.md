@@ -99,6 +99,20 @@ The browser may ask whether to keep a `.cmd` file (*Keep*), and Windows may
 warn that it comes from the internet (*More info › Run anyway*): it is not
 signed.
 
+An antivirus may remove `pythonw.exe` from
+`%LOCALAPPDATA%\Programs\audio-transcriber\venv\Scripts`: it starts a program
+with no window, from `AppData`, which some of them find suspicious. The Start
+menu entry then says Windows cannot find the file. Running `setup.cmd` again
+makes the environment again; if the file is removed again, `setup.cmd` stops
+and says so. Restore it from the antivirus's history — in Windows Security,
+*Virus & threat protection › Protection history* — and exclude
+`%LOCALAPPDATA%\Programs\audio-transcriber` from scanning. Until then the
+window opens with a console behind it:
+
+```
+"%LOCALAPPDATA%\Programs\audio-transcriber\venv\Scripts\python.exe" -m audio_transcriber.cli gui
+```
+
 ### Everywhere else, and for working on the code
 
 Pick the engine that matches your machine. The core package is deliberately

@@ -79,6 +79,7 @@ set "UV_PYTHON_INSTALL_DIR=%AT_HOME%\python"
 set "UV_CACHE_DIR=%AT_HOME%\cache"
 set "UV=%AT_HOME%\uv\uv.exe"
 set "PY=%AT_HOME%\venv\Scripts\python.exe"
+set "PYW=%AT_HOME%\venv\Scripts\pythonw.exe"
 set "AT_LLAMA=%AT_HOME%\venv\llama.cpp"
 
 echo.
@@ -111,9 +112,17 @@ if not exist "%UV%" goto :download_failed
 rem --- Python, uv's own ---------------------------------------------------------
 rem Never one already on the PC: a conda Python puts its own Qt ahead of the
 rem one pip installs, and the window then dies loading QtCore.
+rem The environment is whole only with pythonw.exe beside python.exe: an
+rem antivirus may take pythonw away - a program with no window, run from
+rem AppData - and an environment kept as it is would never get it back. Made
+rem again, the packages come from the cache, and llama.cpp inside it from
+rem GitHub when summaries are chosen.
 echo [2/6] Python 3.12
-if exist "%PY%" goto :venv_ready
-"%UV%" venv --python 3.12 --python-preference only-managed "%AT_HOME%\venv"
+if not exist "%PY%" goto :venv_make
+if exist "%PYW%" goto :venv_ready
+echo        pythonw.exe is missing from the environment: making it again
+:venv_make
+"%UV%" venv --clear --python 3.12 --python-preference only-managed "%AT_HOME%\venv"
 if errorlevel 1 goto :python_failed
 :venv_ready
 
@@ -190,8 +199,11 @@ reg add "%AT_KEY%" /v NoRepair /t REG_DWORD /d 1 /f >nul
 
 rem pythonw: the window without a console behind it. The working folder is
 rem the user's own, never the program's - a whisper-ov-models folder in the
-rem working folder would win over the managed models.
-powershell -NoProfile -ExecutionPolicy Bypass -Command "$s=(New-Object -ComObject WScript.Shell).CreateShortcut($env:AT_LINK); $s.TargetPath=$env:AT_HOME+'\venv\Scripts\pythonw.exe'; $s.Arguments='-m audio_transcriber.cli gui'; $s.WorkingDirectory=$env:USERPROFILE; $s.IconLocation=$env:AT_ICON; $s.Description='Audio Transcriber'; $s.Save()"
+rem working folder would win over the managed models. Still missing here,
+rem after step 2 made it, means something removes it: neither the Start menu
+rem entry nor the window below could start, so nothing is made or run.
+if not exist "%PYW%" goto :pythonw_missing
+powershell -NoProfile -ExecutionPolicy Bypass -Command "$s=(New-Object -ComObject WScript.Shell).CreateShortcut($env:AT_LINK); $s.TargetPath=$env:PYW; $s.Arguments='-m audio_transcriber.cli gui'; $s.WorkingDirectory=$env:USERPROFILE; $s.IconLocation=$env:AT_ICON; $s.Description='Audio Transcriber'; $s.Save()"
 if errorlevel 1 goto :shortcut_failed
 
 :done
@@ -212,7 +224,7 @@ echo ---------------------------------------------------------------------------
 rem The window opens on its own: an installer that ends on a console asking
 rem for a key leaves somebody looking for what was installed. The same
 rem pythonw and working folder as the Start menu entry.
-start "" /d "%USERPROFILE%" "%AT_HOME%\venv\Scripts\pythonw.exe" -m audio_transcriber.cli gui
+start "" /d "%USERPROFILE%" "%PYW%" -m audio_transcriber.cli gui
 goto :end
 
 rem --- one downloaded file against the hash it was pinned with -------------------
@@ -282,8 +294,10 @@ goto :failed
 
 :python_failed
 echo.
-echo ERROR: uv could not install Python 3.12. The lines above say why; it is
-echo        almost always the connection.
+echo ERROR: uv could not make the Python 3.12 environment. If Audio
+echo        Transcriber is open, close it - an environment in use cannot be
+echo        made again - and run this again. Otherwise the lines above say
+echo        why; it is almost always the connection.
 goto :failed
 
 :install_failed
@@ -313,9 +327,21 @@ goto :register
 
 :shortcut_failed
 echo WARNING: the Start menu entry could not be made. The program is there:
-echo              "%AT_HOME%\venv\Scripts\pythonw.exe" -m audio_transcriber.cli gui
+echo              "%PYW%" -m audio_transcriber.cli gui
 set "AT_WARNED=1"
 goto :done
+
+:pythonw_missing
+echo.
+echo ERROR: everything is installed but pythonw.exe, the file that opens the
+echo        window, is missing from %AT_HOME%\venv\Scripts.
+echo        An antivirus has most likely removed it. Look in Windows Security
+echo        ^> Virus ^& threat protection ^> Protection history, or in the
+echo        history of the antivirus this PC uses: restore the file, exclude
+echo        %AT_HOME% from scanning, then run this again.
+echo        Until then the window opens with a console behind it:
+echo          "%PY%" -m audio_transcriber.cli gui
+goto :failed
 
 :failed
 if defined AT_CLICKED pause

@@ -7,6 +7,19 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- **`setup.cmd` mends an environment that lost `pythonw.exe`.** An antivirus
+  can quarantine it - a program with no window, run from `AppData` - and the
+  install then ended with "Done" and a window that never opened, the Start
+  menu entry failing the same way. Step 2 skipped the environment whenever
+  `python.exe` was there, so running `setup.cmd` again never brought it back.
+  It now makes the environment again, with `uv venv --clear`, unless both are
+  there; and if `pythonw.exe` is still missing when the Start menu entry is
+  made, it stops with an error naming the antivirus, where to restore the
+  file from, the folder to exclude, and the command that opens the window
+  meanwhile.
+
 ## [2026.11.3] — 2026-11-16
 
 ### Added
