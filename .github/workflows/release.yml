@@ -1,0 +1,39 @@
+name: Release
+
+# A tag v* publishes a release with setup.cmd attached. The link
+# https://github.com/rrambaldi/audio-transcriber/releases/latest/download/setup.cmd
+# is then always the installer of the newest release, and it is a download:
+# the same file in the repository opens as text in the browser.
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Publish the release, with the Windows installer
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # The installer attached to a release installs that release, not
+      # whatever main holds on the day somebody downloads it.
+      - name: Point setup.cmd at this tag
+        run: |
+          sed -i 's/^if "%AT_REF%"=="" set "AT_REF=main"/if "%AT_REF%"=="" set "AT_REF='"$GITHUB_REF_NAME"'"/' setup.cmd
+          grep -q "set \"AT_REF=$GITHUB_REF_NAME\"" setup.cmd
+      - name: Take the notes from this version's section of the changelog
+        run: |
+          awk -v v="${GITHUB_REF_NAME#v}" '
+            index($0, "## [" v "]") == 1 { on = 1; next }
+            on && /^## \[/ { exit }
+            on { print }' CHANGELOG.md > notes.md
+          test -s notes.md
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: >
+          gh release create "$GITHUB_REF_NAME" setup.cmd
+          --title "$GITHUB_REF_NAME" --notes-file notes.md --verify-tag

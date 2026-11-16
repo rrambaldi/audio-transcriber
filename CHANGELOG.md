@@ -6,8 +6,15 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.11.0] — 2026-11-16
+
 ### Added
 
+- **Releases carry the Windows installer.** A tag `v*` publishes a release
+  with `setup.cmd` attached, so `releases/latest/download/setup.cmd` is always
+  a download of the newest installer - the file in the repository opens as
+  text in a browser. The attached copy installs its own release rather than
+  whatever `main` holds.
 - **`setup.cmd`: Windows, installed from nothing, with one double-click.** For
   somebody with no Python, no conda and no git. It fetches
   [uv](https://docs.astral.sh/uv/), which brings its own Python 3.12, installs

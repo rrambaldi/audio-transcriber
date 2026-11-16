@@ -24,11 +24,15 @@ rem  nothing on the PATH, nothing shared with a Python or a conda that is
 rem  already there. It adds "Audio Transcriber" to the Start menu and to
 rem  Settings, Apps, which is where it is removed from again.
 rem
-rem      setup.cmd               install, update, or add summaries later
+rem      setup.cmd               install, or add summaries later
 rem      setup.cmd /uninstall    remove the program; recordings, models and
 rem                              settings stay where they are
 rem
-rem  AT_REF picks what is installed: a branch or a tag, "main" by default.
+rem  The copy attached to a release installs that release, and updating is
+rem  running the newest one, from the link below; the copy in the repository
+rem  installs main. AT_REF picks anything else: a branch or a tag.
+rem
+rem      https://github.com/rrambaldi/audio-transcriber/releases/latest/download/setup.cmd
 rem
 rem  Working on the code? install.cmd is the one for a checkout: editable,
 rem  into a conda environment.
@@ -192,7 +196,9 @@ echo  Start menu  ^>  Audio Transcriber
 echo.
 echo  The first transcription downloads and converts its Whisper model, once:
 echo  a few minutes before the first line appears.
-echo  Update, or add summaries later: run this file again.
+echo  Add summaries later: run this file again.
+echo  Update: run the newest setup.cmd, from
+echo    https://github.com/rrambaldi/audio-transcriber/releases/latest
 echo  Remove: Settings ^> Apps ^> Audio Transcriber.
 echo ---------------------------------------------------------------------------
 
