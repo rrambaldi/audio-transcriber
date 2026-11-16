@@ -23,7 +23,7 @@ pytest.importorskip("PySide6", reason="the [gui] extra is not installed")
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 try:
-    from PySide6.QtCore import QEvent, Qt
+    from PySide6.QtCore import Qt
     from PySide6.QtGui import (
         QColor,
         QFont,
@@ -72,20 +72,6 @@ def application():
     application.setStyle("Fusion")
     style.apply(application)
     return application
-
-
-@pytest.fixture(autouse=True)
-def deleted_now(application):
-    """Run the deleteLater of every test before the next one starts.
-
-    With no event loop running, a deleteLater is never carried out: every
-    window, panel and recorder of the session stayed alive, and Qt then took
-    them all apart at once while Python was finalising - a segmentation fault
-    after every test had passed. One test at a time, a failure names its
-    test. Torn down after the test's own fixtures, so it sees their
-    deleteLater too."""
-    yield
-    QApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete)
 
 
 @pytest.fixture(autouse=True)

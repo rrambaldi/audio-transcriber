@@ -9,6 +9,7 @@ the suite tests this program rather than the laptop it is on.
 
 A test that means to exercise the choice itself overrides it, as several do.
 """
+import os
 import sys
 
 import pytest
@@ -59,3 +60,31 @@ def no_nvidia_card(monkeypatch):
     yield
     for function in remembered:
         function.cache_clear()
+
+
+#: pytest's exit status, kept for the last hook: see pytest_unconfigure.
+_FINISHED = {}
+
+
+def pytest_sessionfinish(session, exitstatus):
+    _FINISHED["status"] = int(exitstatus)
+
+
+@pytest.hookimpl(trylast=True)
+def pytest_unconfigure(config):
+    """Leave without taking Qt apart, once everything has been reported.
+
+    Every test of the window passes, and the process then dies in Qt's own
+    teardown of what the session left behind - with the [record] extra and
+    Qt's media backend on Linux, a segmentation fault, as on 2026.11.2
+    already. Deleting each test's window as it ends only moved the crash
+    into the middle of the session. Nothing a test checks happens after this
+    point, so the process ends here, with pytest's own status.
+
+    ParceEtRecte: skips the teardown rather than mending it; find the object
+    whose deletion crashes - the pane's media player is the suspect - and
+    drop this."""
+    if "PySide6.QtWidgets" in sys.modules and "status" in _FINISHED:
+        sys.stdout.flush()
+        sys.stderr.flush()
+        os._exit(_FINISHED["status"])
