@@ -637,6 +637,21 @@ def test_setup_extras_prints_one_line_for_the_installer(capsys, monkeypatch):
     assert capsys.readouterr().out == cli.EXTRAS_NVIDIA + "\n"
 
 
+@pytest.mark.parametrize(("vram", "intel", "extras"), [
+    (2.0, True, "openvino,gui,record"),     # GTX 1050 2 GB beside Intel graphics
+    (2.0, False, "cuda,gui,record"),        # alone, it still beats the processor
+    (3.0, True, "cuda,gui,record"),         # GTX 1060 3 GB holds turbo at int8
+    (4.0, True, "cuda,gui,record"),         # GTX 1050 Ti
+])
+def test_setup_extras_lets_a_small_card_give_way_to_intel_graphics(monkeypatch, vram,
+                                                                   intel, extras):
+    from audio_transcriber import hardware
+
+    monkeypatch.setattr(hardware, "intel_graphics", lambda: intel)
+    pascal = hardware.CudaProbe(hardware.CUDA_USABLE, vram_gb=vram, capability=(6, 1))
+    assert cli.setup_extras(pascal) == extras
+
+
 @pytest.fixture
 def a_card(monkeypatch):
     from audio_transcriber import hardware
@@ -656,6 +671,19 @@ def test_a_usable_card_is_reported_and_an_old_opencl_is_beside_the_point(a_card,
     said = capsys.readouterr().out
     assert "RTX 3060, 12.0 GB" in said and "CUDA 12.8" in said
     assert "OpenCL" not in said
+
+
+@pytest.mark.parametrize("intel", [True, False])
+def test_a_small_card_says_what_it_holds_where_intel_graphics_take_over(
+        a_card, monkeypatch, capsys, intel):
+    """Alone, the card is used, and there is nothing to explain."""
+    from audio_transcriber import hardware
+
+    monkeypatch.setattr(hardware, "intel_graphics", lambda: intel)
+    a_card("usable", name="GTX 1050", vram_gb=2.0, capability=(6, 1), driver=12080)
+    cli.print_graphics()
+    said = capsys.readouterr().out
+    assert ("holds small at most" in said) is intel
 
 
 def test_an_old_driver_says_what_to_update(a_card, capsys):

@@ -35,7 +35,7 @@ from ..summarizers import CHOICES as SUMMARY_ENGINES
 from ..summarizers import available as summary_engines_available
 from ..summarizers import plan
 from ..summary import DEFAULT_LENGTH, DEFAULT_STYLE, LENGTHS, STYLES
-from ..transcription import AUTO, LANGUAGE_CHOICES, MODEL_CHOICES, recommend_model
+from ..transcription import AUTO, LANGUAGE_CHOICES, MODEL_CHOICES, recommended_here
 from ..vocabularies import MAX_CUSTOM_VOCABULARY
 
 #: Extensions offered by the file dialog. ffmpeg reads far more than this, so
@@ -129,7 +129,7 @@ def model_choices(recommended=None):
     "auto" alone tells the user nothing, and the whole point of the automatic
     choice is that they can see it and disagree."""
     if recommended is None:
-        recommended = recommend_model()
+        recommended = recommended_here()
     choices = [(t("gui.model_auto", model=recommended), AUTO)]
     choices += [(name, name) for name in MODEL_CHOICES if name != AUTO]
     return choices
@@ -725,7 +725,12 @@ def summary_where(engine, settings=None):
     if engine == plan.LLAMACPP:
         from ..summarizers import llamacpp
         binary = llamacpp.server_path(settings)
-        return "GPU" if binary and llamacpp.device_for(binary, settings)[0] else "CPU"
+        # Measured against the model auto would load, as the run measures it:
+        # a 2 GB card listed first is not where that model goes.
+        chosen = plan.resolve_plan(plan.LLAMACPP, settings)
+        needed = chosen.est_ram_gb if chosen else None
+        return ("GPU" if binary and llamacpp.device_for(binary, settings, needed)[0]
+                else "CPU")
     return None
 
 

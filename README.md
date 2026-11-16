@@ -84,7 +84,8 @@ AVX2 — says whether it is suited to summaries, and asks one question:
 Then it fetches the rest on its own: [uv](https://docs.astral.sh/uv/) and
 its own Python 3.12, this program with the window and the engine for the PC —
 faster-whisper on CUDA where there is an NVIDIA card it can use, OpenVINO
-everywhere else — and, with summaries, `llama-server` and the model this PC's
+everywhere else, and on a small card beside Intel graphics, which then write
+the better transcript — and, with summaries, `llama-server` and the model this PC's
 memory can hold. A driver too old for the card is named, with what to
 update.
 Everything goes into `%LOCALAPPDATA%\Programs\audio-transcriber`. When it is

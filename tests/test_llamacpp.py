@@ -401,6 +401,55 @@ def test_a_machine_with_no_accelerator_is_told_nothing_about_layers():
     assert device is None and layers is None
 
 
+#: A GTX 1050 listed before the Intel graphics beside it.
+TWO_CARDS = """Available devices:
+  Vulkan0: NVIDIA GeForce GTX 1050 (2048 MiB, 1843 MiB free)
+  Vulkan1: Intel(R) UHD Graphics 630 (8192 MiB, 7987 MiB free)
+"""
+
+
+def test_auto_takes_the_first_device_the_model_fits_in(monkeypatch, capsys):
+    """All the layers or none: a card that cannot hold the model is no use."""
+    monkeypatch.setattr(engine, "devices", lambda binary: engine.read_devices(TWO_CARDS))
+    device, layers = engine.device_for("/usr/bin/llama-server", {}, needed_gb=5.2)
+    assert device[0] == "Vulkan1" and layers == engine.EVERY_LAYER
+    assert "Vulkan0" in capsys.readouterr().err
+
+
+def test_a_device_that_reports_no_memory_at_all_is_not_called_full():
+    """0 of 0 is a backend that could not ask, not a full card."""
+    assert engine.free_gb("Vulkan0: GTX 1050 (2048 MiB, 1843 MiB free)") == pytest.approx(1.8, 0.01)
+    assert engine.free_gb("RPC0: remote (0 MiB, 0 MiB free)") is None
+    assert engine.free_gb("BLAS") is None
+    assert engine.roomy([("RPC0", "remote (0 MiB, 0 MiB free)")], 5.2)[0] == "RPC0"
+
+
+def test_a_model_no_device_holds_runs_on_the_processor_said_out_loud(monkeypatch):
+    """llama.cpp's own default would put it on a card: 0 layers, in so many words."""
+    monkeypatch.setattr(engine, "devices", lambda binary: engine.read_devices(TWO_CARDS))
+    assert engine.device_for("/usr/bin/llama-server", {}, needed_gb=9.0) == (None, 0)
+
+
+def test_a_device_asked_for_by_name_is_taken_at_its_word(monkeypatch):
+    monkeypatch.setattr(engine, "devices", lambda binary: engine.read_devices(TWO_CARDS))
+    device, _layers = engine.device_for("/usr/bin/llama-server",
+                                        {"summary_device": "Vulkan0"}, needed_gb=5.2)
+    assert device[0] == "Vulkan0"
+
+
+def test_the_plans_estimate_is_what_the_device_is_measured_against(monkeypatch, tmp_path):
+    asked = []
+    monkeypatch.setattr(engine, "server_path", lambda settings=None: "/usr/bin/llama-server")
+    monkeypatch.setattr(engine, "module_available", lambda name: False)
+    monkeypatch.setattr(engine, "device_for",
+                        lambda binary, settings=None, needed_gb=None:
+                        asked.append(needed_gb) or (None, 0))
+    monkeypatch.setattr(engine, "Server", lambda *args: "server")
+    chosen = plan.resolve_plan(plan.LLAMACPP, ram=32.0, total=64.0, cores=4)
+    assert engine.open_pipeline(str(tmp_path / "m.gguf"), chosen) == "server"
+    assert asked == [chosen.est_ram_gb]
+
+
 def test_asking_for_the_processor_means_the_processor(monkeypatch):
     monkeypatch.setattr(engine, "devices",
                         lambda binary: engine.read_devices(VULKAN))

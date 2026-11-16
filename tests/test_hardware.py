@@ -464,3 +464,36 @@ def test_cuda_needs_the_card_the_engine_and_cublas(monkeypatch, state, faster, c
     monkeypatch.setattr(hardware, "cublas_dir", lambda: "/x" if cublas else None)
     monkeypatch.setattr(hardware, "_cublas_on_system", lambda: False)
     assert hardware.has_cuda() is expected
+
+
+@pytest.mark.parametrize(("adapters", "opencl_old", "expected"), [
+    (["PCI\\VEN_10DE&DEV_1C81", "PCI\\VEN_8086&DEV_3E92"], False, True),
+    (["PCI\\VEN_10DE&DEV_1C81", "PCI\\VEN_8086&DEV_3E92"], True, False),  # OpenCL too old
+    (["PCI\\VEN_10DE&DEV_1C81"], None, False),                              # NVIDIA alone
+])
+def test_intel_graphics_are_asked_of_the_system(monkeypatch, adapters, opencl_old, expected):
+    monkeypatch.setattr(hardware.sys, "platform", "win32")
+    monkeypatch.setattr(hardware, "_display_adapters", lambda: adapters)
+    monkeypatch.setattr(hardware, "opencl_too_old", lambda: opencl_old)
+    assert hardware.intel_graphics() is expected
+
+
+@pytest.mark.parametrize(("platform", "expected"), [("win32", False), ("linux", True)])
+def test_intel_graphics_without_an_opencl_dll_are_none_on_windows(monkeypatch, platform,
+                                                                 expected):
+    """No OpenCL.dll is a driver that cannot serve OpenVINO either; elsewhere
+    the question cannot be asked, and the adapter stands."""
+    monkeypatch.setattr(hardware.sys, "platform", platform)
+    monkeypatch.setattr(hardware, "_display_adapters", lambda: ["PCI\\VEN_8086&DEV_3E92"])
+    monkeypatch.setattr(hardware, "opencl_too_old", lambda: None)
+    assert hardware.intel_graphics() is expected
+
+
+def test_linux_names_the_adapters_by_their_pci_vendor(monkeypatch, tmp_path):
+    for card, vendor in (("card0", "0x10de"), ("card1", "0x8086")):
+        (tmp_path / card / "device").mkdir(parents=True)
+        (tmp_path / card / "device" / "vendor").write_text(vendor + "\n", encoding="ascii")
+    monkeypatch.setattr(hardware.sys, "platform", "linux")
+    monkeypatch.setattr(hardware.glob, "glob",
+                        lambda pattern: [str(p) for p in tmp_path.glob("card*/device/vendor")])
+    assert hardware._display_adapters() == ["PCI\\VEN_10DE", "PCI\\VEN_8086"]

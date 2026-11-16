@@ -40,6 +40,22 @@ def test_an_intel_device_asked_for_still_wins_over_an_nvidia_card(monkeypatch):
     assert backends.resolve_backend("auto", "GPU.0") == backends.OPENVINO
 
 
+@pytest.mark.parametrize(("vram", "accelerator", "expected"), [
+    (2.0, True, backends.OPENVINO),         # a 2 GB GTX 1050 beside Intel graphics
+    (2.0, False, backends.FASTER_WHISPER),  # the same card alone beats the processor
+    (4.0, True, backends.FASTER_WHISPER),   # a 1050 Ti holds large-v3-turbo
+])
+def test_a_small_card_gives_way_to_intel_graphics_and_to_nothing_else(
+        monkeypatch, vram, accelerator, expected):
+    from audio_transcriber import hardware
+
+    fake_environment(monkeypatch, faster=True, openvino=True, accelerator=accelerator,
+                     cuda=True)
+    monkeypatch.setattr(hardware, "cuda_probe",
+                        lambda: hardware.CudaProbe(hardware.CUDA_USABLE, vram_gb=vram))
+    assert backends.resolve_backend("auto", "auto") == expected
+
+
 def test_a_run_kept_on_the_processor_chooses_as_it_always_did(monkeypatch):
     fake_environment(monkeypatch, faster=True, openvino=True, accelerator=True, cuda=True)
     assert backends.resolve_backend("auto", "CPU") == backends.OPENVINO
@@ -391,6 +407,31 @@ def test_a_run_kept_on_the_processor_is_not_chosen_a_model_by_the_card(monkeypat
     assert transcription.recommend_model(backends.FASTER_WHISPER, "CPU", cores=2,
                                          ram=4) == transcription.recommend_model(
         backends.FASTER_WHISPER, "CPU", cores=2, ram=4, cuda=False)
+
+
+@pytest.mark.parametrize(("vram", "capability", "expected"), [
+    (2.0, (6, 1), "small"),             # GTX 1050: int8, and still only small
+    (3.0, (6, 1), "large-v3-turbo"),    # GTX 1060 3 GB at int8
+    (4.0, (6, 1), "large-v3"),          # GTX 1050 Ti: large-v3 at int8 fits
+    (4.0, (7, 5), "large-v3-turbo"),    # GTX 1650: float16, so not large-v3
+])
+def test_a_card_without_float16_is_sized_at_the_int8_it_runs(vram, capability, expected):
+    assert transcription.card_model(vram, capability) == expected
+
+
+def test_a_menu_recommends_for_the_backend_the_run_will_use(monkeypatch):
+    seen = []
+    monkeypatch.setattr(transcription, "resolve_backend", lambda backend, device: "openvino")
+    monkeypatch.setattr(transcription, "recommend_model",
+                        lambda backend, device: seen.append(backend) or "large-v3")
+    assert transcription.recommended_here() == "large-v3"
+    assert seen == ["openvino"]
+
+    def nothing_installed(backend, device):
+        raise SystemExit("no engine")
+    monkeypatch.setattr(transcription, "resolve_backend", nothing_installed)
+    transcription.recommended_here()
+    assert seen[-1] is None
 
 
 def test_the_cards_memory_comes_from_the_driver(monkeypatch):

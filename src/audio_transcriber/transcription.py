@@ -98,6 +98,40 @@ MODEL_VRAM_GB = {
 #: draws on it.
 VRAM_HEADROOM_GB = 0.5
 
+#: The least an NVIDIA card has to hold to come before Intel graphics. There
+#: OpenVINO runs large-v3, slowly; a card that holds only small - a 2 GB GTX
+#: 1050 - is fast at a worse transcript. Below it the card still beats the
+#: processor, and is used wherever there are no Intel graphics to prefer.
+CARD_WORTH_MODEL = "large-v3-turbo"
+
+
+#: A card before compute capability 7.0 has no efficient float16, and runs
+#: int8 instead - every GTX 10x0. That holds the same model in less: 2.9 GB
+#: against 4.5 for large-v2 in faster-whisper's README.
+FLOAT16_FROM = (7, 0)
+INT8_VRAM_SHARE = 2.9 / 4.5
+
+
+def card_holds(model, vram, capability=None):
+    """Whether a card with ``vram`` GiB holds ``model`` at the precision it
+    runs. Memory the driver did not report is taken as enough: a card is not
+    a CPU.
+
+    ParceEtRecte: a card before 6.1 runs float32, which takes more than this
+    float16 figure; there are no such cards on the desktops this is for."""
+    share = INT8_VRAM_SHARE if capability and tuple(capability) < FLOAT16_FROM else 1.0
+    return vram is None or vram - VRAM_HEADROOM_GB >= MODEL_VRAM_GB[model] * share
+
+
+def card_model(vram, capability=None):
+    """The best model a card with ``vram`` GiB holds."""
+    return next((m for m in MODELS_BY_QUALITY if card_holds(m, vram, capability)), "tiny")
+
+
+def card_beats_intel(vram, capability=None):
+    """Whether a card with ``vram`` GiB comes before Intel graphics."""
+    return card_holds(CARD_WORTH_MODEL, vram, capability)
+
 #: "Go and measure it yourself", as opposed to ``None``, which means the
 #: measurement was attempted and failed. The two must not be the same value:
 #: a caller — a test, or a machine whose memory cannot be read — has to be able
@@ -116,7 +150,7 @@ def model_key(model_name):
 
 
 def recommend_model(backend=None, device=None, cores=None, ram=DETECT,
-                    cuda=None, accelerator=None, vram=DETECT):
+                    cuda=None, accelerator=None, vram=DETECT, capability=None):
     """The best model this machine can run without the wait becoming absurd.
 
     Three situations, and they are genuinely different:
@@ -147,10 +181,9 @@ def recommend_model(backend=None, device=None, cores=None, ram=DETECT,
 
     if cuda:
         if vram is DETECT:
-            vram = cuda_probe().vram_gb
-        return next((m for m in MODELS_BY_QUALITY
-                     if vram is None or vram - VRAM_HEADROOM_GB >= MODEL_VRAM_GB[m]),
-                    "tiny")
+            probe = cuda_probe()
+            vram, capability = probe.vram_gb, probe.capability
+        return card_model(vram, capability)
 
     if accelerator:
         # OpenVINO on an iGPU/NPU: no int8, so judge against the full-precision
@@ -166,6 +199,20 @@ def recommend_model(backend=None, device=None, cores=None, ram=DETECT,
         if speed >= TARGET_SPEED and fits(name):
             return name
     return "tiny"
+
+
+def recommended_here(device=None):
+    """What ``--model auto`` resolves to on this machine, for a menu to show.
+
+    The backend is resolved first, as a run resolves it: the same machine
+    recommends large-v3 for its Intel graphics and small for a 2 GB card, and
+    a menu that guessed the backend would show the one the run does not use.
+    Nothing installed leaves the processor's table to answer."""
+    try:
+        backend = resolve_backend("auto", device)
+    except SystemExit:
+        backend = None
+    return recommend_model(backend, device)
 
 
 def on_cuda(backend, device):

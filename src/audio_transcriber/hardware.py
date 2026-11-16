@@ -9,6 +9,7 @@ here imports a heavy dependency either, unless the answer requires it, so
 """
 import ctypes
 import functools
+import glob
 import os
 import sys
 import time
@@ -84,6 +85,49 @@ def opencl_too_old():
     except OSError:
         return None
     return not hasattr(library, "clCreateBufferWithProperties")
+
+
+#: Intel's PCI vendor id, as Windows writes it in an adapter's id and as
+#: Linux writes it in sysfs.
+INTEL_PCI = "8086"
+
+
+def _display_adapters():
+    """The PCI ids of the display adapters, e.g. ``PCI\\VEN_8086&DEV_3E92&...``."""
+    if sys.platform == "win32":
+        class DisplayDevice(ctypes.Structure):
+            _fields_ = [("cb", ctypes.c_ulong), ("DeviceName", ctypes.c_wchar * 32),
+                        ("DeviceString", ctypes.c_wchar * 128),
+                        ("StateFlags", ctypes.c_ulong), ("DeviceID", ctypes.c_wchar * 128),
+                        ("DeviceKey", ctypes.c_wchar * 128)]
+        found, index = [], 0
+        device = DisplayDevice()
+        device.cb = ctypes.sizeof(device)
+        while ctypes.windll.user32.EnumDisplayDevicesW(None, index, ctypes.byref(device), 0):
+            found.append(device.DeviceID)
+            index += 1
+        return found
+    found = []
+    for vendor in sorted(glob.glob("/sys/class/drm/card*/device/vendor")):
+        with open(vendor, encoding="ascii") as handle:
+            found.append("PCI\\VEN_" + handle.read().strip().replace("0x", "").upper())
+    return found
+
+
+def intel_graphics():
+    """Whether the PC has Intel graphics OpenVINO could use.
+
+    Asked of the system rather than of OpenVINO, which the installer has not
+    installed yet: an Intel display adapter, and - on Windows, the only place
+    it can be asked - an OpenCL.dll recent enough for OpenVINO's GPU plugin.
+    No OpenCL.dll at all is a driver that cannot serve it either."""
+    try:
+        adapters = _display_adapters()
+    except OSError:
+        return False
+    present = any(f"VEN_{INTEL_PCI}" in adapter.upper() for adapter in adapters)
+    opencl_ready = opencl_too_old() is False if sys.platform == "win32" else True
+    return present and opencl_ready
 
 
 def has_openvino_accelerator(devices=None):

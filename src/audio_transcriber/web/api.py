@@ -47,7 +47,7 @@ from ..transcription import (
     LANGUAGE_CHOICES,
     MODEL_CHOICES,
     MODEL_RAM_GB,
-    recommend_model,
+    recommended_here,
 )
 
 STATIC_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
@@ -182,7 +182,7 @@ def register_routes(app):
             "languages": list(LANGUAGES),
             "backends": list(BACKENDS),
             "known_models": sorted(MODEL_RAM_GB),
-            "recommended_model": recommend_model(),
+            "recommended_model": recommended_here(settings.get("device")),
             "diarization": diarization_state(settings),
             "defaults": {
                 "model": settings.get("model") or AUTO,

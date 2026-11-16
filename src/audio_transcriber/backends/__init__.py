@@ -59,9 +59,11 @@ def resolve_backend(backend, device):
     faster-whisper on an NVIDIA card - when the device is left to ``auto`` too,
     so a run asked to stay on the processor chooses as it always did - then
     OpenVINO if it can see an Intel accelerator, then whatever is installed —
-    preferring faster-whisper, which is the better CPU engine. The NVIDIA card
-    comes before the Intel one because a card of its own, with its own memory,
-    beats graphics that share the processor's.
+    preferring faster-whisper, which is the better CPU engine - and which
+    runs on the NVIDIA card whenever there is one it can use. The card comes
+    before Intel graphics when it holds a good model: memory of its own beats
+    memory shared with the processor, but a card that holds only a small
+    model would trade the transcript for speed.
 
     An engine asked for by name has to be here. It used to be taken at its
     word and only found missing deep inside the run, after the audio had been
@@ -84,7 +86,7 @@ def resolve_backend(backend, device):
     if wanted_device.startswith("CUDA") and is_installed(FASTER_WHISPER):
         return FASTER_WHISPER
 
-    if wanted_device == "AUTO" and has_cuda():   # faster-whisper, a card, a cuBLAS
+    if wanted_device == "AUTO" and has_cuda() and _card_comes_first():
         return FASTER_WHISPER
     if is_installed(OPENVINO) and has_openvino_accelerator():
         return OPENVINO
@@ -93,6 +95,18 @@ def resolve_backend(backend, device):
     if is_installed(OPENVINO):
         return OPENVINO
     sys.exit(t("backend.none_installed"))
+
+
+def _card_comes_first():
+    """Whether the NVIDIA card holds enough to come before Intel graphics.
+
+    The model table lives with the models, in :mod:`..transcription`, which
+    imports this module: asked here, at call time, rather than at import."""
+    from ..hardware import cuda_probe
+    from ..transcription import card_beats_intel
+
+    probe = cuda_probe()
+    return card_beats_intel(probe.vram_gb, probe.capability)
 
 
 def import_failure(message_key, error):

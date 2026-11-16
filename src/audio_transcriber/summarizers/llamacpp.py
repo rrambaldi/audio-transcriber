@@ -100,6 +100,11 @@ GGML_TYPES = {"f16": 1, "q4_0": 2, "q8_0": 8}
 #: is what tells a device from the rest of the output.
 _DEVICE_LINE = re.compile(r"^ {2,}([A-Za-z][A-Za-z0-9_.]*):\s+(\S.*?)\s*$")
 
+#: What ``--list-devices`` says of a device's memory: "(18413 MiB, 17645 MiB
+#: free)". An integrated GPU reports the system memory it may share; a
+#: backend that cannot ask reports 0 of 0, which says nothing at all.
+_MEMORY_MIB = re.compile(r"\((\d+)\s*MiB,\s*(\d+)\s*MiB free\)")
+
 #: Names that are the processor under another name, and so are not a reason
 #: to prefer the binary over the binding.
 _PROCESSOR = ("cpu", "blas", "accelerate")
@@ -160,18 +165,52 @@ def is_processor(name):
     return str(name).lower().startswith(_PROCESSOR)
 
 
-def resolve_device(binary, requested=None):
+def accelerators(binary):
+    """What the binary listed that is not the processor, as (name, what)."""
+    return [pair for pair in (devices(binary) if binary else [])
+            if not is_processor(pair[0])]
+
+
+def free_gb(what):
+    """The memory a listed device has free, in GiB, or None where it did not say."""
+    match = _MEMORY_MIB.search(str(what or ""))
+    if not match or int(match.group(1)) == 0:
+        return None
+    return int(match.group(2)) / 1024.0
+
+
+def roomy(usable, needed_gb):
+    """The first accelerator with room for the whole model, or None.
+
+    Every layer goes on the device or none does, so a card that cannot hold
+    the model is no use to it - a 2 GB GTX 1050 listed before the Intel
+    graphics beside it, say. A device that did not say what it has free is
+    taken as roomy, which is what ``auto`` always did.
+
+    ParceEtRecte: the order is the binary's, and Vulkan does not say which
+    device is integrated - Intel graphics listed before a roomy dedicated card
+    win. Let a ``device`` in config.toml decide where that matters."""
+    for name, what in usable:
+        free = free_gb(what)
+        if needed_gb is None or free is None or free >= needed_gb:
+            return name, what
+        print(t("summary.device_too_small", device=name, free=free,
+                needed=needed_gb), file=sys.stderr)
+    return None
+
+
+def resolve_device(binary, requested=None, needed_gb=None):
     """Which device to run on: (name, what), or None for the processor.
 
-    ``auto`` takes the first accelerator the binary can see, because nobody
-    installs a Vulkan build of llama.cpp in order to run on two cores.
-    Anything else is matched against what it listed, by name or by the family
-    in front of the number, so that ``vulkan`` finds ``Vulkan0``."""
+    ``auto`` takes the first accelerator the binary can see with room for
+    ``needed_gb``, because nobody installs a Vulkan build of llama.cpp in
+    order to run on two cores. Anything else is matched against what it
+    listed, by name or by the family in front of the number, so that
+    ``vulkan`` finds ``Vulkan0`` - and is taken at its word."""
     asked = str(requested or "auto").strip()
     found = devices(binary) if binary else []
-    usable = [pair for pair in found if not is_processor(pair[0])]
     if asked.lower() in ("", "auto"):
-        return usable[0] if usable else None
+        return roomy(accelerators(binary), needed_gb)
     if asked.lower() in ("cpu", "none"):
         return None
     for name, what in found:
@@ -183,7 +222,7 @@ def resolve_device(binary, requested=None):
     return None
 
 
-def device_for(binary, settings=None):
+def device_for(binary, settings=None, needed_gb=None):
     """The device and what to put on it: ``(device, gpu_layers)``.
 
     All of the layers or none of them. A model with half its layers on an
@@ -194,12 +233,15 @@ def device_for(binary, settings=None):
 
     ``gpu_layers`` of None means say nothing and let llama.cpp keep its own
     default, which is what happens when nobody asked for anything and nothing
-    was found."""
+    was found. Accelerators that are there but too small for the model get 0,
+    said out loud: llama.cpp's own default would put the model on them."""
     asked = str((settings or {}).get("summary_device") or "auto").strip()
-    device = resolve_device(binary, asked)
+    device = resolve_device(binary, asked, needed_gb)
     if device:
         return device, EVERY_LAYER
-    return None, 0 if asked.lower() in ("cpu", "none") else None
+    if asked.lower() in ("cpu", "none"):
+        return None, 0
+    return None, 0 if accelerators(binary) and asked.lower() in ("", "auto") else None
 
 
 def _binding_layers(settings=None):
@@ -585,7 +627,8 @@ def open_pipeline(path, chosen, settings=None):
     server holds that reasoning to a budget and keeps it out of the answer,
     and through the binding it would be written onto the page."""
     binary = server_path(settings)
-    device, layers = device_for(binary, settings) if binary else (None, None)
+    device, layers = (device_for(binary, settings, chosen.est_ram_gb) if binary
+                      else (None, None))
     if binary and (device or chosen.model.always_thinks):
         return Server(binary, path, chosen, device, layers)
     if chosen.model.always_thinks:

@@ -46,8 +46,9 @@ CHOSE_TRANSCRIPTION, CHOSE_SUMMARY = 10, 11
 
 #: What ``setup extras`` answers: the extras setup.cmd installs to transcribe.
 #: An NVIDIA card the CTranslate2 build can use gets faster-whisper on CUDA,
-#: and none of the OpenVINO it would never be given to; every other PC gets
-#: OpenVINO, which runs on Intel graphics and on any processor.
+#: and none of the OpenVINO it would never be given to - unless the card is
+#: small and there are Intel graphics, which write a better transcript. Every
+#: other PC gets OpenVINO, which runs on Intel graphics and on any processor.
 EXTRAS_NVIDIA = "cuda,gui,record"
 EXTRAS_DEFAULT = "openvino,gui,record"
 
@@ -1197,9 +1198,14 @@ def command_setup(args, settings):
 
 def setup_extras(probe):
     """The extras to install for transcription, given the NVIDIA probe."""
-    from .hardware import CUDA_USABLE
+    from .hardware import CUDA_USABLE, intel_graphics
+    from .transcription import card_beats_intel
 
-    return EXTRAS_NVIDIA if probe.state == CUDA_USABLE else EXTRAS_DEFAULT
+    if probe.state != CUDA_USABLE:
+        return EXTRAS_DEFAULT
+    if card_beats_intel(probe.vram_gb, probe.capability) or not intel_graphics():
+        return EXTRAS_NVIDIA
+    return EXTRAS_DEFAULT
 
 
 def print_graphics():
@@ -1215,9 +1221,11 @@ def print_graphics():
         MIN_CAPABILITY,
         cuda_probe,
         cuda_version_text,
+        intel_graphics,
         needed_cuda,
         opencl_too_old,
     )
+    from .transcription import CARD_WORTH_MODEL, card_beats_intel, card_model
 
     probe = cuda_probe()
     name = probe.name or "?"
@@ -1226,6 +1234,11 @@ def print_graphics():
                 vram=t("hardware.unknown") if probe.vram_gb is None
                      else f"{probe.vram_gb:.1f} GB",
                 cuda=cuda_version_text(probe.driver)))
+        # Said only where it changes something: a small card alone is used.
+        if not card_beats_intel(probe.vram_gb, probe.capability) and intel_graphics():
+            print(t("hardware.nvidia_small",
+                    model=card_model(probe.vram_gb, probe.capability),
+                    wanted=CARD_WORTH_MODEL))
     elif probe.state == CUDA_OLD_DRIVER:
         print(t("hardware.nvidia_old_driver", name=name,
                 cuda=cuda_version_text(probe.driver),

@@ -27,12 +27,28 @@ All notable changes to this project are documented here. The format follows
 
 ### Changed
 
-- **`auto` puts an NVIDIA card before an Intel iGPU or NPU**: a card with
-  memory of its own beats graphics sharing the processor's. A device asked
-  for by name still decides as before.
+- **`auto` puts an NVIDIA card before an Intel iGPU or NPU** when the card
+  holds at least `large-v3-turbo`: memory of its own beats memory shared with
+  the processor. A smaller card - a 2 GB GTX 1050 - gives way to Intel
+  graphics, where OpenVINO runs `large-v3` more slowly for a better
+  transcript, and still beats the processor; `setup extras` follows the same
+  rule, finding Intel graphics by asking the system for its display adapters.
+  A device asked for by name still decides as before.
+- **The summary runs on a device the model fits in.** llama.cpp's `auto` took
+  the first accelerator it listed and put every layer on it; with a small
+  NVIDIA card listed before the Intel graphics, the model could not load. It
+  now takes the first with room for the plan's estimate, from the "MiB free"
+  the binary reports, says which it passed over, and runs on the processor -
+  `--n-gpu-layers 0`, written out - when none has room.
 - **On a card, the model is chosen by the card's memory**, from `float16`
-  estimates scaled from faster-whisper's measured 4.5 GB for large-v2:
-  `large-v3-turbo` on a 4 GB card, `large-v3` from about 5 GB.
+  estimates scaled from faster-whisper's measured 4.5 GB for large-v2, and
+  at the `int8` size - 2.9 against 4.5 - on a card that runs `int8`, which
+  every GTX 10x0 does: `small` on a 2 GB GTX 1050, `large-v3` on a 4 GB 1050
+  Ti, `large-v3-turbo` on a 4 GB GTX 1650, `large-v3` from about 5 GB.
+- **The window and the page recommend the model for the backend a run will
+  use**, resolving it as the run does, so the same machine is not shown
+  large-v3 for a card that holds small, or the processor's choice for
+  graphics that hold large-v3.
 - **A card without efficient `float16` falls back to `int8`** where it has it
   - every Pascal does - rather than to `float32`, which doubles the memory.
 - **The note about an OpenCL.dll too old for OpenVINO names no brand**: on a

@@ -636,3 +636,20 @@ def test_a_summary_says_which_engine_wrote_it_and_when(tmp_path):
     assert "Testo." in text
     assert "extractive" in note
     assert "2026-09-09 18:40" in note
+
+
+def test_the_summary_menu_puts_llamacpp_where_the_auto_model_fits(monkeypatch):
+    """Measured as the run measures: a 2 GB card listed first is not "GPU"."""
+    from types import SimpleNamespace
+
+    from audio_transcriber.summarizers import llamacpp, plan
+
+    asked = []
+    monkeypatch.setattr(llamacpp, "server_path", lambda settings=None: "/bin/llama-server")
+    monkeypatch.setattr(plan, "resolve_plan",
+                        lambda engine, settings=None, **kw: SimpleNamespace(est_ram_gb=5.2))
+    monkeypatch.setattr(llamacpp, "device_for",
+                        lambda binary, settings=None, needed_gb=None:
+                        asked.append(needed_gb) or (None, 0))
+    assert options.summary_where(plan.LLAMACPP, {}) == "CPU"
+    assert asked == [5.2]

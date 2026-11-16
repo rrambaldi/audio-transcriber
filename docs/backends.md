@@ -19,10 +19,14 @@ questions in order.
 
 1. Did you ask for a specific device? `NPU` or `GPU.0` means OpenVINO; `CUDA`
    means faster-whisper.
-2. Otherwise: faster-whisper on an NVIDIA card it can use, then OpenVINO if it
-   can see an Intel iGPU or NPU, then whichever engine is installed,
-   preferring faster-whisper. A card with memory of its own comes before
-   graphics that share the processor's.
+2. Otherwise: faster-whisper on an NVIDIA card it can use and that holds at
+   least `large-v3-turbo`, then OpenVINO if it can see an Intel iGPU or NPU,
+   then whichever engine is installed, preferring faster-whisper — which runs
+   on the NVIDIA card whenever there is one it can use. A card with memory of
+   its own comes before graphics that share the processor's; a card that holds
+   only a small model — a 2 GB GTX 1050 — comes after them, because there
+   OpenVINO runs `large-v3`, more slowly, and the transcript is better. Alone,
+   such a card still beats the processor.
 
 The check never imports either engine — it only asks whether the packages exist
 and what devices are visible — so `audio-transcriber hardware` answers instantly
@@ -53,7 +57,9 @@ installed. Three answers besides "no NVIDIA here":
 `audio-transcriber hardware` and `audio-transcriber setup check` print the
 card, its memory, the driver's CUDA version and the verdict. `setup.cmd`
 asks `audio-transcriber setup extras`, and installs `cuda,gui,record` for a
-usable card and `openvino,gui,record` for every other PC.
+usable card and `openvino,gui,record` for every other PC — and for a small card
+beside Intel graphics with an OpenCL recent enough for OpenVINO, which it finds
+by asking Windows for the display adapters, OpenVINO not being installed yet.
 
 A device you asked for but that is not there is not fatal. It warns and falls
 back to the CPU, which is what makes one command line work on a laptop and on a
@@ -143,10 +149,11 @@ stuck repeating a phrase for minutes at a time.
 `--model auto` is the default, and it is arithmetic rather than magic.
 
 1. **A CUDA GPU** makes the speed almost irrelevant: take the best model
-   whose `float16` estimate fits the card's own memory, leaving 0.5 GiB for
-   the desktop — `large-v3` from about 5 GiB, `large-v3-turbo` on a 4 GiB
-   card. The estimates scale faster-whisper's measured 4.5 GB for large-v2.
-   A card whose memory the driver did not report gets `large-v3`.
+   whose estimate fits the card's own memory, leaving 0.5 GiB for the desktop.
+   The estimates scale faster-whisper's measured 4.5 GB for large-v2 at
+   `float16`, and count 2.9 for 4.5 on a card before compute capability 7.0,
+   which runs `int8` — every GTX 10x0. A card whose memory the driver did not
+   report gets `large-v3`.
 2. **An Intel iGPU or NPU** through OpenVINO is limited by memory, not by
    patience: take the best model whose full-precision figure fits in the free
    RAM.
@@ -163,7 +170,9 @@ stuck repeating a phrase for minutes at a time.
 | 8 cores, 16 GiB | `large-v3-turbo` |
 | 16 cores, 32 GiB | `large-v3` |
 | NVIDIA, 8 GiB | `large-v3` |
-| NVIDIA, 4 GiB | `large-v3-turbo` |
+| GTX 1650, 4 GiB (`float16`) | `large-v3-turbo` |
+| GTX 1050 Ti, 4 GiB (`int8`) | `large-v3` |
+| GTX 1050, 2 GiB (`int8`) | `small` — and Intel graphics beside it come first |
 | Intel iGPU, 21 GiB | `large-v3` |
 
 `large-v3-turbo` outranks `medium` on purpose: it is distilled from `large-v3`

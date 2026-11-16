@@ -543,9 +543,14 @@ Available devices:
   Vulkan0: Intel(R) Arc(TM) 140V GPU (16GB) (18413 MiB, 17645 MiB free)
 ```
 
-Whatever it lists, the first thing that is not a processor is used, and every
-layer goes on it — half a model on an integrated GPU is slower than all of it
-on the cores, because each token then crosses the bus twice. `device` in the
+Whatever it lists, the first thing that is not a processor *and has room for
+the model* is used, and every layer goes on it — half a model on an integrated
+GPU is slower than all of it on the cores, because each token then crosses the
+bus twice. Room is the "MiB free" the binary reports against the plan's
+estimate: a 2 GB GTX 1050 listed before the Intel graphics beside it is passed
+over, and the log says so. When nothing listed has room the model runs on the
+processor, with `--n-gpu-layers 0` written out, because llama.cpp's own default
+would put it on a card. `device` in the
 configuration overrides that: `cpu` to stay on the processor, or a name from
 that list (`vulkan` will do for `Vulkan0`). A build too old for the flag, or
 one with no backend, answers nothing and runs where it always did.
