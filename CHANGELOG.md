@@ -1,12 +1,13 @@
 # Changelog
 
 All notable changes to this project are documented here. The format follows
-[Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
-[semantic versioning](https://semver.org/spec/v2.0.0.html).
+[Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions are
+`YEAR.MONTH.BUILD`, BUILD counting the releases of that month from 1 — from
+2026.11.1 on; the releases before it used semantic versioning, up to 0.10.1.
 
 ## [Unreleased]
 
-## [0.11.0] — 2026-11-16
+## [2026.11.1] — 2026-11-16
 
 ### Added
 
@@ -62,6 +63,8 @@ All notable changes to this project are documented here. The format follows
 
 ### Changed
 
+- **Versions are now `YEAR.MONTH.BUILD`**: this is 2026.11.1, the first
+  release of November 2026, after 0.10.1. pip orders it after every 0.x.
 - **Without a summary model, summaries are switched off.** `auto` now only
   picks an engine whose model is already on the disk - a GGUF in the model
   store, a converted OpenVINO directory, or a file named by `summary_model` -
