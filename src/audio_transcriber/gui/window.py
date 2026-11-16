@@ -414,4 +414,14 @@ def launch(settings=None, argv=None, lang=None):
 
     window = MainWindow(settings)
     window.show()
-    return application.exec() if owned else 0
+    if not owned:
+        return 0
+    code = application.exec()
+    # Qt is taken down here, while Python is still whole. Left to the
+    # interpreter's exit, the objects went in whatever order it chose, and one
+    # that Qt shares - "shared QObject was deleted directly" - could take the
+    # process with it: a crash after a session that went well, which on
+    # Windows is an error report for nothing.
+    del window
+    application.shutdown()
+    return code
