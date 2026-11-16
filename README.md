@@ -90,7 +90,8 @@ memory can hold. A driver too old for the card is named, with what to
 update.
 Everything goes into `%LOCALAPPDATA%\Programs\audio-transcriber`. When it is
 done the window opens on its own; after that the program is in the Start menu
-as *Audio Transcriber*, and is removed from *Settings › Apps*. Run
+and on the desktop as *Audio Transcriber*, with its icon, and is removed from
+*Settings › Apps*. Run
 `setup.cmd` again to add summaries later; to update, download the newest one
 from the same link and run that. Without a summary model the program has
 summaries switched off, and says how to turn them on.

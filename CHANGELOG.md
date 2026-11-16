@@ -7,6 +7,13 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- **`setup.cmd` puts *Audio Transcriber* on the desktop too**, with the
+  program's icon, beside the Start menu entry; the desktop is asked of
+  Windows, which OneDrive often moves. Removing the program from *Settings ›
+  Apps* removes it again.
+
 ## [2026.11.4] — 2026-11-17
 
 ### Fixed

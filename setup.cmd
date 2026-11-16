@@ -23,8 +23,8 @@ rem  A couple of gigabytes in all before the model, and no question after
 rem  the first one, so it can be left to run. Everything goes into
 rem  %LOCALAPPDATA%\Programs\audio-transcriber: no administrator rights,
 rem  nothing on the PATH, nothing shared with a Python or a conda that is
-rem  already there. It adds "Audio Transcriber" to the Start menu and to
-rem  Settings, Apps, which is where it is removed from again.
+rem  already there. It adds "Audio Transcriber" to the Start menu, to the
+rem  desktop and to Settings, Apps, which is where it is removed from again.
 rem
 rem      setup.cmd               install, or add summaries later
 rem      setup.cmd /uninstall    remove the program; recordings, models and
@@ -46,7 +46,12 @@ rem ---------------------------------------------------------------------------
 setlocal
 set "AT_HOME=%LOCALAPPDATA%\Programs\audio-transcriber"
 set "AT_KEY=HKCU\Software\Microsoft\Windows\CurrentVersion\Uninstall\audio-transcriber"
-set "AT_LINK=%APPDATA%\Microsoft\Windows\Start Menu\Programs\Audio Transcriber.lnk"
+set "AT_LNK_NAME=Audio Transcriber.lnk"
+set "AT_LINK=%APPDATA%\Microsoft\Windows\Start Menu\Programs\%AT_LNK_NAME%"
+rem The desktop one is a PowerShell expression, not a path: where the desktop
+rem is gets asked of Windows, as OneDrive often moves it away from
+rem %USERPROFILE%\Desktop.
+set "AT_DESKTOP_LINK=(Join-Path ([Environment]::GetFolderPath('Desktop')) $env:AT_LNK_NAME)"
 set "CURL=%SystemRoot%\System32\curl.exe"
 set "TAR=%SystemRoot%\System32\tar.exe"
 
@@ -178,8 +183,8 @@ echo [6/6] the summary model
 "%PY%" -m audio_transcriber.cli setup summary
 if errorlevel 1 goto :model_failed
 
-rem --- Settings, Apps first, then the Start menu --------------------------------
-rem In that order so that a Start menu entry that cannot be made - PowerShell
+rem --- Settings, Apps first, then the Start menu and the desktop ------------------
+rem In that order so that a shortcut that cannot be made - PowerShell
 rem locked down by a policy - still leaves a program that can be removed.
 rem A copy of this file stays in the install folder: it is what Settings,
 rem Apps runs to remove the program, and what updates it later.
@@ -203,7 +208,7 @@ rem working folder would win over the managed models. Still missing here,
 rem after step 2 made it, means something removes it: neither the Start menu
 rem entry nor the window below could start, so nothing is made or run.
 if not exist "%PYW%" goto :pythonw_missing
-powershell -NoProfile -ExecutionPolicy Bypass -Command "$s=(New-Object -ComObject WScript.Shell).CreateShortcut($env:AT_LINK); $s.TargetPath=$env:PYW; $s.Arguments='-m audio_transcriber.cli gui'; $s.WorkingDirectory=$env:USERPROFILE; $s.IconLocation=$env:AT_ICON; $s.Description='Audio Transcriber'; $s.Save()"
+powershell -NoProfile -ExecutionPolicy Bypass -Command "$ErrorActionPreference='Stop'; $w=New-Object -ComObject WScript.Shell; foreach ($p in @($env:AT_LINK, %AT_DESKTOP_LINK%)) { $s=$w.CreateShortcut($p); $s.TargetPath=$env:PYW; $s.Arguments='-m audio_transcriber.cli gui'; $s.WorkingDirectory=$env:USERPROFILE; $s.IconLocation=$env:AT_ICON; $s.Description='Audio Transcriber'; $s.Save() }"
 if errorlevel 1 goto :shortcut_failed
 
 :done
@@ -211,7 +216,7 @@ echo.
 echo ---------------------------------------------------------------------------
 echo  Done: audio-transcriber %AT_VERSION%
 echo.
-echo  Start menu  ^>  Audio Transcriber
+echo  Start menu or desktop  ^>  Audio Transcriber
 echo.
 echo  The first transcription downloads and converts its Whisper model, once:
 echo  a few minutes before the first line appears.
@@ -248,6 +253,7 @@ copy /y "%~f0" "%TEMP%\audio-transcriber-uninstall.cmd" >nul
 echo.
 echo  Removing audio-transcriber from %AT_HOME%
 if exist "%AT_LINK%" del "%AT_LINK%"
+powershell -NoProfile -Command "$p=%AT_DESKTOP_LINK%; if (Test-Path -LiteralPath $p) { Remove-Item -LiteralPath $p }"
 reg delete "%AT_KEY%" /f >nul 2>nul
 if exist "%AT_HOME%" rmdir /s /q "%AT_HOME%"
 if exist "%AT_HOME%" goto :remove_failed
@@ -326,7 +332,8 @@ set "AT_WARNED=1"
 goto :register
 
 :shortcut_failed
-echo WARNING: the Start menu entry could not be made. The program is there:
+echo WARNING: the shortcuts, in the Start menu and on the desktop, could not
+echo          all be made. The program is there:
 echo              "%PYW%" -m audio_transcriber.cli gui
 set "AT_WARNED=1"
 goto :done
