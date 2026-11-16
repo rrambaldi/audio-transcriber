@@ -45,7 +45,7 @@ set "CURL=%SystemRoot%\System32\curl.exe"
 set "TAR=%SystemRoot%\System32\tar.exe"
 
 rem Double-clicked, from Settings, Apps, or from a prompt? The first two close
-rem the console with the script, so they get a pause at the end.
+rem the console with the script, so an error or a warning waits for a key.
 set "AT_CLICKED="
 set "AT_WARNED="
 echo %cmdcmdline% | findstr /i /c:"/c" >nul 2>nul && set "AT_CLICKED=1"
