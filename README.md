@@ -50,8 +50,10 @@ audio-transcriber meeting.mp4        # -> meeting.txt
   what, each carrying the minute it was said at. The model is chosen by what
   the machine can actually hold, counting the memory the attention cache will
   take, and on a machine that can hold none it says so and quotes the
-  transcript instead. Nothing is sent anywhere — the model runs on your
-  computer and there is no endpoint to configure. See
+  transcript instead. Until a model is installed — by `setup.cmd`, or with
+  `audio-transcriber setup summary` — summaries are switched off, and the
+  window and the page say how to turn them on. Nothing is sent anywhere — the
+  model runs on your computer and there is no endpoint to configure. See
   [docs/summary.md](docs/summary.md).
 - **Keyword sets** to stop it mangling your technical terms — named, listed,
   and selectable from the command line or the web page.
@@ -191,6 +193,8 @@ audio-transcriber riunione.wav --lang it
 
 ```bash
 audio-transcriber hardware      # what this machine can do
+audio-transcriber setup check   # is it suited to summaries, and with which model
+audio-transcriber setup summary # download that model, once
 audio-transcriber paths         # where models, config and recordings are kept
 audio-transcriber config init   # write a commented config.toml
 audio-transcriber summarize 2026-09-04    # the short version of one of them
@@ -440,6 +444,8 @@ pyannote works out who is speaking by comparing every stretch of a recording wit
       the CPU, through llama.cpp
 - [x] Choosing the model by what the machine can hold, cache included, and
       refusing to load one when it cannot
+- [x] A Windows installer for somebody with nothing installed: one file,
+      transcription only or summaries too, after a look at the PC
 
 ## Contributing
 
