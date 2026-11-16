@@ -32,7 +32,10 @@ jobs:
           cache: pip
       # The test suite deliberately needs no transcription engine: it must stay
       # runnable without downloading gigabytes of models.
-      - run: pip install -e ".[dev]"
+      # The annotations plugin turns each failing test into an annotation on
+      # the run, with its name and message: readable by anyone through the
+      # API, where the log of a job is only readable by an admin.
+      - run: pip install -e ".[dev]" pytest-github-actions-annotate-failures
       - run: pytest
 
   gui:
@@ -50,7 +53,7 @@ jobs:
       # PySide6 is a few hundred megabytes, so it is installed here and not in
       # the matrix above: the window's own decisions are tested without it, and
       # this job covers the widgets themselves.
-      - run: pip install -e ".[dev,gui,record]"
+      - run: pip install -e ".[dev,gui,record]" pytest-github-actions-annotate-failures
       - run: pytest tests/test_gui.py tests/test_gui_window.py tests/test_recording.py -v
       # The engine has to enumerate on a real machine too, not only against
       # fakes: this is the closest a runner gets to "does it see any devices".
