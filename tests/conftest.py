@@ -59,16 +59,3 @@ def no_nvidia_card(monkeypatch):
     yield
     for function in remembered:
         function.cache_clear()
-
-
-def pytest_sessionfinish(session, exitstatus):
-    """Take Qt down while Python is still whole, as the window itself does.
-
-    Every test of the window shares one QApplication, and nothing closed it:
-    the interpreter's exit took it apart in its own order, and with the
-    [record] extra installed that ended in a segmentation fault after every
-    test had passed. Nothing to do where Qt was never imported."""
-    widgets = sys.modules.get("PySide6.QtWidgets")
-    application = widgets.QApplication.instance() if widgets else None
-    if application is not None:
-        application.shutdown()
