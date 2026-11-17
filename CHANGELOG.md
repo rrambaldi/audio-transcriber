@@ -7,6 +7,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [2026.11.5] — 2026-11-17
+
 ### Added
 
 - **`setup.cmd` puts *Audio Transcriber* on the desktop too**, with the
